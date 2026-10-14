@@ -1,0 +1,176 @@
+import json
+
+import httpx
+import pytest
+
+from backend.app.inference.ollama_client import DEFAULT_MODEL, OllamaClientError, propose_rules
+from backend.app.models.rule import ConfirmationState, RuleOrigin
+
+
+GUIDELINES = "Allowed labels are person and vehicle."
+PROPOSAL = {
+    "rule_id": "LBL-1",
+    "description": "Use an allowed label.",
+    "check_name": "allowed_labels",
+    "parameters": {"allowed_labels": ["person", "vehicle"]},
+    "source_sentence": GUIDELINES,
+}
+
+
+@pytest.fixture
+def fake_server():
+    state = {
+        "requests": [],
+        "show_status": 200,
+        "show": {"model_info": {"general.architecture": "qwen3vl"}},
+        "chat_status": 200,
+        "chat": {"done": True, "done_reason": "stop", "message": {
+            "content": json.dumps({"rules": [PROPOSAL]})
+        }},
+    }
+
+    def handle(request):
+        state["requests"].append((request.url.path, json.loads(request.content)))
+        assert request.url.host == "127.0.0.1"
+        stage = request.url.path.removeprefix("/api/")
+        if stage not in ("show", "chat"):
+            raise AssertionError("Unexpected API endpoint, such as an automatic download.")
+        if state.get("error_stage") == stage:
+            raise state["error_type"]("simulated failure", request=request)
+        if "raw_" + stage in state:
+            return httpx.Response(state[stage + "_status"], content=state["raw_" + stage])
+        return httpx.Response(state[stage + "_status"], json=state[stage])
+
+    return state, httpx.MockTransport(handle)
+
+
+def test_valid_proposals_are_drafts_and_request_uses_cpu_schema(fake_server):
+    state, transport = fake_server
+    rules = propose_rules(GUIDELINES, transport=transport)
+    assert len(rules) == 1 and rules[0].parameters == PROPOSAL["parameters"]
+    assert rules[0].origin is RuleOrigin.EXTRACTED
+    assert rules[0].confirmation_state is ConfirmationState.DRAFT
+    assert [path for path, _ in state["requests"]] == ["/api/show", "/api/chat"]
+    request = state["requests"][1][1]
+    assert request["model"] == DEFAULT_MODEL and request["stream"] is False
+    assert request["options"]["num_gpu"] == 0 and request["options"]["temperature"] == 0
+    assert request["keep_alive"] == 0
+    assert request["messages"][1]["content"] == GUIDELINES
+    assert request["format"]["$defs"]["_DraftRule"]["properties"]["confirmation_state"]["const"] == "draft"
+    assert GUIDELINES not in json.dumps(state["requests"][0][1])
+
+
+def test_empty_proposals_are_valid(fake_server):
+    state, transport = fake_server
+    state["chat"]["message"]["content"] = '{"rules": []}'
+    assert propose_rules(GUIDELINES, transport=transport) == []
+
+
+def test_unknown_requirement_is_retained_without_check(fake_server):
+    state, transport = fake_server
+    state["chat"]["message"]["content"] = json.dumps({"rules": [{**PROPOSAL, "check_name": None}]})
+    assert propose_rules(GUIDELINES, transport=transport)[0].check_name is None
+
+
+def test_missing_model_never_sends_guidelines(fake_server):
+    state, transport = fake_server
+    state["show_status"] = 404
+    state["show"] = {"error": "model not found"}
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "model_unavailable"
+    assert len(state["requests"]) == 1
+
+
+@pytest.mark.parametrize("field", ["remote_host", "remote_model"])
+def test_remote_models_are_blocked_before_sending_guidelines(fake_server, field):
+    state, transport = fake_server
+    state["show"][field] = "remote"
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "remote_model" and len(state["requests"]) == 1
+
+
+def test_missing_local_model_information_is_blocked(fake_server):
+    state, transport = fake_server
+    state["show"] = {}
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "invalid_model_metadata"
+
+
+@pytest.mark.parametrize("stage", ["show", "chat"])
+@pytest.mark.parametrize("error_type, reason", [
+    (httpx.ReadTimeout, "request_timeout"), (httpx.ConnectError, "server_unavailable")
+])
+def test_transport_failures_have_clear_reasons(fake_server, stage, error_type, reason):
+    state, transport = fake_server
+    state.update(error_stage=stage, error_type=error_type)
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == reason
+
+
+def test_api_failure_is_reported(fake_server):
+    state, transport = fake_server
+    state["chat_status"] = 500
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "request_failed"
+
+
+@pytest.mark.parametrize("response", [b"not JSON", b"[]", b'{"done":true,"message":{}}'])
+def test_malformed_api_responses_are_rejected(fake_server, response):
+    state, transport = fake_server
+    state["raw_chat"] = response
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "invalid_response"
+
+
+@pytest.mark.parametrize("changes", [{"done": False}, {"done_reason": "length"}])
+def test_incomplete_generation_is_not_accepted(fake_server, changes):
+    state, transport = fake_server
+    state["chat"].update(changes)
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "incomplete_response"
+
+
+@pytest.mark.parametrize("content", [
+    "not JSON", '{}', '{"rules": "wrong"}',
+    json.dumps({"rules": [{**PROPOSAL, "confirmation_state": "confirmed"}]}),
+    json.dumps({"rules": [{**PROPOSAL, "origin": "reviewer"}]}),
+    json.dumps({"rules": [{**PROPOSAL, "source_sentence": "Invented citation."}]}),
+    json.dumps({"rules": [{**PROPOSAL, "source_sentence": None}]}),
+    json.dumps({"rules": [PROPOSAL, PROPOSAL]}),
+])
+def test_invalid_or_unreviewed_model_output_is_rejected(fake_server, content):
+    state, transport = fake_server
+    state["chat"]["message"]["content"] = content
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "invalid_rule_proposals"
+
+
+@pytest.mark.parametrize("changes", [
+    {"guideline_text": " "}, {"guideline_text": None}, {"model": ""},
+    {"host": "https://ollama.com"}, {"host": "http://192.168.1.2:11434"},
+    {"host": "http://user:password@127.0.0.1:11434"},
+    {"host": "http://127.0.0.1:11434/other"}, {"host": "http://127.0.0.1:0"},
+    {"timeout": 0}, {"timeout": float("nan")}, {"timeout": True},
+])
+def test_invalid_configuration_never_makes_requests(fake_server, changes):
+    state, transport = fake_server
+    arguments = {"guideline_text": GUIDELINES, "transport": transport, **changes}
+    with pytest.raises(ValueError):
+        propose_rules(**arguments)
+    assert state["requests"] == []
+
+
+def test_redirects_are_not_followed(fake_server):
+    state, transport = fake_server
+    state["show_status"] = 307
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "request_failed" and len(state["requests"]) == 1
