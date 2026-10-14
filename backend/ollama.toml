@@ -1,0 +1,8 @@
+# Use the exact name of a model already installed in local Ollama.
+# Settings are read for each rule-proposal request.
+[ollama]
+model = "qwen3-vl:4b-instruct"
+host = "http://127.0.0.1:11434"
+timeout_seconds = 120.0
+context_length = 8192
+max_output_tokens = 4096

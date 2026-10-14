@@ -1,6 +1,8 @@
 # Backend
 
-This folder is the starting point for the implementation. The files contain responsibility notes only; application logic is left for the user to write.
+This folder contains the dataset reader, box and mask measurements, sample audit
+service, rule records and local Ollama client. The remaining modules contain
+responsibility notes for later implementation.
 
 ## Structure
 
@@ -52,3 +54,22 @@ source ../.venv/bin/activate
 Dependencies are recorded in the root-level `requirements.txt`. The dataset remains at `../PennFudanPed/` when your terminal is inside this folder. Configuration should resolve paths from a known project location rather than depending on the terminal's current directory.
 
 Follow `../MENTOR_REQUIREMENTS.md`: plain text guidelines first, CPU inference, reviewer-controlled final decisions, actual annotation corrections and evaluated use of feedback.
+
+## Ollama configuration
+
+Edit `ollama.toml` in this folder to change the local model. Set `model` to the
+exact name shown by `ollama list`; the model must already be installed. The same
+file controls the local server address, request timeout in seconds, context
+length and maximum output tokens.
+
+`app/core/config.py` loads and validates these settings independently of the
+terminal's working directory. `propose_rules()` reads the file on each call,
+so subsequent requests use saved changes. Invalid settings fail before an API
+request. CPU execution remains enforced by the client.
+
+For a one-off model selection, use `propose_rules(text, model="installed-model:tag")`.
+To supply an alternate configuration file, pass
+`settings=load_ollama_settings(path)`. Import the loader from
+`backend.app.core.config` when running from the project root. Per-call model,
+host and timeout overrides take precedence over the supplied settings and are
+validated without modifying them.
