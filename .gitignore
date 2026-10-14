@@ -1,0 +1,18 @@
+.venv/
+.cache/
+__pycache__/
+.pytest_cache/
+*.pyc
+PennFudanPed/
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Project proposals, meeting materials and research drafts
+/Data_Quality_Checker_Proposal*.md
+/*.pptx
+/*.pdf
+/meet1.txt
+/reports/
+/research_notes/
