@@ -3,7 +3,8 @@ import json
 import httpx
 import pytest
 
-from backend.app.inference.ollama_client import DEFAULT_MODEL, OllamaClientError, propose_rules
+from backend.app.core.config import OllamaSettings, load_ollama_settings
+from backend.app.inference.ollama_client import OllamaClientError, propose_rules
 from backend.app.models.rule import ConfirmationState, RuleOrigin
 
 
@@ -52,7 +53,7 @@ def test_valid_proposals_are_drafts_and_request_uses_cpu_schema(fake_server):
     assert rules[0].confirmation_state is ConfirmationState.DRAFT
     assert [path for path, _ in state["requests"]] == ["/api/show", "/api/chat"]
     request = state["requests"][1][1]
-    assert request["model"] == DEFAULT_MODEL and request["stream"] is False
+    assert request["model"] == load_ollama_settings().model and request["stream"] is False
     assert request["options"]["num_gpu"] == 0 and request["options"]["temperature"] == 0
     assert request["keep_alive"] == 0
     assert request["messages"][1]["content"] == GUIDELINES
@@ -174,3 +175,45 @@ def test_redirects_are_not_followed(fake_server):
     with pytest.raises(OllamaClientError) as caught:
         propose_rules(GUIDELINES, transport=transport)
     assert caught.value.reason == "request_failed" and len(state["requests"]) == 1
+
+
+def test_custom_settings_select_model_and_generation_limits(fake_server):
+    state, transport = fake_server
+    settings = OllamaSettings(
+        model="another-local-model:latest",
+        host="http://127.0.0.1:11434",
+        timeout_seconds=30.0,
+        context_length=4096,
+        max_output_tokens=512,
+    )
+    propose_rules(GUIDELINES, settings=settings, transport=transport)
+    assert state["requests"][0][1]["model"] == settings.model
+    chat = state["requests"][1][1]
+    assert chat["model"] == settings.model
+    assert chat["options"]["num_ctx"] == 4096
+    assert chat["options"]["num_predict"] == 512
+    assert chat["options"]["num_gpu"] == 0
+
+
+def test_per_call_override_does_not_change_shared_settings(fake_server):
+    state, transport = fake_server
+    settings = load_ollama_settings()
+    propose_rules(GUIDELINES, settings=settings, model="temporary-model:latest", transport=transport)
+    assert state["requests"][0][1]["model"] == "temporary-model:latest"
+    assert state["requests"][1][1]["model"] == "temporary-model:latest"
+    assert settings.model == load_ollama_settings().model
+
+
+def test_file_changes_are_used_by_subsequent_calls(fake_server, tmp_path, monkeypatch):
+    from backend.app.core import config
+
+    path = tmp_path / "ollama.toml"
+    original = config.OLLAMA_CONFIG_PATH.read_text()
+    path.write_text(original)
+    monkeypatch.setattr(config, "OLLAMA_CONFIG_PATH", path)
+    state, transport = fake_server
+    propose_rules(GUIDELINES, transport=transport)
+    path.write_text(original.replace(load_ollama_settings().model, "replacement-model:latest"))
+    propose_rules(GUIDELINES, transport=transport)
+    assert state["requests"][2][1]["model"] == "replacement-model:latest"
+    assert state["requests"][3][1]["model"] == "replacement-model:latest"
