@@ -1,0 +1,4861 @@
+{
+  "notice": "Proposed contract and synthetic frontend fixtures. No HTTP server is implemented.",
+  "base_url": "http://127.0.0.1:8000",
+  "operations": [
+    {
+      "operation_id": "getHealth",
+      "method": "GET",
+      "path": "/api/v1/health",
+      "tag": "System",
+      "summary": "Check HTTP server liveness",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "status": "ok",
+          "api_version": "v1"
+        }
+      }
+    },
+    {
+      "operation_id": "getCapabilities",
+      "method": "GET",
+      "path": "/api/v1/capabilities",
+      "tag": "System",
+      "summary": "List supported and planned checks",
+      "implementation": "planned",
+      "backing_service": "Existing measurement functions; registry and HTTP route are planned.",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "dataset_formats": [
+            "penn_fudan"
+          ],
+          "guideline_input_formats": [
+            "plain_text"
+          ],
+          "coordinate_convention": "one_based_inclusive",
+          "checks": [
+            {
+              "name": "allowed_labels",
+              "implementation": "implemented"
+            },
+            {
+              "name": "mask_dimensions",
+              "implementation": "implemented"
+            },
+            {
+              "name": "mask_ids",
+              "implementation": "implemented"
+            },
+            {
+              "name": "box_validity",
+              "implementation": "implemented"
+            },
+            {
+              "name": "box_iou",
+              "implementation": "implemented"
+            },
+            {
+              "name": "box_mask_alignment",
+              "implementation": "implemented"
+            },
+            {
+              "name": "mask_outside_box",
+              "implementation": "implemented"
+            },
+            {
+              "name": "mask_box_fill",
+              "implementation": "implemented"
+            },
+            {
+              "name": "mask_components",
+              "implementation": "implemented"
+            },
+            {
+              "name": "person_detection",
+              "implementation": "planned"
+            },
+            {
+              "name": "detection_annotation_matches",
+              "implementation": "planned"
+            },
+            {
+              "name": "detection_mask_coverage",
+              "implementation": "planned"
+            },
+            {
+              "name": "mask_person_count",
+              "implementation": "planned"
+            },
+            {
+              "name": "person_posture",
+              "implementation": "planned"
+            }
+          ],
+          "execution_device": "cpu"
+        }
+      }
+    },
+    {
+      "operation_id": "getSystemStatus",
+      "method": "GET",
+      "path": "/api/v1/system/status",
+      "tag": "System",
+      "summary": "Inspect local model readiness",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "ollama": {
+            "reachable": false,
+            "model": "qwen3-vl:4b-instruct",
+            "model_available": null
+          },
+          "detector": {
+            "weights_cached": true,
+            "integration_ready": false
+          },
+          "execution_device": "cpu"
+        }
+      }
+    },
+    {
+      "operation_id": "createRulebook",
+      "method": "POST",
+      "path": "/api/v1/rulebooks",
+      "tag": "Rulebooks",
+      "summary": "Create a manually assembled draft",
+      "implementation": "planned",
+      "backing_service": "Rule and Rulebook validation exists; persistence and route are planned.",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "guideline_text": "Allowed labels are person.",
+          "rules": [
+            {
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "confirmation_state": "draft"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 201,
+        "content_type": "application/json",
+        "body": {
+          "rulebook_id": "rulebook_demo",
+          "version": 1,
+          "guideline_text": "Allowed labels are person.",
+          "rules": [
+            {
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "confirmation_state": "draft"
+            }
+          ],
+          "confirmation_state": "draft"
+        }
+      }
+    },
+    {
+      "operation_id": "extractRulebook",
+      "method": "POST",
+      "path": "/api/v1/rulebooks/extractions",
+      "tag": "Rulebooks",
+      "summary": "Propose draft rules from plain text",
+      "implementation": "planned",
+      "backing_service": "propose_rules exists; jobs, persistence and route are planned.",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "guideline_text": "Allowed labels are person."
+        }
+      },
+      "response": {
+        "status": 202,
+        "content_type": "application/json",
+        "body": {
+          "job_id": "job_rule_extraction_demo",
+          "kind": "rule_extraction",
+          "status": "queued",
+          "progress": {
+            "phase": "queued",
+            "processed": 0,
+            "total": 1,
+            "fraction": 0.0
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-14T10:00:00Z",
+          "updated_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "listRulebooks",
+      "method": "GET",
+      "path": "/api/v1/rulebooks",
+      "tag": "Rulebooks",
+      "summary": "List latest rulebook versions",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "rulebook_id": "rulebook_demo",
+              "version": 1,
+              "guideline_text": "Allowed labels are person.",
+              "rules": [
+                {
+                  "rule_id": "LBL-1",
+                  "description": "Use an allowed label.",
+                  "check_name": "allowed_labels",
+                  "parameters": {
+                    "allowed_labels": [
+                      "person"
+                    ]
+                  },
+                  "origin": "extracted",
+                  "source_sentence": "Allowed labels are person.",
+                  "confirmation_state": "draft"
+                }
+              ],
+              "confirmation_state": "draft"
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "getRulebook",
+      "method": "GET",
+      "path": "/api/v1/rulebooks/{rulebook_id}",
+      "tag": "Rulebooks",
+      "summary": "Read a rulebook version",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "rulebook_id": "rulebook_demo"
+        },
+        "query": {
+          "version": 2
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "rulebook_id": "rulebook_demo",
+          "version": 2,
+          "guideline_text": "Allowed labels are person.",
+          "rules": [
+            {
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "confirmation_state": "confirmed"
+            }
+          ],
+          "confirmation_state": "confirmed"
+        }
+      }
+    },
+    {
+      "operation_id": "listRulebookVersions",
+      "method": "GET",
+      "path": "/api/v1/rulebooks/{rulebook_id}/versions",
+      "tag": "Rulebooks",
+      "summary": "Read rulebook version history",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "rulebook_id": "rulebook_demo"
+        },
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "rulebook_id": "rulebook_demo",
+              "version": 1,
+              "guideline_text": "Allowed labels are person.",
+              "rules": [
+                {
+                  "rule_id": "LBL-1",
+                  "description": "Use an allowed label.",
+                  "check_name": "allowed_labels",
+                  "parameters": {
+                    "allowed_labels": [
+                      "person"
+                    ]
+                  },
+                  "origin": "extracted",
+                  "source_sentence": "Allowed labels are person.",
+                  "confirmation_state": "draft"
+                }
+              ],
+              "confirmation_state": "draft"
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "replaceDraftRulebook",
+      "method": "PUT",
+      "path": "/api/v1/rulebooks/{rulebook_id}",
+      "tag": "Rulebooks",
+      "summary": "Save a reviewed draft",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "rulebook_id": "rulebook_demo"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "expected_version": 1,
+          "guideline_text": "Allowed labels are person.",
+          "rules": [
+            {
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "confirmation_state": "confirmed"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "rulebook_id": "rulebook_demo",
+          "version": 2,
+          "guideline_text": "Allowed labels are person.",
+          "rules": [
+            {
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "confirmation_state": "confirmed"
+            }
+          ],
+          "confirmation_state": "draft"
+        }
+      }
+    },
+    {
+      "operation_id": "confirmRulebook",
+      "method": "POST",
+      "path": "/api/v1/rulebooks/{rulebook_id}/confirm",
+      "tag": "Rulebooks",
+      "summary": "Confirm a reviewed rulebook",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "rulebook_id": "rulebook_demo"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "expected_version": 2,
+          "reviewer_id": "reviewer_demo"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "rulebook_id": "rulebook_demo",
+          "version": 2,
+          "guideline_text": "Allowed labels are person.",
+          "rules": [
+            {
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "confirmation_state": "confirmed"
+            }
+          ],
+          "confirmation_state": "confirmed"
+        }
+      }
+    },
+    {
+      "operation_id": "reviseRulebook",
+      "method": "POST",
+      "path": "/api/v1/rulebooks/{rulebook_id}/revisions",
+      "tag": "Rulebooks",
+      "summary": "Start a new draft from a confirmed version",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "rulebook_id": "rulebook_demo"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "expected_version": 2,
+          "reviewer_id": "reviewer_demo"
+        }
+      },
+      "response": {
+        "status": 201,
+        "content_type": "application/json",
+        "body": {
+          "rulebook_id": "rulebook_demo",
+          "version": 3,
+          "guideline_text": "Allowed labels are person.",
+          "rules": [
+            {
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "confirmation_state": "draft"
+            }
+          ],
+          "confirmation_state": "draft"
+        }
+      }
+    },
+    {
+      "operation_id": "importDataset",
+      "method": "POST",
+      "path": "/api/v1/datasets",
+      "tag": "Datasets",
+      "summary": "Upload a dataset archive for local import",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": "multipart/form-data",
+        "body": {
+          "archive": "<binary dataset ZIP>",
+          "name": "Demo dataset",
+          "format": "penn_fudan"
+        }
+      },
+      "response": {
+        "status": 202,
+        "content_type": "application/json",
+        "body": {
+          "dataset": {
+            "dataset_id": "dataset_demo",
+            "name": "Demo dataset",
+            "format": "penn_fudan",
+            "status": "importing",
+            "sample_count": null,
+            "object_count": null,
+            "import_job_id": "job_dataset_import_demo",
+            "created_at": "2026-10-14T10:00:00Z",
+            "issues": []
+          },
+          "job": {
+            "job_id": "job_dataset_import_demo",
+            "kind": "dataset_import",
+            "status": "queued",
+            "progress": {
+              "phase": "queued",
+              "processed": 0,
+              "total": 1,
+              "fraction": 0.0
+            },
+            "result": null,
+            "error": null,
+            "created_at": "2026-10-14T10:00:00Z",
+            "updated_at": "2026-10-14T10:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "listDatasets",
+      "method": "GET",
+      "path": "/api/v1/datasets",
+      "tag": "Datasets",
+      "summary": "List imported datasets",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "dataset_id": "dataset_demo",
+              "name": "Demo dataset",
+              "format": "penn_fudan",
+              "status": "ready",
+              "sample_count": 1,
+              "object_count": 2,
+              "import_job_id": "job_dataset_import_demo",
+              "created_at": "2026-10-14T10:00:00Z",
+              "issues": []
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "getDataset",
+      "method": "GET",
+      "path": "/api/v1/datasets/{dataset_id}",
+      "tag": "Datasets",
+      "summary": "Read dataset import and integrity summary",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "dataset_id": "dataset_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "dataset_id": "dataset_demo",
+          "name": "Demo dataset",
+          "format": "penn_fudan",
+          "status": "ready",
+          "sample_count": 1,
+          "object_count": 2,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-14T10:00:00Z",
+          "issues": []
+        }
+      }
+    },
+    {
+      "operation_id": "listDatasetSamples",
+      "method": "GET",
+      "path": "/api/v1/datasets/{dataset_id}/samples",
+      "tag": "Datasets",
+      "summary": "List every dataset sample",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "dataset_id": "dataset_demo"
+        },
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "sample_id": "sample_001",
+              "dataset_id": "dataset_demo",
+              "revision": 1,
+              "image_size": [
+                4,
+                3
+              ],
+              "integrity_status": "valid",
+              "objects": [
+                {
+                  "object_id": 1,
+                  "label": "person",
+                  "bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ]
+                },
+                {
+                  "object_id": 2,
+                  "label": "vehicle",
+                  "bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ]
+                }
+              ],
+              "assets": {
+                "image": {
+                  "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                  "content_type": "image/png",
+                  "revision": 1
+                },
+                "mask": {
+                  "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+                  "content_type": "image/png",
+                  "revision": 1
+                },
+                "mask_preview": {
+                  "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                  "content_type": "image/png",
+                  "revision": 1
+                },
+                "thumbnail": {
+                  "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+                  "content_type": "image/png",
+                  "revision": 1
+                }
+              }
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "getDatasetSample",
+      "method": "GET",
+      "path": "/api/v1/datasets/{dataset_id}/samples/{sample_id}",
+      "tag": "Datasets",
+      "summary": "Read annotations and pinned asset URLs",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "dataset_id": "dataset_demo",
+          "sample_id": "sample_001"
+        },
+        "query": {
+          "revision": 1
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "sample_id": "sample_001",
+          "dataset_id": "dataset_demo",
+          "revision": 1,
+          "image_size": [
+            4,
+            3
+          ],
+          "integrity_status": "valid",
+          "objects": [
+            {
+              "object_id": 1,
+              "label": "person",
+              "bbox": [
+                1,
+                1,
+                2,
+                2
+              ]
+            },
+            {
+              "object_id": 2,
+              "label": "vehicle",
+              "bbox": [
+                4,
+                3,
+                4,
+                3
+              ]
+            }
+          ],
+          "assets": {
+            "image": {
+              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+              "content_type": "image/png",
+              "revision": 1
+            },
+            "mask": {
+              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+              "content_type": "image/png",
+              "revision": 1
+            },
+            "mask_preview": {
+              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+              "content_type": "image/png",
+              "revision": 1
+            },
+            "thumbnail": {
+              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+              "content_type": "image/png",
+              "revision": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "getSampleAsset",
+      "method": "GET",
+      "path": "/api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}",
+      "tag": "Datasets",
+      "summary": "Download an image or mask asset",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "asset_kind": "image",
+          "dataset_id": "dataset_demo",
+          "sample_id": "sample_001"
+        },
+        "query": {
+          "revision": 1
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "image/png",
+        "body": null
+      }
+    },
+    {
+      "operation_id": "uploadCorrectionMask",
+      "method": "POST",
+      "path": "/api/v1/datasets/{dataset_id}/samples/{sample_id}/mask-uploads",
+      "tag": "Corrections",
+      "summary": "Stage a replacement instance-ID mask",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "dataset_id": "dataset_demo",
+          "sample_id": "sample_001"
+        },
+        "query": {},
+        "content_type": "multipart/form-data",
+        "body": {
+          "mask": "<binary 2D instance-ID PNG>"
+        }
+      },
+      "response": {
+        "status": 201,
+        "content_type": "application/json",
+        "body": {
+          "mask_upload_id": "mask_upload_demo",
+          "dataset_id": "dataset_demo",
+          "sample_id": "sample_001",
+          "image_size": [
+            4,
+            3
+          ],
+          "mask_ids": [
+            0,
+            1,
+            2
+          ],
+          "expires_at": "2026-10-14T11:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "correctAnnotations",
+      "method": "POST",
+      "path": "/api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions",
+      "tag": "Corrections",
+      "summary": "Save corrected annotations and optional mask",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "dataset_id": "dataset_demo",
+          "sample_id": "sample_001"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "expected_revision": 1,
+          "reviewer_id": "reviewer_demo",
+          "reason": "Corrected the second object's label.",
+          "objects": [
+            {
+              "object_id": 1,
+              "label": "person",
+              "bbox": [
+                1,
+                1,
+                2,
+                2
+              ]
+            },
+            {
+              "object_id": 2,
+              "label": "person",
+              "bbox": [
+                4,
+                3,
+                4,
+                3
+              ]
+            }
+          ],
+          "mask_upload_id": null,
+          "source_audit_id": "audit_demo"
+        }
+      },
+      "response": {
+        "status": 201,
+        "content_type": "application/json",
+        "body": {
+          "dataset_id": "dataset_demo",
+          "sample_id": "sample_001",
+          "revision": 2,
+          "parent_revision": 1,
+          "objects": [
+            {
+              "object_id": 1,
+              "label": "person",
+              "bbox": [
+                1,
+                1,
+                2,
+                2
+              ]
+            },
+            {
+              "object_id": 2,
+              "label": "person",
+              "bbox": [
+                4,
+                3,
+                4,
+                3
+              ]
+            }
+          ],
+          "mask_changed": false,
+          "reviewer_id": "reviewer_demo",
+          "reason": "Corrected the second object's label.",
+          "source_audit_id": "audit_demo",
+          "created_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "listAnnotationRevisions",
+      "method": "GET",
+      "path": "/api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions",
+      "tag": "Corrections",
+      "summary": "Read correction history",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "dataset_id": "dataset_demo",
+          "sample_id": "sample_001"
+        },
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "dataset_id": "dataset_demo",
+              "sample_id": "sample_001",
+              "revision": 2,
+              "parent_revision": 1,
+              "objects": [
+                {
+                  "object_id": 1,
+                  "label": "person",
+                  "bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ]
+                },
+                {
+                  "object_id": 2,
+                  "label": "person",
+                  "bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ]
+                }
+              ],
+              "mask_changed": false,
+              "reviewer_id": "reviewer_demo",
+              "reason": "Corrected the second object's label.",
+              "source_audit_id": "audit_demo",
+              "created_at": "2026-10-14T10:00:00Z"
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "startAudit",
+      "method": "POST",
+      "path": "/api/v1/audits",
+      "tag": "Audits",
+      "summary": "Start an audit against confirmed rules",
+      "implementation": "planned",
+      "backing_service": "audit_sample measurements exist; confirmed-rule execution, batch processing and route are planned.",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "dataset_id": "dataset_demo",
+          "rulebook_id": "rulebook_demo",
+          "rulebook_version": 2,
+          "sample_ids": null,
+          "feedback_policy_id": null
+        }
+      },
+      "response": {
+        "status": 202,
+        "content_type": "application/json",
+        "body": {
+          "audit": {
+            "audit_id": "audit_demo",
+            "parent_audit_id": null,
+            "dataset_id": "dataset_demo",
+            "rulebook_id": "rulebook_demo",
+            "rulebook_version": 2,
+            "feedback_policy_id": null,
+            "status": "queued",
+            "job_id": "job_audit_demo",
+            "sample_count": 1,
+            "processed_count": 0,
+            "reviewed_count": 0,
+            "created_at": "2026-10-14T10:00:00Z"
+          },
+          "job": {
+            "job_id": "job_audit_demo",
+            "kind": "audit",
+            "status": "queued",
+            "progress": {
+              "phase": "queued",
+              "processed": 0,
+              "total": 1,
+              "fraction": 0.0
+            },
+            "result": null,
+            "error": null,
+            "created_at": "2026-10-14T10:00:00Z",
+            "updated_at": "2026-10-14T10:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "listAudits",
+      "method": "GET",
+      "path": "/api/v1/audits",
+      "tag": "Audits",
+      "summary": "List audit runs",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "audit_id": "audit_demo",
+              "parent_audit_id": null,
+              "dataset_id": "dataset_demo",
+              "rulebook_id": "rulebook_demo",
+              "rulebook_version": 2,
+              "feedback_policy_id": null,
+              "status": "completed",
+              "job_id": "job_audit_demo",
+              "sample_count": 1,
+              "processed_count": 1,
+              "reviewed_count": 0,
+              "created_at": "2026-10-14T10:00:00Z"
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "getAudit",
+      "method": "GET",
+      "path": "/api/v1/audits/{audit_id}",
+      "tag": "Audits",
+      "summary": "Read audit processing and review counts",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "audit_id": "audit_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "audit_id": "audit_demo",
+          "parent_audit_id": null,
+          "dataset_id": "dataset_demo",
+          "rulebook_id": "rulebook_demo",
+          "rulebook_version": 2,
+          "feedback_policy_id": null,
+          "status": "completed",
+          "job_id": "job_audit_demo",
+          "sample_count": 1,
+          "processed_count": 1,
+          "reviewed_count": 0,
+          "created_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "listAuditSamples",
+      "method": "GET",
+      "path": "/api/v1/audits/{audit_id}/samples",
+      "tag": "Audits",
+      "summary": "Read the complete review queue",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "audit_id": "audit_demo"
+        },
+        "query": {
+          "limit": 20,
+          "offset": 0,
+          "tool_status": "flagged",
+          "review_status": "pending_review"
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "sample_id": "sample_001",
+              "sample_revision": 1,
+              "tool_status": "flagged",
+              "review_status": "pending_review",
+              "finding_counts": {
+                "pass": 1,
+                "fail": 1,
+                "unsure": 0,
+                "unavailable": 0
+              },
+              "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "getAuditSample",
+      "method": "GET",
+      "path": "/api/v1/audits/{audit_id}/samples/{sample_id}",
+      "tag": "Audits",
+      "summary": "Read sample findings, evidence and measurements",
+      "implementation": "planned",
+      "backing_service": "measurements embeds the actual audit_sample report shape; API findings and reviews are planned.",
+      "request": {
+        "path_parameters": {
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "audit_id": "audit_demo",
+          "dataset_id": "dataset_demo",
+          "summary": {
+            "sample_id": "sample_001",
+            "sample_revision": 1,
+            "tool_status": "flagged",
+            "review_status": "pending_review",
+            "finding_counts": {
+              "pass": 1,
+              "fail": 1,
+              "unsure": 0,
+              "unavailable": 0
+            },
+            "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+          },
+          "assets": {
+            "image": {
+              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+              "content_type": "image/png",
+              "revision": 1
+            },
+            "mask": {
+              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+              "content_type": "image/png",
+              "revision": 1
+            },
+            "mask_preview": {
+              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+              "content_type": "image/png",
+              "revision": 1
+            },
+            "thumbnail": {
+              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+              "content_type": "image/png",
+              "revision": 1
+            }
+          },
+          "measurements": {
+            "image_id": "sample_001",
+            "image_size": [
+              4,
+              3
+            ],
+            "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"vehicle\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+            "allowed_labels": [
+              "person"
+            ],
+            "status": "completed",
+            "review_status": "pending_review",
+            "errors": [],
+            "checks": {
+              "mask_dimensions": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "matches": true,
+                  "image_size": [
+                    4,
+                    3
+                  ],
+                  "mask_size": [
+                    4,
+                    3
+                  ]
+                }
+              },
+              "mask_ids": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "matches": true,
+                  "annotation_ids": [
+                    1,
+                    2
+                  ],
+                  "mask_ids": [
+                    1,
+                    2
+                  ],
+                  "missing_masks": [],
+                  "missing_annotations": []
+                }
+              },
+              "annotation_ids": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "duplicate_ids": [],
+                  "invalid_ids": []
+                }
+              },
+              "labels": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "matches": false,
+                  "allowed_labels": [
+                    "person"
+                  ],
+                  "object_results": [
+                    {
+                      "object_id": 1,
+                      "label": "person",
+                      "matches": true,
+                      "reason": null
+                    },
+                    {
+                      "object_id": 2,
+                      "label": "vehicle",
+                      "matches": false,
+                      "reason": "label_not_allowed"
+                    }
+                  ],
+                  "invalid_object_ids": [
+                    2
+                  ]
+                }
+              },
+              "box_overlaps": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "pairs": [
+                    {
+                      "box1": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ],
+                      "box2": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ],
+                      "measurement_available": true,
+                      "reason": null,
+                      "invalid_boxes": {},
+                      "intersection_area": 0,
+                      "union_area": 5,
+                      "iou": 0.0,
+                      "object_ids": [
+                        1,
+                        2
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "objects": [
+              {
+                "annotation": {
+                  "object_id": 1,
+                  "label": "person",
+                  "bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ]
+                },
+                "checks": {
+                  "label": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 1,
+                      "label": "person",
+                      "matches": true,
+                      "reason": null
+                    }
+                  },
+                  "box_validity": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "valid": true,
+                      "bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ],
+                      "reason": null,
+                      "detail": null
+                    }
+                  },
+                  "mask_components": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 1,
+                      "connectivity": 8,
+                      "measurement_available": true,
+                      "reason": null,
+                      "total_mask_pixels": 4,
+                      "component_count": 1,
+                      "components": [
+                        {
+                          "component_id": 1,
+                          "area": 4,
+                          "area_fraction": 1.0,
+                          "bbox": [
+                            1,
+                            1,
+                            2,
+                            2
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "box_mask_alignment": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 1,
+                      "annotation_bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ],
+                      "mask_bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ],
+                      "comparison_available": true,
+                      "reason": null,
+                      "edge_differences": {
+                        "left": 0,
+                        "top": 0,
+                        "right": 0,
+                        "bottom": 0
+                      },
+                      "max_edge_difference": 0
+                    }
+                  },
+                  "mask_outside_box": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 1,
+                      "annotation_bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ],
+                      "measurement_available": true,
+                      "reason": null,
+                      "total_mask_pixels": 4,
+                      "outside_pixels": 0,
+                      "outside_fraction": 0.0
+                    }
+                  },
+                  "mask_box_fill": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 1,
+                      "annotation_bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ],
+                      "measurement_available": true,
+                      "reason": null,
+                      "box_area": 4,
+                      "inside_mask_pixels": 4,
+                      "fill_fraction": 1.0
+                    }
+                  }
+                }
+              },
+              {
+                "annotation": {
+                  "object_id": 2,
+                  "label": "vehicle",
+                  "bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ]
+                },
+                "checks": {
+                  "label": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 2,
+                      "label": "vehicle",
+                      "matches": false,
+                      "reason": "label_not_allowed"
+                    }
+                  },
+                  "box_validity": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "valid": true,
+                      "bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ],
+                      "reason": null,
+                      "detail": null
+                    }
+                  },
+                  "mask_components": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 2,
+                      "connectivity": 8,
+                      "measurement_available": true,
+                      "reason": null,
+                      "total_mask_pixels": 1,
+                      "component_count": 1,
+                      "components": [
+                        {
+                          "component_id": 1,
+                          "area": 1,
+                          "area_fraction": 1.0,
+                          "bbox": [
+                            4,
+                            3,
+                            4,
+                            3
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "box_mask_alignment": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 2,
+                      "annotation_bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ],
+                      "mask_bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ],
+                      "comparison_available": true,
+                      "reason": null,
+                      "edge_differences": {
+                        "left": 0,
+                        "top": 0,
+                        "right": 0,
+                        "bottom": 0
+                      },
+                      "max_edge_difference": 0
+                    }
+                  },
+                  "mask_outside_box": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 2,
+                      "annotation_bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ],
+                      "measurement_available": true,
+                      "reason": null,
+                      "total_mask_pixels": 1,
+                      "outside_pixels": 0,
+                      "outside_fraction": 0.0
+                    }
+                  },
+                  "mask_box_fill": {
+                    "status": "completed",
+                    "reason": null,
+                    "detail": null,
+                    "result": {
+                      "object_id": 2,
+                      "annotation_bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ],
+                      "measurement_available": true,
+                      "reason": null,
+                      "box_area": 1,
+                      "inside_mask_pixels": 1,
+                      "fill_fraction": 1.0
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "findings": [
+            {
+              "finding_id": "finding_pass_demo",
+              "audit_id": "audit_demo",
+              "sample_id": "sample_001",
+              "sample_revision": 1,
+              "object_id": 1,
+              "rulebook_id": "rulebook_demo",
+              "rulebook_version": 2,
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "outcome": "pass",
+              "reason": null,
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "evidence": {
+                "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                "crop_url": null,
+                "measurements": {
+                  "actual_label": "person",
+                  "allowed_labels": [
+                    "person"
+                  ]
+                }
+              },
+              "review": {
+                "revision": 0,
+                "resolution": "pending",
+                "reviewer_id": null,
+                "comment": null,
+                "updated_at": null
+              }
+            },
+            {
+              "finding_id": "finding_demo",
+              "audit_id": "audit_demo",
+              "sample_id": "sample_001",
+              "sample_revision": 1,
+              "object_id": 2,
+              "rulebook_id": "rulebook_demo",
+              "rulebook_version": 2,
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "outcome": "fail",
+              "reason": "label_not_allowed",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "evidence": {
+                "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                "crop_url": null,
+                "measurements": {
+                  "actual_label": "vehicle",
+                  "allowed_labels": [
+                    "person"
+                  ]
+                }
+              },
+              "review": {
+                "revision": 0,
+                "resolution": "pending",
+                "reviewer_id": null,
+                "comment": null,
+                "updated_at": null
+              }
+            }
+          ],
+          "review": {
+            "revision": 0,
+            "decision": "pending_review",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "listAuditFindings",
+      "method": "GET",
+      "path": "/api/v1/audits/{audit_id}/findings",
+      "tag": "Audits",
+      "summary": "List findings with rule sources and review state",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "audit_id": "audit_demo"
+        },
+        "query": {
+          "limit": 20,
+          "offset": 0,
+          "sample_id": "sample_001",
+          "outcome": "fail"
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "finding_id": "finding_demo",
+              "audit_id": "audit_demo",
+              "sample_id": "sample_001",
+              "sample_revision": 1,
+              "object_id": 2,
+              "rulebook_id": "rulebook_demo",
+              "rulebook_version": 2,
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "outcome": "fail",
+              "reason": "label_not_allowed",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "evidence": {
+                "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                "crop_url": null,
+                "measurements": {
+                  "actual_label": "vehicle",
+                  "allowed_labels": [
+                    "person"
+                  ]
+                }
+              },
+              "review": {
+                "revision": 0,
+                "resolution": "pending",
+                "reviewer_id": null,
+                "comment": null,
+                "updated_at": null
+              }
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "recheckSamples",
+      "method": "POST",
+      "path": "/api/v1/audits/{audit_id}/rechecks",
+      "tag": "Audits",
+      "summary": "Audit corrected sample revisions again",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "audit_id": "audit_demo"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "sample_ids": [
+            "sample_001"
+          ],
+          "reviewer_id": "reviewer_demo"
+        }
+      },
+      "response": {
+        "status": 202,
+        "content_type": "application/json",
+        "body": {
+          "audit": {
+            "audit_id": "audit_recheck_demo",
+            "parent_audit_id": "audit_demo",
+            "dataset_id": "dataset_demo",
+            "rulebook_id": "rulebook_demo",
+            "rulebook_version": 2,
+            "feedback_policy_id": null,
+            "status": "queued",
+            "job_id": "job_recheck_demo",
+            "sample_count": 1,
+            "processed_count": 0,
+            "reviewed_count": 0,
+            "created_at": "2026-10-14T10:00:00Z"
+          },
+          "job": {
+            "job_id": "job_recheck_demo",
+            "kind": "recheck",
+            "status": "queued",
+            "progress": {
+              "phase": "queued",
+              "processed": 0,
+              "total": 1,
+              "fraction": 0.0
+            },
+            "result": null,
+            "error": null,
+            "created_at": "2026-10-14T10:00:00Z",
+            "updated_at": "2026-10-14T10:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "getJob",
+      "method": "GET",
+      "path": "/api/v1/jobs/{job_id}",
+      "tag": "Jobs",
+      "summary": "Poll progress and completion",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "job_id": "job_audit_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "job_id": "job_audit_demo",
+          "kind": "audit",
+          "status": "completed",
+          "progress": {
+            "phase": "completed",
+            "processed": 1,
+            "total": 1,
+            "fraction": 1.0
+          },
+          "result": {
+            "kind": "audit",
+            "id": "audit_demo",
+            "version": null,
+            "href": "/api/v1/audits/audit_demo"
+          },
+          "error": null,
+          "created_at": "2026-10-14T10:00:00Z",
+          "updated_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "cancelJob",
+      "method": "POST",
+      "path": "/api/v1/jobs/{job_id}/cancel",
+      "tag": "Jobs",
+      "summary": "Request cancellation of pending work",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "job_id": "job_audit_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 202,
+        "content_type": "application/json",
+        "body": {
+          "job_id": "job_audit_demo",
+          "kind": "audit",
+          "status": "cancelling",
+          "progress": {
+            "phase": "queued",
+            "processed": 0,
+            "total": 1,
+            "fraction": 0.0
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-14T10:00:00Z",
+          "updated_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "reviewFinding",
+      "method": "PUT",
+      "path": "/api/v1/findings/{finding_id}/review",
+      "tag": "Reviews",
+      "summary": "Accept or reject a tool finding",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "finding_id": "finding_demo"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "expected_revision": 0,
+          "resolution": "accepted",
+          "reviewer_id": "reviewer_demo",
+          "comment": "Confirmed the label mismatch."
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "revision": 1,
+          "resolution": "accepted",
+          "reviewer_id": "reviewer_demo",
+          "comment": "Confirmed the label mismatch.",
+          "updated_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "reviewSample",
+      "method": "PUT",
+      "path": "/api/v1/audits/{audit_id}/samples/{sample_id}/review",
+      "tag": "Reviews",
+      "summary": "Record the reviewer's data decision",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "expected_revision": 0,
+          "decision": "needs_correction",
+          "reviewer_id": "reviewer_demo",
+          "comment": "Correct the second label before final review."
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "revision": 1,
+          "decision": "needs_correction",
+          "reviewer_id": "reviewer_demo",
+          "comment": "Correct the second label before final review.",
+          "updated_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "listSampleReviews",
+      "method": "GET",
+      "path": "/api/v1/audits/{audit_id}/samples/{sample_id}/reviews",
+      "tag": "Reviews",
+      "summary": "Read sample decision history",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001"
+        },
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "revision": 1,
+              "decision": "needs_correction",
+              "reviewer_id": "reviewer_demo",
+              "comment": "Correct the second label before final review.",
+              "updated_at": "2026-10-14T10:00:00Z"
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "startExport",
+      "method": "POST",
+      "path": "/api/v1/exports",
+      "tag": "Exports",
+      "summary": "Prepare reviewed output and manifest",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "audit_id": "audit_recheck_demo",
+          "format": "penn_fudan",
+          "selection": "accepted_only",
+          "include_images": false
+        }
+      },
+      "response": {
+        "status": 202,
+        "content_type": "application/json",
+        "body": {
+          "export": {
+            "export_id": "export_demo",
+            "audit_id": "audit_recheck_demo",
+            "job_id": "job_export_demo",
+            "status": "queued",
+            "format": "penn_fudan",
+            "selection": "accepted_only",
+            "include_images": false,
+            "included_count": null,
+            "excluded_count": null,
+            "download_url": null,
+            "manifest_url": null,
+            "created_at": "2026-10-14T10:00:00Z"
+          },
+          "job": {
+            "job_id": "job_export_demo",
+            "kind": "export",
+            "status": "queued",
+            "progress": {
+              "phase": "queued",
+              "processed": 0,
+              "total": 1,
+              "fraction": 0.0
+            },
+            "result": null,
+            "error": null,
+            "created_at": "2026-10-14T10:00:00Z",
+            "updated_at": "2026-10-14T10:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "getExport",
+      "method": "GET",
+      "path": "/api/v1/exports/{export_id}",
+      "tag": "Exports",
+      "summary": "Read export status and download URLs",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "export_id": "export_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "export_id": "export_demo",
+          "audit_id": "audit_recheck_demo",
+          "job_id": "job_export_demo",
+          "status": "completed",
+          "format": "penn_fudan",
+          "selection": "accepted_only",
+          "include_images": false,
+          "included_count": 1,
+          "excluded_count": 0,
+          "download_url": "/api/v1/exports/export_demo/download",
+          "manifest_url": "/api/v1/exports/export_demo/manifest",
+          "created_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "downloadExport",
+      "method": "GET",
+      "path": "/api/v1/exports/{export_id}/download",
+      "tag": "Exports",
+      "summary": "Download corrected dataset archive",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "export_id": "export_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/zip",
+        "body": null
+      }
+    },
+    {
+      "operation_id": "getExportManifest",
+      "method": "GET",
+      "path": "/api/v1/exports/{export_id}/manifest",
+      "tag": "Exports",
+      "summary": "Read exported and excluded sample decisions",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "export_id": "export_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "export_id": "export_demo",
+          "audit_id": "audit_recheck_demo",
+          "rulebook_id": "rulebook_demo",
+          "rulebook_version": 2,
+          "entries": [
+            {
+              "sample_id": "sample_001",
+              "sample_revision": 2,
+              "included": true,
+              "review_decision": "accepted",
+              "reason": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation_id": "listFeedbackExamples",
+      "method": "GET",
+      "path": "/api/v1/feedback/examples",
+      "tag": "Feedback",
+      "summary": "List approved reviewer correction examples",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "example_id": "feedback_demo",
+              "source_audit_id": "audit_posture_demo",
+              "dataset_id": "dataset_feedback",
+              "sample_id": "sample_feedback_001",
+              "original_revision": 1,
+              "corrected_revision": 2,
+              "rule_id": "LBL-2",
+              "reviewer_id": "reviewer_demo",
+              "approved": true,
+              "description": "Reviewer corrected a separate posture example from walking to standing."
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "createFeedbackPolicy",
+      "method": "POST",
+      "path": "/api/v1/feedback/policies",
+      "tag": "Feedback",
+      "summary": "Define a candidate reviewer-example policy",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "name": "Reviewed examples",
+          "strategy": "reviewer_examples",
+          "example_ids": [
+            "feedback_demo"
+          ],
+          "target_check_names": [
+            "person_posture"
+          ]
+        }
+      },
+      "response": {
+        "status": 201,
+        "content_type": "application/json",
+        "body": {
+          "policy_id": "policy_demo",
+          "name": "Reviewed examples",
+          "strategy": "reviewer_examples",
+          "status": "draft",
+          "example_ids": [
+            "feedback_demo"
+          ],
+          "target_check_names": [
+            "person_posture"
+          ],
+          "evaluation_id": null
+        }
+      }
+    },
+    {
+      "operation_id": "listFeedbackPolicies",
+      "method": "GET",
+      "path": "/api/v1/feedback/policies",
+      "tag": "Feedback",
+      "summary": "List available feedback policies",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "policy_id": "policy_demo",
+              "name": "Reviewed examples",
+              "strategy": "reviewer_examples",
+              "status": "draft",
+              "example_ids": [
+                "feedback_demo"
+              ],
+              "target_check_names": [
+                "person_posture"
+              ],
+              "evaluation_id": null
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "getFeedbackPolicy",
+      "method": "GET",
+      "path": "/api/v1/feedback/policies/{policy_id}",
+      "tag": "Feedback",
+      "summary": "Read a feedback policy",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "policy_id": "policy_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "policy_id": "policy_demo",
+          "name": "Reviewed examples",
+          "strategy": "reviewer_examples",
+          "status": "draft",
+          "example_ids": [
+            "feedback_demo"
+          ],
+          "target_check_names": [
+            "person_posture"
+          ],
+          "evaluation_id": null
+        }
+      }
+    },
+    {
+      "operation_id": "createGroundTruth",
+      "method": "POST",
+      "path": "/api/v1/feedback/ground-truth",
+      "tag": "Feedback",
+      "summary": "Freeze reviewer-verified evaluation evidence",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "dataset_id": "dataset_holdout",
+          "source_audit_ids": [
+            "audit_holdout_reviewed"
+          ],
+          "reviewer_id": "reviewer_demo"
+        }
+      },
+      "response": {
+        "status": 201,
+        "content_type": "application/json",
+        "body": {
+          "ground_truth_id": "truth_demo",
+          "dataset_id": "dataset_holdout",
+          "version": 1,
+          "source_audit_ids": [
+            "audit_holdout_reviewed"
+          ],
+          "verified_sample_count": 12,
+          "created_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "getGroundTruth",
+      "method": "GET",
+      "path": "/api/v1/feedback/ground-truth/{ground_truth_id}",
+      "tag": "Feedback",
+      "summary": "Read a frozen evaluation snapshot",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "ground_truth_id": "truth_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "ground_truth_id": "truth_demo",
+          "dataset_id": "dataset_holdout",
+          "version": 1,
+          "source_audit_ids": [
+            "audit_holdout_reviewed"
+          ],
+          "verified_sample_count": 12,
+          "created_at": "2026-10-14T10:00:00Z"
+        }
+      }
+    },
+    {
+      "operation_id": "evaluateFeedbackPolicy",
+      "method": "POST",
+      "path": "/api/v1/feedback/evaluations",
+      "tag": "Feedback",
+      "summary": "Compare candidate feedback with a baseline",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "policy_id": "policy_demo",
+          "ground_truth_id": "truth_demo",
+          "ground_truth_version": 1
+        }
+      },
+      "response": {
+        "status": 202,
+        "content_type": "application/json",
+        "body": {
+          "evaluation": {
+            "evaluation_id": "evaluation_demo",
+            "policy_id": "policy_demo",
+            "job_id": "job_feedback_evaluation_demo",
+            "status": "queued",
+            "evaluation_dataset_id": "dataset_holdout",
+            "ground_truth_id": "truth_demo",
+            "ground_truth_version": 1,
+            "baseline": null,
+            "candidate": null,
+            "error": null
+          },
+          "job": {
+            "job_id": "job_feedback_evaluation_demo",
+            "kind": "feedback_evaluation",
+            "status": "queued",
+            "progress": {
+              "phase": "queued",
+              "processed": 0,
+              "total": 1,
+              "fraction": 0.0
+            },
+            "result": null,
+            "error": null,
+            "created_at": "2026-10-14T10:00:00Z",
+            "updated_at": "2026-10-14T10:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "getFeedbackEvaluation",
+      "method": "GET",
+      "path": "/api/v1/feedback/evaluations/{evaluation_id}",
+      "tag": "Feedback",
+      "summary": "Read held-out feedback evaluation results",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "evaluation_id": "evaluation_demo"
+        },
+        "query": {},
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "evaluation_id": "evaluation_demo",
+          "policy_id": "policy_demo",
+          "job_id": "job_feedback_evaluation_demo",
+          "status": "completed",
+          "evaluation_dataset_id": "dataset_holdout",
+          "ground_truth_id": "truth_demo",
+          "ground_truth_version": 1,
+          "baseline": {
+            "precision": 0.8,
+            "recall": 0.8,
+            "f1": 0.8,
+            "true_positives": 8,
+            "false_positives": 2,
+            "false_negatives": 2,
+            "sample_count": 12,
+            "elapsed_seconds": 20.0
+          },
+          "candidate": {
+            "precision": 0.9,
+            "recall": 0.9,
+            "f1": 0.9,
+            "true_positives": 9,
+            "false_positives": 1,
+            "false_negatives": 1,
+            "sample_count": 12,
+            "elapsed_seconds": 22.0
+          },
+          "error": null
+        }
+      }
+    },
+    {
+      "operation_id": "listFeedbackEvaluations",
+      "method": "GET",
+      "path": "/api/v1/feedback/evaluations",
+      "tag": "Feedback",
+      "summary": "List feedback evaluation jobs",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {},
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "evaluation_id": "evaluation_demo",
+              "policy_id": "policy_demo",
+              "job_id": "job_feedback_evaluation_demo",
+              "status": "queued",
+              "evaluation_dataset_id": "dataset_holdout",
+              "ground_truth_id": "truth_demo",
+              "ground_truth_version": 1,
+              "baseline": null,
+              "candidate": null,
+              "error": null
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
+      "operation_id": "activateFeedbackPolicy",
+      "method": "POST",
+      "path": "/api/v1/feedback/policies/{policy_id}/activate",
+      "tag": "Feedback",
+      "summary": "Approve an evaluated policy for future audits",
+      "implementation": "planned",
+      "backing_service": "planned",
+      "request": {
+        "path_parameters": {
+          "policy_id": "policy_demo"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "evaluation_id": "evaluation_demo",
+          "reviewer_id": "reviewer_demo"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "policy_id": "policy_demo",
+          "name": "Reviewed examples",
+          "strategy": "reviewer_examples",
+          "status": "active",
+          "example_ids": [
+            "feedback_demo"
+          ],
+          "target_check_names": [
+            "person_posture"
+          ],
+          "evaluation_id": "evaluation_demo"
+        }
+      }
+    }
+  ],
+  "review_scenarios": {
+    "flagged": {
+      "audit_id": "audit_demo",
+      "dataset_id": "dataset_demo",
+      "summary": {
+        "sample_id": "sample_001",
+        "sample_revision": 1,
+        "tool_status": "flagged",
+        "review_status": "pending_review",
+        "finding_counts": {
+          "pass": 1,
+          "fail": 1,
+          "unsure": 0,
+          "unavailable": 0
+        },
+        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+      },
+      "assets": {
+        "image": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "mask": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "mask_preview": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "thumbnail": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        }
+      },
+      "measurements": {
+        "image_id": "sample_001",
+        "image_size": [
+          4,
+          3
+        ],
+        "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"vehicle\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+        "allowed_labels": [
+          "person"
+        ],
+        "status": "completed",
+        "review_status": "pending_review",
+        "errors": [],
+        "checks": {
+          "mask_dimensions": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "image_size": [
+                4,
+                3
+              ],
+              "mask_size": [
+                4,
+                3
+              ]
+            }
+          },
+          "mask_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "annotation_ids": [
+                1,
+                2
+              ],
+              "mask_ids": [
+                1,
+                2
+              ],
+              "missing_masks": [],
+              "missing_annotations": []
+            }
+          },
+          "annotation_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "valid": true,
+              "duplicate_ids": [],
+              "invalid_ids": []
+            }
+          },
+          "labels": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": false,
+              "allowed_labels": [
+                "person"
+              ],
+              "object_results": [
+                {
+                  "object_id": 1,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                },
+                {
+                  "object_id": 2,
+                  "label": "vehicle",
+                  "matches": false,
+                  "reason": "label_not_allowed"
+                }
+              ],
+              "invalid_object_ids": [
+                2
+              ]
+            }
+          },
+          "box_overlaps": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "pairs": [
+                {
+                  "box1": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "box2": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "invalid_boxes": {},
+                  "intersection_area": 0,
+                  "union_area": 5,
+                  "iou": 0.0,
+                  "object_ids": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "objects": [
+          {
+            "annotation": {
+              "object_id": 1,
+              "label": "person",
+              "bbox": [
+                1,
+                1,
+                2,
+                2
+              ]
+            },
+            "checks": {
+              "label": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              },
+              "box_validity": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "reason": null,
+                  "detail": null
+                }
+              },
+              "mask_components": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "connectivity": 8,
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 4,
+                  "component_count": 1,
+                  "components": [
+                    {
+                      "component_id": 1,
+                      "area": 4,
+                      "area_fraction": 1.0,
+                      "bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ]
+                    }
+                  ]
+                }
+              },
+              "box_mask_alignment": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "mask_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "comparison_available": true,
+                  "reason": null,
+                  "edge_differences": {
+                    "left": 0,
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0
+                  },
+                  "max_edge_difference": 0
+                }
+              },
+              "mask_outside_box": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 4,
+                  "outside_pixels": 0,
+                  "outside_fraction": 0.0
+                }
+              },
+              "mask_box_fill": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "box_area": 4,
+                  "inside_mask_pixels": 4,
+                  "fill_fraction": 1.0
+                }
+              }
+            }
+          },
+          {
+            "annotation": {
+              "object_id": 2,
+              "label": "vehicle",
+              "bbox": [
+                4,
+                3,
+                4,
+                3
+              ]
+            },
+            "checks": {
+              "label": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "label": "vehicle",
+                  "matches": false,
+                  "reason": "label_not_allowed"
+                }
+              },
+              "box_validity": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "reason": null,
+                  "detail": null
+                }
+              },
+              "mask_components": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "connectivity": 8,
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 1,
+                  "component_count": 1,
+                  "components": [
+                    {
+                      "component_id": 1,
+                      "area": 1,
+                      "area_fraction": 1.0,
+                      "bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ]
+                    }
+                  ]
+                }
+              },
+              "box_mask_alignment": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "mask_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "comparison_available": true,
+                  "reason": null,
+                  "edge_differences": {
+                    "left": 0,
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0
+                  },
+                  "max_edge_difference": 0
+                }
+              },
+              "mask_outside_box": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 1,
+                  "outside_pixels": 0,
+                  "outside_fraction": 0.0
+                }
+              },
+              "mask_box_fill": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "box_area": 1,
+                  "inside_mask_pixels": 1,
+                  "fill_fraction": 1.0
+                }
+              }
+            }
+          }
+        ]
+      },
+      "findings": [
+        {
+          "finding_id": "finding_pass_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": 1,
+          "rulebook_id": "rulebook_demo",
+          "rulebook_version": 2,
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "outcome": "pass",
+          "reason": null,
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {
+              "actual_label": "person",
+              "allowed_labels": [
+                "person"
+              ]
+            }
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        },
+        {
+          "finding_id": "finding_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": 2,
+          "rulebook_id": "rulebook_demo",
+          "rulebook_version": 2,
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "outcome": "fail",
+          "reason": "label_not_allowed",
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {
+              "actual_label": "vehicle",
+              "allowed_labels": [
+                "person"
+              ]
+            }
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        }
+      ],
+      "review": {
+        "revision": 0,
+        "decision": "pending_review",
+        "reviewer_id": null,
+        "comment": null,
+        "updated_at": null
+      }
+    },
+    "no_issue": {
+      "audit_id": "audit_demo",
+      "dataset_id": "dataset_demo",
+      "summary": {
+        "sample_id": "sample_001",
+        "sample_revision": 1,
+        "tool_status": "no_issue",
+        "review_status": "pending_review",
+        "finding_counts": {
+          "pass": 2,
+          "fail": 0,
+          "unsure": 0,
+          "unavailable": 0
+        },
+        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+      },
+      "assets": {
+        "image": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "mask": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "mask_preview": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "thumbnail": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        }
+      },
+      "measurements": {
+        "image_id": "sample_001",
+        "image_size": [
+          4,
+          3
+        ],
+        "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+        "allowed_labels": [
+          "person"
+        ],
+        "status": "completed",
+        "review_status": "pending_review",
+        "errors": [],
+        "checks": {
+          "mask_dimensions": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "image_size": [
+                4,
+                3
+              ],
+              "mask_size": [
+                4,
+                3
+              ]
+            }
+          },
+          "mask_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "annotation_ids": [
+                1,
+                2
+              ],
+              "mask_ids": [
+                1,
+                2
+              ],
+              "missing_masks": [],
+              "missing_annotations": []
+            }
+          },
+          "annotation_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "valid": true,
+              "duplicate_ids": [],
+              "invalid_ids": []
+            }
+          },
+          "labels": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "allowed_labels": [
+                "person"
+              ],
+              "object_results": [
+                {
+                  "object_id": 1,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                },
+                {
+                  "object_id": 2,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              ],
+              "invalid_object_ids": []
+            }
+          },
+          "box_overlaps": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "pairs": [
+                {
+                  "box1": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "box2": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "invalid_boxes": {},
+                  "intersection_area": 0,
+                  "union_area": 5,
+                  "iou": 0.0,
+                  "object_ids": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "objects": [
+          {
+            "annotation": {
+              "object_id": 1,
+              "label": "person",
+              "bbox": [
+                1,
+                1,
+                2,
+                2
+              ]
+            },
+            "checks": {
+              "label": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              },
+              "box_validity": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "reason": null,
+                  "detail": null
+                }
+              },
+              "mask_components": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "connectivity": 8,
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 4,
+                  "component_count": 1,
+                  "components": [
+                    {
+                      "component_id": 1,
+                      "area": 4,
+                      "area_fraction": 1.0,
+                      "bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ]
+                    }
+                  ]
+                }
+              },
+              "box_mask_alignment": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "mask_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "comparison_available": true,
+                  "reason": null,
+                  "edge_differences": {
+                    "left": 0,
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0
+                  },
+                  "max_edge_difference": 0
+                }
+              },
+              "mask_outside_box": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 4,
+                  "outside_pixels": 0,
+                  "outside_fraction": 0.0
+                }
+              },
+              "mask_box_fill": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "box_area": 4,
+                  "inside_mask_pixels": 4,
+                  "fill_fraction": 1.0
+                }
+              }
+            }
+          },
+          {
+            "annotation": {
+              "object_id": 2,
+              "label": "person",
+              "bbox": [
+                4,
+                3,
+                4,
+                3
+              ]
+            },
+            "checks": {
+              "label": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              },
+              "box_validity": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "reason": null,
+                  "detail": null
+                }
+              },
+              "mask_components": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "connectivity": 8,
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 1,
+                  "component_count": 1,
+                  "components": [
+                    {
+                      "component_id": 1,
+                      "area": 1,
+                      "area_fraction": 1.0,
+                      "bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ]
+                    }
+                  ]
+                }
+              },
+              "box_mask_alignment": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "mask_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "comparison_available": true,
+                  "reason": null,
+                  "edge_differences": {
+                    "left": 0,
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0
+                  },
+                  "max_edge_difference": 0
+                }
+              },
+              "mask_outside_box": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 1,
+                  "outside_pixels": 0,
+                  "outside_fraction": 0.0
+                }
+              },
+              "mask_box_fill": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "box_area": 1,
+                  "inside_mask_pixels": 1,
+                  "fill_fraction": 1.0
+                }
+              }
+            }
+          }
+        ]
+      },
+      "findings": [
+        {
+          "finding_id": "finding_pass_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": 1,
+          "rulebook_id": "rulebook_demo",
+          "rulebook_version": 2,
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "outcome": "pass",
+          "reason": null,
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {
+              "actual_label": "person",
+              "allowed_labels": [
+                "person"
+              ]
+            }
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        },
+        {
+          "finding_id": "finding_pass_second_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": 2,
+          "rulebook_id": "rulebook_demo",
+          "rulebook_version": 2,
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "outcome": "pass",
+          "reason": null,
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {
+              "actual_label": "person",
+              "allowed_labels": [
+                "person"
+              ]
+            }
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        }
+      ],
+      "review": {
+        "revision": 0,
+        "decision": "pending_review",
+        "reviewer_id": null,
+        "comment": null,
+        "updated_at": null
+      }
+    },
+    "unsure": {
+      "audit_id": "audit_demo",
+      "dataset_id": "dataset_demo",
+      "summary": {
+        "sample_id": "sample_001",
+        "sample_revision": 1,
+        "tool_status": "unsure",
+        "review_status": "pending_review",
+        "finding_counts": {
+          "pass": 2,
+          "fail": 0,
+          "unsure": 1,
+          "unavailable": 0
+        },
+        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+      },
+      "assets": {
+        "image": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "mask": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "mask_preview": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "thumbnail": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        }
+      },
+      "measurements": {
+        "image_id": "sample_001",
+        "image_size": [
+          4,
+          3
+        ],
+        "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+        "allowed_labels": [
+          "person"
+        ],
+        "status": "completed",
+        "review_status": "pending_review",
+        "errors": [],
+        "checks": {
+          "mask_dimensions": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "image_size": [
+                4,
+                3
+              ],
+              "mask_size": [
+                4,
+                3
+              ]
+            }
+          },
+          "mask_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "annotation_ids": [
+                1,
+                2
+              ],
+              "mask_ids": [
+                1,
+                2
+              ],
+              "missing_masks": [],
+              "missing_annotations": []
+            }
+          },
+          "annotation_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "valid": true,
+              "duplicate_ids": [],
+              "invalid_ids": []
+            }
+          },
+          "labels": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "allowed_labels": [
+                "person"
+              ],
+              "object_results": [
+                {
+                  "object_id": 1,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                },
+                {
+                  "object_id": 2,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              ],
+              "invalid_object_ids": []
+            }
+          },
+          "box_overlaps": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "pairs": [
+                {
+                  "box1": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "box2": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "invalid_boxes": {},
+                  "intersection_area": 0,
+                  "union_area": 5,
+                  "iou": 0.0,
+                  "object_ids": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "objects": [
+          {
+            "annotation": {
+              "object_id": 1,
+              "label": "person",
+              "bbox": [
+                1,
+                1,
+                2,
+                2
+              ]
+            },
+            "checks": {
+              "label": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              },
+              "box_validity": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "reason": null,
+                  "detail": null
+                }
+              },
+              "mask_components": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "connectivity": 8,
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 4,
+                  "component_count": 1,
+                  "components": [
+                    {
+                      "component_id": 1,
+                      "area": 4,
+                      "area_fraction": 1.0,
+                      "bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ]
+                    }
+                  ]
+                }
+              },
+              "box_mask_alignment": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "mask_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "comparison_available": true,
+                  "reason": null,
+                  "edge_differences": {
+                    "left": 0,
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0
+                  },
+                  "max_edge_difference": 0
+                }
+              },
+              "mask_outside_box": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 4,
+                  "outside_pixels": 0,
+                  "outside_fraction": 0.0
+                }
+              },
+              "mask_box_fill": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "box_area": 4,
+                  "inside_mask_pixels": 4,
+                  "fill_fraction": 1.0
+                }
+              }
+            }
+          },
+          {
+            "annotation": {
+              "object_id": 2,
+              "label": "person",
+              "bbox": [
+                4,
+                3,
+                4,
+                3
+              ]
+            },
+            "checks": {
+              "label": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              },
+              "box_validity": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "reason": null,
+                  "detail": null
+                }
+              },
+              "mask_components": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "connectivity": 8,
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 1,
+                  "component_count": 1,
+                  "components": [
+                    {
+                      "component_id": 1,
+                      "area": 1,
+                      "area_fraction": 1.0,
+                      "bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ]
+                    }
+                  ]
+                }
+              },
+              "box_mask_alignment": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "mask_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "comparison_available": true,
+                  "reason": null,
+                  "edge_differences": {
+                    "left": 0,
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0
+                  },
+                  "max_edge_difference": 0
+                }
+              },
+              "mask_outside_box": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 1,
+                  "outside_pixels": 0,
+                  "outside_fraction": 0.0
+                }
+              },
+              "mask_box_fill": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "box_area": 1,
+                  "inside_mask_pixels": 1,
+                  "fill_fraction": 1.0
+                }
+              }
+            }
+          }
+        ]
+      },
+      "findings": [
+        {
+          "finding_id": "finding_pass_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": 1,
+          "rulebook_id": "rulebook_unsure_demo",
+          "rulebook_version": 1,
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "outcome": "pass",
+          "reason": null,
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {
+              "actual_label": "person",
+              "allowed_labels": [
+                "person"
+              ]
+            }
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        },
+        {
+          "finding_id": "finding_pass_second_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": 2,
+          "rulebook_id": "rulebook_unsure_demo",
+          "rulebook_version": 1,
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "outcome": "pass",
+          "reason": null,
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {
+              "actual_label": "person",
+              "allowed_labels": [
+                "person"
+              ]
+            }
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        },
+        {
+          "finding_id": "finding_uncertain_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": 1,
+          "rulebook_id": "rulebook_unsure_demo",
+          "rulebook_version": 1,
+          "rule_id": "POSTURE-1",
+          "description": "The activity label should match visible posture.",
+          "check_name": "person_posture",
+          "outcome": "unsure",
+          "reason": "ambiguous_posture",
+          "parameters": {},
+          "origin": "reviewer",
+          "source_sentence": null,
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {
+              "model_result": "uncertain"
+            }
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        }
+      ],
+      "review": {
+        "revision": 0,
+        "decision": "pending_review",
+        "reviewer_id": null,
+        "comment": null,
+        "updated_at": null
+      }
+    },
+    "unavailable": {
+      "audit_id": "audit_demo",
+      "dataset_id": "dataset_demo",
+      "summary": {
+        "sample_id": "sample_001",
+        "sample_revision": 1,
+        "tool_status": "unavailable",
+        "review_status": "pending_review",
+        "finding_counts": {
+          "pass": 2,
+          "fail": 0,
+          "unsure": 0,
+          "unavailable": 1
+        },
+        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+      },
+      "assets": {
+        "image": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "mask": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "mask_preview": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        },
+        "thumbnail": {
+          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+          "content_type": "image/png",
+          "revision": 1
+        }
+      },
+      "measurements": {
+        "image_id": "sample_001",
+        "image_size": [
+          4,
+          3
+        ],
+        "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+        "allowed_labels": [
+          "person"
+        ],
+        "status": "completed",
+        "review_status": "pending_review",
+        "errors": [],
+        "checks": {
+          "mask_dimensions": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "image_size": [
+                4,
+                3
+              ],
+              "mask_size": [
+                4,
+                3
+              ]
+            }
+          },
+          "mask_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "annotation_ids": [
+                1,
+                2
+              ],
+              "mask_ids": [
+                1,
+                2
+              ],
+              "missing_masks": [],
+              "missing_annotations": []
+            }
+          },
+          "annotation_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "valid": true,
+              "duplicate_ids": [],
+              "invalid_ids": []
+            }
+          },
+          "labels": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "allowed_labels": [
+                "person"
+              ],
+              "object_results": [
+                {
+                  "object_id": 1,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                },
+                {
+                  "object_id": 2,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              ],
+              "invalid_object_ids": []
+            }
+          },
+          "box_overlaps": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "pairs": [
+                {
+                  "box1": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "box2": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "invalid_boxes": {},
+                  "intersection_area": 0,
+                  "union_area": 5,
+                  "iou": 0.0,
+                  "object_ids": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "objects": [
+          {
+            "annotation": {
+              "object_id": 1,
+              "label": "person",
+              "bbox": [
+                1,
+                1,
+                2,
+                2
+              ]
+            },
+            "checks": {
+              "label": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              },
+              "box_validity": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "reason": null,
+                  "detail": null
+                }
+              },
+              "mask_components": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "connectivity": 8,
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 4,
+                  "component_count": 1,
+                  "components": [
+                    {
+                      "component_id": 1,
+                      "area": 4,
+                      "area_fraction": 1.0,
+                      "bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ]
+                    }
+                  ]
+                }
+              },
+              "box_mask_alignment": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "mask_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "comparison_available": true,
+                  "reason": null,
+                  "edge_differences": {
+                    "left": 0,
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0
+                  },
+                  "max_edge_difference": 0
+                }
+              },
+              "mask_outside_box": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 4,
+                  "outside_pixels": 0,
+                  "outside_fraction": 0.0
+                }
+              },
+              "mask_box_fill": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 1,
+                  "annotation_bbox": [
+                    1,
+                    1,
+                    2,
+                    2
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "box_area": 4,
+                  "inside_mask_pixels": 4,
+                  "fill_fraction": 1.0
+                }
+              }
+            }
+          },
+          {
+            "annotation": {
+              "object_id": 2,
+              "label": "person",
+              "bbox": [
+                4,
+                3,
+                4,
+                3
+              ]
+            },
+            "checks": {
+              "label": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "label": "person",
+                  "matches": true,
+                  "reason": null
+                }
+              },
+              "box_validity": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "reason": null,
+                  "detail": null
+                }
+              },
+              "mask_components": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "connectivity": 8,
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 1,
+                  "component_count": 1,
+                  "components": [
+                    {
+                      "component_id": 1,
+                      "area": 1,
+                      "area_fraction": 1.0,
+                      "bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ]
+                    }
+                  ]
+                }
+              },
+              "box_mask_alignment": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "mask_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "comparison_available": true,
+                  "reason": null,
+                  "edge_differences": {
+                    "left": 0,
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0
+                  },
+                  "max_edge_difference": 0
+                }
+              },
+              "mask_outside_box": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "total_mask_pixels": 1,
+                  "outside_pixels": 0,
+                  "outside_fraction": 0.0
+                }
+              },
+              "mask_box_fill": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "object_id": 2,
+                  "annotation_bbox": [
+                    4,
+                    3,
+                    4,
+                    3
+                  ],
+                  "measurement_available": true,
+                  "reason": null,
+                  "box_area": 1,
+                  "inside_mask_pixels": 1,
+                  "fill_fraction": 1.0
+                }
+              }
+            }
+          }
+        ]
+      },
+      "findings": [
+        {
+          "finding_id": "finding_pass_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": 1,
+          "rulebook_id": "rulebook_unavailable_demo",
+          "rulebook_version": 1,
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "outcome": "pass",
+          "reason": null,
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {
+              "actual_label": "person",
+              "allowed_labels": [
+                "person"
+              ]
+            }
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        },
+        {
+          "finding_id": "finding_pass_second_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": 2,
+          "rulebook_id": "rulebook_unavailable_demo",
+          "rulebook_version": 1,
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "outcome": "pass",
+          "reason": null,
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {
+              "actual_label": "person",
+              "allowed_labels": [
+                "person"
+              ]
+            }
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        },
+        {
+          "finding_id": "finding_unavailable_demo",
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
+          "object_id": null,
+          "rulebook_id": "rulebook_unavailable_demo",
+          "rulebook_version": 1,
+          "rule_id": "CUSTOM-1",
+          "description": "Custom reviewer requirement without a supported check.",
+          "check_name": null,
+          "outcome": "unavailable",
+          "reason": "unsupported_check",
+          "parameters": {},
+          "origin": "reviewer",
+          "source_sentence": null,
+          "evidence": {
+            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "crop_url": null,
+            "measurements": {}
+          },
+          "review": {
+            "revision": 0,
+            "resolution": "pending",
+            "reviewer_id": null,
+            "comment": null,
+            "updated_at": null
+          }
+        }
+      ],
+      "review": {
+        "revision": 0,
+        "decision": "pending_review",
+        "reviewer_id": null,
+        "comment": null,
+        "updated_at": null
+      }
+    }
+  },
+  "review_scenario_rulebooks": {
+    "flagged": {
+      "rulebook_id": "rulebook_demo",
+      "version": 2,
+      "guideline_text": "Allowed labels are person.",
+      "rules": [
+        {
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "confirmation_state": "confirmed"
+        }
+      ],
+      "confirmation_state": "confirmed"
+    },
+    "no_issue": {
+      "rulebook_id": "rulebook_demo",
+      "version": 2,
+      "guideline_text": "Allowed labels are person.",
+      "rules": [
+        {
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "confirmation_state": "confirmed"
+        }
+      ],
+      "confirmation_state": "confirmed"
+    },
+    "unsure": {
+      "rulebook_id": "rulebook_unsure_demo",
+      "version": 1,
+      "guideline_text": "Allowed labels are person.",
+      "rules": [
+        {
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "confirmation_state": "confirmed"
+        },
+        {
+          "rule_id": "POSTURE-1",
+          "description": "The activity label should match visible posture.",
+          "check_name": "person_posture",
+          "parameters": {},
+          "origin": "reviewer",
+          "source_sentence": null,
+          "confirmation_state": "confirmed"
+        }
+      ],
+      "confirmation_state": "confirmed"
+    },
+    "unavailable": {
+      "rulebook_id": "rulebook_unavailable_demo",
+      "version": 1,
+      "guideline_text": "Allowed labels are person.",
+      "rules": [
+        {
+          "rule_id": "LBL-1",
+          "description": "Use an allowed label.",
+          "check_name": "allowed_labels",
+          "parameters": {
+            "allowed_labels": [
+              "person"
+            ]
+          },
+          "origin": "extracted",
+          "source_sentence": "Allowed labels are person.",
+          "confirmation_state": "confirmed"
+        },
+        {
+          "rule_id": "CUSTOM-1",
+          "description": "Custom reviewer requirement without a supported check.",
+          "check_name": null,
+          "parameters": {},
+          "origin": "reviewer",
+          "source_sentence": null,
+          "confirmation_state": "confirmed"
+        }
+      ],
+      "confirmation_state": "confirmed"
+    }
+  }
+}
