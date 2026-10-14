@@ -16,3 +16,7 @@ PennFudanPed/
 /meet1.txt
 /reports/
 /research_notes/
+
+# Local agent instructions and editor rules
+/AGENTS.md
+/.cursor/
