@@ -1,25 +1,19 @@
 """Connect to the user-installed Ollama model and use CPU inference options."""
 
-from ipaddress import ip_address
 import json
-from math import isfinite
-from typing import Literal
-from urllib.parse import urlsplit
+from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from ..core.config import OllamaSettings, load_ollama_settings
 from ..models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin
-
-
-DEFAULT_MODEL = "qwen3-vl:4b-instruct"
-DEFAULT_HOST = "http://127.0.0.1:11434"
 
 
 class OllamaClientError(RuntimeError):
     """An inference failure with a reason the application can display."""
 
-    def __init__(self, reason, message):
+    def __init__(self, reason: str, message: str) -> None:
         super().__init__(message)
         self.reason = reason
 
@@ -37,30 +31,9 @@ class _RuleResponse(BaseModel):
     rules: list[_DraftRule]
 
 
-def _validate_host(host):
-    """Keep guideline requests on this machine, without URL credentials."""
-    if not isinstance(host, str):
-        raise ValueError("Ollama host must be a local HTTP or HTTPS URL.")
-    parsed = urlsplit(host)
-    hostname = parsed.hostname
-    local = hostname == "localhost"
-    if not local and hostname is not None:
-        try:
-            local = ip_address(hostname).is_loopback
-        except ValueError:
-            local = False
-    if (
-        parsed.scheme not in ("http", "https") or not local
-        or parsed.username is not None or parsed.password is not None
-        or parsed.path not in ("", "/") or parsed.query or parsed.fragment
-    ):
-        raise ValueError("Ollama host must be a loopback URL without credentials, paths or queries.")
-    # Accessing port also validates malformed port numbers.
-    if parsed.port is not None and parsed.port == 0:
-        raise ValueError("Ollama port must be greater than zero.")
-
-
-def _post_json(client, path, payload):
+def _post_json(
+    client: httpx.Client, path: str, payload: dict[str, Any]
+) -> dict[str, Any]:
     """Convert transport and API errors into understandable client failures."""
     try:
         response = client.post(path, json=payload)
@@ -85,8 +58,15 @@ def _post_json(client, path, payload):
     return data
 
 
-def propose_rules(guideline_text, *, model=DEFAULT_MODEL, host=DEFAULT_HOST,
-                  timeout=120.0, transport=None):
+def propose_rules(
+    guideline_text: str,
+    *,
+    settings: OllamaSettings | None = None,
+    model: str | None = None,
+    host: str | None = None,
+    timeout: float | None = None,
+    transport: httpx.BaseTransport | None = None,
+) -> list[Rule]:
     """Return validated draft rules proposed from plain text guidelines.
 
     The local model must already be installed; no download or server startup
@@ -96,17 +76,24 @@ def propose_rules(guideline_text, *, model=DEFAULT_MODEL, host=DEFAULT_HOST,
     Citation validation checks presence, not whether the interpretation is
     correct; reviewer confirmation is still required. CPU performance and
     extraction accuracy need a separate evaluation with the running model.
+    Defaults are loaded from backend/ollama.toml at call time. Explicit
+    settings bypass file loading; model, host and timeout override either
+    source for one call and undergo the same validation.
     """
     if not isinstance(guideline_text, str) or not guideline_text.strip():
         raise ValueError("Guidelines must be non-empty plain text.")
-    if not isinstance(model, str) or not model.strip():
-        raise ValueError("Model name must be a non-empty string.")
-    if (
-        not isinstance(timeout, (int, float)) or isinstance(timeout, bool)
-        or not isfinite(timeout) or timeout <= 0
-    ):
-        raise ValueError("Timeout must be a positive finite number of seconds.")
-    _validate_host(host)
+    configuration = load_ollama_settings() if settings is None else settings
+    if not isinstance(configuration, OllamaSettings):
+        raise TypeError("settings must be an OllamaSettings instance.")
+    overrides = {
+        name: value
+        for name, value in {"model": model, "host": host, "timeout_seconds": timeout}.items()
+        if value is not None
+    }
+    # model_copy(update=...) skips validation; reconstruct to validate overrides.
+    configuration = OllamaSettings.model_validate(
+        {**configuration.model_dump(), **overrides}
+    )
 
     schema = _RuleResponse.model_json_schema()
     instructions = (
@@ -122,24 +109,34 @@ def propose_rules(guideline_text, *, model=DEFAULT_MODEL, host=DEFAULT_HOST,
         "Never confirm rules or make reviewer decisions. JSON schema: " + json.dumps(schema)
     )
 
-    with httpx.Client(base_url=host, timeout=timeout, trust_env=False,
-                      follow_redirects=False, transport=transport) as client:
+    with httpx.Client(
+        base_url=configuration.host,
+        timeout=configuration.timeout_seconds,
+        trust_env=False,
+        follow_redirects=False,
+        transport=transport,
+    ) as client:
         # Check model metadata before sending any guideline text.
-        metadata = _post_json(client, "/api/show", {"model": model})
+        metadata = _post_json(client, "/api/show", {"model": configuration.model})
         if metadata.get("remote_host") or metadata.get("remote_model"):
             raise OllamaClientError("remote_model", "This project requires a locally installed model.")
         if not isinstance(metadata.get("model_info"), dict) or not metadata["model_info"]:
             raise OllamaClientError("invalid_model_metadata", "Cannot verify local model information.")
 
         response = _post_json(client, "/api/chat", {
-            "model": model,
+            "model": configuration.model,
             "messages": [
                 {"role": "system", "content": instructions},
                 {"role": "user", "content": guideline_text},
             ],
             "format": schema,
             "stream": False,
-            "options": {"num_gpu": 0, "temperature": 0, "num_ctx": 8192, "num_predict": 4096},
+            "options": {
+                "num_gpu": 0,
+                "temperature": 0,
+                "num_ctx": configuration.context_length,
+                "num_predict": configuration.max_output_tokens,
+            },
             "keep_alive": 0,
         })
 
