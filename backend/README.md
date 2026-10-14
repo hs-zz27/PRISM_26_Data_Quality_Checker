@@ -73,3 +73,9 @@ To supply an alternate configuration file, pass
 `backend.app.core.config` when running from the project root. Per-call model,
 host and timeout overrides take precedence over the supplied settings and are
 validated without modifying them.
+
+## Proposed frontend API
+
+See [api/README.md](api/README.md) for the draft endpoint contract, request/response
+schemas and frontend fixtures. [api/ENDPOINTS.md](api/ENDPOINTS.md) lists every
+planned operation. These are templates; no HTTP routes are running yet.
