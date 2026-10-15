@@ -69,8 +69,8 @@ class Rulebook(BaseModel):
     Citation matching is exact and does not alter the supplied text. A
     confirmed rulebook contains at least one rule, all confirmed. Rules
     rejected during review can remain in a draft or an earlier saved version.
-    Confirmation fields record state; the review service must manage actual
-    reviewer actions, revisions and persistence later.
+    Confirmation fields record state; the review service manages reviewer
+    actions and appends attributed revisions without changing older versions.
     """
 
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -98,7 +98,7 @@ class Rulebook(BaseModel):
 
 
 class RulebookPage(BaseModel):
-    """A page containing the latest saved version of each rulebook."""
+    """A page of latest rulebooks or one rulebook's saved version history."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
 

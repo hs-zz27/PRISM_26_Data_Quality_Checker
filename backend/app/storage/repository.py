@@ -9,6 +9,7 @@ from psycopg.types.json import Jsonb
 from pydantic import ValidationError
 
 from ..core.config import DatabaseSettings, load_database_settings
+from ..models.review import RulebookReviewAction, RulebookReviewPage, RulebookReviewRecord
 from ..models.rule import Rulebook, RulebookPage
 from .database import DatabaseError, database_connection
 
@@ -45,13 +46,38 @@ def _require_integer(value: int, name: str, minimum: int) -> None:
         raise ValueError(f"{name} must be an integer greater than or equal to {minimum}.")
 
 
+def _require_rulebook_id(rulebook_id: str) -> None:
+    if not isinstance(rulebook_id, str) or not rulebook_id.strip():
+        raise ValueError("rulebook_id must be a non-empty string.")
+
+
+def _validate_pagination(limit: int, offset: int) -> None:
+    _require_integer(limit, "limit", 1)
+    _require_integer(offset, "offset", 0)
+    if limit > 100:
+        raise ValueError("limit must not exceed 100.")
+
+
+def _prepare_snapshot(
+    rulebook: Rulebook, expected_version: int, *, minimum_expected_version: int = 0,
+) -> Rulebook:
+    _require_integer(expected_version, "expected_version", minimum_expected_version)
+    if not isinstance(rulebook, Rulebook):
+        raise TypeError("rulebook must be a Rulebook instance.")
+    # Validate nested data again: existing Pydantic objects are mutable.
+    snapshot = Rulebook.model_validate(rulebook.model_dump())
+    if snapshot.version != expected_version + 1:
+        raise ValueError("The saved rulebook version must equal expected_version + 1.")
+    return snapshot
+
+
 class RulebookRepository:
     """Persist append-only snapshots with optimistic concurrency checks.
 
     Construction loads settings without connecting or changing the schema.
     Connections belong to individual operations and are always closed.
-    Confirmation transitions and their review history require a dedicated
-    operation later; save_rulebook never overwrites a saved version.
+    Review services enforce workflow policy; this layer validates snapshots
+    and atomically persists versions, concurrency checks and review history.
     """
 
     def __init__(self, *, settings: DatabaseSettings | None = None) -> None:
@@ -89,13 +115,30 @@ class RulebookRepository:
         Invalid records raise validation errors before a write transaction.
         Stale expectations raise RulebookVersionConflictError without changes.
         """
-        _require_integer(expected_version, "expected_version", 0)
-        if not isinstance(rulebook, Rulebook):
-            raise TypeError("rulebook must be a Rulebook instance.")
-        # Validate nested data again: existing Pydantic objects are mutable.
-        snapshot = Rulebook.model_validate(rulebook.model_dump())
-        if snapshot.version != expected_version + 1:
-            raise ValueError("The saved rulebook version must equal expected_version + 1.")
+        snapshot = _prepare_snapshot(rulebook, expected_version)
+        return self._save_snapshot(snapshot, expected_version=expected_version)
+
+    def save_rulebook_review(
+        self, rulebook: Rulebook, *, expected_version: int,
+        reviewer_id: str, action: RulebookReviewAction,
+    ) -> Rulebook:
+        """Append a reviewed snapshot and its attribution in one transaction.
+
+        Called by the review service after workflow validation. A review must
+        update an existing version. If either insert or commit fails, neither
+        snapshot nor review history is saved. The backend assigns the time.
+        """
+        snapshot = _prepare_snapshot(rulebook, expected_version, minimum_expected_version=1)
+        review = RulebookReviewRecord(
+            rulebook_id=snapshot.rulebook_id, version=snapshot.version,
+            reviewer_id=reviewer_id, action=action,
+        )
+        return self._save_snapshot(snapshot, expected_version=expected_version, review=review)
+
+    def _save_snapshot(
+        self, snapshot: Rulebook, *, expected_version: int,
+        review: RulebookReviewRecord | None = None,
+    ) -> Rulebook:
         document = Jsonb(snapshot.model_dump(mode="json"))
 
         with self._connection(write=True) as connection:
@@ -120,6 +163,14 @@ class RulebookRepository:
                    VALUES (%s, %s, %s, %s)""",
                 (snapshot.rulebook_id, snapshot.version, snapshot.confirmation_state.value, document),
             )
+            if review is not None:
+                connection.execute(
+                    """INSERT INTO rulebook_reviews
+                       (rulebook_id, version, reviewer_id, action, created_at)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    (review.rulebook_id, review.version, review.reviewer_id,
+                     review.action.value, review.created_at),
+                )
         return snapshot
 
     def get_rulebook(self, rulebook_id: str, version: int | None = None) -> Rulebook:
@@ -127,8 +178,7 @@ class RulebookRepository:
 
         An explicit missing version never falls back to another version.
         """
-        if not isinstance(rulebook_id, str) or not rulebook_id.strip():
-            raise ValueError("rulebook_id must be a non-empty string.")
+        _require_rulebook_id(rulebook_id)
         if version is not None:
             _require_integer(version, "version", 1)
         with self._connection() as connection:
@@ -149,10 +199,7 @@ class RulebookRepository:
 
     def list_rulebooks(self, *, limit: int = 20, offset: int = 0) -> RulebookPage:
         """Page latest versions, ordered by rulebook ID for stable navigation."""
-        _require_integer(limit, "limit", 1)
-        _require_integer(offset, "offset", 0)
-        if limit > 100:
-            raise ValueError("limit must not exceed 100.")
+        _validate_pagination(limit, offset)
         with self._connection() as connection:
             total = connection.execute(
                 "SELECT COUNT(DISTINCT rulebook_id) AS total FROM rulebook_versions"
@@ -170,3 +217,56 @@ class RulebookRepository:
             items = [self._decode(row) for row in rows]
         next_offset = offset + len(items) if offset + len(items) < total else None
         return RulebookPage(items=items, limit=limit, offset=offset, total=total, next_offset=next_offset)
+
+    def list_rulebook_versions(
+        self, rulebook_id: str, *, limit: int = 20, offset: int = 0,
+    ) -> RulebookPage:
+        """Read saved snapshots from oldest to newest, including prior decisions."""
+        _require_rulebook_id(rulebook_id)
+        _validate_pagination(limit, offset)
+        with self._connection() as connection:
+            total = connection.execute(
+                "SELECT COUNT(*) AS total FROM rulebook_versions WHERE rulebook_id = %s",
+                (rulebook_id,),
+            ).fetchone()["total"]
+            if not total:
+                raise RulebookNotFoundError(rulebook_id, None)
+            rows = connection.execute(
+                """SELECT * FROM rulebook_versions WHERE rulebook_id = %s
+                   ORDER BY version ASC LIMIT %s OFFSET %s""",
+                (rulebook_id, limit, offset),
+            ).fetchall()
+            items = [self._decode(row) for row in rows]
+        next_offset = offset + len(items) if offset + len(items) < total else None
+        return RulebookPage(items=items, limit=limit, offset=offset, total=total, next_offset=next_offset)
+
+    def list_rulebook_reviews(
+        self, rulebook_id: str, *, limit: int = 20, offset: int = 0,
+    ) -> RulebookReviewPage:
+        """Read attributed actions in version order; older unaudited saves stay absent."""
+        _require_rulebook_id(rulebook_id)
+        _validate_pagination(limit, offset)
+        with self._connection() as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM rulebook_versions WHERE rulebook_id = %s LIMIT 1",
+                (rulebook_id,),
+            ).fetchone()
+            if exists is None:
+                raise RulebookNotFoundError(rulebook_id, None)
+            total = connection.execute(
+                "SELECT COUNT(*) AS total FROM rulebook_reviews WHERE rulebook_id = %s",
+                (rulebook_id,),
+            ).fetchone()["total"]
+            rows = connection.execute(
+                """SELECT * FROM rulebook_reviews WHERE rulebook_id = %s
+                   ORDER BY version ASC LIMIT %s OFFSET %s""",
+                (rulebook_id, limit, offset),
+            ).fetchall()
+            try:
+                items = [RulebookReviewRecord.model_validate(row) for row in rows]
+            except ValidationError as error:
+                raise RulebookStorageError("A saved rulebook review failed validation.") from error
+        next_offset = offset + len(items) if offset + len(items) < total else None
+        return RulebookReviewPage(
+            items=items, limit=limit, offset=offset, total=total, next_offset=next_offset,
+        )
