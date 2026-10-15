@@ -83,3 +83,15 @@ class Rulebook(BaseModel):
             if not self.rules or any(rule.confirmation_state != ConfirmationState.CONFIRMED for rule in self.rules):
                 raise ValueError("A confirmed rulebook must contain only confirmed rules and cannot be empty.")
         return self
+
+
+class RulebookPage(BaseModel):
+    """A page containing the latest saved version of each rulebook."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    items: list[Rulebook]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+    next_offset: int | None = Field(default=None, ge=0)
