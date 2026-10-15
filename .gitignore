@@ -20,3 +20,9 @@ PennFudanPed/
 # Local agent instructions and editor rules
 /AGENTS.md
 /.cursor/
+
+# Local architectural decision record
+/decisions.md
+
+# Local application records and legacy database files
+/backend/data/
