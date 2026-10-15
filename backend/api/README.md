@@ -17,8 +17,8 @@ development default. Keep the base URL configurable in the frontend.
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios.
 - [build_contract.py](build_contract.py): source for generated artifacts. Reuses
-  actual `Rule`/`Rulebook` schemas and obtains measurement examples from
-  `audit_sample()` on a tiny synthetic dataset.
+  actual rulebook and review request/history schemas and obtains measurement
+  examples from `audit_sample()` on a tiny synthetic dataset.
 
 Run from the project root:
 
@@ -41,8 +41,9 @@ https://spec.openapis.org/oas/v3.1.0.html.
    specified. Other guideline input formats are deferred.
 3. Show source sentences, descriptions and parameters. Save reviewed rules with
    `PUT /rulebooks/{rulebook_id}`. The example saves version 2 with confirmed
-   individual rules while the book stays draft. Confirm the book separately.
-   Confirmed versions are frozen; later edits start a new draft version.
+   individual rules while the book stays draft. Confirm the book separately,
+   creating version 3. Confirmed and rejected versions are frozen; later edits
+   start a new draft version with every rule reset to draft.
 4. Upload a dataset ZIP through `POST /datasets`, poll import, then inspect sample
    integrity. The first adapter is `penn_fudan`, not a universal specification.
 5. Start an audit using a confirmed rulebook ID/version. Null `sample_ids` means
@@ -60,10 +61,10 @@ https://spec.openapis.org/oas/v3.1.0.html.
     then explicitly activate the evaluated policy for later audits.
 
 Every operation has `x-implementation-status: planned` and a backing-service
-note. Current Python measurements, rule records, Ollama integration and PostgreSQL
-rulebook version storage exist. HTTP routes, storage for the
-other workflow records, confirmed-rule execution, jobs, model checks, review,
-correction/export and evaluated feedback services remain planned.
+note. Python measurements, rule records, Ollama integration, rulebook review
+services and PostgreSQL version/review storage exist. HTTP routes, storage for
+other workflow records, confirmed-rule execution, jobs, model checks, sample and
+finding review, correction/export and evaluated feedback services remain planned.
 
 ## Requests, responses and jobs
 
@@ -117,6 +118,39 @@ return bytes, not JSON wrappers; unavailable files return the JSON error envelop
 Rule confirmation is `draft`, `confirmed`, `rejected`; origin is `extracted` or
 `reviewer`. Keep rejected rule history, but remove rejected rules from a book
 before confirming its active version. Unsupported requirements remain visible.
+
+The rulebook review contract follows the implemented Python service:
+
+- `PUT /rulebooks/{rulebook_id}` submits the complete guideline text and rule list
+  with `expected_version` and `reviewer_id`. Omitted rules are removed. Retained
+  IDs keep their origin; new IDs use `reviewer`. Supply each rule's decision
+  explicitly. Citations must match the supplied text, and extracted rules require
+  a citation. The new book remains draft even when all its rules are confirmed.
+- `POST /rulebooks/{rulebook_id}/confirm` requires a latest, nonempty draft with
+  every retained rule confirmed. It does not confirm rules automatically.
+- `POST /rulebooks/{rulebook_id}/reject` rejects the latest draft as a whole and
+  preserves its individual rule decisions.
+- `POST /rulebooks/{rulebook_id}/revisions` starts a draft from the latest
+  confirmed or rejected book and resets every included rule to draft. A draft
+  is already editable. Final versions cannot be edited directly.
+- `GET /rulebooks/{rulebook_id}/versions` and
+  `GET /rulebooks/{rulebook_id}/reviews` return paginated snapshots and attributed
+  actions in ascending version order. Extraction and older low-level saves have
+  no review records. An existing book can therefore have an empty review list.
+
+Each successful review action creates version `expected_version + 1` and commits
+the snapshot and reviewer record atomically. The backend assigns the record's
+timestamp. Failures preserve both histories. Existing databases must apply
+`002_rulebook_reviews.sql` through the migration runner described in
+[the backend setup](../README.md#rulebook-review).
+
+The planned HTTP mapping is 409 `VERSION_CONFLICT` for stale versions,
+409 `INVALID_RULEBOOK_STATE` for invalid transitions and 409 `RULEBOOK_NOT_READY`
+for premature confirmation. Invalid fields or citations use 422
+`VALIDATION_ERROR`; missing books or requested versions use 404. The Python
+service also rejects origin changes with reason `invalid_rule_origin`. Reload
+after a conflict before resubmitting reviewer decisions. Services currently raise
+exceptions; the HTTP adapter and its error mapping remain to be implemented.
 
 Finding outcomes are `pass`, `fail`, `unsure`, `unavailable`. Resolutions are
 `pending`, `accepted`, `rejected`, `unsure`. **Accepting a finding confirms the

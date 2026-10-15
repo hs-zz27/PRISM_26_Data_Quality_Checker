@@ -1,8 +1,9 @@
 # Backend
 
 This folder contains the dataset reader, box and mask measurements, sample audit
-service, rule records, PostgreSQL rulebook storage and local Ollama client. The
-remaining modules contain responsibility notes for later implementation.
+service, local Ollama client, and rulebook extraction, review and PostgreSQL
+storage. The remaining modules contain responsibility notes for later
+implementation.
 
 ## Structure
 
@@ -208,11 +209,119 @@ data raises `RulebookStorageError`. Invalid input records raise validation error
 Each read returns independently validated objects. `list_rulebooks()` returns a
 `RulebookPage` with items, limit, offset, total and next_offset, ordered by ID.
 
-This implements append-only version persistence, not reviewer authorization.
-The planned same-version confirmation action needs a dedicated transactional
-operation with review history; it must not be implemented by overwriting a
-snapshot through `save_rulebook()`. The extraction service now coordinates
-extraction and saving; jobs and HTTP endpoints remain separate steps.
+For review actions, use the service functions below. The repository validates
+snapshots and handles persistence; the review service owns state transitions and
+rule-origin policy. Calling the low-level `save_rulebook()` directly does not
+record a reviewer action.
+
+## Rulebook review
+
+`app/services/review.py` supports editing, confirming, rejecting and reopening
+saved rulebooks. Existing databases need migration `002_rulebook_reviews.sql`;
+rerun the schema command before using the review workflow:
+
+```bash
+.venv/bin/python -m backend.app.storage.database
+```
+
+The migration runner applies only migrations that have not already been applied.
+It preserves existing rulebook snapshots.
+
+Load a saved draft, inspect its proposals and submit a `RulebookReplace` request.
+This request contains the complete guideline text and rule list, so omitted rules
+are removed from the new version. Retained rule IDs keep their original origin;
+new IDs must use `RuleOrigin.REVIEWER`. You can change descriptions, check names,
+parameters and citations. Extracted rules still need citations, and every supplied
+citation must occur exactly in the submitted guideline text. Rule IDs must remain
+unique. Unsupported checks can remain visible for review.
+
+The request carries each rule's reviewer decision: `draft`, `confirmed` or
+`rejected`. Saving these decisions leaves the whole book in draft state. For
+example, after a reviewer has checked the first rule in a nonempty saved draft:
+
+```python
+from backend.app.models.review import RulebookAction, RulebookReplace
+from backend.app.models.rule import ConfirmationState, Rule
+from backend.app.services.review import confirm_rulebook, save_rulebook_review
+from backend.app.storage.repository import RulebookRepository
+
+repository = RulebookRepository()
+draft = repository.get_rulebook("saved-rulebook-id")  # Use the ID returned at creation.
+reviewed_rules = list(draft.rules)
+reviewed_rules[0] = Rule(**{
+    **reviewed_rules[0].model_dump(),
+    "confirmation_state": ConfirmationState.CONFIRMED,
+})
+reviewed = save_rulebook_review(
+    draft.rulebook_id,
+    RulebookReplace(
+        expected_version=draft.version,
+        reviewer_id="reviewer_demo",
+        guideline_text=draft.guideline_text,
+        rules=reviewed_rules,
+    ),
+    repository=repository,
+)
+```
+
+This records one explicit rule decision and preserves the other rules. Review
+the remaining rules in the same way. To reject a rule, submit its state as
+`REJECTED`; remove it from a subsequent replacement list before confirming the
+book. Earlier snapshots retain its rejection. Add a reviewer-authored rule by
+including a new `Rule` with a new ID and `origin=RuleOrigin.REVIEWER`; its citation
+may be absent.
+
+Once the reviewer has confirmed every retained rule, confirm the nonempty book:
+
+```python
+confirmed = confirm_rulebook(
+    reviewed.rulebook_id,
+    RulebookAction(expected_version=reviewed.version, reviewer_id="reviewer_demo"),
+    repository=repository,
+)
+```
+
+`confirm_rulebook()` checks the recorded decisions; it never approves individual
+rules automatically. Empty books and books containing draft or rejected rules
+cannot be confirmed. `reject_rulebook()` takes the same arguments and rejects a
+draft as a whole while preserving its individual rule decisions.
+
+Only drafts can be edited, confirmed or rejected. To change a confirmed or
+rejected book, call `revise_rulebook()` with its latest version and a
+`RulebookAction`. This creates a new draft and resets every included rule to draft
+so the reviewer can reconsider it. A draft is already editable and cannot be
+reopened through this action.
+
+Every successful edit, confirmation, rejection or revision appends version
+`expected_version + 1`. The snapshot and its review record are committed together;
+if either write or the commit fails, neither is saved. Review records contain the
+rulebook ID, new version, reviewer ID, action and backend-assigned timestamp.
+`reviewer_id` provides attribution for the local prototype; authentication and
+authorization are not implemented.
+
+Two callers editing the same version cannot overwrite one another. A stale
+`expected_version` raises `RulebookVersionConflictError`, including when another
+reviewer saves after the service loads the draft. Reload the latest version and
+review the differences before resubmitting. No automatic retry merges decisions.
+Invalid transitions raise `RulebookReviewError` with reason
+`invalid_rulebook_state`; premature confirmation uses `rulebook_not_ready` and
+origin changes use `invalid_rule_origin`. Invalid fields or citations raise
+Pydantic `ValidationError`. Missing records and storage failures use the repository
+errors described above. Failed actions create no new snapshot or review record.
+
+Read the saved history with:
+
+```python
+versions = repository.list_rulebook_versions(reviewed.rulebook_id, limit=20, offset=0)
+reviews = repository.list_rulebook_reviews(reviewed.rulebook_id, limit=20, offset=0)
+```
+
+Both lists are ordered by ascending version and expose `items`, `limit`, `offset`,
+`total` and `next_offset`; limits are 1–100. A missing rulebook raises
+`RulebookNotFoundError`. An existing book can have an empty review history:
+extraction and earlier low-level saves do not gain invented reviewer records.
+These are Python services and repository operations; HTTP routes and jobs remain
+planned.
 
 ## Database tests
 
