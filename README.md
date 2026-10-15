@@ -2,7 +2,7 @@
 
 An AI tool that checks training data (initially images with bounding boxes, segmentation masks and labels) against reviewer-confirmed rules extracted from plain text guidelines. The initial prototype runs locally and offline on a CPU using free/open-source models and tools.
 
-- **[MENTOR_REQUIREMENTS.md](MENTOR_REQUIREMENTS.md):** the latest mentor clarifications and project context. These take precedence over earlier proposals and assumptions.
+- **[SRS.md](SRS.md):** the latest mentor clarifications and project context. These take precedence over earlier proposals and assumptions.
 - **[RULES.md](RULES.md):** the Penn-Fudan development dataset and example rulebook. Sample data and rules are examples, not the complete, fixed product specification.
 
 ## Project structure
