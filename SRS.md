@@ -1,4 +1,4 @@
-# Mentor requirements and project context
+# Software Requirements Specification (SRS)
 
 Recorded on 13 October 2026 from the mentor reply and WhatsApp screenshot supplied by the user. This file preserves the current requirements for future work. New mentor clarifications take precedence over older proposals, meeting interpretations and development assumptions.
 
