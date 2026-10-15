@@ -60,8 +60,9 @@ https://spec.openapis.org/oas/v3.1.0.html.
     then explicitly activate the evaluated policy for later audits.
 
 Every operation has `x-implementation-status: planned` and a backing-service
-note. Current Python measurements, rule records and Ollama integration exist;
-HTTP routes, storage, confirmed-rule execution, jobs, model checks, review,
+note. Current Python measurements, rule records, Ollama integration and PostgreSQL
+rulebook version storage exist. HTTP routes, storage for the
+other workflow records, confirmed-rule execution, jobs, model checks, review,
 correction/export and evaluated feedback services remain planned.
 
 ## Requests, responses and jobs
