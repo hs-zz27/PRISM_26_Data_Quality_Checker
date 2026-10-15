@@ -18,7 +18,8 @@ from pydantic import SecretStr, ValidationError
 import pytest
 
 from backend.app.core.config import DatabaseSettings
-from backend.app.models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin
+from backend.app.models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin, RuleProposal
+from backend.app.services import rule_extraction
 from backend.app.storage import database
 from backend.app.storage.database import DatabaseError, database_connection, initialize_database
 from backend.app.storage.repository import (
@@ -100,6 +101,44 @@ def test_rulebook_round_trip_survives_new_repository_instance(store):
     assert loaded.rules[0].origin is RuleOrigin.EXTRACTED
     assert loaded.confirmation_state is ConfirmationState.DRAFT
     assert loaded.rules[0].parameters["context"]["optional"] is None
+
+
+@pytest.mark.parametrize("proposal_kind", ["supported", "unsupported", "empty"])
+def test_extraction_workflow_commits_reviewable_drafts(store, monkeypatch, proposal_kind):
+    proposals = [RuleProposal(
+        **rule.model_dump(exclude={"origin", "confirmation_state"})
+    ) for rule in make_book().rules]
+    if proposal_kind == "unsupported":
+        proposals[0].check_name = None
+    elif proposal_kind == "empty":
+        proposals = []
+    text = f"\n  {SOURCE}\n"
+    connect = psycopg.connect
+    connections = []
+
+    def track_connection(*args, **kwargs):
+        connections.append(True)
+        return connect(*args, **kwargs)
+
+    def propose(guideline_text, *, settings):
+        assert guideline_text == text and settings is None
+        assert connections == []
+        return proposals
+
+    monkeypatch.setattr(psycopg, "connect", track_connection)
+    monkeypatch.setattr(rule_extraction, "propose_rules", propose)
+    saved = rule_extraction.extract_and_save_rulebook(text, repository=store)
+    reopened = RulebookRepository(settings=store.settings)
+    loaded = reopened.get_rulebook(saved.rulebook_id, version=1)
+
+    assert loaded == saved and loaded is not saved
+    assert loaded.guideline_text == text
+    assert [rule.model_dump(exclude={"origin", "confirmation_state"}) for rule in loaded.rules] == [
+        proposal.model_dump() for proposal in proposals
+    ]
+    assert loaded.version == 1 and loaded.confirmation_state is ConfirmationState.DRAFT
+    assert all(rule.origin is RuleOrigin.EXTRACTED for rule in loaded.rules)
+    assert all(rule.confirmation_state is ConfirmationState.DRAFT for rule in loaded.rules)
 
 
 def test_schema_initialization_is_idempotent_and_preserves_records(store):

@@ -4,10 +4,10 @@ import json
 from typing import Any
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from ..core.config import OllamaSettings, load_ollama_settings
-from ..models.rule import ConfirmationState, NonBlankText, Rule, Rulebook, RuleOrigin
+from ..models.rule import RuleProposal
 
 
 class OllamaClientError(RuntimeError):
@@ -18,22 +18,10 @@ class OllamaClientError(RuntimeError):
         self.reason = reason
 
 
-class _ExtractedRule(BaseModel):
-    """Content the model may supply, without application-owned review metadata."""
-
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    rule_id: NonBlankText
-    description: NonBlankText
-    check_name: NonBlankText | None = None
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
-    source_sentence: NonBlankText
-
-
 class _RuleResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    rules: list[_ExtractedRule]
+    rules: list[RuleProposal]
 
 
 def _post_json(
@@ -71,15 +59,17 @@ def propose_rules(
     host: str | None = None,
     timeout: float | None = None,
     transport: httpx.BaseTransport | None = None,
-) -> list[Rule]:
-    """Return validated draft rules proposed from plain text guidelines.
+) -> list[RuleProposal]:
+    """Return schema-validated proposals from plain text guidelines.
 
     The local model must already be installed; no download or server startup
     is performed. HTTPX calls the Ollama API directly so remote-model metadata
     remains visible (the installed Ollama SDK omits those fields). Environment
     proxies and redirects are disabled. transport allows offline API tests.
-    Citation validation checks presence, not whether the interpretation is
-    correct; reviewer confirmation is still required. CPU performance and
+    The extraction service assigns origin and review state, then constructs
+    the rulebook to validate citation matching and unique rule IDs. This
+    client validates the response shape and individual proposal fields.
+    Reviewer confirmation is still required. CPU performance and
     extraction accuracy need a separate evaluation with the running model.
     Defaults are loaded from backend/ollama.toml at call time. Explicit
     settings bypass file loading; model, host and timeout override either
@@ -154,18 +144,6 @@ def propose_rules(
         raise OllamaClientError("invalid_response", "Ollama returned no rule proposal text.")
 
     try:
-        proposals = _RuleResponse.model_validate_json(content)
-        rules = [
-            Rule(
-                **proposal.model_dump(),
-                origin=RuleOrigin.EXTRACTED,
-                confirmation_state=ConfirmationState.DRAFT,
-            )
-            for proposal in proposals.rules
-        ]
-        # Reuse rulebook validation for citation presence and unique rule IDs.
-        validated = Rulebook(rulebook_id="model-proposals", guideline_text=guideline_text,
-                             rules=rules)
+        return _RuleResponse.model_validate_json(content).rules
     except ValidationError as error:
-        raise OllamaClientError("invalid_rule_proposals", "Model output failed rule or citation validation.") from error
-    return validated.rules
+        raise OllamaClientError("invalid_rule_proposals", "Model output failed proposal schema validation.") from error

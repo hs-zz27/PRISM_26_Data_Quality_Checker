@@ -74,6 +74,11 @@ To supply an alternate configuration file, pass
 host and timeout overrides take precedence over the supplied settings and are
 validated without modifying them.
 
+`propose_rules()` returns `RuleProposal` records containing the model's proposed
+content. The client checks the response schema; `extract_rulebook()` assigns
+origin and draft state and builds the `Rulebook`, which checks unique rule IDs
+and whether citations occur in the original guidelines.
+
 ## Proposed frontend API
 
 See [api/README.md](api/README.md) for the draft endpoint contract, request/response
@@ -98,6 +103,28 @@ pass `settings=load_ollama_settings(path)` for an alternate configuration.
 Model/configuration errors propagate instead of becoming empty successful
 results. Persistence, job handling, reviewer confirmation and HTTP routing are
 not performed by this function.
+
+To extract and save a draft in one operation, use `extract_and_save_rulebook()`
+after initializing PostgreSQL as described below:
+
+```python
+from backend.app.services.rule_extraction import extract_and_save_rulebook
+from backend.app.storage.repository import RulebookRepository
+
+book = extract_and_save_rulebook(
+    "Allowed labels are person and vehicle.",
+    repository=RulebookRepository(),
+)
+```
+
+The repository is an explicit dependency, so callers control its database
+settings. The service completes extraction and validation before opening a
+database transaction, and returns the saved version-1 draft after the write
+commits. Pass `settings=...` to select alternate Ollama settings. Extraction,
+validation and storage errors propagate to the caller. Empty drafts and
+unsupported requirements are saved for reviewer inspection. Each call creates a
+new rulebook; failed calls are not automatically retried. Reviewer confirmation,
+jobs and HTTP routing remain separate steps.
 
 ## Local PostgreSQL setup
 
@@ -184,8 +211,8 @@ Each read returns independently validated objects. `list_rulebooks()` returns a
 This implements append-only version persistence, not reviewer authorization.
 The planned same-version confirmation action needs a dedicated transactional
 operation with review history; it must not be implemented by overwriting a
-snapshot through `save_rulebook()`. Extraction, saving, jobs and HTTP endpoints
-are still separate steps.
+snapshot through `save_rulebook()`. The extraction service now coordinates
+extraction and saving; jobs and HTTP endpoints remain separate steps.
 
 ## Database tests
 

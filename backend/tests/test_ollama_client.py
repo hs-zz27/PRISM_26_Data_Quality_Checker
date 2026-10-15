@@ -1,11 +1,16 @@
 import json
+from functools import partial
+from unittest.mock import Mock
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from backend.app.core.config import OllamaSettings, load_ollama_settings
 from backend.app.inference.ollama_client import OllamaClientError, propose_rules
-from backend.app.models.rule import ConfirmationState, Rule, RuleOrigin
+from backend.app.models.rule import RuleProposal
+from backend.app.services import rule_extraction
+from backend.app.storage.repository import RulebookRepository
 
 
 GUIDELINES = "Allowed labels are person and vehicle."
@@ -45,13 +50,12 @@ def fake_server():
     return state, httpx.MockTransport(handle)
 
 
-def test_valid_proposals_are_drafts_and_request_uses_cpu_schema(fake_server):
+def test_valid_proposals_preserve_content_and_request_uses_cpu_schema(fake_server):
     state, transport = fake_server
-    rules = propose_rules(GUIDELINES, transport=transport)
-    assert len(rules) == 1 and rules[0].parameters == PROPOSAL["parameters"]
-    assert type(rules[0]) is Rule
-    assert rules[0].origin is RuleOrigin.EXTRACTED
-    assert rules[0].confirmation_state is ConfirmationState.DRAFT
+    proposals = propose_rules(GUIDELINES, transport=transport)
+    assert len(proposals) == 1
+    assert type(proposals[0]) is RuleProposal
+    assert proposals[0].model_dump() == PROPOSAL
     assert [path for path, _ in state["requests"]] == ["/api/show", "/api/chat"]
     request = state["requests"][1][1]
     assert request["model"] == load_ollama_settings().model and request["stream"] is False
@@ -162,18 +166,34 @@ def test_incomplete_generation_is_not_accepted(fake_server, changes):
 
 @pytest.mark.parametrize("content", [
     "not JSON", '{}', '{"rules": "wrong"}',
-    json.dumps({"rules": [{**PROPOSAL, "source_sentence": "Invented citation."}]}),
     json.dumps({"rules": [{**PROPOSAL, "source_sentence": None}]}),
     json.dumps({"rules": [{key: value for key, value in PROPOSAL.items() if key != "source_sentence"}]}),
     json.dumps({"rules": [{**PROPOSAL, "source_sentence": " "}]}),
-    json.dumps({"rules": [PROPOSAL, PROPOSAL]}),
 ])
-def test_invalid_or_unreviewed_model_output_is_rejected(fake_server, content):
+def test_invalid_structured_model_output_is_rejected(fake_server, content):
     state, transport = fake_server
     state["chat"]["message"]["content"] = content
     with pytest.raises(OllamaClientError) as caught:
         propose_rules(GUIDELINES, transport=transport)
     assert caught.value.reason == "invalid_rule_proposals"
+
+
+@pytest.mark.parametrize("proposals, error", [
+    ([PROPOSAL, PROPOSAL], "Rule IDs must be unique"),
+    ([{**PROPOSAL, "source_sentence": "Invented citation."}], "text absent from the guidelines"),
+])
+def test_invalid_rulebook_content_from_model_is_never_saved(
+    fake_server, monkeypatch, proposals, error
+):
+    state, transport = fake_server
+    state["chat"]["message"]["content"] = json.dumps({"rules": proposals})
+    monkeypatch.setattr(rule_extraction, "propose_rules", partial(propose_rules, transport=transport))
+    repository = Mock(spec_set=RulebookRepository)
+
+    with pytest.raises(ValidationError, match=error):
+        rule_extraction.extract_and_save_rulebook(GUIDELINES, repository=repository)
+
+    repository.save_rulebook.assert_not_called()
 
 
 @pytest.mark.parametrize("changes", [

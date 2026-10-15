@@ -6,8 +6,13 @@ import pytest
 
 from backend.app.core.config import load_ollama_settings
 from backend.app.inference.ollama_client import OllamaClientError
-from backend.app.models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin
+from backend.app.models.rule import ConfirmationState, Rulebook, RuleOrigin, RuleProposal
 from backend.app.services import rule_extraction
+from backend.app.storage.repository import (
+    RulebookRepository,
+    RulebookStorageError,
+    RulebookVersionConflictError,
+)
 
 
 SOURCE = "Allowed labels are person and vehicle."
@@ -15,12 +20,11 @@ SOURCE = "Allowed labels are person and vehicle."
 
 @pytest.fixture
 def proposal():
-    return Rule(
+    return RuleProposal(
         rule_id="LBL-1",
         description="Use an allowed label.",
         check_name="allowed_labels",
         parameters={"allowed_labels": ["person", "vehicle"]},
-        origin=RuleOrigin.EXTRACTED,
         source_sentence=SOURCE,
     )
 
@@ -94,17 +98,6 @@ def test_unsupported_requirements_and_parameters_are_retained(inference, proposa
     assert book.rules[0].parameters == proposal.parameters
 
 
-@pytest.mark.parametrize("field,value", [
-    ("origin", RuleOrigin.REVIEWER),
-    ("confirmation_state", ConfirmationState.CONFIRMED),
-    ("confirmation_state", ConfirmationState.REJECTED),
-])
-def test_proposals_cannot_claim_reviewer_origin_or_confirmation(inference, proposal, field, value):
-    setattr(proposal, field, value)
-    with pytest.raises(ValueError, match="extracted origin and remain in draft"):
-        rule_extraction.extract_rulebook(SOURCE)
-
-
 @pytest.mark.parametrize("citation", [None, "Invented guideline text."])
 def test_invalid_citations_are_rejected(inference, proposal, citation):
     proposal.source_sentence = citation
@@ -118,7 +111,7 @@ def test_duplicate_rule_ids_are_rejected(inference, proposal):
         rule_extraction.extract_rulebook(SOURCE)
 
 
-def test_mutated_rule_instances_are_revalidated(inference, proposal):
+def test_invalid_proposal_fields_are_rejected_when_creating_rules(inference, proposal):
     proposal.rule_id = ""
     with pytest.raises(ValidationError):
         rule_extraction.extract_rulebook(SOURCE)
@@ -130,3 +123,74 @@ def test_returned_rules_do_not_share_mutable_data_with_client(inference, proposa
     assert book.rules[0].parameters["allowed_labels"] == ["person", "vehicle"]
     book.rules[0].parameters["allowed_labels"].append("walker")
     assert "walker" not in proposal.parameters["allowed_labels"]
+
+
+@pytest.fixture
+def repository():
+    return Mock(spec_set=RulebookRepository)
+
+
+def test_extract_and_save_returns_committed_snapshot_after_extraction(inference, proposal, repository):
+    text = f"\n  {SOURCE}\n"
+    settings = load_ollama_settings()
+    committed = []
+
+    def propose(*args, **kwargs):
+        repository.save_rulebook.assert_not_called()
+        return [proposal]
+
+    def save(draft, *, expected_version):
+        snapshot = draft.model_copy(deep=True)
+        committed.append(snapshot)
+        return snapshot
+
+    inference.side_effect = propose
+    repository.save_rulebook.side_effect = save
+    result = rule_extraction.extract_and_save_rulebook(text, repository=repository, settings=settings)
+
+    inference.assert_called_once_with(text, settings=settings)
+    draft = repository.save_rulebook.call_args.args[0]
+    repository.save_rulebook.assert_called_once_with(draft, expected_version=0)
+    assert result is committed[0] and result is not draft
+    assert result == draft and result.guideline_text == text
+    assert result.version == 1 and result.confirmation_state is ConfirmationState.DRAFT
+
+
+def test_extract_and_save_rejects_invalid_input_without_model_or_storage(inference, repository):
+    with pytest.raises(ValueError, match="non-empty plain text"):
+        rule_extraction.extract_and_save_rulebook(" \n", repository=repository)
+    inference.assert_not_called()
+    repository.save_rulebook.assert_not_called()
+
+
+@pytest.mark.parametrize("error", [
+    OllamaClientError("server_unavailable", "Local server is unavailable."),
+    ValueError("Invalid model configuration."),
+])
+def test_extract_and_save_does_not_write_on_inference_failure(inference, repository, error):
+    inference.side_effect = error
+    with pytest.raises(type(error)) as caught:
+        rule_extraction.extract_and_save_rulebook(SOURCE, repository=repository)
+    assert caught.value is error
+    inference.assert_called_once_with(SOURCE, settings=None)
+    repository.save_rulebook.assert_not_called()
+
+
+def test_extract_and_save_does_not_store_invalid_proposals(inference, proposal, repository):
+    proposal.source_sentence = "Invented citation."
+    with pytest.raises(ValidationError):
+        rule_extraction.extract_and_save_rulebook(SOURCE, repository=repository)
+    repository.save_rulebook.assert_not_called()
+
+
+@pytest.mark.parametrize("error", [
+    RulebookStorageError("Database is unavailable."),
+    RulebookVersionConflictError("rulebook_demo", expected_version=0, actual_version=1),
+])
+def test_extract_and_save_propagates_storage_failure_without_retry(inference, repository, error):
+    repository.save_rulebook.side_effect = error
+    with pytest.raises(type(error)) as caught:
+        rule_extraction.extract_and_save_rulebook(SOURCE, repository=repository)
+    assert caught.value is error
+    inference.assert_called_once_with(SOURCE, settings=None)
+    assert repository.save_rulebook.call_count == 1

@@ -24,6 +24,18 @@ class RuleOrigin(StrEnum):
     REVIEWER = "reviewer"
 
 
+class RuleProposal(BaseModel):
+    """Model-proposed content before application metadata and rulebook validation."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    rule_id: NonBlankText
+    description: NonBlankText
+    check_name: NonBlankText | None = None
+    parameters: dict[str, JsonValue] = Field(default_factory=dict)
+    source_sentence: NonBlankText
+
+
 class Rule(BaseModel):
     """A proposed or reviewer-confirmed requirement, separate from its check.
 
