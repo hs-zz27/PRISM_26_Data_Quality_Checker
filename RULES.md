@@ -2,7 +2,7 @@
 
 **Version:** 1.1 (draft for review, 13 October 2026) · **Data type:** images with bounding boxes, segmentation masks and labels
 
-This is a development example of the rulebook the Data Quality Checker should produce after it reads plain text guidelines and a reviewer confirms, edits or adds rules. The mentors clarified that their shared sample data and rules are just examples. This Penn-Fudan rulebook must not become the complete, fixed product specification. See [MENTOR_REQUIREMENTS.md](MENTOR_REQUIREMENTS.md) for the current requirements.
+This is a development example of the rulebook the Data Quality Checker should produce after it reads plain text guidelines and a reviewer confirms, edits or adds rules. The mentors clarified that their shared sample data and rules are just examples. This Penn-Fudan rulebook must not become the complete, fixed product specification. See [SRS.md](SRS.md) for the current requirements.
 
 The initial tool must check every image on a **CPU**, then:
 
