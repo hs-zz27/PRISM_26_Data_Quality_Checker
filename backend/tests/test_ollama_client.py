@@ -5,7 +5,7 @@ import pytest
 
 from backend.app.core.config import OllamaSettings, load_ollama_settings
 from backend.app.inference.ollama_client import OllamaClientError, propose_rules
-from backend.app.models.rule import ConfirmationState, RuleOrigin
+from backend.app.models.rule import ConfirmationState, Rule, RuleOrigin
 
 
 GUIDELINES = "Allowed labels are person and vehicle."
@@ -49,6 +49,7 @@ def test_valid_proposals_are_drafts_and_request_uses_cpu_schema(fake_server):
     state, transport = fake_server
     rules = propose_rules(GUIDELINES, transport=transport)
     assert len(rules) == 1 and rules[0].parameters == PROPOSAL["parameters"]
+    assert type(rules[0]) is Rule
     assert rules[0].origin is RuleOrigin.EXTRACTED
     assert rules[0].confirmation_state is ConfirmationState.DRAFT
     assert [path for path, _ in state["requests"]] == ["/api/show", "/api/chat"]
@@ -57,7 +58,13 @@ def test_valid_proposals_are_drafts_and_request_uses_cpu_schema(fake_server):
     assert request["options"]["num_gpu"] == 0 and request["options"]["temperature"] == 0
     assert request["keep_alive"] == 0
     assert request["messages"][1]["content"] == GUIDELINES
-    assert request["format"]["$defs"]["_DraftRule"]["properties"]["confirmation_state"]["const"] == "draft"
+    schema = request["format"]
+    rule_definition = schema["properties"]["rules"]["items"]["$ref"].rsplit("/", 1)[1]
+    rule_schema = schema["$defs"][rule_definition]
+    assert "origin" not in rule_schema["properties"]
+    assert "confirmation_state" not in rule_schema["properties"]
+    assert "source_sentence" in rule_schema["required"]
+    assert rule_schema["additionalProperties"] is False
     assert GUIDELINES not in json.dumps(state["requests"][0][1])
 
 
@@ -65,6 +72,21 @@ def test_empty_proposals_are_valid(fake_server):
     state, transport = fake_server
     state["chat"]["message"]["content"] = '{"rules": []}'
     assert propose_rules(GUIDELINES, transport=transport) == []
+
+
+@pytest.mark.parametrize("field, value", [
+    ("origin", "extracted"),
+    ("origin", "reviewer"),
+    ("confirmation_state", "draft"),
+    ("confirmation_state", "confirmed"),
+    ("confirmation_state", "rejected"),
+])
+def test_model_cannot_supply_application_owned_metadata(fake_server, field, value):
+    state, transport = fake_server
+    state["chat"]["message"]["content"] = json.dumps({"rules": [{**PROPOSAL, field: value}]})
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "invalid_rule_proposals"
 
 
 def test_unknown_requirement_is_retained_without_check(fake_server):
@@ -140,10 +162,10 @@ def test_incomplete_generation_is_not_accepted(fake_server, changes):
 
 @pytest.mark.parametrize("content", [
     "not JSON", '{}', '{"rules": "wrong"}',
-    json.dumps({"rules": [{**PROPOSAL, "confirmation_state": "confirmed"}]}),
-    json.dumps({"rules": [{**PROPOSAL, "origin": "reviewer"}]}),
     json.dumps({"rules": [{**PROPOSAL, "source_sentence": "Invented citation."}]}),
     json.dumps({"rules": [{**PROPOSAL, "source_sentence": None}]}),
+    json.dumps({"rules": [{key: value for key, value in PROPOSAL.items() if key != "source_sentence"}]}),
+    json.dumps({"rules": [{**PROPOSAL, "source_sentence": " "}]}),
     json.dumps({"rules": [PROPOSAL, PROPOSAL]}),
 ])
 def test_invalid_or_unreviewed_model_output_is_rejected(fake_server, content):
