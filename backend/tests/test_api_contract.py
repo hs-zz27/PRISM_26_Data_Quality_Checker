@@ -8,6 +8,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 import pytest
 
 from backend.app.models.rule import Rulebook
+from backend.app.models.review import RulebookAction, RulebookReplace, RulebookReviewPage
 
 
 API_ROOT = Path(__file__).resolve().parents[1] / "api"
@@ -34,7 +35,7 @@ def media_examples(media):
 def test_all_routes_are_explicitly_planned_with_unique_operation_ids():
     assert SPEC["openapi"] == "3.1.0"
     identifiers = [operation["operationId"] for _, _, operation in OPERATIONS]
-    assert len(identifiers) == len(set(identifiers)) == 46
+    assert len(identifiers) == len(set(identifiers)) == 48
     assert all(operation["x-implementation-status"] == "planned" for _, _, operation in OPERATIONS)
 
 
@@ -95,6 +96,21 @@ def test_rulebook_responses_validate_with_existing_python_records():
             if media.get("schema", {}).get("$ref") == "#/components/schemas/Rulebook":
                 for example in media_examples(media):
                     Rulebook.model_validate_json(json.dumps(example))
+
+
+def test_rulebook_review_templates_match_service_requests_and_version_semantics():
+    for fixture in EXAMPLES["operations"]:
+        identifier = fixture["operation_id"]
+        if identifier == "replaceDraftRulebook":
+            request = RulebookReplace.model_validate_json(json.dumps(fixture["request"]["body"]))
+        elif identifier in {"confirmRulebook", "rejectRulebook", "reviseRulebook"}:
+            request = RulebookAction.model_validate_json(json.dumps(fixture["request"]["body"]))
+        elif identifier == "listRulebookReviews":
+            RulebookReviewPage.model_validate_json(json.dumps(fixture["response"]["body"]))
+            continue
+        else:
+            continue
+        assert fixture["response"]["body"]["version"] == request.expected_version + 1
 
 
 @pytest.mark.parametrize("state", ["flagged", "no_issue", "unsure", "unavailable"])

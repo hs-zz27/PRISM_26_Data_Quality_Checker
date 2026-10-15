@@ -17,9 +17,11 @@ Paths include the `/api/v1` prefix. See `openapi.json` for schemas and `examples
 - `GET /api/v1/rulebooks` — List latest rulebook versions (`listRulebooks`).
 - `GET /api/v1/rulebooks/{rulebook_id}` — Read a rulebook version (`getRulebook`).
 - `GET /api/v1/rulebooks/{rulebook_id}/versions` — Read rulebook version history (`listRulebookVersions`).
+- `GET /api/v1/rulebooks/{rulebook_id}/reviews` — Read rulebook review attribution (`listRulebookReviews`).
 - `PUT /api/v1/rulebooks/{rulebook_id}` — Save a reviewed draft (`replaceDraftRulebook`).
 - `POST /api/v1/rulebooks/{rulebook_id}/confirm` — Confirm a reviewed rulebook (`confirmRulebook`).
-- `POST /api/v1/rulebooks/{rulebook_id}/revisions` — Start a new draft from a confirmed version (`reviseRulebook`).
+- `POST /api/v1/rulebooks/{rulebook_id}/reject` — Reject a draft rulebook (`rejectRulebook`).
+- `POST /api/v1/rulebooks/{rulebook_id}/revisions` — Start a new draft from a final version (`reviseRulebook`).
 
 ## Datasets
 

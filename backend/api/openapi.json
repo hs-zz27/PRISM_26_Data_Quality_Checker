@@ -807,7 +807,7 @@
         "summary": "Propose draft rules from plain text",
         "description": "Poll GET /jobs/{job_id}. On completion, result.href points to the saved draft rulebook. Failure is stored in job.error, including MODEL_UNAVAILABLE or INVALID_RULE_PROPOSALS.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "propose_rules exists; jobs, persistence and route are planned.",
+        "x-backing-service-status": "extract_and_save_rulebook coordinates extraction and PostgreSQL storage; jobs and route are planned.",
         "responses": {
           "202": {
             "description": "Job accepted; poll the returned job ID.",
@@ -1104,9 +1104,9 @@
           "Rulebooks"
         ],
         "summary": "Save a reviewed draft",
-        "description": "Only latest drafts are editable. Save increments version and preserves history. All retained extracted citations must match the supplied text. A book stays draft until the confirm action. The response reflects submitted rules; example save confirms each rule but not the book.",
+        "description": "Only latest drafts are editable. Submit the complete rule list and explicit rule decisions; omission removes a rule. Retained IDs preserve origin; added IDs must use reviewer origin. All citations must match the supplied text. Save increments version, attributes the reviewer and preserves history. The book stays draft; example save confirms individual rules only.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "x-backing-service-status": "save_rulebook_review service and transactional PostgreSQL review history exist; route is planned.",
         "responses": {
           "200": {
             "description": "Save a reviewed draft",
@@ -1252,6 +1252,7 @@
               },
               "example": {
                 "expected_version": 1,
+                "reviewer_id": "reviewer_demo",
                 "guideline_text": "Allowed labels are person.",
                 "rules": [
                   {
@@ -1281,9 +1282,9 @@
           "Rulebooks"
         ],
         "summary": "Read rulebook version history",
-        "description": "Read rulebook version history",
+        "description": "Snapshots are ordered by ascending version. Unknown rulebooks return 404; an offset past the last version returns an empty page.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "x-backing-service-status": "RulebookRepository.list_rulebook_versions exists; route is planned.",
         "responses": {
           "200": {
             "description": "Read rulebook version history",
@@ -1455,6 +1456,173 @@
         ]
       }
     },
+    "/rulebooks/{rulebook_id}/reviews": {
+      "get": {
+        "operationId": "listRulebookReviews",
+        "tags": [
+          "Rulebooks"
+        ],
+        "summary": "Read rulebook review attribution",
+        "description": "Attributed review actions ordered by ascending version. Each action and snapshot commit together. Extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.",
+        "x-implementation-status": "planned",
+        "x-backing-service-status": "RulebookRepository.list_rulebook_reviews exists; route is planned.",
+        "responses": {
+          "200": {
+            "description": "Read rulebook review attribution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulebookReviewPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "rulebook_id": "rulebook_demo",
+                      "version": 2,
+                      "reviewer_id": "reviewer_demo",
+                      "action": "edit",
+                      "created_at": "2026-10-14T10:00:00Z"
+                    }
+                  ],
+                  "limit": 20,
+                  "offset": 0,
+                  "total": 1,
+                  "next_offset": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request could not be processed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "message": "The request could not be processed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "The requested resource does not exist.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The resource changed; refresh before saving.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VERSION_CONFLICT",
+                    "message": "The resource changed; refresh before saving.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "One or more request fields are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local model or service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "DEPENDENCY_UNAVAILABLE",
+                    "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "example": 20,
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "example": 0,
+            "description": ""
+          },
+          {
+            "name": "rulebook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "example": "rulebook_demo",
+            "description": ""
+          }
+        ]
+      }
+    },
     "/rulebooks/{rulebook_id}/confirm": {
       "post": {
         "operationId": "confirmRulebook",
@@ -1462,9 +1630,9 @@
           "Rulebooks"
         ],
         "summary": "Confirm a reviewed rulebook",
-        "description": "All included rules must be confirmed. Rejected rules must be removed from the active draft; prior versions preserve them. Freeze the confirmed version for audits. 409 RULEBOOK_NOT_READY when rules are unconfirmed.",
+        "description": "Only a latest draft can be confirmed. Require a nonempty book with all included rules confirmed. Rejected rules must be removed; prior versions preserve them. Append expected_version + 1 as a frozen confirmed snapshot for audits. 409 RULEBOOK_NOT_READY when rules are unconfirmed or empty.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "x-backing-service-status": "confirm_rulebook service and transactional PostgreSQL review history exist; route is planned.",
         "responses": {
           "200": {
             "description": "Confirm a reviewed rulebook",
@@ -1475,7 +1643,7 @@
                 },
                 "example": {
                   "rulebook_id": "rulebook_demo",
-                  "version": 2,
+                  "version": 3,
                   "guideline_text": "Allowed labels are person.",
                   "rules": [
                     {
@@ -1617,19 +1785,19 @@
         }
       }
     },
-    "/rulebooks/{rulebook_id}/revisions": {
+    "/rulebooks/{rulebook_id}/reject": {
       "post": {
-        "operationId": "reviseRulebook",
+        "operationId": "rejectRulebook",
         "tags": [
           "Rulebooks"
         ],
-        "summary": "Start a new draft from a confirmed version",
-        "description": "Keep the old confirmed version immutable. Create the next draft and reset included rule confirmation to draft.",
+        "summary": "Reject a draft rulebook",
+        "description": "Reject the latest draft as a whole. Append a new version without changing individual rule decisions. Start a revision before further edits.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "x-backing-service-status": "reject_rulebook service and transactional PostgreSQL review history exist; route is planned.",
         "responses": {
-          "201": {
-            "description": "Start a new draft from a confirmed version",
+          "200": {
+            "description": "Reject a draft rulebook",
             "content": {
               "application/json": {
                 "schema": {
@@ -1637,7 +1805,169 @@
                 },
                 "example": {
                   "rulebook_id": "rulebook_demo",
-                  "version": 3,
+                  "version": 2,
+                  "guideline_text": "Allowed labels are person.",
+                  "rules": [
+                    {
+                      "rule_id": "LBL-1",
+                      "description": "Use an allowed label.",
+                      "check_name": "allowed_labels",
+                      "parameters": {
+                        "allowed_labels": [
+                          "person"
+                        ]
+                      },
+                      "origin": "extracted",
+                      "source_sentence": "Allowed labels are person.",
+                      "confirmation_state": "draft"
+                    }
+                  ],
+                  "confirmation_state": "rejected"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request could not be processed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "message": "The request could not be processed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "The requested resource does not exist.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The resource changed; refresh before saving.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VERSION_CONFLICT",
+                    "message": "The resource changed; refresh before saving.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "One or more request fields are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local model or service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "DEPENDENCY_UNAVAILABLE",
+                    "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "rulebook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "example": "rulebook_demo",
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulebookAction"
+              },
+              "example": {
+                "expected_version": 1,
+                "reviewer_id": "reviewer_demo"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rulebooks/{rulebook_id}/revisions": {
+      "post": {
+        "operationId": "reviseRulebook",
+        "tags": [
+          "Rulebooks"
+        ],
+        "summary": "Start a new draft from a final version",
+        "description": "Require the latest confirmed or rejected book. Keep its snapshot immutable; append expected_version + 1 as a draft and reset every included rule to draft. Draft books are already editable. Invalid state transitions return 409 INVALID_RULEBOOK_STATE; stale expected_version returns 409 VERSION_CONFLICT.",
+        "x-implementation-status": "planned",
+        "x-backing-service-status": "revise_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        "responses": {
+          "201": {
+            "description": "Start a new draft from a final version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rulebook"
+                },
+                "example": {
+                  "rulebook_id": "rulebook_demo",
+                  "version": 4,
                   "guideline_text": "Allowed labels are person.",
                   "rules": [
                     {
@@ -1771,7 +2101,7 @@
                 "$ref": "#/components/schemas/RulebookAction"
               },
               "example": {
-                "expected_version": 2,
+                "expected_version": 3,
                 "reviewer_id": "reviewer_demo"
               }
             }
@@ -9695,7 +10025,7 @@
       },
       "Rulebook": {
         "additionalProperties": false,
-        "description": "Group rules with their original plain text guidelines and a version.\n\nCitation matching is exact and does not alter the supplied text. A\nconfirmed rulebook contains at least one rule, all confirmed. Rules\nrejected during review can remain in a draft or an earlier saved version.\nConfirmation fields record state; the review service must manage actual\nreviewer actions, revisions and persistence later.",
+        "description": "Group rules with their original plain text guidelines and a version.\n\nCitation matching is exact and does not alter the supplied text. A\nconfirmed rulebook contains at least one rule, all confirmed. Rules\nrejected during review can remain in a draft or an earlier saved version.\nConfirmation fields record state; the review service manages reviewer\nactions and appends attributed revisions without changing older versions.",
         "properties": {
           "rulebook_id": {
             "minLength": 1,
@@ -10093,46 +10423,161 @@
         "additionalProperties": false
       },
       "RulebookReplace": {
-        "type": "object",
+        "additionalProperties": false,
+        "description": "Replace the complete draft contents, including individual rule decisions.\n\nOmitted rules are removed. New IDs must use reviewer origin; retained IDs\npreserve their origin. Confirmation states are explicit reviewer decisions.",
         "properties": {
           "expected_version": {
-            "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "reviewer_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
           },
           "guideline_text": {
+            "title": "Guideline Text",
             "type": "string"
           },
           "rules": {
-            "type": "array",
             "items": {
               "$ref": "#/components/schemas/Rule"
-            }
+            },
+            "title": "Rules",
+            "type": "array"
           }
         },
         "required": [
           "expected_version",
+          "reviewer_id",
           "guideline_text",
           "rules"
         ],
-        "additionalProperties": false
+        "title": "RulebookReplace",
+        "type": "object"
       },
       "RulebookAction": {
-        "type": "object",
+        "additionalProperties": false,
+        "description": "Identify the reviewed version and the person submitting the action.",
         "properties": {
           "expected_version": {
-            "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "title": "Expected Version",
+            "type": "integer"
           },
           "reviewer_id": {
-            "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
           }
         },
         "required": [
           "expected_version",
           "reviewer_id"
         ],
-        "additionalProperties": false
+        "title": "RulebookAction",
+        "type": "object"
+      },
+      "RulebookReviewAction": {
+        "enum": [
+          "edit",
+          "confirm",
+          "reject",
+          "revise"
+        ],
+        "title": "RulebookReviewAction",
+        "type": "string"
+      },
+      "RulebookReviewRecord": {
+        "additionalProperties": false,
+        "description": "Attribution for one new snapshot, assigned by the backend.",
+        "properties": {
+          "rulebook_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rulebook Id",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 2,
+            "title": "Version",
+            "type": "integer"
+          },
+          "reviewer_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "action": {
+            "$ref": "#/components/schemas/RulebookReviewAction"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rulebook_id",
+          "version",
+          "reviewer_id",
+          "action"
+        ],
+        "title": "RulebookReviewRecord",
+        "type": "object"
+      },
+      "RulebookReviewPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RulebookReviewRecord"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total"
+        ],
+        "title": "RulebookReviewPage",
+        "type": "object"
       },
       "Dataset": {
         "type": "object",

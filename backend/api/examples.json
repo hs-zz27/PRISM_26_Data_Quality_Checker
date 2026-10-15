@@ -207,7 +207,7 @@
       "tag": "Rulebooks",
       "summary": "Propose draft rules from plain text",
       "implementation": "planned",
-      "backing_service": "propose_rules exists; jobs, persistence and route are planned.",
+      "backing_service": "extract_and_save_rulebook coordinates extraction and PostgreSQL storage; jobs and route are planned.",
       "request": {
         "path_parameters": {},
         "query": {},
@@ -338,7 +338,7 @@
       "tag": "Rulebooks",
       "summary": "Read rulebook version history",
       "implementation": "planned",
-      "backing_service": "planned",
+      "backing_service": "RulebookRepository.list_rulebook_versions exists; route is planned.",
       "request": {
         "path_parameters": {
           "rulebook_id": "rulebook_demo"
@@ -385,13 +385,52 @@
       }
     },
     {
+      "operation_id": "listRulebookReviews",
+      "method": "GET",
+      "path": "/api/v1/rulebooks/{rulebook_id}/reviews",
+      "tag": "Rulebooks",
+      "summary": "Read rulebook review attribution",
+      "implementation": "planned",
+      "backing_service": "RulebookRepository.list_rulebook_reviews exists; route is planned.",
+      "request": {
+        "path_parameters": {
+          "rulebook_id": "rulebook_demo"
+        },
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "rulebook_id": "rulebook_demo",
+              "version": 2,
+              "reviewer_id": "reviewer_demo",
+              "action": "edit",
+              "created_at": "2026-10-14T10:00:00Z"
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
       "operation_id": "replaceDraftRulebook",
       "method": "PUT",
       "path": "/api/v1/rulebooks/{rulebook_id}",
       "tag": "Rulebooks",
       "summary": "Save a reviewed draft",
       "implementation": "planned",
-      "backing_service": "planned",
+      "backing_service": "save_rulebook_review service and transactional PostgreSQL review history exist; route is planned.",
       "request": {
         "path_parameters": {
           "rulebook_id": "rulebook_demo"
@@ -400,6 +439,7 @@
         "content_type": "application/json",
         "body": {
           "expected_version": 1,
+          "reviewer_id": "reviewer_demo",
           "guideline_text": "Allowed labels are person.",
           "rules": [
             {
@@ -451,7 +491,7 @@
       "tag": "Rulebooks",
       "summary": "Confirm a reviewed rulebook",
       "implementation": "planned",
-      "backing_service": "planned",
+      "backing_service": "confirm_rulebook service and transactional PostgreSQL review history exist; route is planned.",
       "request": {
         "path_parameters": {
           "rulebook_id": "rulebook_demo"
@@ -460,6 +500,51 @@
         "content_type": "application/json",
         "body": {
           "expected_version": 2,
+          "reviewer_id": "reviewer_demo"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "rulebook_id": "rulebook_demo",
+          "version": 3,
+          "guideline_text": "Allowed labels are person.",
+          "rules": [
+            {
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "confirmation_state": "confirmed"
+            }
+          ],
+          "confirmation_state": "confirmed"
+        }
+      }
+    },
+    {
+      "operation_id": "rejectRulebook",
+      "method": "POST",
+      "path": "/api/v1/rulebooks/{rulebook_id}/reject",
+      "tag": "Rulebooks",
+      "summary": "Reject a draft rulebook",
+      "implementation": "planned",
+      "backing_service": "reject_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+      "request": {
+        "path_parameters": {
+          "rulebook_id": "rulebook_demo"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "expected_version": 1,
           "reviewer_id": "reviewer_demo"
         }
       },
@@ -482,10 +567,10 @@
               },
               "origin": "extracted",
               "source_sentence": "Allowed labels are person.",
-              "confirmation_state": "confirmed"
+              "confirmation_state": "draft"
             }
           ],
-          "confirmation_state": "confirmed"
+          "confirmation_state": "rejected"
         }
       }
     },
@@ -494,9 +579,9 @@
       "method": "POST",
       "path": "/api/v1/rulebooks/{rulebook_id}/revisions",
       "tag": "Rulebooks",
-      "summary": "Start a new draft from a confirmed version",
+      "summary": "Start a new draft from a final version",
       "implementation": "planned",
-      "backing_service": "planned",
+      "backing_service": "revise_rulebook service and transactional PostgreSQL review history exist; route is planned.",
       "request": {
         "path_parameters": {
           "rulebook_id": "rulebook_demo"
@@ -504,7 +589,7 @@
         "query": {},
         "content_type": "application/json",
         "body": {
-          "expected_version": 2,
+          "expected_version": 3,
           "reviewer_id": "reviewer_demo"
         }
       },
@@ -513,7 +598,7 @@
         "content_type": "application/json",
         "body": {
           "rulebook_id": "rulebook_demo",
-          "version": 3,
+          "version": 4,
           "guideline_text": "Allowed labels are person.",
           "rules": [
             {

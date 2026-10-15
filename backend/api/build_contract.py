@@ -15,6 +15,9 @@ import numpy as np
 from PIL import Image
 
 from backend.app.core.config import load_ollama_settings
+from backend.app.models.review import (
+    RulebookAction, RulebookReplace, RulebookReviewPage, RulebookReviewRecord,
+)
 from backend.app.models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin
 from backend.app.services.audit import audit_sample
 
@@ -111,10 +114,11 @@ def build_schemas() -> JsonObject:
     schemas["RulebookPage"] = page_schema(ref("Rulebook"))
     schemas["RulebookCreate"] = obj({"guideline_text": {"type": "string"}, "rules": array(ref("Rule"))})
     schemas["RuleExtractionRequest"] = obj({"guideline_text": TEXT})
-    schemas["RulebookReplace"] = obj({
-        "expected_version": VERSION, "guideline_text": {"type": "string"}, "rules": array(ref("Rule")),
-    })
-    schemas["RulebookAction"] = obj({"expected_version": VERSION, "reviewer_id": TEXT})
+    for model in (RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage):
+        schema = model.model_json_schema()
+        schemas.update({name: replace_model_refs(definition)
+                        for name, definition in schema.pop("$defs", {}).items()})
+        schemas[model.__name__] = replace_model_refs(schema)
     schemas["Dataset"] = obj({
         "dataset_id": TEXT, "name": TEXT, "format": choice("penn_fudan"),
         "status": choice("importing", "ready", "invalid", "failed"),
@@ -530,21 +534,34 @@ def build_contract() -> JsonObject:
         backing="Rule and Rulebook validation exists; persistence and route are planned.",
         description="Server assigns rulebook_id and version 1. The book starts as draft. Reviewer-authored rules use origin reviewer and may have no citation.")
     add("POST", "/rulebooks/extractions", "extractRulebook", "Rulebooks", "Propose draft rules from plain text", "Job", job("rule_extraction", "rulebook", "rulebook_demo"), status=202,
-        body_schema="RuleExtractionRequest", body_example={"guideline_text": SOURCE}, backing="propose_rules exists; jobs, persistence and route are planned.",
+        body_schema="RuleExtractionRequest", body_example={"guideline_text": SOURCE}, backing="extract_and_save_rulebook coordinates extraction and PostgreSQL storage; jobs and route are planned.",
         description="Poll GET /jobs/{job_id}. On completion, result.href points to the saved draft rulebook. Failure is stored in job.error, including MODEL_UNAVAILABLE or INVALID_RULE_PROPOSALS.")
     add("GET", "/rulebooks", "listRulebooks", "Rulebooks", "List latest rulebook versions", "RulebookPage", page([examples["draft"]]), parameters=pagination_parameters())
     add("GET", "/rulebooks/{rulebook_id}", "getRulebook", "Rulebooks", "Read a rulebook version", "Rulebook", examples["confirmed"],
         parameters=[parameter("version", "query", VERSION, 2, description="Omit for latest; audits must reference a specific version.")])
-    add("GET", "/rulebooks/{rulebook_id}/versions", "listRulebookVersions", "Rulebooks", "Read rulebook version history", "RulebookPage", page([examples["draft"]]), parameters=pagination_parameters())
+    add("GET", "/rulebooks/{rulebook_id}/versions", "listRulebookVersions", "Rulebooks", "Read rulebook version history", "RulebookPage", page([examples["draft"]]), parameters=pagination_parameters(),
+        backing="RulebookRepository.list_rulebook_versions exists; route is planned.",
+        description="Snapshots are ordered by ascending version. Unknown rulebooks return 404; an offset past the last version returns an empty page.")
+    add("GET", "/rulebooks/{rulebook_id}/reviews", "listRulebookReviews", "Rulebooks", "Read rulebook review attribution", "RulebookReviewPage",
+        page([{"rulebook_id": "rulebook_demo", "version": 2, "reviewer_id": "reviewer_demo", "action": "edit", "created_at": TIMESTAMP}]),
+        parameters=pagination_parameters(), backing="RulebookRepository.list_rulebook_reviews exists; route is planned.",
+        description="Attributed review actions ordered by ascending version. Each action and snapshot commit together. Extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.")
     add("PUT", "/rulebooks/{rulebook_id}", "replaceDraftRulebook", "Rulebooks", "Save a reviewed draft", "Rulebook", {**examples["confirmed"], "confirmation_state": "draft"},
-        body_schema="RulebookReplace", body_example={"expected_version": 1, "guideline_text": SOURCE, "rules": examples["confirmed"]["rules"]},
-        description="Only latest drafts are editable. Save increments version and preserves history. All retained extracted citations must match the supplied text. A book stays draft until the confirm action. The response reflects submitted rules; example save confirms each rule but not the book.")
-    add("POST", "/rulebooks/{rulebook_id}/confirm", "confirmRulebook", "Rulebooks", "Confirm a reviewed rulebook", "Rulebook", {**examples["confirmed"], "version": 2},
+        body_schema="RulebookReplace", body_example={"expected_version": 1, "reviewer_id": "reviewer_demo", "guideline_text": SOURCE, "rules": examples["confirmed"]["rules"]},
+        backing="save_rulebook_review service and transactional PostgreSQL review history exist; route is planned.",
+        description="Only latest drafts are editable. Submit the complete rule list and explicit rule decisions; omission removes a rule. Retained IDs preserve origin; added IDs must use reviewer origin. All citations must match the supplied text. Save increments version, attributes the reviewer and preserves history. The book stays draft; example save confirms individual rules only.")
+    add("POST", "/rulebooks/{rulebook_id}/confirm", "confirmRulebook", "Rulebooks", "Confirm a reviewed rulebook", "Rulebook", {**examples["confirmed"], "version": 3},
         body_schema="RulebookAction", body_example={"expected_version": 2, "reviewer_id": "reviewer_demo"},
-        description="All included rules must be confirmed. Rejected rules must be removed from the active draft; prior versions preserve them. Freeze the confirmed version for audits. 409 RULEBOOK_NOT_READY when rules are unconfirmed.")
-    add("POST", "/rulebooks/{rulebook_id}/revisions", "reviseRulebook", "Rulebooks", "Start a new draft from a confirmed version", "Rulebook", {**examples["draft"], "version": 3}, status=201,
-        body_schema="RulebookAction", body_example={"expected_version": 2, "reviewer_id": "reviewer_demo"},
-        description="Keep the old confirmed version immutable. Create the next draft and reset included rule confirmation to draft.")
+        backing="confirm_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        description="Only a latest draft can be confirmed. Require a nonempty book with all included rules confirmed. Rejected rules must be removed; prior versions preserve them. Append expected_version + 1 as a frozen confirmed snapshot for audits. 409 RULEBOOK_NOT_READY when rules are unconfirmed or empty.")
+    add("POST", "/rulebooks/{rulebook_id}/reject", "rejectRulebook", "Rulebooks", "Reject a draft rulebook", "Rulebook", {**examples["draft"], "version": 2, "confirmation_state": "rejected"},
+        body_schema="RulebookAction", body_example={"expected_version": 1, "reviewer_id": "reviewer_demo"},
+        backing="reject_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        description="Reject the latest draft as a whole. Append a new version without changing individual rule decisions. Start a revision before further edits.")
+    add("POST", "/rulebooks/{rulebook_id}/revisions", "reviseRulebook", "Rulebooks", "Start a new draft from a final version", "Rulebook", {**examples["draft"], "version": 4}, status=201,
+        body_schema="RulebookAction", body_example={"expected_version": 3, "reviewer_id": "reviewer_demo"},
+        backing="revise_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        description="Require the latest confirmed or rejected book. Keep its snapshot immutable; append expected_version + 1 as a draft and reset every included rule to draft. Draft books are already editable. Invalid state transitions return 409 INVALID_RULEBOOK_STATE; stale expected_version returns 409 VERSION_CONFLICT.")
     add("POST", "/datasets", "importDataset", "Datasets", "Upload a dataset archive for local import", "DatasetImportStarted",
         {"dataset": {**examples["dataset"], "status": "importing", "sample_count": None, "object_count": None}, "job": job("dataset_import", "dataset", "dataset_demo")},
         status=202, body_schema="DatasetUpload", body_example={"archive": "<binary dataset ZIP>", "name": "Demo dataset", "format": "penn_fudan"}, multipart=True,
