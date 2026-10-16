@@ -26,15 +26,27 @@ Routers will accept requests and call services if an HTTP API is introduced. A s
 
 `models/` means Python data structures, such as an annotation or a finding. AI model integration belongs in `inference/`; downloaded weights remain outside the source code, currently in the project's `.cache/torch` folder.
 
-## First task
+## Dataset reading and sample audits
 
-Start in `app/datasets/penn_fudan.py`:
+`app/datasets/penn_fudan.py` reads the existing root-level `PennFudanPed/` folder:
 
 1. Load `FudanPed00001.png`, its annotation text and its mask from the existing root-level `PennFudanPed/` folder.
 2. Parse person IDs, labels and box coordinates.
 3. Check that the image and mask dimensions agree and that instance IDs match the annotations.
 
-The annotation declares a coordinate origin of `(1, 1)`. Choose and document an internal coordinate convention before converting boxes; preserve the original convention when exporting.
+Checks use one-based, inclusive coordinates and preserve source box values.
+`parse_annotation_metadata()` reads declared image dimensions, object count and
+coordinate origin separately from the bounding boxes. Missing, malformed or
+duplicate headers are reported per field. Metadata comparisons include the source
+image's channel count before any RGB conversion. Box checks require a declared
+origin of `(1, 1)`; other or missing origins make those checks unavailable.
+
+`audit_sample()` loads each asset independently. A missing or corrupt mask leaves
+label and box checks available; a missing annotation leaves the image/mask size
+check available. Errors identify the failed input with `image_load_failed`,
+`annotation_load_failed` or `mask_load_failed`. Failed loading, box parsing or mask
+validation makes the report `incomplete`. Metadata issues stay in the
+`annotation_metadata` result, alongside any comparisons that could be made.
 
 `measure_instance_mask()` shares one instance-pixel extraction across bounds,
 outside pixels, fill fraction and connected components. Standalone measurement

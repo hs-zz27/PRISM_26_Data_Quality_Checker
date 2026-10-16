@@ -17,6 +17,9 @@ def sample_root(tmp_path):
     mask[2, 3] = 2
     Image.fromarray(mask).save(tmp_path / "PedMasks/sample_mask.png")
     (tmp_path / "Annotation/sample.txt").write_text(
+        'Image size (X x Y x C) : 4 x 3 x 3\n'
+        'Objects with ground truth : 2 { "person" "person" }\n'
+        '# Top left pixel co-ordinates : (1, 1)\n'
         'Bounding box for object 1 "person" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\n'
         'Bounding box for object 2 "person" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n'
     )
@@ -37,19 +40,36 @@ def test_complete_sample_keeps_all_objects_pending_review(sample_root):
     json.dumps(report)
 
 
-@pytest.mark.parametrize("file", ["PNGImages/sample.png", "Annotation/sample.txt", "PedMasks/sample_mask.png"])
-def test_missing_files_report_loading_failure(sample_root, file):
+@pytest.mark.parametrize("file,reason,independent_checks", [
+    ("PNGImages/sample.png", "image_load_failed", ["labels", "annotation_ids", "mask_ids"]),
+    ("Annotation/sample.txt", "annotation_load_failed", ["mask_dimensions"]),
+    ("PedMasks/sample_mask.png", "mask_load_failed", ["labels", "box_overlaps", "annotation_metadata"]),
+])
+def test_missing_files_preserve_independent_checks(sample_root, file, reason, independent_checks):
     (sample_root / file).unlink()
     report = audit_sample(sample_root, "sample", ["person"])
     assert report["status"] == "incomplete" and report["errors"][0]["stage"] == "load"
-    assert all(check["reason"] == "sample_load_failed" for check in report["checks"].values())
+    assert report["errors"][0]["reason"] == reason
+    for name in independent_checks:
+        assert report["checks"][name]["status"] == "completed"
+    assert report["checks"]["mask_dimensions"]["status"] == (
+        "completed" if reason == "annotation_load_failed" else "unavailable"
+    )
+    if reason == "mask_load_failed":
+        for row in report["objects"]:
+            assert row["checks"]["box_validity"]["result"]["valid"]
+            assert row["checks"]["mask_components"]["reason"] == reason
+    if reason == "image_load_failed":
+        assert report["objects"][0]["checks"]["mask_components"]["status"] == "completed"
+        assert report["objects"][0]["checks"]["box_validity"]["reason"] == reason
     assert report["review_status"] == "pending_review"
 
 
 def test_corrupt_image_is_reported(sample_root):
     (sample_root / "PNGImages/sample.png").write_bytes(b"broken image")
     report = audit_sample(sample_root, "sample", ["person"])
-    assert report["errors"][0]["reason"] == "sample_load_failed"
+    assert report["errors"][0]["reason"] == "image_load_failed"
+    assert report["checks"]["labels"]["status"] == "completed"
 
 
 def test_malformed_annotation_is_reported(sample_root):
@@ -57,6 +77,7 @@ def test_malformed_annotation_is_reported(sample_root):
     report = audit_sample(sample_root, "sample", ["person"])
     assert report["status"] == "incomplete" and report["annotation_text"]
     assert report["errors"][0]["reason"] == "annotation_parse_failed"
+    assert report["checks"]["mask_dimensions"]["result"]["matches"]
 
 
 def test_dimension_mismatch_blocks_only_dependent_comparisons(sample_root):
@@ -133,3 +154,68 @@ def test_no_annotations_still_reports_unannotated_mask_ids(sample_root):
 def test_bad_caller_configuration_raises(sample_root, allowed, connectivity):
     with pytest.raises(ValueError):
         audit_sample(sample_root, "sample", allowed, connectivity)
+
+
+def test_metadata_checks_declared_size_count_and_origin(sample_root):
+    report = audit_sample(sample_root, "sample", ["person"])
+    metadata = report["checks"]["annotation_metadata"]
+    assert metadata["status"] == "completed"
+    assert metadata["result"]["matches"] and metadata["result"]["issues"] == {}
+
+
+@pytest.mark.parametrize("old,new,field,reason", [
+    ("4 x 3 x 3", "5 x 3 x 3", "image_size", "image_size_mismatch"),
+    ("ground truth : 2", "ground truth : 7", "object_count", "object_count_mismatch"),
+    ("ground truth : 2", "ground truth : broken", "object_count", "malformed_metadata"),
+])
+def test_metadata_errors_preserve_valid_annotations(sample_root, old, new, field, reason):
+    path = sample_root / "Annotation/sample.txt"
+    path.write_text(path.read_text().replace(old, new))
+    report = audit_sample(sample_root, "sample", ["person"])
+    assert len(report["objects"]) == 2
+    assert report["checks"]["annotation_metadata"]["result"]["issues"][field] == reason
+    assert report["checks"]["labels"]["result"]["matches"]
+    assert report["checks"]["mask_ids"]["result"]["matches"]
+
+
+@pytest.mark.parametrize("header,reason", [
+    ("", "coordinate_origin_unavailable"),
+    ("# Top left pixel co-ordinates : invalid", "coordinate_origin_unavailable"),
+    ("# Top left pixel co-ordinates : (0, 0)", "unsupported_coordinate_origin"),
+])
+def test_unusable_origin_blocks_only_coordinate_checks(sample_root, header, reason):
+    path = sample_root / "Annotation/sample.txt"
+    path.write_text(path.read_text().replace("# Top left pixel co-ordinates : (1, 1)", header))
+    report = audit_sample(sample_root, "sample", ["person"])
+    assert report["checks"]["box_overlaps"]["reason"] == reason
+    assert report["checks"]["mask_dimensions"]["result"]["matches"]
+    for row in report["objects"]:
+        for name in ("box_validity", "box_mask_alignment", "mask_outside_box", "mask_box_fill"):
+            assert row["checks"][name]["reason"] == reason
+        assert row["checks"]["mask_components"]["status"] == "completed"
+        assert row["checks"]["label"]["status"] == "completed"
+
+
+def test_metadata_compares_original_image_channels(sample_root):
+    Image.new("L", (4, 3)).save(sample_root / "PNGImages/sample.png")
+    result = audit_sample(sample_root, "sample", ["person"])["checks"]["annotation_metadata"]["result"]
+    assert result["actual_image_size"] == (4, 3, 1)
+    assert result["issues"]["image_size"] == "image_size_mismatch"
+
+
+def test_corrupt_mask_keeps_annotation_and_image_checks(sample_root):
+    (sample_root / "PedMasks/sample_mask.png").write_bytes(b"broken mask")
+    report = audit_sample(sample_root, "sample", ["person"])
+    assert report["status"] == "incomplete"
+    assert report["checks"]["labels"]["result"]["matches"]
+    assert report["checks"]["box_overlaps"]["status"] == "completed"
+    assert report["checks"]["mask_ids"]["reason"] == "mask_load_failed"
+
+
+def test_all_missing_inputs_return_all_loading_errors(tmp_path):
+    report = audit_sample(tmp_path, "missing", ["person"])
+    assert report["status"] == "incomplete" and report["objects"] == []
+    assert {error["reason"] for error in report["errors"]} == {
+        "image_load_failed", "annotation_load_failed", "mask_load_failed",
+    }
+    assert all(check["status"] == "unavailable" for check in report["checks"].values())
