@@ -122,6 +122,10 @@ sample-wide (`object_id=None`) or refer to an object, including an invalid sourc
 ID that needs reporting. The API builder reuses these Python schemas. Rule
 evaluation, finding persistence and finding-review actions remain to be connected.
 
+Rule proposals, rules, finding parameters and evidence share a finite JSON-value
+validator. Nested `NaN` and infinity values are rejected before storage; ordinary
+JSON values are preserved. Repository saves also revalidate mutable rule objects.
+
 ## Draft rulebook extraction
 
 `app/services/rule_extraction.py` connects the local Ollama client to the

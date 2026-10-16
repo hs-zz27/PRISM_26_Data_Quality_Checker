@@ -294,6 +294,14 @@ def test_mutated_models_are_revalidated_before_saving(store, mutation):
     assert store.list_rulebooks().total == 0
 
 
+@pytest.mark.parametrize("number", [float("nan"), float("inf"), float("-inf")])
+def test_mutated_nonfinite_parameters_are_rejected_before_connecting(unconnected_store, number):
+    book = make_book()
+    book.rules[0].parameters["nested"] = [{"threshold": number}]
+    with pytest.raises(ValidationError, match="must be finite"):
+        unconnected_store.save_rulebook(book)
+
+
 def test_latest_version_listing_is_paginated_and_stable(store):
     for rulebook_id in ("c", "a", "b"):
         store.save_rulebook(make_book(rulebook_id))

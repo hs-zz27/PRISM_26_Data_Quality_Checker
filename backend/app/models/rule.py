@@ -3,7 +3,9 @@
 from enum import StrEnum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+
+from .json_value import FiniteJsonValue
 
 
 NonBlankText = Annotated[str, StringConstraints(min_length=1, pattern=r"\S")]
@@ -32,7 +34,7 @@ class RuleProposal(BaseModel):
     rule_id: NonBlankText
     description: NonBlankText
     check_name: NonBlankText | None = None
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
+    parameters: dict[str, FiniteJsonValue] = Field(default_factory=dict)
     source_sentence: NonBlankText
 
 
@@ -50,7 +52,7 @@ class Rule(BaseModel):
     rule_id: NonBlankText
     description: NonBlankText
     check_name: NonBlankText | None = None
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
+    parameters: dict[str, FiniteJsonValue] = Field(default_factory=dict)
     # Accept stored string values while keeping enum members in Python.
     origin: RuleOrigin = Field(strict=False)
     source_sentence: NonBlankText | None = None

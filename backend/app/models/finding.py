@@ -2,8 +2,9 @@
 
 from enum import StrEnum
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
+from .json_value import FiniteJsonValue
 from .rule import NonBlankText, RuleOrigin
 
 
@@ -37,7 +38,7 @@ class Evidence(BaseModel):
     image_url: NonBlankText | None = None
     mask_preview_url: NonBlankText | None = None
     crop_url: NonBlankText | None = None
-    measurements: dict[str, JsonValue] = Field(default_factory=dict)
+    measurements: dict[str, FiniteJsonValue] = Field(default_factory=dict)
 
 
 class FindingReview(BaseModel):
@@ -90,7 +91,7 @@ class Finding(BaseModel):
     check_name: NonBlankText | None = None
     outcome: FindingOutcome = Field(strict=False)
     reason: NonBlankText | None = None
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
+    parameters: dict[str, FiniteJsonValue] = Field(default_factory=dict)
     origin: RuleOrigin = Field(strict=False)
     source_sentence: NonBlankText | None = None
     evidence: Evidence = Field(default_factory=Evidence)
