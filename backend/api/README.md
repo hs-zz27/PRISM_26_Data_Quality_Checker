@@ -17,7 +17,7 @@ development default. Keep the base URL configurable in the frontend.
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios.
 - [build_contract.py](build_contract.py): source for generated artifacts. Reuses
-  actual rulebook and review request/history schemas and obtains measurement
+  actual rulebook, finding and review request/history schemas and obtains measurement
   examples from `audit_sample()` on a tiny synthetic dataset.
 
 Run from the project root:

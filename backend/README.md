@@ -86,6 +86,23 @@ See [api/README.md](api/README.md) for the draft endpoint contract, request/resp
 schemas and frontend fixtures. [api/ENDPOINTS.md](api/ENDPOINTS.md) lists every
 planned operation. These are templates; no HTTP routes are running yet.
 
+## Finding records
+
+`app/models/finding.py` defines a finding's identity, sample revision, rulebook
+version, rule content, outcome and evidence. Outcomes are `pass`, `fail`,
+`unsure` and `unavailable`. Reviewer resolution is separate and defaults to
+`pending`, including for passing findings. Accepting a finding confirms the
+tool's conclusion; the sample's final review decision is separate.
+
+Non-pending finding reviews require a positive revision, reviewer ID and
+timezone-aware timestamp. Extracted findings require a nonblank source sentence;
+matching it to the guideline remains the evaluator's responsibility.
+
+`Evidence` contains JSON measurements and optional asset links. Findings may be
+sample-wide (`object_id=None`) or refer to an object, including an invalid source
+ID that needs reporting. The API builder reuses these Python schemas. Rule
+evaluation, finding persistence and finding-review actions remain to be connected.
+
 ## Draft rulebook extraction
 
 `app/services/rule_extraction.py` connects the local Ollama client to the
