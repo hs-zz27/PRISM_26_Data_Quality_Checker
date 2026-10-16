@@ -40,6 +40,14 @@ def test_complete_sample_keeps_all_objects_pending_review(sample_root):
     json.dumps(report)
 
 
+def test_collection_without_shared_labels_keeps_geometry_measurements(sample_root):
+    report = audit_sample(sample_root, "sample", None)
+    assert report["status"] == "completed"
+    assert "labels" not in report["checks"]
+    assert all("label" not in obj["checks"] for obj in report["objects"])
+    assert report["checks"]["box_overlaps"]["status"] == "completed"
+
+
 @pytest.mark.parametrize("file,reason,independent_checks", [
     ("PNGImages/sample.png", "image_load_failed", ["labels", "annotation_ids", "mask_ids"]),
     ("Annotation/sample.txt", "annotation_load_failed", ["mask_dimensions"]),
@@ -150,7 +158,7 @@ def test_no_annotations_still_reports_unannotated_mask_ids(sample_root):
     assert report["checks"]["mask_ids"]["result"]["missing_annotations"] == [1, 2]
 
 
-@pytest.mark.parametrize("allowed, connectivity", [(None, 8), ([], 8), (["person"], 6), (["person"], 8.0)])
+@pytest.mark.parametrize("allowed, connectivity", [([], 8), (["person"], 6), (["person"], 8.0)])
 def test_bad_caller_configuration_raises(sample_root, allowed, connectivity):
     with pytest.raises(ValueError):
         audit_sample(sample_root, "sample", allowed, connectivity)

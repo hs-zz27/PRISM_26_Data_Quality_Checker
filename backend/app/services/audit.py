@@ -69,7 +69,7 @@ def _load_asset(
 
 
 def audit_sample(
-    dataset_root: str | Path, image_id: str, allowed_labels: Iterable[str], connectivity: int = 8,
+    dataset_root: str | Path, image_id: str, allowed_labels: Iterable[str] | None, connectivity: int = 8,
 ) -> AuditMeasurements:
     """Collect measurements without rule evaluation or final reviewer decisions.
 
@@ -77,8 +77,12 @@ def audit_sample(
     unavailable. Metadata failures remain visible and unusable coordinate origins
     block box comparisons. A completed report means processing finished, not that
     the sample passed. Failed asset loading/parsing leaves the report incomplete.
+    ``allowed_labels=None`` skips label measurements for rule-independent batch
+    collection; existing callers may continue supplying a label collection.
     """
-    allowed_labels = check_allowed_labels([], allowed_labels)["allowed_labels"]
+    label_configuration = None if allowed_labels is None else check_allowed_labels(
+        [], allowed_labels,
+    )["allowed_labels"]
     validate_connectivity(connectivity)
     errors: list[ProcessingError] = []
     image = _load_asset(load_image, dataset_root, image_id, "image", errors)
@@ -89,7 +93,7 @@ def audit_sample(
         "image_id": image_id,
         "image_size": image.size if image is not None else None,
         "annotation_text": annotation_text,
-        "allowed_labels": allowed_labels,
+        "allowed_labels": [] if label_configuration is None else label_configuration,
         "status": "incomplete",
         "review_status": "pending_review",
         "errors": errors,
@@ -136,12 +140,17 @@ def audit_sample(
         checks["annotation_metadata"] = _unavailable(annotation_reason)
 
     if objects is None:
-        for name in ("annotation_ids", "labels", "box_overlaps", "mask_ids"):
+        names = ("annotation_ids", "box_overlaps", "mask_ids")
+        if label_configuration is not None:
+            names = (*names, "labels")
+        for name in names:
             checks[name] = _unavailable(annotation_reason)
         return report
 
-    labels = check_allowed_labels(objects, allowed_labels)
-    checks["labels"] = _completed(labels)
+    labels = None
+    if label_configuration is not None:
+        labels = check_allowed_labels(objects, label_configuration)
+        checks["labels"] = _completed(labels)
     counts = Counter(obj["object_id"] for obj in objects)
     duplicate_ids = {object_id for object_id, count in counts.items() if count > 1}
     invalid_ids = {object_id for object_id in counts if object_id <= 0}
@@ -164,8 +173,10 @@ def audit_sample(
     else:
         checks["box_overlaps"] = _unavailable(geometry_reason)
 
-    for obj, label in zip(objects, labels["object_results"], strict=True):
-        object_checks: dict[str, CheckEnvelope] = {"label": _completed(label)}
+    for index, obj in enumerate(objects):
+        object_checks: dict[str, CheckEnvelope] = {}
+        if labels is not None:
+            object_checks["label"] = _completed(labels["object_results"][index])
         box = None
         if geometry_reason is None:
             box = check_box_validity(obj["bbox"], image.size)

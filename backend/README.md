@@ -142,11 +142,34 @@ matching it to the guideline remains the evaluator's responsibility.
 `Evidence` contains JSON measurements and optional asset links. Findings may be
 sample-wide (`object_id=None`) or refer to an object, including an invalid source
 ID that needs reporting. The API builder reuses these Python schemas. Rule
-evaluation, finding persistence and finding-review actions remain to be connected.
+evaluation is implemented as a service; finding persistence and finding-review
+actions remain separate work.
 
 Rule proposals, rules, finding parameters and evidence share a finite JSON-value
 validator. Nested `NaN` and infinity values are rejected before storage; ordinary
 JSON values are preserved. Repository saves also revalidate mutable rule objects.
+
+## Confirmed-rule evaluation
+
+`app/services/evaluation.py` is the boundary between measurements and machine
+findings. `evaluate_rules()` accepts one explicitly supplied, confirmed
+`Rulebook`, one `AuditMeasurements` report and explicit audit/sample identity.
+It revalidates mutable rulebook objects, validates parameters through the
+explicit registry in `app/checks/registry.py`, and returns findings for passing
+as well as failing objects. Each finding pins the rulebook ID/version and rule
+snapshot, sample revision, source sentence and finite evidence. Findings are
+created with `review.resolution="pending"`; no machine outcome changes human
+review state.
+
+The registry currently supports the existing measurement vocabulary:
+`allowed_labels`, annotation/mask ID and dimension checks, metadata, box
+validity/overlap, box-mask alignment, outside fraction, box fill and connected
+component count. Thresholds and label lists must be explicit confirmed-rule or
+request parameters. There are no built-in labels or thresholds. A missing or
+unusable measurement is `unavailable`, an ambiguous result is `unsure`, and an
+unknown check remains visible as an `unavailable` finding. Object occurrence
+indices are part of deterministic finding IDs, so duplicate source object IDs
+are not collapsed.
 
 ## Draft rulebook extraction
 

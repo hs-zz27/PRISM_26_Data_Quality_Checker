@@ -34,6 +34,12 @@ Every finding, reviewer decision and correction is logged with its evidence and 
 - **Batch size:** determine it from measured CPU performance and available resources. The 170-image Penn-Fudan set is a local development example.
 - **Deadline:** the user stated 31 October. Prioritize plain text guideline input and a complete audit, review and correction workflow.
 
+## Provisional rulebook reuse design
+
+For in-process reuse of a confirmed, immutable rulebook, we propose copying the list of references while sharing the rule objects. For example, a list of 100 rules would copy 100 references rather than duplicate all 100 rules' contents. Shared rules, including their nested parameters, must remain immutable during evaluation. Durable rulebook version pins and finding snapshots remain required.
+
+This is a proposed optimization, not a claim about the current implementation or measured performance. The expected workload is currently unknown, including rule counts and sizes, batch sizes, concurrent audits and deployment resources. We will confirm or revise the approach using representative runtime, peak-memory and serialization measurements. The example of 100 rules is illustrative, not a workload requirement.
+
 ## Measuring success
 
 - Measure finding precision and recall against reviewer-verified examples, including missed errors and false alarms.
