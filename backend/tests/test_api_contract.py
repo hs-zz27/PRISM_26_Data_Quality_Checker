@@ -10,6 +10,7 @@ import pytest
 from backend.app.models.rule import Rulebook
 from backend.app.models.finding import Finding
 from backend.app.models.review import RulebookAction, RulebookReplace, RulebookReviewPage
+from backend.api.build_contract import render_artifacts
 
 
 API_ROOT = Path(__file__).resolve().parents[1] / "api"
@@ -115,12 +116,21 @@ def test_rulebook_review_templates_match_service_requests_and_version_semantics(
 
 
 def test_finding_examples_validate_with_the_python_record():
+    validated = 0
+    collection_fields = {
+        "#/components/schemas/FindingPage": "items",
+        "#/components/schemas/SampleAudit": "findings",
+    }
     for _, _, operation in OPERATIONS:
         for response in operation["responses"].values():
             media = response.get("content", {}).get("application/json", {})
-            if media.get("schema", {}).get("$ref") == "#/components/schemas/Finding":
+            field = collection_fields.get(media.get("schema", {}).get("$ref"))
+            if field is not None:
                 for example in media_examples(media):
-                    Finding.model_validate_json(json.dumps(example))
+                    for finding in example[field]:
+                        Finding.model_validate_json(json.dumps(finding))
+                        validated += 1
+    assert validated > 0
     for sample in EXAMPLES["review_scenarios"].values():
         for finding in sample["findings"]:
             Finding.model_validate_json(json.dumps(finding))
@@ -168,6 +178,31 @@ def test_completed_job_result_link_points_to_a_declared_resource():
 def test_corrected_export_pins_the_rechecked_revision():
     response = SPEC["paths"]["/exports/{export_id}/manifest"]["get"]["responses"]["200"]["content"]["application/json"]["example"]
     assert response["audit_id"] == "audit_recheck_demo"
-    assert response["rulebook_version"] == 2
+    assert response["rulebook_version"] == 3
     assert response["entries"][0]["sample_revision"] == 2
     assert response["entries"][0]["review_decision"] == "accepted"
+
+
+def test_generated_artifacts_match_the_current_builder():
+    for filename, expected in render_artifacts().items():
+        assert (API_ROOT / filename).read_text(encoding="utf-8") == expected, (
+            f"Regenerate {filename} with python -m backend.api.build_contract"
+        )
+
+
+def test_audits_and_exports_use_the_version_returned_by_confirmation():
+    operations = {fixture["operation_id"]: fixture for fixture in EXAMPLES["operations"]}
+    reviewed = operations["replaceDraftRulebook"]["response"]["body"]
+    confirmed = operations["confirmRulebook"]["response"]["body"]
+    assert reviewed["version"] == 2 and reviewed["confirmation_state"] == "draft"
+    assert confirmed["version"] == 3 and confirmed["confirmation_state"] == "confirmed"
+    assert operations["confirmRulebook"]["request"]["body"]["expected_version"] == reviewed["version"]
+    assert operations["startAudit"]["request"]["body"]["rulebook_version"] == confirmed["version"]
+    for identifier in ("startAudit", "recheckSamples"):
+        assert operations[identifier]["response"]["body"]["audit"]["rulebook_version"] == confirmed["version"]
+    assert operations["getExportManifest"]["response"]["body"]["rulebook_version"] == confirmed["version"]
+    history = operations["listRulebookVersions"]["response"]["body"]["items"]
+    assert [book["version"] for book in history] == [1, 2, 3]
+    assert history[1] == reviewed and history[2] == confirmed
+    for finding in EXAMPLES["review_scenarios"]["flagged"]["findings"]:
+        assert finding["rulebook_version"] == confirmed["version"]

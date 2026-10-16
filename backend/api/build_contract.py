@@ -1,431 +1,24 @@
-"""Generate the proposed API contract and frontend request/response fixtures.
+"""Assemble and write proposed endpoints and frontend contract artifacts.
 
 Run from the project root with python -m backend.api.build_contract.
-This module defines templates only; it does not register or run HTTP routes.
+These templates do not register or run HTTP routes.
 """
 
 from copy import deepcopy
 import json
 from pathlib import Path
 import re
-from tempfile import TemporaryDirectory
 from typing import Any
 
-import numpy as np
-from PIL import Image
-
-from backend.app.core.config import load_ollama_settings
-from backend.app.models.finding import Finding
-from backend.app.models.review import (
-    RulebookAction, RulebookReplace, RulebookReviewPage, RulebookReviewRecord,
+from .common import (
+    BASE_PATH, SAMPLE_REVIEW_STATUS, TEXT, TOOL_STATUS, VERSION,
+    JsonObject, choice, ref,
 )
-from backend.app.models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin
-from backend.app.services.audit import audit_sample
+from .fixtures import EXAMPLE_MODEL, SOURCE, TIMESTAMP, build_examples, job, page
+from .schemas import build_schemas
 
 
 API_DIRECTORY = Path(__file__).resolve().parent
-BASE_PATH = "/api/v1"
-TIMESTAMP = "2026-10-14T10:00:00Z"
-SOURCE = "Allowed labels are person."
-JsonObject = dict[str, Any]
-
-
-def ref(name: str) -> JsonObject:
-    return {"$ref": f"#/components/schemas/{name}"}
-
-
-def nullable(schema: JsonObject) -> JsonObject:
-    return {"anyOf": [schema, {"type": "null"}]}
-
-
-def array(schema: JsonObject) -> JsonObject:
-    return {"type": "array", "items": schema}
-
-
-def obj(properties: JsonObject, required: list[str] | None = None) -> JsonObject:
-    return {
-        "type": "object",
-        "properties": properties,
-        "required": list(properties) if required is None else required,
-        "additionalProperties": False,
-    }
-
-
-def choice(*values: str) -> JsonObject:
-    return {"type": "string", "enum": list(values)}
-
-
-TEXT = {"type": "string", "minLength": 1}
-INTEGER = {"type": "integer"}
-COUNT = {"type": "integer", "minimum": 0}
-VERSION = {"type": "integer", "minimum": 1}
-BOOLEAN = {"type": "boolean"}
-TIME = {"type": "string", "format": "date-time"}
-FRACTION = {"type": "number", "minimum": 0, "maximum": 1}
-JOB_STATUS = choice("queued", "running", "cancelling", "completed", "failed", "cancelled")
-SAMPLE_REVIEW_STATUS = choice("pending_review", "needs_correction", "accepted", "rejected")
-TOOL_STATUS = choice("pending", "flagged", "unsure", "no_issue", "unavailable")
-
-
-def replace_model_refs(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {key: replace_model_refs(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [replace_model_refs(item) for item in value]
-    if isinstance(value, str) and value.startswith("#/$defs/"):
-        return value.replace("#/$defs/", "#/components/schemas/", 1)
-    return value
-
-
-def build_schemas() -> JsonObject:
-    """Reuse actual rule schemas; define proposed transport records separately."""
-    schemas = {}
-    for model in (Rulebook, Finding):
-        schema = model.model_json_schema()
-        schemas.update({name: replace_model_refs(definition)
-                        for name, definition in schema.pop("$defs", {}).items()})
-        schemas[model.__name__] = replace_model_refs(schema)
-    schemas["ImageSize"] = {
-        **array(VERSION), "minItems": 2, "maxItems": 2,
-        "description": "[width, height], in pixels.",
-    }
-    schemas["BoundingBox"] = {
-        **array(INTEGER), "minItems": 4, "maxItems": 4,
-        "description": "[xmin, ymin, xmax, ymax], one-based and inclusive. Source data may be invalid; display integrity results.",
-    }
-    schemas["AnnotationObject"] = obj({"object_id": INTEGER, "label": TEXT, "bbox": ref("BoundingBox")})
-    schemas["CorrectionObject"] = obj({"object_id": VERSION, "label": TEXT, "bbox": ref("BoundingBox")})
-    schemas["ErrorDetail"] = obj({"field": nullable(TEXT), "message": TEXT})
-    schemas["ApiError"] = obj({
-        "code": TEXT, "message": TEXT, "details": array(ref("ErrorDetail")), "request_id": TEXT,
-    })
-    schemas["ErrorResponse"] = obj({"error": ref("ApiError")})
-    schemas["Progress"] = obj({
-        "phase": TEXT, "processed": COUNT, "total": nullable(COUNT), "fraction": nullable(FRACTION),
-    })
-    schemas["ResultReference"] = obj({
-        "kind": choice("rulebook", "dataset", "audit", "export", "feedback_evaluation"),
-        "id": TEXT, "version": nullable(VERSION), "href": TEXT,
-    })
-    schemas["Job"] = obj({
-        "job_id": TEXT,
-        "kind": choice("rule_extraction", "dataset_import", "audit", "recheck", "export", "feedback_evaluation"),
-        "status": JOB_STATUS, "progress": ref("Progress"),
-        "result": nullable(ref("ResultReference")), "error": nullable(ref("ApiError")),
-        "created_at": TIME, "updated_at": TIME,
-    })
-    schemas["RulebookPage"] = page_schema(ref("Rulebook"))
-    schemas["RulebookCreate"] = obj({"guideline_text": {"type": "string"}, "rules": array(ref("Rule"))})
-    schemas["RuleExtractionRequest"] = obj({"guideline_text": TEXT})
-    for model in (RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage):
-        schema = model.model_json_schema()
-        schemas.update({name: replace_model_refs(definition)
-                        for name, definition in schema.pop("$defs", {}).items()})
-        schemas[model.__name__] = replace_model_refs(schema)
-    schemas["Dataset"] = obj({
-        "dataset_id": TEXT, "name": TEXT, "format": choice("penn_fudan"),
-        "status": choice("importing", "ready", "invalid", "failed"),
-        "sample_count": nullable(COUNT), "object_count": nullable(COUNT),
-        "import_job_id": TEXT, "created_at": TIME, "issues": array(ref("ErrorDetail")),
-    })
-    schemas["DatasetPage"] = page_schema(ref("Dataset"))
-    schemas["AssetReference"] = obj({"url": TEXT, "content_type": TEXT, "revision": VERSION})
-    schemas["SampleAssets"] = obj({
-        name: nullable(ref("AssetReference")) for name in ("image", "mask", "mask_preview", "thumbnail")
-    })
-    schemas["Sample"] = obj({
-        "sample_id": TEXT, "dataset_id": TEXT, "revision": VERSION,
-        "image_size": nullable(ref("ImageSize")),
-        "integrity_status": choice("valid", "invalid", "unavailable"),
-        "objects": array(ref("AnnotationObject")), "assets": ref("SampleAssets"),
-    })
-    schemas["SamplePage"] = page_schema(ref("Sample"))
-    schemas["DatasetUpload"] = obj({
-        "archive": {"type": "string", "format": "binary"}, "name": TEXT, "format": choice("penn_fudan"),
-    })
-    schemas["MaskUploadRequest"] = obj({"mask": {"type": "string", "format": "binary"}})
-    schemas["MaskUpload"] = obj({
-        "mask_upload_id": TEXT, "dataset_id": TEXT, "sample_id": TEXT,
-        "image_size": ref("ImageSize"), "mask_ids": array(COUNT), "expires_at": TIME,
-    })
-    schemas["CorrectionRequest"] = obj({
-        "expected_revision": VERSION, "reviewer_id": TEXT, "reason": TEXT,
-        "objects": array(ref("CorrectionObject")), "mask_upload_id": nullable(TEXT),
-        "source_audit_id": nullable(TEXT),
-    })
-    schemas["AnnotationRevision"] = obj({
-        "dataset_id": TEXT, "sample_id": TEXT, "revision": VERSION,
-        "parent_revision": nullable(VERSION), "objects": array(ref("AnnotationObject")),
-        "mask_changed": BOOLEAN, "reviewer_id": nullable(TEXT), "reason": nullable(TEXT),
-        "source_audit_id": nullable(TEXT), "created_at": TIME,
-    })
-    schemas["RevisionPage"] = page_schema(ref("AnnotationRevision"))
-    schemas["AuditRequest"] = obj({
-        "dataset_id": TEXT, "rulebook_id": TEXT, "rulebook_version": VERSION,
-        "sample_ids": nullable(array(TEXT)), "feedback_policy_id": nullable(TEXT),
-    })
-    schemas["Audit"] = obj({
-        "audit_id": TEXT, "parent_audit_id": nullable(TEXT), "dataset_id": TEXT,
-        "rulebook_id": TEXT, "rulebook_version": VERSION, "feedback_policy_id": nullable(TEXT),
-        "status": JOB_STATUS, "job_id": TEXT, "sample_count": COUNT, "processed_count": COUNT,
-        "reviewed_count": COUNT, "created_at": TIME,
-    })
-    schemas["AuditPage"] = page_schema(ref("Audit"))
-    schemas["AuditStarted"] = obj({"audit": ref("Audit"), "job": ref("Job")})
-    schemas["DatasetImportStarted"] = obj({"dataset": ref("Dataset"), "job": ref("Job")})
-    schemas["CheckEnvelope"] = obj({
-        "status": choice("completed", "unavailable"), "reason": nullable(TEXT),
-        "detail": nullable(TEXT), "result": nullable({"type": "object"}),
-    })
-    schemas["ProcessingError"] = obj({"stage": TEXT, "reason": TEXT, "detail": TEXT})
-    schemas["ObjectMeasurements"] = obj({
-        "annotation": ref("AnnotationObject"),
-        "checks": {"type": "object", "additionalProperties": ref("CheckEnvelope")},
-    })
-    schemas["AuditMeasurements"] = obj({
-        "image_id": TEXT, "image_size": nullable(ref("ImageSize")),
-        "annotation_text": nullable({"type": "string"}), "allowed_labels": array(TEXT),
-        "status": choice("completed", "incomplete"), "review_status": {"const": "pending_review"},
-        "errors": array(ref("ProcessingError")),
-        "checks": {"type": "object", "additionalProperties": ref("CheckEnvelope")},
-        "objects": array(ref("ObjectMeasurements")),
-    })
-    schemas["FindingPage"] = page_schema(ref("Finding"))
-    schemas["SampleAuditSummary"] = obj({
-        "sample_id": TEXT, "sample_revision": VERSION, "tool_status": TOOL_STATUS,
-        "review_status": SAMPLE_REVIEW_STATUS,
-        "finding_counts": obj({name: COUNT for name in ("pass", "fail", "unsure", "unavailable")}),
-        "thumbnail_url": nullable(TEXT),
-    })
-    schemas["AuditSamplePage"] = page_schema(ref("SampleAuditSummary"))
-    schemas["SampleReview"] = obj({
-        "revision": COUNT, "decision": SAMPLE_REVIEW_STATUS, "reviewer_id": nullable(TEXT),
-        "comment": nullable({"type": "string"}), "updated_at": nullable(TIME),
-    })
-    schemas["SampleAudit"] = obj({
-        "audit_id": TEXT, "dataset_id": TEXT, "summary": ref("SampleAuditSummary"),
-        "assets": ref("SampleAssets"), "measurements": ref("AuditMeasurements"),
-        "findings": array(ref("Finding")), "review": ref("SampleReview"),
-    })
-    schemas["FindingReviewRequest"] = obj({
-        "expected_revision": COUNT, "resolution": choice("accepted", "rejected", "unsure"),
-        "reviewer_id": TEXT, "comment": {"type": "string"},
-    })
-    schemas["SampleReviewRequest"] = obj({
-        "expected_revision": COUNT, "decision": SAMPLE_REVIEW_STATUS,
-        "reviewer_id": TEXT, "comment": {"type": "string"},
-    })
-    schemas["RecheckRequest"] = obj({"sample_ids": {**array(TEXT), "minItems": 1}, "reviewer_id": TEXT})
-    schemas["ExportRequest"] = obj({
-        "audit_id": TEXT, "format": choice("penn_fudan"),
-        "selection": choice("accepted_only", "all_reviewed"), "include_images": BOOLEAN,
-    })
-    schemas["Export"] = obj({
-        "export_id": TEXT, "audit_id": TEXT, "job_id": TEXT, "status": JOB_STATUS,
-        "format": choice("penn_fudan"), "selection": choice("accepted_only", "all_reviewed"),
-        "include_images": BOOLEAN, "included_count": nullable(COUNT), "excluded_count": nullable(COUNT),
-        "download_url": nullable(TEXT), "manifest_url": nullable(TEXT), "created_at": TIME,
-    })
-    schemas["ExportStarted"] = obj({"export": ref("Export"), "job": ref("Job")})
-    schemas["ExportManifestEntry"] = obj({
-        "sample_id": TEXT, "sample_revision": VERSION, "included": BOOLEAN,
-        "review_decision": SAMPLE_REVIEW_STATUS, "reason": nullable(TEXT),
-    })
-    schemas["ExportManifest"] = obj({
-        "export_id": TEXT, "audit_id": TEXT, "rulebook_id": TEXT, "rulebook_version": VERSION,
-        "entries": array(ref("ExportManifestEntry")),
-    })
-    schemas["FeedbackExample"] = obj({
-        "example_id": TEXT, "source_audit_id": TEXT, "dataset_id": TEXT, "sample_id": TEXT,
-        "original_revision": VERSION, "corrected_revision": VERSION, "rule_id": TEXT,
-        "reviewer_id": TEXT, "approved": BOOLEAN, "description": TEXT,
-    })
-    schemas["FeedbackExamplePage"] = page_schema(ref("FeedbackExample"))
-    schemas["FeedbackPolicyCreate"] = obj({
-        "name": TEXT, "strategy": {"const": "reviewer_examples"},
-        "example_ids": {**array(TEXT), "minItems": 1, "uniqueItems": True},
-        "target_check_names": {**array(TEXT), "minItems": 1},
-    })
-    schemas["FeedbackPolicy"] = obj({
-        "policy_id": TEXT, "name": TEXT, "strategy": {"const": "reviewer_examples"},
-        "status": choice("draft", "active", "retired"), "example_ids": array(TEXT),
-        "target_check_names": array(TEXT), "evaluation_id": nullable(TEXT),
-    })
-    schemas["FeedbackPolicyPage"] = page_schema(ref("FeedbackPolicy"))
-    schemas["GroundTruthCreate"] = obj({
-        "dataset_id": TEXT, "source_audit_ids": {**array(TEXT), "minItems": 1}, "reviewer_id": TEXT,
-    })
-    schemas["GroundTruth"] = obj({
-        "ground_truth_id": TEXT, "dataset_id": TEXT, "version": VERSION,
-        "source_audit_ids": array(TEXT), "verified_sample_count": COUNT, "created_at": TIME,
-    })
-    schemas["FeedbackEvaluationRequest"] = obj({
-        "policy_id": TEXT, "ground_truth_id": TEXT, "ground_truth_version": VERSION,
-    })
-    schemas["EvaluationMetrics"] = obj({
-        "precision": nullable(FRACTION), "recall": nullable(FRACTION), "f1": nullable(FRACTION),
-        "true_positives": COUNT, "false_positives": COUNT, "false_negatives": COUNT,
-        "sample_count": COUNT, "elapsed_seconds": {"type": "number", "minimum": 0},
-    })
-    schemas["FeedbackEvaluation"] = obj({
-        "evaluation_id": TEXT, "policy_id": TEXT, "job_id": TEXT, "status": JOB_STATUS,
-        "evaluation_dataset_id": TEXT, "ground_truth_id": TEXT, "ground_truth_version": VERSION,
-        "baseline": nullable(ref("EvaluationMetrics")), "candidate": nullable(ref("EvaluationMetrics")),
-        "error": nullable(ref("ApiError")),
-    })
-    schemas["FeedbackEvaluationStarted"] = obj({"evaluation": ref("FeedbackEvaluation"), "job": ref("Job")})
-    schemas["FeedbackEvaluationPage"] = page_schema(ref("FeedbackEvaluation"))
-    schemas["ActivatePolicyRequest"] = obj({"evaluation_id": TEXT, "reviewer_id": TEXT})
-    schemas["Health"] = obj({"status": {"const": "ok"}, "api_version": {"const": "v1"}})
-    schemas["Capabilities"] = obj({
-        "dataset_formats": array(TEXT), "guideline_input_formats": array(TEXT),
-        "coordinate_convention": {"const": "one_based_inclusive"},
-        "checks": array(obj({"name": TEXT, "implementation": choice("implemented", "planned")})),
-        "execution_device": {"const": "cpu"},
-    })
-    schemas["SystemStatus"] = obj({
-        "ollama": obj({"reachable": BOOLEAN, "model": TEXT, "model_available": nullable(BOOLEAN)}),
-        "detector": obj({"weights_cached": BOOLEAN, "integration_ready": BOOLEAN}),
-        "execution_device": {"const": "cpu"},
-    })
-    return schemas
-
-
-def page_schema(item: JsonObject) -> JsonObject:
-    return obj({"items": array(item), "limit": VERSION, "offset": COUNT, "total": COUNT, "next_offset": nullable(COUNT)})
-
-
-def page(items: list[Any]) -> JsonObject:
-    return {"items": items, "limit": 20, "offset": 0, "total": len(items), "next_offset": None}
-
-
-def job(kind: str, resource_kind: str, resource_id: str, *, completed: bool = False) -> JsonObject:
-    collection = {
-        "rulebook": "rulebooks", "dataset": "datasets", "audit": "audits",
-        "export": "exports", "feedback_evaluation": "feedback/evaluations",
-    }[resource_kind]
-    return {
-        "job_id": f"job_{kind}_demo", "kind": kind,
-        "status": "completed" if completed else "queued",
-        "progress": {"phase": "completed" if completed else "queued", "processed": 1 if completed else 0, "total": 1, "fraction": 1.0 if completed else 0.0},
-        "result": {"kind": resource_kind, "id": resource_id, "version": 1 if resource_kind == "rulebook" else None,
-                   "href": f"{BASE_PATH}/{collection}/{resource_id}"} if completed else None,
-        "error": None, "created_at": TIMESTAMP, "updated_at": TIMESTAMP,
-    }
-
-
-def build_examples() -> JsonObject:
-    """Produce synthetic examples, including measurements from the actual service."""
-    draft_rule = Rule(rule_id="LBL-1", description="Use an allowed label.", check_name="allowed_labels",
-                      parameters={"allowed_labels": ["person"]}, origin=RuleOrigin.EXTRACTED, source_sentence=SOURCE)
-    draft = Rulebook(rulebook_id="rulebook_demo", guideline_text=SOURCE, rules=[draft_rule]).model_dump(mode="json")
-    confirmed_rule = Rule(**{**draft_rule.model_dump(), "confirmation_state": ConfirmationState.CONFIRMED})
-    confirmed = Rulebook(rulebook_id="rulebook_demo", version=2, guideline_text=SOURCE, rules=[confirmed_rule],
-                         confirmation_state=ConfirmationState.CONFIRMED).model_dump(mode="json")
-    with TemporaryDirectory() as directory:
-        root = Path(directory)
-        for folder in ("PNGImages", "Annotation", "PedMasks"):
-            (root / folder).mkdir()
-        Image.new("RGB", (4, 3)).save(root / "PNGImages/sample_001.png")
-        mask = np.array([[1, 1, 0, 0], [1, 1, 0, 0], [0, 0, 0, 2]], dtype=np.uint8)
-        Image.fromarray(mask).save(root / "PedMasks/sample_001_mask.png")
-        (root / "Annotation/sample_001.txt").write_text(
-            'Bounding box for object 1 "person" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\n'
-            'Bounding box for object 2 "vehicle" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n'
-        )
-        measurements = json.loads(json.dumps(audit_sample(root, "sample_001", ["person"])))
-        path = root / "Annotation/sample_001.txt"
-        path.write_text(path.read_text().replace('"vehicle"', '"person"'))
-        correct_measurements = json.loads(json.dumps(audit_sample(root, "sample_001", ["person"])))
-    annotations = [row["annotation"] for row in measurements["objects"]]
-    assets = {kind: {"url": f"{BASE_PATH}/datasets/dataset_demo/samples/sample_001/assets/{kind}?revision=1",
-                      "content_type": "image/png", "revision": 1}
-              for kind in ("image", "mask", "mask_preview", "thumbnail")}
-    sample = {"sample_id": "sample_001", "dataset_id": "dataset_demo", "revision": 1,
-              "image_size": [4, 3], "integrity_status": "valid", "objects": annotations, "assets": assets}
-    dataset = {"dataset_id": "dataset_demo", "name": "Demo dataset", "format": "penn_fudan", "status": "ready",
-               "sample_count": 1, "object_count": 2, "import_job_id": "job_dataset_import_demo", "created_at": TIMESTAMP, "issues": []}
-    audit = {"audit_id": "audit_demo", "parent_audit_id": None, "dataset_id": "dataset_demo",
-             "rulebook_id": "rulebook_demo", "rulebook_version": 2, "feedback_policy_id": None,
-             "status": "completed", "job_id": "job_audit_demo", "sample_count": 1, "processed_count": 1,
-             "reviewed_count": 0, "created_at": TIMESTAMP}
-    finding = {
-        "finding_id": "finding_demo", "audit_id": "audit_demo", "sample_id": "sample_001", "sample_revision": 1,
-        "object_id": 2, "rulebook_id": "rulebook_demo", "rulebook_version": 2, "rule_id": "LBL-1",
-        "description": "Use an allowed label.", "check_name": "allowed_labels", "outcome": "fail",
-        "reason": "label_not_allowed", "parameters": {"allowed_labels": ["person"]}, "origin": "extracted", "source_sentence": SOURCE,
-        "evidence": {"image_url": assets["image"]["url"], "mask_preview_url": assets["mask_preview"]["url"], "crop_url": None,
-                     "measurements": {"actual_label": "vehicle", "allowed_labels": ["person"]}},
-        "review": {"revision": 0, "resolution": "pending", "reviewer_id": None, "comment": None, "updated_at": None},
-    }
-    summary = {"sample_id": "sample_001", "sample_revision": 1, "tool_status": "flagged", "review_status": "pending_review",
-               "finding_counts": {"pass": 1, "fail": 1, "unsure": 0, "unavailable": 0}, "thumbnail_url": assets["thumbnail"]["url"]}
-    passing = deepcopy(finding)
-    passing.update(finding_id="finding_pass_demo", object_id=1, outcome="pass", reason=None)
-    passing["evidence"]["measurements"]["actual_label"] = "person"
-    sample_review = {"revision": 0, "decision": "pending_review", "reviewer_id": None, "comment": None, "updated_at": None}
-    detail = {"audit_id": "audit_demo", "dataset_id": "dataset_demo", "summary": summary, "assets": assets,
-              "measurements": measurements, "findings": [passing, finding], "review": sample_review}
-    no_issue = deepcopy(detail)
-    no_issue["summary"].update(tool_status="no_issue", finding_counts={"pass": 2, "fail": 0, "unsure": 0, "unavailable": 0})
-    no_issue["measurements"] = correct_measurements
-    no_issue["findings"] = [deepcopy(passing), {**deepcopy(passing), "finding_id": "finding_pass_second_demo", "object_id": 2}]
-    uncertain = deepcopy(no_issue)
-    uncertain_finding = deepcopy(passing)
-    uncertain_finding.update(finding_id="finding_uncertain_demo", rule_id="POSTURE-1", object_id=1,
-                             description="The activity label should match visible posture.", check_name="person_posture",
-                             outcome="unsure", reason="ambiguous_posture", origin="reviewer", source_sentence=None, parameters={})
-    uncertain_finding["evidence"]["measurements"] = {"model_result": "uncertain"}
-    uncertain["findings"].append(uncertain_finding)
-    uncertain["summary"].update(tool_status="unsure", finding_counts={"pass": 2, "fail": 0, "unsure": 1, "unavailable": 0})
-    unavailable = deepcopy(no_issue)
-    blocked_finding = deepcopy(uncertain_finding)
-    blocked_finding.update(finding_id="finding_unavailable_demo", rule_id="CUSTOM-1", object_id=None,
-                           description="Custom reviewer requirement without a supported check.", check_name=None,
-                           outcome="unavailable", reason="unsupported_check")
-    blocked_finding["evidence"]["measurements"] = {}
-    unavailable["findings"].append(blocked_finding)
-    unavailable["summary"].update(tool_status="unavailable", finding_counts={"pass": 2, "fail": 0, "unsure": 0, "unavailable": 1})
-    scenario_rulebooks = {"flagged": confirmed, "no_issue": confirmed}
-    for name, scenario, rule_id in (("unsure", uncertain, "POSTURE-1"), ("unavailable", unavailable, "CUSTOM-1")):
-        extra_finding = scenario["findings"][-1]
-        extra_rule = Rule(
-            rule_id=rule_id, description=extra_finding["description"], check_name=extra_finding["check_name"],
-            parameters={}, origin=RuleOrigin.REVIEWER, confirmation_state=ConfirmationState.CONFIRMED,
-        )
-        scenario_book = Rulebook(
-            rulebook_id=f"rulebook_{name}_demo", guideline_text=SOURCE,
-            rules=[confirmed_rule, extra_rule], confirmation_state=ConfirmationState.CONFIRMED,
-        ).model_dump(mode="json")
-        for item in scenario["findings"]:
-            item["rulebook_id"] = scenario_book["rulebook_id"]
-            item["rulebook_version"] = scenario_book["version"]
-        scenario_rulebooks[name] = scenario_book
-    corrected = deepcopy(annotations)
-    corrected[1]["label"] = "person"
-    revision = {"dataset_id": "dataset_demo", "sample_id": "sample_001", "revision": 2, "parent_revision": 1,
-                "objects": corrected, "mask_changed": False, "reviewer_id": "reviewer_demo", "reason": "Corrected the second object's label.",
-                "source_audit_id": "audit_demo", "created_at": TIMESTAMP}
-    export = {"export_id": "export_demo", "audit_id": "audit_recheck_demo", "job_id": "job_export_demo", "status": "completed",
-              "format": "penn_fudan", "selection": "accepted_only", "include_images": False, "included_count": 1, "excluded_count": 0,
-              "download_url": f"{BASE_PATH}/exports/export_demo/download", "manifest_url": f"{BASE_PATH}/exports/export_demo/manifest", "created_at": TIMESTAMP}
-    feedback = {"example_id": "feedback_demo", "source_audit_id": "audit_posture_demo", "dataset_id": "dataset_feedback", "sample_id": "sample_feedback_001",
-                "original_revision": 1, "corrected_revision": 2, "rule_id": "LBL-2", "reviewer_id": "reviewer_demo",
-                "approved": True, "description": "Reviewer corrected a separate posture example from walking to standing."}
-    policy = {"policy_id": "policy_demo", "name": "Reviewed examples", "strategy": "reviewer_examples", "status": "draft",
-              "example_ids": ["feedback_demo"], "target_check_names": ["person_posture"], "evaluation_id": None}
-    evaluation = {"evaluation_id": "evaluation_demo", "policy_id": "policy_demo", "job_id": "job_feedback_evaluation_demo",
-                  "status": "queued", "evaluation_dataset_id": "dataset_holdout", "ground_truth_id": "truth_demo", "ground_truth_version": 1,
-                  "baseline": None, "candidate": None, "error": None}
-    return {
-        "draft": draft, "confirmed": confirmed, "sample": sample, "dataset": dataset,
-        "audit": audit, "finding": finding, "passing": passing, "summary": summary,
-        "detail": detail, "sample_review": sample_review, "corrected": corrected,
-        "revision": revision, "export": export, "feedback": feedback,
-        "policy": policy, "evaluation": evaluation,
-        "review_scenarios": {"flagged": detail, "no_issue": no_issue, "unsure": uncertain, "unavailable": unavailable},
-        "review_scenario_rulebooks": scenario_rulebooks,
-    }
 
 
 def parameter(name: str, location: str, schema: JsonObject, example: Any, *, required: bool = False,
@@ -502,7 +95,7 @@ def build_contract() -> JsonObject:
 
     add("GET", "/health", "getHealth", "System", "Check HTTP server liveness", "Health", {"status": "ok", "api_version": "v1"},
         description="Liveness only. Ollama being offline must not make this endpoint fail.")
-    checks = ["allowed_labels", "mask_dimensions", "mask_ids", "box_validity", "box_iou", "box_mask_alignment", "mask_outside_box", "mask_box_fill", "mask_components"]
+    checks = ["allowed_labels", "annotation_metadata", "mask_dimensions", "mask_ids", "box_validity", "box_iou", "box_mask_alignment", "mask_outside_box", "mask_box_fill", "mask_components"]
     add("GET", "/capabilities", "getCapabilities", "System", "List supported and planned checks", "Capabilities",
         {"dataset_formats": ["penn_fudan"], "guideline_input_formats": ["plain_text"], "coordinate_convention": "one_based_inclusive",
          "checks": [{"name": name, "implementation": "implemented"} for name in checks] +
@@ -511,38 +104,43 @@ def build_contract() -> JsonObject:
          "execution_device": "cpu"},
         backing="Existing measurement functions; registry and HTTP route are planned.")
     add("GET", "/system/status", "getSystemStatus", "System", "Inspect local model readiness", "SystemStatus",
-        {"ollama": {"reachable": False, "model": load_ollama_settings().model, "model_available": None},
+        {"ollama": {"reachable": False, "model": EXAMPLE_MODEL, "model_available": None},
          "detector": {"weights_cached": True, "integration_ready": False}, "execution_device": "cpu"},
         description="Read-only readiness. Does not start services, download models or change configuration.")
-    add("POST", "/rulebooks", "createRulebook", "Rulebooks", "Create a manually assembled draft", "Rulebook", examples["draft"], status=201,
-        body_schema="RulebookCreate", body_example={"guideline_text": SOURCE, "rules": examples["draft"]["rules"]},
-        backing="Rule and Rulebook validation exists; persistence and route are planned.",
+    add("POST", "/rulebooks", "createRulebook", "Rulebooks", "Create a manually assembled draft", "Rulebook", examples["manual_draft"], status=201,
+        body_schema="RulebookCreate", body_example={"guideline_text": SOURCE, "rules": examples["manual_draft"]["rules"]},
+        backing="Rule/Rulebook validation and PostgreSQL storage exist; manual creation service and route are planned.",
         description="Server assigns rulebook_id and version 1. The book starts as draft. Reviewer-authored rules use origin reviewer and may have no citation.")
     add("POST", "/rulebooks/extractions", "extractRulebook", "Rulebooks", "Propose draft rules from plain text", "Job", job("rule_extraction", "rulebook", "rulebook_demo"), status=202,
         body_schema="RuleExtractionRequest", body_example={"guideline_text": SOURCE}, backing="extract_and_save_rulebook coordinates extraction and PostgreSQL storage; jobs and route are planned.",
         description="Poll GET /jobs/{job_id}. On completion, result.href points to the saved draft rulebook. Failure is stored in job.error, including MODEL_UNAVAILABLE or INVALID_RULE_PROPOSALS.")
-    add("GET", "/rulebooks", "listRulebooks", "Rulebooks", "List latest rulebook versions", "RulebookPage", page([examples["draft"]]), parameters=pagination_parameters())
+    add("GET", "/rulebooks", "listRulebooks", "Rulebooks", "List latest rulebook versions", "RulebookPage", page([examples["confirmed"]]), parameters=pagination_parameters(),
+        backing="RulebookRepository.list_rulebooks exists; route is planned.")
     add("GET", "/rulebooks/{rulebook_id}", "getRulebook", "Rulebooks", "Read a rulebook version", "Rulebook", examples["confirmed"],
-        parameters=[parameter("version", "query", VERSION, 2, description="Omit for latest; audits must reference a specific version.")])
-    add("GET", "/rulebooks/{rulebook_id}/versions", "listRulebookVersions", "Rulebooks", "Read rulebook version history", "RulebookPage", page([examples["draft"]]), parameters=pagination_parameters(),
+        parameters=[parameter("version", "query", VERSION, examples["confirmed"]["version"], description="Omit for latest; audits must reference a specific version.")],
+        backing="RulebookRepository.get_rulebook exists; route is planned.")
+    add("GET", "/rulebooks/{rulebook_id}/versions", "listRulebookVersions", "Rulebooks", "Read rulebook version history", "RulebookPage", page([examples["draft"], examples["reviewed"], examples["confirmed"]]), parameters=pagination_parameters(),
         backing="RulebookRepository.list_rulebook_versions exists; route is planned.",
         description="Snapshots are ordered by ascending version. Unknown rulebooks return 404; an offset past the last version returns an empty page.")
     add("GET", "/rulebooks/{rulebook_id}/reviews", "listRulebookReviews", "Rulebooks", "Read rulebook review attribution", "RulebookReviewPage",
-        page([{"rulebook_id": "rulebook_demo", "version": 2, "reviewer_id": "reviewer_demo", "action": "edit", "created_at": TIMESTAMP}]),
+        page([
+            {"rulebook_id": "rulebook_demo", "version": 2, "reviewer_id": "reviewer_demo", "action": "edit", "created_at": TIMESTAMP},
+            {"rulebook_id": "rulebook_demo", "version": 3, "reviewer_id": "reviewer_demo", "action": "confirm", "created_at": TIMESTAMP},
+        ]),
         parameters=pagination_parameters(), backing="RulebookRepository.list_rulebook_reviews exists; route is planned.",
         description="Attributed review actions ordered by ascending version. Each action and snapshot commit together. Extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.")
-    add("PUT", "/rulebooks/{rulebook_id}", "replaceDraftRulebook", "Rulebooks", "Save a reviewed draft", "Rulebook", {**examples["confirmed"], "confirmation_state": "draft"},
+    add("PUT", "/rulebooks/{rulebook_id}", "replaceDraftRulebook", "Rulebooks", "Save a reviewed draft", "Rulebook", examples["reviewed"],
         body_schema="RulebookReplace", body_example={"expected_version": 1, "reviewer_id": "reviewer_demo", "guideline_text": SOURCE, "rules": examples["confirmed"]["rules"]},
         backing="save_rulebook_review service and transactional PostgreSQL review history exist; route is planned.",
         description="Only latest drafts are editable. Submit the complete rule list and explicit rule decisions; omission removes a rule. Retained IDs preserve origin; added IDs must use reviewer origin. All citations must match the supplied text. Save increments version, attributes the reviewer and preserves history. The book stays draft; example save confirms individual rules only.")
-    add("POST", "/rulebooks/{rulebook_id}/confirm", "confirmRulebook", "Rulebooks", "Confirm a reviewed rulebook", "Rulebook", {**examples["confirmed"], "version": 3},
+    add("POST", "/rulebooks/{rulebook_id}/confirm", "confirmRulebook", "Rulebooks", "Confirm a reviewed rulebook", "Rulebook", examples["confirmed"],
         body_schema="RulebookAction", body_example={"expected_version": 2, "reviewer_id": "reviewer_demo"},
         backing="confirm_rulebook service and transactional PostgreSQL review history exist; route is planned.",
         description="Only a latest draft can be confirmed. Require a nonempty book with all included rules confirmed. Rejected rules must be removed; prior versions preserve them. Append expected_version + 1 as a frozen confirmed snapshot for audits. 409 RULEBOOK_NOT_READY when rules are unconfirmed or empty.")
     add("POST", "/rulebooks/{rulebook_id}/reject", "rejectRulebook", "Rulebooks", "Reject a draft rulebook", "Rulebook", {**examples["draft"], "version": 2, "confirmation_state": "rejected"},
         body_schema="RulebookAction", body_example={"expected_version": 1, "reviewer_id": "reviewer_demo"},
         backing="reject_rulebook service and transactional PostgreSQL review history exist; route is planned.",
-        description="Reject the latest draft as a whole. Append a new version without changing individual rule decisions. Start a revision before further edits.")
+        description="Reject the latest draft as a whole. Append a new version without changing individual rule decisions. Start a revision before further edits. This example is an alternative branch from the original version-1 draft, not a step after confirmation.")
     add("POST", "/rulebooks/{rulebook_id}/revisions", "reviseRulebook", "Rulebooks", "Start a new draft from a final version", "Rulebook", {**examples["draft"], "version": 4}, status=201,
         body_schema="RulebookAction", body_example={"expected_version": 3, "reviewer_id": "reviewer_demo"},
         backing="revise_rulebook service and transactional PostgreSQL review history exist; route is planned.",
@@ -572,7 +170,7 @@ def build_contract() -> JsonObject:
             "objects": examples["corrected"], "mask_upload_id": None, "source_audit_id": "audit_demo"},
         description="objects is the complete replacement list: add/remove entries to add/remove objects. Preserve originals and history. Validate boxes, labels and resulting ID correspondence before committing the revision. Changes make older sample reviews stale; request a recheck before deciding on the corrected revision. Reject stale expected_revision with 409.")
     add("GET", "/datasets/{dataset_id}/samples/{sample_id}/revisions", "listAnnotationRevisions", "Corrections", "Read correction history", "RevisionPage", page([examples["revision"]]), parameters=pagination_parameters())
-    audit_request = {"dataset_id": "dataset_demo", "rulebook_id": "rulebook_demo", "rulebook_version": 2, "sample_ids": None, "feedback_policy_id": None}
+    audit_request = {"dataset_id": "dataset_demo", "rulebook_id": "rulebook_demo", "rulebook_version": examples["confirmed"]["version"], "sample_ids": None, "feedback_policy_id": None}
     add("POST", "/audits", "startAudit", "Audits", "Start an audit against confirmed rules", "AuditStarted",
         {"audit": {**examples["audit"], "status": "queued", "processed_count": 0}, "job": job("audit", "audit", "audit_demo")}, status=202,
         body_schema="AuditRequest", body_example=audit_request, backing="audit_sample measurements exist; confirmed-rule execution, batch processing and route are planned.",
@@ -614,7 +212,6 @@ def build_contract() -> JsonObject:
         body_schema="SampleReviewRequest", body_example={"expected_revision": 0, "decision": "needs_correction", "reviewer_id": "reviewer_demo", "comment": reviewed["comment"]},
         description="Separate from finding resolution. Reviewer controls accepted/rejected decisions, including no_issue samples. needs_correction is not final acceptance. Only decide on the pinned, current sample revision; otherwise return 409 STALE_SAMPLE_REVISION. Save traceable review history.")
     add("GET", "/audits/{audit_id}/samples/{sample_id}/reviews", "listSampleReviews", "Reviews", "Read sample decision history", "SampleReviewPage", page([reviewed]), parameters=pagination_parameters())
-    schemas["SampleReviewPage"] = page_schema(ref("SampleReview"))
     add("POST", "/exports", "startExport", "Exports", "Prepare reviewed output and manifest", "ExportStarted",
         {"export": {**examples["export"], "status": "queued", "included_count": None, "excluded_count": None, "download_url": None, "manifest_url": None}, "job": job("export", "export", "export_demo")},
         status=202, body_schema="ExportRequest", body_example={"audit_id": "audit_recheck_demo", "format": "penn_fudan", "selection": "accepted_only", "include_images": False},
@@ -623,7 +220,7 @@ def build_contract() -> JsonObject:
     add("GET", "/exports/{export_id}/download", "downloadExport", "Exports", "Download corrected dataset archive", "", None, binary=True,
         description="ZIP bytes with annotations, masks and review manifest; images included only when requested. Return 409 EXPORT_NOT_READY until preparation completes.")
     add("GET", "/exports/{export_id}/manifest", "getExportManifest", "Exports", "Read exported and excluded sample decisions", "ExportManifest",
-        {"export_id": "export_demo", "audit_id": "audit_recheck_demo", "rulebook_id": "rulebook_demo", "rulebook_version": 2,
+        {"export_id": "export_demo", "audit_id": "audit_recheck_demo", "rulebook_id": "rulebook_demo", "rulebook_version": examples["confirmed"]["version"],
          "entries": [{"sample_id": "sample_001", "sample_revision": 2, "included": True, "review_decision": "accepted", "reason": None}]})
     add("GET", "/feedback/examples", "listFeedbackExamples", "Feedback", "List approved reviewer correction examples", "FeedbackExamplePage", page([examples["feedback"]]), parameters=pagination_parameters(),
         description="Examples derive from approved reviews and corrections; storing them is not yet an improvement mechanism. Rejected suggestions are not silently used as correct examples.")
@@ -659,17 +256,21 @@ def build_contract() -> JsonObject:
     return contract
 
 
-def main() -> None:
+def render_artifacts() -> dict[str, str]:
+    """Render all generated files without writing them, for reproducible updates."""
     contract = build_contract()
     fixtures = contract.pop("x-template-operations")
     scenarios = contract.pop("x-review-scenarios")
     scenario_rulebooks = contract.pop("x-review-scenario-rulebooks")
-    for filename, content in (("openapi.json", contract), ("examples.json", {
+    documents = {"openapi.json": contract, "examples.json": {
         "notice": "Proposed contract and synthetic frontend fixtures. No HTTP server is implemented.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
-    })):
-        (API_DIRECTORY / filename).write_text(json.dumps(content, indent=2, ensure_ascii=False) + "\n")
+    }}
+    artifacts = {
+        filename: json.dumps(content, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+        for filename, content in documents.items()
+    }
     lines = ["# Proposed endpoint index", "", "Generated from `build_contract.py`. All HTTP routes are planned; none are live yet.", "",
              "Paths include the `/api/v1` prefix. See `openapi.json` for schemas and `examples.json` for frontend fixtures.", ""]
     for tag in contract["tags"]:
@@ -678,8 +279,14 @@ def main() -> None:
             if operation["tag"] == tag["name"]:
                 lines.append(f"- `{operation['method']} {operation['path']}` — {operation['summary']} (`{operation['operation_id']}`).")
         lines.append("")
-    (API_DIRECTORY / "ENDPOINTS.md").write_text("\n".join(lines))
-    print(f"Generated {len(fixtures)} endpoint templates and {len(contract['components']['schemas'])} schemas.")
+    artifacts["ENDPOINTS.md"] = "\n".join(lines)
+    return artifacts
+
+
+def main() -> None:
+    for filename, content in render_artifacts().items():
+        (API_DIRECTORY / filename).write_text(content, encoding="utf-8")
+    print("Generated OpenAPI schemas, frontend fixtures and the endpoint index.")
 
 
 if __name__ == "__main__":

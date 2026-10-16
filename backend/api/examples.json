@@ -56,6 +56,10 @@
               "implementation": "implemented"
             },
             {
+              "name": "annotation_metadata",
+              "implementation": "implemented"
+            },
+            {
               "name": "mask_dimensions",
               "implementation": "implemented"
             },
@@ -132,7 +136,7 @@
         "body": {
           "ollama": {
             "reachable": false,
-            "model": "qwen3-vl:4b-instruct",
+            "model": "example-local-model:latest",
             "model_available": null
           },
           "detector": {
@@ -150,7 +154,7 @@
       "tag": "Rulebooks",
       "summary": "Create a manually assembled draft",
       "implementation": "planned",
-      "backing_service": "Rule and Rulebook validation exists; persistence and route are planned.",
+      "backing_service": "Rule/Rulebook validation and PostgreSQL storage exist; manual creation service and route are planned.",
       "request": {
         "path_parameters": {},
         "query": {},
@@ -167,8 +171,8 @@
                   "person"
                 ]
               },
-              "origin": "extracted",
-              "source_sentence": "Allowed labels are person.",
+              "origin": "reviewer",
+              "source_sentence": null,
               "confirmation_state": "draft"
             }
           ]
@@ -178,7 +182,7 @@
         "status": 201,
         "content_type": "application/json",
         "body": {
-          "rulebook_id": "rulebook_demo",
+          "rulebook_id": "rulebook_manual_demo",
           "version": 1,
           "guideline_text": "Allowed labels are person.",
           "rules": [
@@ -191,8 +195,8 @@
                   "person"
                 ]
               },
-              "origin": "extracted",
-              "source_sentence": "Allowed labels are person.",
+              "origin": "reviewer",
+              "source_sentence": null,
               "confirmation_state": "draft"
             }
           ],
@@ -243,7 +247,7 @@
       "tag": "Rulebooks",
       "summary": "List latest rulebook versions",
       "implementation": "planned",
-      "backing_service": "planned",
+      "backing_service": "RulebookRepository.list_rulebooks exists; route is planned.",
       "request": {
         "path_parameters": {},
         "query": {
@@ -260,7 +264,7 @@
           "items": [
             {
               "rulebook_id": "rulebook_demo",
-              "version": 1,
+              "version": 3,
               "guideline_text": "Allowed labels are person.",
               "rules": [
                 {
@@ -274,10 +278,10 @@
                   },
                   "origin": "extracted",
                   "source_sentence": "Allowed labels are person.",
-                  "confirmation_state": "draft"
+                  "confirmation_state": "confirmed"
                 }
               ],
-              "confirmation_state": "draft"
+              "confirmation_state": "confirmed"
             }
           ],
           "limit": 20,
@@ -294,13 +298,13 @@
       "tag": "Rulebooks",
       "summary": "Read a rulebook version",
       "implementation": "planned",
-      "backing_service": "planned",
+      "backing_service": "RulebookRepository.get_rulebook exists; route is planned.",
       "request": {
         "path_parameters": {
           "rulebook_id": "rulebook_demo"
         },
         "query": {
-          "version": 2
+          "version": 3
         },
         "content_type": null,
         "body": null
@@ -310,7 +314,7 @@
         "content_type": "application/json",
         "body": {
           "rulebook_id": "rulebook_demo",
-          "version": 2,
+          "version": 3,
           "guideline_text": "Allowed labels are person.",
           "rules": [
             {
@@ -375,11 +379,53 @@
                 }
               ],
               "confirmation_state": "draft"
+            },
+            {
+              "rulebook_id": "rulebook_demo",
+              "version": 2,
+              "guideline_text": "Allowed labels are person.",
+              "rules": [
+                {
+                  "rule_id": "LBL-1",
+                  "description": "Use an allowed label.",
+                  "check_name": "allowed_labels",
+                  "parameters": {
+                    "allowed_labels": [
+                      "person"
+                    ]
+                  },
+                  "origin": "extracted",
+                  "source_sentence": "Allowed labels are person.",
+                  "confirmation_state": "confirmed"
+                }
+              ],
+              "confirmation_state": "draft"
+            },
+            {
+              "rulebook_id": "rulebook_demo",
+              "version": 3,
+              "guideline_text": "Allowed labels are person.",
+              "rules": [
+                {
+                  "rule_id": "LBL-1",
+                  "description": "Use an allowed label.",
+                  "check_name": "allowed_labels",
+                  "parameters": {
+                    "allowed_labels": [
+                      "person"
+                    ]
+                  },
+                  "origin": "extracted",
+                  "source_sentence": "Allowed labels are person.",
+                  "confirmation_state": "confirmed"
+                }
+              ],
+              "confirmation_state": "confirmed"
             }
           ],
           "limit": 20,
           "offset": 0,
-          "total": 1,
+          "total": 3,
           "next_offset": null
         }
       }
@@ -414,11 +460,18 @@
               "reviewer_id": "reviewer_demo",
               "action": "edit",
               "created_at": "2026-10-14T10:00:00Z"
+            },
+            {
+              "rulebook_id": "rulebook_demo",
+              "version": 3,
+              "reviewer_id": "reviewer_demo",
+              "action": "confirm",
+              "created_at": "2026-10-14T10:00:00Z"
             }
           ],
           "limit": 20,
           "offset": 0,
-          "total": 1,
+          "total": 2,
           "next_offset": null
         }
       }
@@ -1136,7 +1189,7 @@
         "body": {
           "dataset_id": "dataset_demo",
           "rulebook_id": "rulebook_demo",
-          "rulebook_version": 2,
+          "rulebook_version": 3,
           "sample_ids": null,
           "feedback_policy_id": null
         }
@@ -1150,7 +1203,7 @@
             "parent_audit_id": null,
             "dataset_id": "dataset_demo",
             "rulebook_id": "rulebook_demo",
-            "rulebook_version": 2,
+            "rulebook_version": 3,
             "feedback_policy_id": null,
             "status": "queued",
             "job_id": "job_audit_demo",
@@ -1204,7 +1257,7 @@
               "parent_audit_id": null,
               "dataset_id": "dataset_demo",
               "rulebook_id": "rulebook_demo",
-              "rulebook_version": 2,
+              "rulebook_version": 3,
               "feedback_policy_id": null,
               "status": "completed",
               "job_id": "job_audit_demo",
@@ -1245,7 +1298,7 @@
           "parent_audit_id": null,
           "dataset_id": "dataset_demo",
           "rulebook_id": "rulebook_demo",
-          "rulebook_version": 2,
+          "rulebook_version": 3,
           "feedback_policy_id": null,
           "status": "completed",
           "job_id": "job_audit_demo",
@@ -1367,7 +1420,7 @@
               4,
               3
             ],
-            "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"vehicle\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+            "annotation_text": "Image size (X x Y x C) : 4 x 3 x 3\nObjects with ground truth : 2 { \"person\" \"vehicle\" }\n# Top left pixel co-ordinates : (1, 1)\nBounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"vehicle\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
             "allowed_labels": [
               "person"
             ],
@@ -1391,32 +1444,34 @@
                   ]
                 }
               },
-              "mask_ids": {
+              "annotation_metadata": {
                 "status": "completed",
                 "reason": null,
                 "detail": null,
                 "result": {
+                  "measurement_available": true,
+                  "reason": null,
                   "matches": true,
-                  "annotation_ids": [
-                    1,
-                    2
+                  "declared": {
+                    "image_size": [
+                      4,
+                      3,
+                      3
+                    ],
+                    "object_count": 2,
+                    "coordinate_origin": [
+                      1,
+                      1
+                    ],
+                    "errors": {}
+                  },
+                  "actual_image_size": [
+                    4,
+                    3,
+                    3
                   ],
-                  "mask_ids": [
-                    1,
-                    2
-                  ],
-                  "missing_masks": [],
-                  "missing_annotations": []
-                }
-              },
-              "annotation_ids": {
-                "status": "completed",
-                "reason": null,
-                "detail": null,
-                "result": {
-                  "valid": true,
-                  "duplicate_ids": [],
-                  "invalid_ids": []
+                  "actual_object_count": 2,
+                  "issues": {}
                 }
               },
               "labels": {
@@ -1445,6 +1500,34 @@
                   "invalid_object_ids": [
                     2
                   ]
+                }
+              },
+              "annotation_ids": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "valid": true,
+                  "duplicate_ids": [],
+                  "invalid_ids": []
+                }
+              },
+              "mask_ids": {
+                "status": "completed",
+                "reason": null,
+                "detail": null,
+                "result": {
+                  "matches": true,
+                  "annotation_ids": [
+                    1,
+                    2
+                  ],
+                  "mask_ids": [
+                    1,
+                    2
+                  ],
+                  "missing_masks": [],
+                  "missing_annotations": []
                 }
               },
               "box_overlaps": {
@@ -1559,14 +1642,14 @@
                         2,
                         2
                       ],
+                      "measurement_available": true,
+                      "reason": null,
                       "mask_bbox": [
                         1,
                         1,
                         2,
                         2
                       ],
-                      "comparison_available": true,
-                      "reason": null,
                       "edge_differences": {
                         "left": 0,
                         "top": 0,
@@ -1693,14 +1776,14 @@
                         4,
                         3
                       ],
+                      "measurement_available": true,
+                      "reason": null,
                       "mask_bbox": [
                         4,
                         3,
                         4,
                         3
                       ],
-                      "comparison_available": true,
-                      "reason": null,
                       "edge_differences": {
                         "left": 0,
                         "top": 0,
@@ -1760,7 +1843,7 @@
               "sample_revision": 1,
               "object_id": 1,
               "rulebook_id": "rulebook_demo",
-              "rulebook_version": 2,
+              "rulebook_version": 3,
               "rule_id": "LBL-1",
               "description": "Use an allowed label.",
               "check_name": "allowed_labels",
@@ -1799,7 +1882,7 @@
               "sample_revision": 1,
               "object_id": 2,
               "rulebook_id": "rulebook_demo",
-              "rulebook_version": 2,
+              "rulebook_version": 3,
               "rule_id": "LBL-1",
               "description": "Use an allowed label.",
               "check_name": "allowed_labels",
@@ -1875,7 +1958,7 @@
               "sample_revision": 1,
               "object_id": 2,
               "rulebook_id": "rulebook_demo",
-              "rulebook_version": 2,
+              "rulebook_version": 3,
               "rule_id": "LBL-1",
               "description": "Use an allowed label.",
               "check_name": "allowed_labels",
@@ -1945,7 +2028,7 @@
             "parent_audit_id": "audit_demo",
             "dataset_id": "dataset_demo",
             "rulebook_id": "rulebook_demo",
-            "rulebook_version": 2,
+            "rulebook_version": 3,
             "feedback_policy_id": null,
             "status": "queued",
             "job_id": "job_recheck_demo",
@@ -2291,7 +2374,7 @@
           "export_id": "export_demo",
           "audit_id": "audit_recheck_demo",
           "rulebook_id": "rulebook_demo",
-          "rulebook_version": 2,
+          "rulebook_version": 3,
           "entries": [
             {
               "sample_id": "sample_001",
@@ -2758,7 +2841,7 @@
           4,
           3
         ],
-        "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"vehicle\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+        "annotation_text": "Image size (X x Y x C) : 4 x 3 x 3\nObjects with ground truth : 2 { \"person\" \"vehicle\" }\n# Top left pixel co-ordinates : (1, 1)\nBounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"vehicle\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
         "allowed_labels": [
           "person"
         ],
@@ -2782,32 +2865,34 @@
               ]
             }
           },
-          "mask_ids": {
+          "annotation_metadata": {
             "status": "completed",
             "reason": null,
             "detail": null,
             "result": {
+              "measurement_available": true,
+              "reason": null,
               "matches": true,
-              "annotation_ids": [
-                1,
-                2
+              "declared": {
+                "image_size": [
+                  4,
+                  3,
+                  3
+                ],
+                "object_count": 2,
+                "coordinate_origin": [
+                  1,
+                  1
+                ],
+                "errors": {}
+              },
+              "actual_image_size": [
+                4,
+                3,
+                3
               ],
-              "mask_ids": [
-                1,
-                2
-              ],
-              "missing_masks": [],
-              "missing_annotations": []
-            }
-          },
-          "annotation_ids": {
-            "status": "completed",
-            "reason": null,
-            "detail": null,
-            "result": {
-              "valid": true,
-              "duplicate_ids": [],
-              "invalid_ids": []
+              "actual_object_count": 2,
+              "issues": {}
             }
           },
           "labels": {
@@ -2836,6 +2921,34 @@
               "invalid_object_ids": [
                 2
               ]
+            }
+          },
+          "annotation_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "valid": true,
+              "duplicate_ids": [],
+              "invalid_ids": []
+            }
+          },
+          "mask_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "annotation_ids": [
+                1,
+                2
+              ],
+              "mask_ids": [
+                1,
+                2
+              ],
+              "missing_masks": [],
+              "missing_annotations": []
             }
           },
           "box_overlaps": {
@@ -2950,14 +3063,14 @@
                     2,
                     2
                   ],
+                  "measurement_available": true,
+                  "reason": null,
                   "mask_bbox": [
                     1,
                     1,
                     2,
                     2
                   ],
-                  "comparison_available": true,
-                  "reason": null,
                   "edge_differences": {
                     "left": 0,
                     "top": 0,
@@ -3084,14 +3197,14 @@
                     4,
                     3
                   ],
+                  "measurement_available": true,
+                  "reason": null,
                   "mask_bbox": [
                     4,
                     3,
                     4,
                     3
                   ],
-                  "comparison_available": true,
-                  "reason": null,
                   "edge_differences": {
                     "left": 0,
                     "top": 0,
@@ -3151,7 +3264,7 @@
           "sample_revision": 1,
           "object_id": 1,
           "rulebook_id": "rulebook_demo",
-          "rulebook_version": 2,
+          "rulebook_version": 3,
           "rule_id": "LBL-1",
           "description": "Use an allowed label.",
           "check_name": "allowed_labels",
@@ -3190,7 +3303,7 @@
           "sample_revision": 1,
           "object_id": 2,
           "rulebook_id": "rulebook_demo",
-          "rulebook_version": 2,
+          "rulebook_version": 3,
           "rule_id": "LBL-1",
           "description": "Use an allowed label.",
           "check_name": "allowed_labels",
@@ -3275,7 +3388,7 @@
           4,
           3
         ],
-        "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+        "annotation_text": "Image size (X x Y x C) : 4 x 3 x 3\nObjects with ground truth : 2 { \"person\" \"person\" }\n# Top left pixel co-ordinates : (1, 1)\nBounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
         "allowed_labels": [
           "person"
         ],
@@ -3299,32 +3412,34 @@
               ]
             }
           },
-          "mask_ids": {
+          "annotation_metadata": {
             "status": "completed",
             "reason": null,
             "detail": null,
             "result": {
+              "measurement_available": true,
+              "reason": null,
               "matches": true,
-              "annotation_ids": [
-                1,
-                2
+              "declared": {
+                "image_size": [
+                  4,
+                  3,
+                  3
+                ],
+                "object_count": 2,
+                "coordinate_origin": [
+                  1,
+                  1
+                ],
+                "errors": {}
+              },
+              "actual_image_size": [
+                4,
+                3,
+                3
               ],
-              "mask_ids": [
-                1,
-                2
-              ],
-              "missing_masks": [],
-              "missing_annotations": []
-            }
-          },
-          "annotation_ids": {
-            "status": "completed",
-            "reason": null,
-            "detail": null,
-            "result": {
-              "valid": true,
-              "duplicate_ids": [],
-              "invalid_ids": []
+              "actual_object_count": 2,
+              "issues": {}
             }
           },
           "labels": {
@@ -3351,6 +3466,34 @@
                 }
               ],
               "invalid_object_ids": []
+            }
+          },
+          "annotation_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "valid": true,
+              "duplicate_ids": [],
+              "invalid_ids": []
+            }
+          },
+          "mask_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "annotation_ids": [
+                1,
+                2
+              ],
+              "mask_ids": [
+                1,
+                2
+              ],
+              "missing_masks": [],
+              "missing_annotations": []
             }
           },
           "box_overlaps": {
@@ -3465,14 +3608,14 @@
                     2,
                     2
                   ],
+                  "measurement_available": true,
+                  "reason": null,
                   "mask_bbox": [
                     1,
                     1,
                     2,
                     2
                   ],
-                  "comparison_available": true,
-                  "reason": null,
                   "edge_differences": {
                     "left": 0,
                     "top": 0,
@@ -3599,14 +3742,14 @@
                     4,
                     3
                   ],
+                  "measurement_available": true,
+                  "reason": null,
                   "mask_bbox": [
                     4,
                     3,
                     4,
                     3
                   ],
-                  "comparison_available": true,
-                  "reason": null,
                   "edge_differences": {
                     "left": 0,
                     "top": 0,
@@ -3666,7 +3809,7 @@
           "sample_revision": 1,
           "object_id": 1,
           "rulebook_id": "rulebook_demo",
-          "rulebook_version": 2,
+          "rulebook_version": 3,
           "rule_id": "LBL-1",
           "description": "Use an allowed label.",
           "check_name": "allowed_labels",
@@ -3705,7 +3848,7 @@
           "sample_revision": 1,
           "object_id": 2,
           "rulebook_id": "rulebook_demo",
-          "rulebook_version": 2,
+          "rulebook_version": 3,
           "rule_id": "LBL-1",
           "description": "Use an allowed label.",
           "check_name": "allowed_labels",
@@ -3790,7 +3933,7 @@
           4,
           3
         ],
-        "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+        "annotation_text": "Image size (X x Y x C) : 4 x 3 x 3\nObjects with ground truth : 2 { \"person\" \"person\" }\n# Top left pixel co-ordinates : (1, 1)\nBounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
         "allowed_labels": [
           "person"
         ],
@@ -3814,32 +3957,34 @@
               ]
             }
           },
-          "mask_ids": {
+          "annotation_metadata": {
             "status": "completed",
             "reason": null,
             "detail": null,
             "result": {
+              "measurement_available": true,
+              "reason": null,
               "matches": true,
-              "annotation_ids": [
-                1,
-                2
+              "declared": {
+                "image_size": [
+                  4,
+                  3,
+                  3
+                ],
+                "object_count": 2,
+                "coordinate_origin": [
+                  1,
+                  1
+                ],
+                "errors": {}
+              },
+              "actual_image_size": [
+                4,
+                3,
+                3
               ],
-              "mask_ids": [
-                1,
-                2
-              ],
-              "missing_masks": [],
-              "missing_annotations": []
-            }
-          },
-          "annotation_ids": {
-            "status": "completed",
-            "reason": null,
-            "detail": null,
-            "result": {
-              "valid": true,
-              "duplicate_ids": [],
-              "invalid_ids": []
+              "actual_object_count": 2,
+              "issues": {}
             }
           },
           "labels": {
@@ -3866,6 +4011,34 @@
                 }
               ],
               "invalid_object_ids": []
+            }
+          },
+          "annotation_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "valid": true,
+              "duplicate_ids": [],
+              "invalid_ids": []
+            }
+          },
+          "mask_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "annotation_ids": [
+                1,
+                2
+              ],
+              "mask_ids": [
+                1,
+                2
+              ],
+              "missing_masks": [],
+              "missing_annotations": []
             }
           },
           "box_overlaps": {
@@ -3980,14 +4153,14 @@
                     2,
                     2
                   ],
+                  "measurement_available": true,
+                  "reason": null,
                   "mask_bbox": [
                     1,
                     1,
                     2,
                     2
                   ],
-                  "comparison_available": true,
-                  "reason": null,
                   "edge_differences": {
                     "left": 0,
                     "top": 0,
@@ -4114,14 +4287,14 @@
                     4,
                     3
                   ],
+                  "measurement_available": true,
+                  "reason": null,
                   "mask_bbox": [
                     4,
                     3,
                     4,
                     3
                   ],
-                  "comparison_available": true,
-                  "reason": null,
                   "edge_differences": {
                     "left": 0,
                     "top": 0,
@@ -4181,7 +4354,7 @@
           "sample_revision": 1,
           "object_id": 1,
           "rulebook_id": "rulebook_unsure_demo",
-          "rulebook_version": 1,
+          "rulebook_version": 3,
           "rule_id": "LBL-1",
           "description": "Use an allowed label.",
           "check_name": "allowed_labels",
@@ -4220,7 +4393,7 @@
           "sample_revision": 1,
           "object_id": 2,
           "rulebook_id": "rulebook_unsure_demo",
-          "rulebook_version": 1,
+          "rulebook_version": 3,
           "rule_id": "LBL-1",
           "description": "Use an allowed label.",
           "check_name": "allowed_labels",
@@ -4259,7 +4432,7 @@
           "sample_revision": 1,
           "object_id": 1,
           "rulebook_id": "rulebook_unsure_demo",
-          "rulebook_version": 1,
+          "rulebook_version": 3,
           "rule_id": "POSTURE-1",
           "description": "The activity label should match visible posture.",
           "check_name": "person_posture",
@@ -4337,7 +4510,7 @@
           4,
           3
         ],
-        "annotation_text": "Bounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+        "annotation_text": "Image size (X x Y x C) : 4 x 3 x 3\nObjects with ground truth : 2 { \"person\" \"person\" }\n# Top left pixel co-ordinates : (1, 1)\nBounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
         "allowed_labels": [
           "person"
         ],
@@ -4361,32 +4534,34 @@
               ]
             }
           },
-          "mask_ids": {
+          "annotation_metadata": {
             "status": "completed",
             "reason": null,
             "detail": null,
             "result": {
+              "measurement_available": true,
+              "reason": null,
               "matches": true,
-              "annotation_ids": [
-                1,
-                2
+              "declared": {
+                "image_size": [
+                  4,
+                  3,
+                  3
+                ],
+                "object_count": 2,
+                "coordinate_origin": [
+                  1,
+                  1
+                ],
+                "errors": {}
+              },
+              "actual_image_size": [
+                4,
+                3,
+                3
               ],
-              "mask_ids": [
-                1,
-                2
-              ],
-              "missing_masks": [],
-              "missing_annotations": []
-            }
-          },
-          "annotation_ids": {
-            "status": "completed",
-            "reason": null,
-            "detail": null,
-            "result": {
-              "valid": true,
-              "duplicate_ids": [],
-              "invalid_ids": []
+              "actual_object_count": 2,
+              "issues": {}
             }
           },
           "labels": {
@@ -4413,6 +4588,34 @@
                 }
               ],
               "invalid_object_ids": []
+            }
+          },
+          "annotation_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "valid": true,
+              "duplicate_ids": [],
+              "invalid_ids": []
+            }
+          },
+          "mask_ids": {
+            "status": "completed",
+            "reason": null,
+            "detail": null,
+            "result": {
+              "matches": true,
+              "annotation_ids": [
+                1,
+                2
+              ],
+              "mask_ids": [
+                1,
+                2
+              ],
+              "missing_masks": [],
+              "missing_annotations": []
             }
           },
           "box_overlaps": {
@@ -4527,14 +4730,14 @@
                     2,
                     2
                   ],
+                  "measurement_available": true,
+                  "reason": null,
                   "mask_bbox": [
                     1,
                     1,
                     2,
                     2
                   ],
-                  "comparison_available": true,
-                  "reason": null,
                   "edge_differences": {
                     "left": 0,
                     "top": 0,
@@ -4661,14 +4864,14 @@
                     4,
                     3
                   ],
+                  "measurement_available": true,
+                  "reason": null,
                   "mask_bbox": [
                     4,
                     3,
                     4,
                     3
                   ],
-                  "comparison_available": true,
-                  "reason": null,
                   "edge_differences": {
                     "left": 0,
                     "top": 0,
@@ -4728,7 +4931,7 @@
           "sample_revision": 1,
           "object_id": 1,
           "rulebook_id": "rulebook_unavailable_demo",
-          "rulebook_version": 1,
+          "rulebook_version": 3,
           "rule_id": "LBL-1",
           "description": "Use an allowed label.",
           "check_name": "allowed_labels",
@@ -4767,7 +4970,7 @@
           "sample_revision": 1,
           "object_id": 2,
           "rulebook_id": "rulebook_unavailable_demo",
-          "rulebook_version": 1,
+          "rulebook_version": 3,
           "rule_id": "LBL-1",
           "description": "Use an allowed label.",
           "check_name": "allowed_labels",
@@ -4806,7 +5009,7 @@
           "sample_revision": 1,
           "object_id": null,
           "rulebook_id": "rulebook_unavailable_demo",
-          "rulebook_version": 1,
+          "rulebook_version": 3,
           "rule_id": "CUSTOM-1",
           "description": "Custom reviewer requirement without a supported check.",
           "check_name": null,
@@ -4842,7 +5045,7 @@
   "review_scenario_rulebooks": {
     "flagged": {
       "rulebook_id": "rulebook_demo",
-      "version": 2,
+      "version": 3,
       "guideline_text": "Allowed labels are person.",
       "rules": [
         {
@@ -4863,7 +5066,7 @@
     },
     "no_issue": {
       "rulebook_id": "rulebook_demo",
-      "version": 2,
+      "version": 3,
       "guideline_text": "Allowed labels are person.",
       "rules": [
         {
@@ -4884,7 +5087,7 @@
     },
     "unsure": {
       "rulebook_id": "rulebook_unsure_demo",
-      "version": 1,
+      "version": 3,
       "guideline_text": "Allowed labels are person.",
       "rules": [
         {
@@ -4914,7 +5117,7 @@
     },
     "unavailable": {
       "rulebook_id": "rulebook_unavailable_demo",
-      "version": 1,
+      "version": 3,
       "guideline_text": "Allowed labels are person.",
       "rules": [
         {

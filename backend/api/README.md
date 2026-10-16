@@ -16,14 +16,23 @@ development default. Keep the base URL configurable in the frontend.
 - [examples.json](examples.json): frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios.
-- [build_contract.py](build_contract.py): source for generated artifacts. Reuses
-  actual rulebook, finding and review request/history schemas and obtains measurement
-  examples from `audit_sample()` on a tiny synthetic dataset.
+- [build_contract.py](build_contract.py): endpoint definitions and artifact generation.
+- [schemas.py](schemas.py): transport schemas, reusing implemented rulebook,
+  finding and review models.
+- [fixtures.py](fixtures.py): synthetic workflows and measurement examples from
+  `audit_sample()` on a tiny dataset. System status uses a fixed example model name
+  so generation does not depend on local Ollama settings.
+- [common.py](common.py): shared schema vocabulary and small constructors.
 
 Run from the project root:
 
 ```bash
 .venv/bin/python -m backend.api.build_contract
+```
+
+Before committing, run the contract tests, including generated-file freshness:
+
+```bash
 .venv/bin/python -m pytest backend/tests/test_api_contract.py -q
 ```
 
@@ -44,6 +53,9 @@ https://spec.openapis.org/oas/v3.1.0.html.
    individual rules while the book stays draft. Confirm the book separately,
    creating version 3. Confirmed and rejected versions are frozen; later edits
    start a new draft version with every rule reset to draft.
+   The main audit, finding and export fixtures all reference confirmed version 3.
+   Rejection is an alternative branch from the original draft; the review-state
+   scenarios are independent examples rather than successive edits to one sample.
 4. Upload a dataset ZIP through `POST /datasets`, poll import, then inspect sample
    integrity. The first adapter is `penn_fudan`, not a universal specification.
 5. Start an audit using a confirmed rulebook ID/version. Null `sample_ids` means
@@ -165,6 +177,13 @@ field. Render the separate current review record for actual reviewer decisions.
 Each measurement check has status, reason, detail, result. `completed` means the
 measurement ran, not that data passed. Unavailable results can be null or contain
 low-level evidence. Null fractions mean unavailable, never zero.
+
+Low-level measurements consistently use `measurement_available`; box/mask
+alignment's earlier `comparison_available` field has been replaced. Sample checks
+include `annotation_metadata`, which compares declared image dimensions, object
+count and coordinate origin. Missing or unreadable assets block only dependent
+checks. Missing or unsupported coordinate origins block box comparisons while
+ID, label, dimension and component checks can still run.
 
 The no-issue fixture also stays pending review. Uncertain and unsupported-rule
 fixtures illustrate future rule/model execution, which the current measurement
