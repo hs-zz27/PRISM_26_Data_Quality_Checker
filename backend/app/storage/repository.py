@@ -270,3 +270,20 @@ class RulebookRepository:
         return RulebookReviewPage(
             items=items, limit=limit, offset=offset, total=total, next_offset=next_offset,
         )
+
+
+# Keep the established repository module as a convenient public import path for
+# the new workflow persistence without changing RulebookRepository behavior.
+from .workflow_repository import (  # noqa: E402  (import after existing definitions)
+    AuditNotFoundError,
+    AuditRepository,
+    FindingNotFoundError,
+    FindingRepository,
+    JobAlreadyFinishedError,
+    JobCancellationError,
+    JobClaim,
+    JobClaimLostError,
+    JobNotFoundError,
+    JobRepository,
+    WorkflowStorageError,
+)

@@ -40,6 +40,12 @@ For in-process reuse of a confirmed, immutable rulebook, we propose copying the 
 
 This is a proposed optimization, not a claim about the current implementation or measured performance. The expected workload is currently unknown, including rule counts and sizes, batch sizes, concurrent audits and deployment resources. We will confirm or revise the approach using representative runtime, peak-memory and serialization measurements. The example of 100 rules is illustrative, not a workload requirement.
 
+## Queue technology choice
+
+The backend currently stores batch-audit jobs and progress in PostgreSQL. Redis is a valid alternative, but it is not clearly better for our current needs. We would adopt a Redis-backed queue when dedicated queue functionality solves a concrete requirement and justifies operating another service.
+
+This choice remains provisional because expected job volume, worker concurrency and latency requirements are currently unknown. Revisit it using representative workload measurements and requirements for scheduling, retries and recovery. Redis queue integration is not currently implemented.
+
 ## Measuring success
 
 - Measure finding precision and recall against reviewer-verified examples, including missed errors and false alarms.

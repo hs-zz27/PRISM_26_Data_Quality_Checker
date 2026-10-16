@@ -142,8 +142,8 @@ matching it to the guideline remains the evaluator's responsibility.
 `Evidence` contains JSON measurements and optional asset links. Findings may be
 sample-wide (`object_id=None`) or refer to an object, including an invalid source
 ID that needs reporting. The API builder reuses these Python schemas. Rule
-evaluation is implemented as a service; finding persistence and finding-review
-actions remain separate work.
+evaluation and finding persistence are implemented as services; finding-review
+actions and HTTP routing remain separate work.
 
 Rule proposals, rules, finding parameters and evidence share a finite JSON-value
 validator. Nested `NaN` and infinity values are rejected before storage; ordinary
