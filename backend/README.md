@@ -36,6 +36,13 @@ Start in `app/datasets/penn_fudan.py`:
 
 The annotation declares a coordinate origin of `(1, 1)`. Choose and document an internal coordinate convention before converting boxes; preserve the original convention when exporting.
 
+`measure_instance_mask()` shares one instance-pixel extraction across bounds,
+outside pixels, fill fraction and connected components. Standalone measurement
+functions still validate their own inputs. Measurements consistently expose
+`measurement_available` and `reason`; alignment no longer uses
+`comparison_available`. A completed check means it ran, not that the data passed.
+Annotation and measurement result shapes are explicitly typed Python records.
+
 The mask stores IDs `0`, `1` and `2` for this example, so it looks nearly black in a normal image viewer. Use display colours for visualization while retaining the original mask IDs.
 
 ## Environment and files

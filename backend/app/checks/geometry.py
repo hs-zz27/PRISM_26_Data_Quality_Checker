@@ -1,11 +1,33 @@
 """Implement coordinate, dimension and box geometry measurements."""
 
+from collections.abc import Iterable, Sequence
 from itertools import combinations
+from typing import Any, NotRequired, TypedDict
 
 import numpy as np
 
+from ..models.annotation import AnnotationObject, ImageSize
+from ..models.measurements import MeasurementResult
 
-def check_box_validity(box, image_size):
+
+class BoxValidity(TypedDict):
+    valid: bool
+    bbox: tuple[Any, ...] | None
+    reason: str | None
+    detail: str | None
+
+
+class BoxIoU(MeasurementResult):
+    box1: tuple[Any, ...] | None
+    box2: tuple[Any, ...] | None
+    invalid_boxes: dict[str, str]
+    intersection_area: int | None
+    union_area: int | None
+    iou: float | None
+    object_ids: NotRequired[tuple[int, int]]
+
+
+def check_box_validity(box: Iterable[int] | None, image_size: ImageSize) -> BoxValidity:
     """Check one-based, inclusive coordinates against (width, height).
 
     A one-pixel box is valid. Invalid annotation boxes return a reason and
@@ -20,7 +42,7 @@ def check_box_validity(box, image_size):
     ):
         raise ValueError("Image width and height must be positive integers.")
 
-    result = {"valid": False, "bbox": None, "reason": None, "detail": None}
+    result: BoxValidity = {"valid": False, "bbox": None, "reason": None, "detail": None}
     try:
         coordinates = tuple(box)
     except TypeError:
@@ -53,7 +75,9 @@ def check_box_validity(box, image_size):
     return result
 
 
-def measure_box_iou(box1, box2, image_size):
+def measure_box_iou(
+    box1: Iterable[int], box2: Iterable[int], image_size: ImageSize,
+) -> BoxIoU:
     """Measure rectangle overlap using one-based, inclusive coordinates.
 
     IoU is intersection area divided by union area, from 0 to 1.
@@ -68,7 +92,7 @@ def measure_box_iou(box1, box2, image_size):
     if not check2["valid"]:
         invalid_boxes["box2"] = check2["reason"]
 
-    result = {
+    result: BoxIoU = {
         "box1": check1["bbox"],
         "box2": check2["bbox"],
         "measurement_available": False,
@@ -101,7 +125,7 @@ def measure_box_iou(box1, box2, image_size):
     return result
 
 
-def measure_pairwise_box_iou(objects, image_size):
+def measure_pairwise_box_iou(objects: Sequence[AnnotationObject], image_size: ImageSize) -> list[BoxIoU]:
     """Compare each unique pair of annotations, without self-comparisons.
 
     Each result includes the two object IDs. Fewer than two annotations

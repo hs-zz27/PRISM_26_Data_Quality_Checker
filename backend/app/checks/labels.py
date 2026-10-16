@@ -1,7 +1,28 @@
 """Check label values against the confirmed project rulebook."""
 
+from collections.abc import Iterable, Sequence
+from typing import Any, TypedDict
 
-def check_allowed_labels(objects, allowed_labels):
+from ..models.annotation import AnnotationObject
+
+
+class LabelResult(TypedDict):
+    object_id: int
+    label: Any
+    matches: bool
+    reason: str | None
+
+
+class AllowedLabelsResult(TypedDict):
+    matches: bool
+    allowed_labels: list[str]
+    object_results: list[LabelResult]
+    invalid_object_ids: list[int]
+
+
+def check_allowed_labels(
+    objects: Sequence[AnnotationObject], allowed_labels: Iterable[str],
+) -> AllowedLabelsResult:
     """Check exact label membership using caller-supplied allowed values.
 
     No dataset-specific labels are built in, and labels are not corrected
@@ -18,7 +39,7 @@ def check_allowed_labels(objects, allowed_labels):
         raise ValueError("Allowed labels must be a non-empty collection of non-empty strings.")
 
     allowed = set(labels)
-    object_results = []
+    object_results: list[LabelResult] = []
     for obj in objects:
         label = obj.get("label")
         if not isinstance(label, str) or not label:
