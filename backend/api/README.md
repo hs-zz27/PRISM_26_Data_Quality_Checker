@@ -74,9 +74,10 @@ https://spec.openapis.org/oas/v3.1.0.html.
 
 Every operation has `x-implementation-status: planned` and a backing-service
 note. Python measurements, rule records, Ollama integration, rulebook review
-services and PostgreSQL version/review storage exist. HTTP routes, storage for
-other workflow records, confirmed-rule execution, jobs, model checks, sample and
-finding review, correction/export and evaluated feedback services remain planned.
+services, confirmed-rule evaluation, durable PostgreSQL jobs/audits/findings and
+PostgreSQL version/review storage exist. HTTP routes, dataset import, model
+checks, sample and finding review, correction/export and evaluated feedback
+services remain planned.
 
 ## Requests, responses and jobs
 

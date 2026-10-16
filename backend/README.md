@@ -171,6 +171,30 @@ unknown check remains visible as an `unavailable` finding. Object occurrence
 indices are part of deterministic finding IDs, so duplicate source object IDs
 are not collapsed.
 
+## Persistent batch audits and jobs
+
+`app/services/batch_audit.py` provides `BatchAuditService`. `start()` validates
+and pins one confirmed rulebook version, stores the audit request, creates the
+queued job and creates one queued sample row in one PostgreSQL transaction.
+`run_job()`/`run_audit()` claim a lease and process one sample at a time. Each
+sample transaction stores its measurements, pending findings, technical
+failure (when needed), terminal sample state and job progress together.
+
+`app/storage/workflow_repository.py` implements atomic worker claims with
+PostgreSQL row locks, claim tokens and leases. Cancellation is cooperative:
+queued work is cancelled immediately, running work becomes `cancelling`, and
+the worker stops before starting the next sample. Expired leases can be
+recovered by `AuditRepository.recover_stale_jobs()`; a replacement claim has a
+new token, so a stale worker cannot finalize it later. The implementation is
+bounded and sequential initially, while durable `queued`, `running`,
+`cancelling`, `completed`, `failed` and `cancelled` job states remain available
+for the planned HTTP layer.
+
+Apply migration `003_audit_jobs.sql` through the normal initialization command
+before using these repositories. Dataset roots are carried as opaque strings;
+this target deliberately does not add path validation or dataset-import
+policy.
+
 ## Draft rulebook extraction
 
 `app/services/rule_extraction.py` connects the local Ollama client to the
@@ -405,8 +429,8 @@ Both lists are ordered by ascending version and expose `items`, `limit`, `offset
 `total` and `next_offset`; limits are 1–100. A missing rulebook raises
 `RulebookNotFoundError`. An existing book can have an empty review history:
 extraction and earlier low-level saves do not gain invented reviewer records.
-These are Python services and repository operations; HTTP routes and jobs remain
-planned.
+These are Python services and repository operations; HTTP routes and rulebook
+extraction job wiring remain separate. Audit jobs are documented above.
 
 ## Database tests
 

@@ -7,6 +7,8 @@ from pydantic import ValidationError
 
 from backend.app.models.audit import BatchAuditRequest
 from backend.app.models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
+from backend.app.models.rule import Rule, Rulebook
+from backend.app.services.batch_audit import BatchAuditService
 
 
 NOW = datetime(2026, 10, 16, 20, tzinfo=UTC)
@@ -59,6 +61,62 @@ def test_batch_request_rejects_duplicate_samples_and_unknown_revisions():
             rulebook_version=1, sample_ids=["one"], allowed_labels=["person"],
             sample_revisions={"other": 1},
         )
+
+
+def test_batch_collection_does_not_require_shared_label_configuration():
+    rulebook = Rulebook(
+        rulebook_id="book_1", version=1, guideline_text="Boxes are valid.",
+        rules=[Rule(
+            rule_id="box", description="Boxes are valid.", check_name="box_validity",
+            origin="reviewer", confirmation_state="confirmed",
+        ), Rule(
+            rule_id="person-label", description="Person labels are allowed.",
+            check_name="allowed_labels", parameters={"allowed_labels": ["person"]},
+            origin="reviewer", confirmation_state="confirmed",
+        ), Rule(
+            rule_id="vehicle-label", description="Vehicle labels are allowed.",
+            check_name="allowed_labels", parameters={"allowed_labels": ["vehicle"]},
+            origin="reviewer", confirmation_state="confirmed",
+        )],
+        confirmation_state="confirmed",
+    )
+
+    class Rulebooks:
+        def get_rulebook(self, rulebook_id, *, version):
+            assert (rulebook_id, version) == ("book_1", 1)
+            return rulebook
+
+    request = BatchAuditRequest(
+        dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
+        rulebook_version=1, sample_ids=["one"], allowed_labels=None,
+    )
+    service = BatchAuditService(rulebook_repository=Rulebooks(), audit_repository=object())
+    resolved, _ = service._resolve_request(request)
+    assert resolved.allowed_labels is None
+
+
+def test_geometry_only_rulebook_resolves_without_labels():
+    rulebook = Rulebook(
+        rulebook_id="geometry_book", version=1, guideline_text="Boxes are valid.",
+        rules=[Rule(
+            rule_id="box", description="Boxes are valid.", check_name="box_validity",
+            origin="reviewer", confirmation_state="confirmed",
+        )],
+        confirmation_state="confirmed",
+    )
+
+    class Rulebooks:
+        def get_rulebook(self, rulebook_id, *, version):
+            return rulebook
+
+    request = BatchAuditRequest(
+        dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="geometry_book",
+        rulebook_version=1, sample_ids=["one"], allowed_labels=None,
+    )
+    resolved, _ = BatchAuditService(
+        rulebook_repository=Rulebooks(), audit_repository=object(),
+    )._resolve_request(request)
+    assert resolved.allowed_labels is None
 
 
 def test_api_error_does_not_accept_terminal_result_and_error_together():
