@@ -163,13 +163,13 @@ def test_concurrent_schema_initialization_creates_one_migration_history(empty_da
     with database_connection(empty_database_settings, readonly=True) as connection:
         assert connection.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall() == [{"version": 1}, {"version": 2}]
+        ).fetchall() == [{"version": 1}, {"version": 2}, {"version": 3}]
         assert connection.execute(
             "SELECT COUNT(*) AS total FROM rulebook_versions"
         ).fetchone() == {"total": 0}
 
 
-@pytest.mark.parametrize("versions", [(2,), (1, 3), (1, 2, 3)])
+@pytest.mark.parametrize("versions", [(2,), (1, 3), (1, 2, 4)])
 def test_incompatible_or_future_migration_history_is_refused(store, versions):
     original = store.save_rulebook(make_book())
     with database_connection(store.settings) as connection:
@@ -193,10 +193,10 @@ def test_failed_migration_batch_rolls_back_ddl_and_history(store, tmp_path, monk
     migrations.mkdir()
     for source in database.MIGRATIONS_DIRECTORY.glob("[0-9][0-9][0-9]_*.sql"):
         (migrations / source.name).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
-    (migrations / "003_probe.sql").write_text(
+    (migrations / "004_probe.sql").write_text(
         "CREATE TABLE migration_probe (probe_id INTEGER);", encoding="utf-8",
     )
-    failing_migration = migrations / "004_failure.sql"
+    failing_migration = migrations / "005_failure.sql"
     failing_migration.write_text(
         "CREATE TABLE second_migration_probe (probe_id INTEGER);\n"
         "SELECT 'invalid integer'::INTEGER;", encoding="utf-8",
@@ -209,7 +209,7 @@ def test_failed_migration_batch_rolls_back_ddl_and_history(store, tmp_path, monk
     with database_connection(store.settings, readonly=True) as connection:
         assert connection.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall() == [{"version": 1}, {"version": 2}]
+        ).fetchall() == [{"version": 1}, {"version": 2}, {"version": 3}]
         assert connection.execute(
             "SELECT to_regclass('migration_probe') AS first, "
             "to_regclass('second_migration_probe') AS second"
@@ -223,7 +223,10 @@ def test_failed_migration_batch_rolls_back_ddl_and_history(store, tmp_path, monk
     with database_connection(store.settings, readonly=True) as connection:
         assert connection.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall() == [{"version": 1}, {"version": 2}, {"version": 3}, {"version": 4}]
+        ).fetchall() == [
+            {"version": 1}, {"version": 2}, {"version": 3},
+            {"version": 4}, {"version": 5},
+        ]
         assert connection.execute("SELECT COUNT(*) AS total FROM migration_probe").fetchone() == {"total": 0}
         assert connection.execute("SELECT COUNT(*) AS total FROM second_migration_probe").fetchone() == {"total": 0}
     assert store.get_rulebook(original.rulebook_id) == original
