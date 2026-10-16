@@ -23,6 +23,15 @@ PROPOSAL = {
 }
 
 
+@pytest.fixture(autouse=True)
+def isolated_ollama_configuration(tmp_path, monkeypatch):
+    from backend.app.core import config
+
+    for name in ("OLLAMA_MODEL", "OLLAMA_BASE_URL"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(config, "DEFAULT_ENV_PATH", tmp_path / ".env")
+
+
 @pytest.fixture
 def fake_server():
     state = {
@@ -259,3 +268,26 @@ def test_file_changes_are_used_by_subsequent_calls(fake_server, tmp_path, monkey
     propose_rules(GUIDELINES, transport=transport)
     assert state["requests"][2][1]["model"] == "replacement-model:latest"
     assert state["requests"][3][1]["model"] == "replacement-model:latest"
+
+
+@pytest.mark.parametrize("per_call", [False, True])
+def test_dotenv_model_and_port_reach_requests_with_per_call_precedence(fake_server, per_call):
+    from backend.app.core import config
+
+    config.DEFAULT_ENV_PATH.write_text(
+        "OLLAMA_MODEL=dotenv-model:latest\n"
+        "OLLAMA_BASE_URL=http://127.0.0.1:11435\n",
+        encoding="utf-8",
+    )
+    state, transport = fake_server
+    urls = []
+
+    def handle(request):
+        urls.append(request.url)
+        return transport.handle_request(request)
+
+    overrides = {"model": "per-call:latest", "host": "http://127.0.0.1:11436"} if per_call else {}
+    propose_rules(GUIDELINES, transport=httpx.MockTransport(handle), **overrides)
+    assert [url.port for url in urls] == [11436 if per_call else 11435] * 2
+    expected_model = "per-call:latest" if per_call else "dotenv-model:latest"
+    assert [body["model"] for _, body in state["requests"]] == [expected_model] * 2

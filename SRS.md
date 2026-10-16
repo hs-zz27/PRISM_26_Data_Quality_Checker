@@ -41,7 +41,7 @@ The earlier mentor reply requires a working prototype on CPU using free/open-sou
 
 - Determine the initial batch size from measured CPU performance and available resources.
 - A particular Intel processor, Windows deployment and a 1,000-image batch are previous project assumptions, not confirmed mentor requirements.
-- The existing project plan requires local, offline operation. This is an existing project constraint, separate from the quoted mentor reply.
+- On 16 October 2026, the user clarified that cloud AI services are allowed, superseding the earlier local/offline-only project constraint. The current implementation still uses local Ollama on CPU; cloud provider integration is not implemented. The mentor's CPU prototype and free/open-source requirements above remain recorded separately.
 
 ## Deadline and working preferences
 

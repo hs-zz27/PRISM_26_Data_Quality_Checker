@@ -115,7 +115,7 @@ def propose_rules(
         # Check model metadata before sending any guideline text.
         metadata = _post_json(client, "/api/show", {"model": configuration.model})
         if metadata.get("remote_host") or metadata.get("remote_model"):
-            raise OllamaClientError("remote_model", "This project requires a locally installed model.")
+            raise OllamaClientError("remote_model", "This Ollama client requires a locally installed model.")
         if not isinstance(metadata.get("model_info"), dict) or not metadata["model_info"]:
             raise OllamaClientError("invalid_model_metadata", "Cannot verify local model information.")
 

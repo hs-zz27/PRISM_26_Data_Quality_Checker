@@ -8,7 +8,8 @@ Run the backend suite from the project root:
 
 Tests cover inclusive box geometry, partial mask overlap, independent sample
 checks, annotation metadata, finite JSON values, rule validation, local
-Ollama request handling, extraction, review state transitions and API templates.
+Ollama configuration precedence (process environment, `.env`, TOML), request
+handling, extraction, review state transitions and API templates.
 Ollama requests are mocked; these tests do not download or run a model.
 
 The contract suite compares generated files with their source and checks that

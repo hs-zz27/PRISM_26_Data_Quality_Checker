@@ -69,17 +69,26 @@ class _BackendConfiguration(BaseModel):
     ollama: OllamaSettings
 
 
-def load_ollama_settings(path: str | Path | None = None) -> OllamaSettings:
-    """Read settings from TOML, without caching or silently replacing bad values.
+def load_ollama_settings(
+    path: str | Path | None = None, *, env_path: str | Path | None = None,
+) -> OllamaSettings:
+    """Read TOML defaults with optional model and base URL overrides.
 
-    The default path is resolved from this module. Explicit paths are useful
-    for tests or alternate local configurations. File, TOML and validation
-    errors propagate to the caller before any inference request is made.
+    Process environment overrides root .env, which overrides TOML. Loading
+    never changes the environment or caches values. Missing .env files are
+    allowed; invalid values fail before an inference request. OLLAMA_BASE_URL
+    selects this client's URL; OLLAMA_HOST controls Ollama's server separately.
     """
     config_path = OLLAMA_CONFIG_PATH if path is None else Path(path)
     with config_path.open("rb") as file:
         configuration = tomllib.load(file)
-    return _BackendConfiguration.model_validate(configuration).ollama
+    settings = _BackendConfiguration.model_validate(configuration).ollama.model_dump()
+    environment_path = DEFAULT_ENV_PATH if env_path is None else Path(env_path)
+    values = {**dotenv_values(environment_path, interpolate=False), **os.environ}
+    for name, field in (("OLLAMA_MODEL", "model"), ("OLLAMA_BASE_URL", "host")):
+        if name in values:
+            settings[field] = values[name]
+    return OllamaSettings.model_validate(settings)
 
 
 class DatabaseConfigurationError(ValueError):

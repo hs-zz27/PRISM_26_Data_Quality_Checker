@@ -77,19 +77,41 @@ Follow `../SRS.md`: plain text guidelines first, CPU inference, reviewer-control
 
 ## Ollama configuration
 
-Edit `ollama.toml` in this folder to change the local model. Set `model` to the
-exact name shown by `ollama list`; the model must already be installed. The same
-file controls the local server address, request timeout in seconds, context
-length and maximum output tokens.
+`ollama.toml` contains the shared defaults for the model, local server address,
+request timeout, context length and maximum output tokens. For your own machine,
+set optional overrides in the root `.env` (see `.env.example`):
+
+```dotenv
+OLLAMA_MODEL=qwen3-vl:4b-instruct
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+```
+
+Leave those keys out to use the TOML defaults. The model must already be installed
+and its name must match `ollama list`. Precedence is process environment, then
+root `.env`, then TOML. Blank or invalid overrides are rejected. These values
+are read directly; you do not need to export or source `.env`.
+
+If port `11434` is occupied, start Ollama on a free port, for example:
+
+```bash
+OLLAMA_HOST=127.0.0.1:11435 ollama serve
+```
+
+Then set `OLLAMA_BASE_URL=http://127.0.0.1:11435` in `.env`. `OLLAMA_HOST` configures
+the Ollama server; `OLLAMA_BASE_URL` tells this app where to contact it. Changing
+the app URL alone does not move the server. Stop an existing Ollama server before
+starting another if you intend to move it rather than run a separate instance.
 
 `app/core/config.py` loads and validates these settings independently of the
-terminal's working directory. `propose_rules()` reads the file on each call,
-so subsequent requests use saved changes. Invalid settings fail before an API
-request. CPU execution remains enforced by the client.
+terminal's working directory. `propose_rules()` reloads the files and environment
+on each call, so subsequent requests use saved changes. Invalid settings fail
+before an API request. CPU execution remains enforced by this local client.
+Cloud AI is permitted by the user, but cloud provider support is not implemented.
 
 For a one-off model selection, use `propose_rules(text, model="installed-model:tag")`.
 To supply an alternate configuration file, pass
-`settings=load_ollama_settings(path)`. Import the loader from
+`settings=load_ollama_settings(path)`. To select a different environment file,
+use `load_ollama_settings(path, env_path=environment_path)`. Import the loader from
 `backend.app.core.config` when running from the project root. Per-call model,
 host and timeout overrides take precedence over the supplied settings and are
 validated without modifying them.

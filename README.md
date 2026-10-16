@@ -30,7 +30,7 @@ Every finding, reviewer decision and correction is logged with its evidence and 
 ## Environment
 
 - **CPU prototype first.** Use free/open-source models and tools. Evaluate the prototype before a later GPU implementation. The intended deployment hardware and operating system have not been confirmed by the mentors.
-- **No cloud AI services.** Local models only (for example through Ollama), and no data leaves the machine.
+- **AI providers:** the user clarified on 16 October 2026 that cloud AI services are allowed. The current implementation uses local Ollama; cloud provider support is not implemented.
 - **Batch size:** determine it from measured CPU performance and available resources. The 170-image Penn-Fudan set is a local development example.
 - **Deadline:** the user stated 31 October. Prioritize plain text guideline input and a complete audit, review and correction workflow.
 
