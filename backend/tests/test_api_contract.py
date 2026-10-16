@@ -8,6 +8,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 import pytest
 
 from backend.app.models.rule import Rulebook
+from backend.app.models.finding import Finding
 from backend.app.models.review import RulebookAction, RulebookReplace, RulebookReviewPage
 
 
@@ -111,6 +112,18 @@ def test_rulebook_review_templates_match_service_requests_and_version_semantics(
         else:
             continue
         assert fixture["response"]["body"]["version"] == request.expected_version + 1
+
+
+def test_finding_examples_validate_with_the_python_record():
+    for _, _, operation in OPERATIONS:
+        for response in operation["responses"].values():
+            media = response.get("content", {}).get("application/json", {})
+            if media.get("schema", {}).get("$ref") == "#/components/schemas/Finding":
+                for example in media_examples(media):
+                    Finding.model_validate_json(json.dumps(example))
+    for sample in EXAMPLES["review_scenarios"].values():
+        for finding in sample["findings"]:
+            Finding.model_validate_json(json.dumps(finding))
 
 
 @pytest.mark.parametrize("state", ["flagged", "no_issue", "unsure", "unavailable"])

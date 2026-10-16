@@ -10062,6 +10062,281 @@
         "title": "Rulebook",
         "type": "object"
       },
+      "Evidence": {
+        "additionalProperties": false,
+        "description": "JSON measurements and optional asset links supporting the outcome.\n\nAsset links may be relative API paths. Empty measurements are valid when\nevaluation could not run, such as for an unsupported requirement.",
+        "properties": {
+          "image_url": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Url"
+          },
+          "mask_preview_url": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mask Preview Url"
+          },
+          "crop_url": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Crop Url"
+          },
+          "measurements": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Measurements",
+            "type": "object"
+          }
+        },
+        "title": "Evidence",
+        "type": "object"
+      },
+      "FindingOutcome": {
+        "description": "The tool's conclusion, independent of the reviewer's final decision.",
+        "enum": [
+          "pass",
+          "fail",
+          "unsure",
+          "unavailable"
+        ],
+        "title": "FindingOutcome",
+        "type": "string"
+      },
+      "FindingResolution": {
+        "description": "Accepting a finding confirms its conclusion, not acceptance of the sample.",
+        "enum": [
+          "pending",
+          "accepted",
+          "rejected",
+          "unsure"
+        ],
+        "title": "FindingResolution",
+        "type": "string"
+      },
+      "FindingReview": {
+        "additionalProperties": false,
+        "description": "Review state with attribution required for non-pending resolutions.\n\nRecorded decisions require a positive revision, reviewer and timestamp.\nFuture review services own decision transitions.",
+        "properties": {
+          "revision": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/FindingResolution",
+            "default": "pending"
+          },
+          "reviewer_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reviewer Id"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated At"
+          }
+        },
+        "title": "FindingReview",
+        "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "description": "One rule's outcome against a pinned sample revision and rulebook version.\n\nRule content is copied into the finding so evidence remains understandable\nafter later edits. object_id is absent for sample-wide findings and may be\nnonpositive when reporting invalid source annotation IDs. The evaluator\nowns rulebook confirmation, source matching and reason selection. Extracted\nfindings require a source sentence; reviewer-authored findings may omit it.",
+        "properties": {
+          "finding_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "audit_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "sample_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "object_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Object Id"
+          },
+          "rulebook_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rulebook Id",
+            "type": "string"
+          },
+          "rulebook_version": {
+            "minimum": 1,
+            "title": "Rulebook Version",
+            "type": "integer"
+          },
+          "rule_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "description": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Description",
+            "type": "string"
+          },
+          "check_name": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Check Name"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/FindingOutcome"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Parameters",
+            "type": "object"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/RuleOrigin"
+          },
+          "source_sentence": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Sentence"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/Evidence"
+          },
+          "review": {
+            "$ref": "#/components/schemas/FindingReview"
+          }
+        },
+        "required": [
+          "finding_id",
+          "audit_id",
+          "sample_id",
+          "sample_revision",
+          "rulebook_id",
+          "rulebook_version",
+          "rule_id",
+          "description",
+          "outcome",
+          "origin"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
       "ImageSize": {
         "type": "array",
         "items": {
@@ -11508,239 +11783,6 @@
           "errors",
           "checks",
           "objects"
-        ],
-        "additionalProperties": false
-      },
-      "FindingReview": {
-        "type": "object",
-        "properties": {
-          "revision": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "resolution": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "accepted",
-              "rejected",
-              "unsure"
-            ]
-          },
-          "reviewer_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "comment": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "revision",
-          "resolution",
-          "reviewer_id",
-          "comment",
-          "updated_at"
-        ],
-        "additionalProperties": false
-      },
-      "Evidence": {
-        "type": "object",
-        "properties": {
-          "image_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "mask_preview_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "crop_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "measurements": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/JsonValue"
-            }
-          }
-        },
-        "required": [
-          "image_url",
-          "mask_preview_url",
-          "crop_url",
-          "measurements"
-        ],
-        "additionalProperties": false
-      },
-      "Finding": {
-        "type": "object",
-        "properties": {
-          "finding_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "audit_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "sample_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "sample_revision": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "object_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rulebook_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "rulebook_version": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "rule_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1
-          },
-          "check_name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "outcome": {
-            "type": "string",
-            "enum": [
-              "pass",
-              "fail",
-              "unsure",
-              "unavailable"
-            ]
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "parameters": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/JsonValue"
-            }
-          },
-          "origin": {
-            "$ref": "#/components/schemas/RuleOrigin"
-          },
-          "source_sentence": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "evidence": {
-            "$ref": "#/components/schemas/Evidence"
-          },
-          "review": {
-            "$ref": "#/components/schemas/FindingReview"
-          }
-        },
-        "required": [
-          "finding_id",
-          "audit_id",
-          "sample_id",
-          "sample_revision",
-          "object_id",
-          "rulebook_id",
-          "rulebook_version",
-          "rule_id",
-          "description",
-          "check_name",
-          "outcome",
-          "reason",
-          "parameters",
-          "origin",
-          "source_sentence",
-          "evidence",
-          "review"
         ],
         "additionalProperties": false
       },

@@ -15,6 +15,7 @@ import numpy as np
 from PIL import Image
 
 from backend.app.core.config import load_ollama_settings
+from backend.app.models.finding import Finding
 from backend.app.models.review import (
     RulebookAction, RulebookReplace, RulebookReviewPage, RulebookReviewRecord,
 )
@@ -78,10 +79,12 @@ def replace_model_refs(value: Any) -> Any:
 
 def build_schemas() -> JsonObject:
     """Reuse actual rule schemas; define proposed transport records separately."""
-    book_schema = Rulebook.model_json_schema()
-    definitions = book_schema.pop("$defs")
-    schemas = {name: replace_model_refs(schema) for name, schema in definitions.items()}
-    schemas["Rulebook"] = replace_model_refs(book_schema)
+    schemas = {}
+    for model in (Rulebook, Finding):
+        schema = model.model_json_schema()
+        schemas.update({name: replace_model_refs(definition)
+                        for name, definition in schema.pop("$defs", {}).items()})
+        schemas[model.__name__] = replace_model_refs(schema)
     schemas["ImageSize"] = {
         **array(VERSION), "minItems": 2, "maxItems": 2,
         "description": "[width, height], in pixels.",
@@ -186,24 +189,6 @@ def build_schemas() -> JsonObject:
         "errors": array(ref("ProcessingError")),
         "checks": {"type": "object", "additionalProperties": ref("CheckEnvelope")},
         "objects": array(ref("ObjectMeasurements")),
-    })
-    schemas["FindingReview"] = obj({
-        "revision": COUNT, "resolution": choice("pending", "accepted", "rejected", "unsure"),
-        "reviewer_id": nullable(TEXT), "comment": nullable({"type": "string"}),
-        "updated_at": nullable(TIME),
-    })
-    schemas["Evidence"] = obj({
-        "image_url": nullable(TEXT), "mask_preview_url": nullable(TEXT), "crop_url": nullable(TEXT),
-        "measurements": {"type": "object", "additionalProperties": ref("JsonValue")},
-    })
-    schemas["Finding"] = obj({
-        "finding_id": TEXT, "audit_id": TEXT, "sample_id": TEXT, "sample_revision": VERSION,
-        "object_id": nullable(INTEGER), "rulebook_id": TEXT, "rulebook_version": VERSION,
-        "rule_id": TEXT, "description": TEXT, "check_name": nullable(TEXT),
-        "outcome": choice("pass", "fail", "unsure", "unavailable"),
-        "reason": nullable(TEXT), "parameters": {"type": "object", "additionalProperties": ref("JsonValue")},
-        "origin": ref("RuleOrigin"), "source_sentence": nullable(TEXT),
-        "evidence": ref("Evidence"), "review": ref("FindingReview"),
     })
     schemas["FindingPage"] = page_schema(ref("Finding"))
     schemas["SampleAuditSummary"] = obj({
