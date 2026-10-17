@@ -4,7 +4,10 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from backend.app.models.finding import FindingOutcome
+from backend.app.models.rule import ConfirmationState, Rule, Rulebook
 from backend.app.services.audit import audit_sample
+from backend.app.services.evaluation import evaluate_rules
 
 
 @pytest.fixture
@@ -40,12 +43,86 @@ def test_complete_sample_keeps_all_objects_pending_review(sample_root):
     json.dumps(report)
 
 
+def test_actual_check_failure_isolated_from_independent_label_check(sample_root, monkeypatch):
+    def fail_dimensions(*args, **kwargs):
+        raise ValueError("synthetic dimensions implementation failure")
+
+    monkeypatch.setattr("backend.app.services.audit.check_mask_dimensions", fail_dimensions)
+    report = audit_sample(sample_root, "sample", ["person"])
+
+    assert report["status"] == "incomplete"
+    assert report["checks"]["mask_dimensions"] == {
+        "status": "unavailable", "reason": "check_execution_failed",
+        "detail": None, "result": None,
+    }
+    assert report["checks"]["labels"]["status"] == "completed"
+    findings = evaluate_rules(
+        Rulebook(
+            rulebook_id="book_actual_check", version=1, guideline_text="checks",
+            confirmation_state=ConfirmationState.CONFIRMED,
+            rules=[
+                Rule(
+                    rule_id="dimensions", description="Dimensions match.",
+                    check_name="mask_dimensions", origin="reviewer",
+                    confirmation_state=ConfirmationState.CONFIRMED,
+                ),
+                Rule(
+                    rule_id="labels", description="Labels are allowed.",
+                    check_name="allowed_labels", parameters={"allowed_labels": ["person"]},
+                    origin="reviewer", confirmation_state=ConfirmationState.CONFIRMED,
+                ),
+            ],
+        ),
+        report, audit_id="audit_actual_check", sample_id="sample", sample_revision=1,
+    )
+    assert findings[0].outcome is FindingOutcome.UNAVAILABLE
+    assert all(finding.outcome is FindingOutcome.PASS for finding in findings[1:])
+    assert findings[0].reason == "check_execution_failed"
+
+
 def test_collection_without_shared_labels_keeps_geometry_measurements(sample_root):
     report = audit_sample(sample_root, "sample", None)
     assert report["status"] == "completed"
     assert "labels" not in report["checks"]
     assert all("label" not in obj["checks"] for obj in report["objects"])
     assert report["checks"]["box_overlaps"]["status"] == "completed"
+
+
+@pytest.mark.parametrize("error", [MemoryError("out of memory"), RuntimeError("unsafe shared state"), OSError("I/O failure")])
+def test_resource_and_unclassified_check_failures_are_fatal(sample_root, monkeypatch, error):
+    def fail_dimensions(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr("backend.app.services.audit.check_mask_dimensions", fail_dimensions)
+    with pytest.raises(type(error)):
+        audit_sample(sample_root, "sample", ["person"])
+
+
+def test_failed_check_cannot_mutate_annotations_used_by_independent_checks(sample_root, monkeypatch):
+    def mutate_annotations(objects, mask):
+        objects[0]["object_id"] = 999
+        objects[0]["bbox"] = (100, 100, 200, 200)
+        raise ValueError("check failed after modifying its private input")
+
+    monkeypatch.setattr("backend.app.services.audit.check_mask_ids", mutate_annotations)
+    report = audit_sample(sample_root, "sample", ["person"])
+
+    assert report["checks"]["mask_ids"]["reason"] == "check_execution_failed"
+    assert report["checks"]["annotation_ids"]["result"]["valid"] is True
+    assert report["objects"][0]["annotation"]["object_id"] == 1
+    assert report["objects"][0]["checks"]["box_validity"]["result"]["valid"] is True
+
+
+def test_failed_check_cannot_modify_shared_mask_pixels(sample_root, monkeypatch):
+    def mutate_mask(image, mask):
+        mask[:] = 0
+
+    monkeypatch.setattr("backend.app.services.audit.check_mask_dimensions", mutate_mask)
+    report = audit_sample(sample_root, "sample", ["person"])
+
+    assert report["checks"]["mask_dimensions"]["reason"] == "check_execution_failed"
+    assert report["checks"]["mask_ids"]["result"]["matches"] is True
+    assert report["objects"][0]["checks"]["mask_components"]["result"]["component_count"] == 1
 
 
 @pytest.mark.parametrize("file,reason,independent_checks", [

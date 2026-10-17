@@ -8,8 +8,10 @@ from pydantic import ValidationError
 from backend.app.models.finding import FindingOutcome, FindingResolution
 from backend.app.models.rule import Rule, Rulebook
 from backend.app.services.evaluation import (
+    CheckExecutionError,
     RuleEvaluationError,
     RulebookNotConfirmedError,
+    evaluate_rules_detailed,
     evaluate_rules,
 )
 
@@ -145,6 +147,36 @@ def test_unsupported_rule_is_visible_as_unavailable():
     assert findings[0].evidence.measurements == {}
 
 
+def test_internal_supported_check_failure_isolated_and_marks_result_incomplete(monkeypatch):
+    second = Rule(
+        rule_id="components", description="Use one connected component.",
+        check_name="mask_components", parameters={"max_component_count": 1},
+        origin="reviewer", confirmation_state="confirmed",
+    )
+
+    from backend.app.services import evaluation
+
+    original = evaluation._evaluate_object_rule
+
+    def fail_check(rule, *args, **kwargs):
+        if rule.check_name == "mask_components":
+            raise CheckExecutionError("synthetic check implementation failure")
+        return original(rule, *args, **kwargs)
+
+    monkeypatch.setattr("backend.app.services.evaluation._evaluate_object_rule", fail_check)
+    result = evaluate_rules_detailed(
+        confirmed_book(label_rule(), second),
+        report(labels=["person"]),
+        audit_id="audit_1", sample_id="sample", sample_revision=1,
+    )
+
+    assert result.internal_check_failures == 1
+    assert [finding.reason for finding in result.findings] == [
+        None, "check_execution_failed",
+    ]
+    assert result.findings[1].outcome is FindingOutcome.UNAVAILABLE
+
+
 def test_rule_parameters_are_strictly_validated_before_findings_are_created():
     rule = label_rule(parameters={"allowed_labels": ["person"], "invented": True})
     with pytest.raises(RuleEvaluationError):
@@ -195,6 +227,16 @@ def test_nonfinite_measurement_evidence_is_rejected():
     measurements = report(labels=["person"])
     measurements["objects"][0]["checks"]["label"]["result"]["score"] = float("nan")
     with pytest.raises(RuleEvaluationError, match="finite"):
+        evaluate_rules(
+            confirmed_book(label_rule()), measurements,
+            audit_id="audit_1", sample_id="sample", sample_revision=1,
+        )
+
+
+def test_corrupt_check_envelope_is_fatal_before_rule_isolation():
+    measurements = report(labels=["person"])
+    measurements["checks"]["labels"] = []
+    with pytest.raises(RuleEvaluationError, match="not an envelope"):
         evaluate_rules(
             confirmed_book(label_rule()), measurements,
             audit_id="audit_1", sample_id="sample", sample_revision=1,

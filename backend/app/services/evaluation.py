@@ -11,7 +11,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
+from dataclasses import dataclass
 from hashlib import sha256
+import logging
 from math import isfinite
 from typing import Any
 
@@ -29,6 +31,21 @@ class RuleEvaluationError(ValueError):
 
 class RulebookNotConfirmedError(RuleEvaluationError):
     """Evaluation was requested for a non-final or empty rulebook."""
+
+
+class CheckExecutionError(RuntimeError):
+    """An evaluator explicitly attributed a failure to one check boundary."""
+
+
+@dataclass(frozen=True)
+class RuleEvaluationResult:
+    """Findings plus whether an individual check failed internally."""
+
+    findings: list[Finding]
+    internal_check_failures: int = 0
+
+
+logger = logging.getLogger(__name__)
 
 
 def _require_identifier(value: object, name: str) -> str:
@@ -133,6 +150,16 @@ def _snapshot_report(measurements: AuditMeasurements) -> dict[str, Any]:
             raise RuleEvaluationError(f"Object measurement row {index} has an invalid object_id.")
         if not isinstance(row.get("checks"), Mapping):
             raise RuleEvaluationError(f"Object measurement row {index} has invalid checks.")
+    check_maps = [("sample", report["checks"])] + [
+        (f"object:{index}", row["checks"])
+        for index, row in enumerate(report["objects"])
+    ]
+    for location, checks in check_maps:
+        for check_name, envelope in checks.items():
+            if envelope is not None and not isinstance(envelope, Mapping):
+                raise RuleEvaluationError(
+                    f"Measurement check {check_name!r} at {location} is not an envelope."
+                )
     return report
 
 
@@ -301,6 +328,33 @@ def _unsupported_finding(
     )
 
 
+def _internal_check_failure_finding(
+    rule: Rule,
+    *,
+    audit_id: str,
+    sample_id: str,
+    sample_revision: int,
+    rulebook: Rulebook,
+) -> Finding:
+    """Keep a check failure safe and reviewable without exposing internals."""
+    return _make_finding(
+        rule=rule,
+        outcome=FindingOutcome.UNAVAILABLE,
+        reason="check_execution_failed",
+        evidence={
+            "check_name": rule.check_name,
+            "evidence_status": "internal_error",
+        },
+        audit_id=audit_id,
+        sample_id=sample_id,
+        sample_revision=sample_revision,
+        object_id=None,
+        occurrence="sample",
+        rulebook_id=rulebook.rulebook_id,
+        rulebook_version=rulebook.version,
+    )
+
+
 def _evaluate_sample_rule(
     rule: Rule,
     report: Mapping[str, Any],
@@ -437,14 +491,14 @@ def _evaluate_object_rule(
     return findings
 
 
-def evaluate_rules(
+def evaluate_rules_detailed(
     rulebook: Rulebook,
     measurements: AuditMeasurements,
     *,
     audit_id: str,
     sample_id: str,
     sample_revision: int,
-) -> list[Finding]:
+) -> RuleEvaluationResult:
     """Evaluate every confirmed rule and return independent pending findings.
 
     The explicit audit/sample identifiers are part of the finding identity.  A
@@ -470,6 +524,7 @@ def evaluate_rules(
         )
 
     findings: list[Finding] = []
+    internal_check_failures = 0
     seen_ids: set[str] = set()
     for rule in snapshot.rules:
         definition = get_check_definition(rule.check_name)
@@ -481,42 +536,52 @@ def evaluate_rules(
                 sample_revision=sample_revision,
                 rulebook=snapshot,
             )]
-        elif definition.scope in ("sample", "pair"):
-            candidate_rows = []
-            for outcome, reason, object_id, occurrence, evidence in _evaluate_sample_rule(
-                rule, report, parameters_by_rule[rule.rule_id]
-            ):
-                candidate_rows.append(_make_finding(
-                    rule=rule,
-                    outcome=outcome,
-                    reason=reason,
-                    evidence=evidence,
+        elif definition.scope in ("sample", "pair", "object"):
+            try:
+                if definition.scope in ("sample", "pair"):
+                    rows = _evaluate_sample_rule(
+                        rule, report, parameters_by_rule[rule.rule_id],
+                    )
+                else:
+                    rows = _evaluate_object_rule(
+                        rule, report, parameters_by_rule[rule.rule_id],
+                    )
+            except CheckExecutionError as error:
+                internal_check_failures += 1
+                logger.exception(
+                    "Supported check execution failed",
+                    extra={
+                        "audit_id": audit_id,
+                        "sample_id": sample_id,
+                        "rule_id": rule.rule_id,
+                        "check_name": rule.check_name,
+                        "diagnostic": str(error),
+                    },
+                )
+                candidate_rows = [_internal_check_failure_finding(
+                    rule,
                     audit_id=audit_id,
                     sample_id=sample_id,
                     sample_revision=sample_revision,
-                    object_id=object_id,
-                    occurrence=occurrence,
-                    rulebook_id=snapshot.rulebook_id,
-                    rulebook_version=snapshot.version,
-                ))
-        elif definition.scope == "object":
-            candidate_rows = []
-            for outcome, reason, object_id, occurrence, evidence in _evaluate_object_rule(
-                rule, report, parameters_by_rule[rule.rule_id]
-            ):
-                candidate_rows.append(_make_finding(
-                    rule=rule,
-                    outcome=outcome,
-                    reason=reason,
-                    evidence=evidence,
-                    audit_id=audit_id,
-                    sample_id=sample_id,
-                    sample_revision=sample_revision,
-                    object_id=object_id,
-                    occurrence=occurrence,
-                    rulebook_id=snapshot.rulebook_id,
-                    rulebook_version=snapshot.version,
-                ))
+                    rulebook=snapshot,
+                )]
+            else:
+                candidate_rows = [
+                    _make_finding(
+                        rule=rule,
+                        outcome=outcome,
+                        reason=reason,
+                        evidence=evidence,
+                        audit_id=audit_id,
+                        sample_id=sample_id,
+                        sample_revision=sample_revision,
+                        object_id=object_id,
+                        occurrence=occurrence,
+                        rulebook_id=snapshot.rulebook_id,
+                        rulebook_version=snapshot.version,
+                    )
+                    for outcome, reason, object_id, occurrence, evidence in rows
+                ]
         else:
             raise RuleEvaluationError(f"Check {rule.check_name!r} has no evaluator scope.")
 
@@ -525,7 +590,28 @@ def evaluate_rules(
                 raise RuleEvaluationError("The evaluator generated a duplicate finding ID.")
             seen_ids.add(finding.finding_id)
             findings.append(finding)
-    return findings
+    return RuleEvaluationResult(
+        findings=findings,
+        internal_check_failures=internal_check_failures,
+    )
+
+
+def evaluate_rules(
+    rulebook: Rulebook,
+    measurements: AuditMeasurements,
+    *,
+    audit_id: str,
+    sample_id: str,
+    sample_revision: int,
+) -> list[Finding]:
+    """Evaluate rules while preserving the original list-of-findings interface."""
+    return evaluate_rules_detailed(
+        rulebook,
+        measurements,
+        audit_id=audit_id,
+        sample_id=sample_id,
+        sample_revision=sample_revision,
+    ).findings
 
 
 def evaluate_confirmed_rules(
