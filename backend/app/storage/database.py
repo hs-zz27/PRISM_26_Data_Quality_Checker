@@ -14,10 +14,39 @@ from ..core.config import DatabaseConfigurationError, DatabaseSettings, load_dat
 MIGRATIONS_DIRECTORY = Path(__file__).with_name("migrations")
 # A separate advisory-lock namespace from per-rulebook write locks.
 _MIGRATION_LOCK = (1347572557, 1)
+_STATEMENT_TIMEOUT_MS = 30_000
+_LOCK_TIMEOUT_MS = 5_000
 
 
 class DatabaseError(RuntimeError):
     """PostgreSQL is unavailable or an operation could not be completed."""
+
+
+class CommitOutcomeUnknownError(DatabaseError):
+    """The server may have committed before the connection failed."""
+
+
+_RETRYABLE_SQLSTATES = {
+    "40001",  # serialization_failure
+    "40P01",  # deadlock_detected
+    "55P03",  # lock_not_available
+    "57P01",  # admin_shutdown
+    "57P02",  # crash_shutdown
+    "57P03",  # cannot_connect_now
+    "08000",  # connection_exception
+    "08003",  # connection_does_not_exist
+    "08006",  # connection_failure
+}
+
+
+def is_retryable_database_error(error: BaseException) -> bool:
+    """Classify only recognized transient PostgreSQL failures for retries."""
+    current: BaseException | None = error
+    while current is not None:
+        if getattr(current, "sqlstate", None) in _RETRYABLE_SQLSTATES:
+            return True
+        current = current.__cause__
+    return False
 
 
 @contextmanager
@@ -30,19 +59,50 @@ def database_connection(
     READ COMMITTED so a query after waiting for a rulebook lock sees its latest
     committed version. Connections close on both successful and failed calls.
     """
+    connection: psycopg.Connection[dict[str, Any]] | None = None
     try:
-        with psycopg.connect(
+        connection = psycopg.connect(
             settings.conninfo.get_secret_value(),
             connect_timeout=settings.connect_timeout_seconds,
             row_factory=dict_row,
-        ) as connection:
+        )
+        try:
             connection.execute(
                 "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
                 if readonly else "SET TRANSACTION ISOLATION LEVEL READ COMMITTED READ WRITE"
             )
+            connection.execute(
+                "SELECT set_config('statement_timeout', %s, true), "
+                "set_config('lock_timeout', %s, true)",
+                (str(_STATEMENT_TIMEOUT_MS), str(_LOCK_TIMEOUT_MS)),
+            )
             yield connection
+        except psycopg.Error as error:
+            try:
+                connection.rollback()
+            except psycopg.Error:
+                pass
+            raise DatabaseError("Cannot read or write the PostgreSQL database.") from error
+        else:
+            try:
+                connection.commit()
+            except psycopg.Error as error:
+                # A server rejection (for example a deferred constraint or
+                # serialization failure) has a known rollback outcome. A lost
+                # connection, including failures without SQLSTATE, does not.
+                sqlstate = error.sqlstate
+                if sqlstate is not None and not (
+                    sqlstate.startswith("08") or sqlstate in {"57P01", "57P02", "57P03"}
+                ):
+                    raise DatabaseError("The PostgreSQL transaction did not commit.") from error
+                raise CommitOutcomeUnknownError(
+                    "The PostgreSQL commit outcome is unknown."
+                ) from error
     except psycopg.Error as error:
         raise DatabaseError("Cannot read or write the PostgreSQL database.") from error
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 def initialize_database(settings: DatabaseSettings | None = None) -> None:

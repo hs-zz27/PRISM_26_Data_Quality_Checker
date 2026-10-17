@@ -88,6 +88,7 @@ class AuditRun(BaseModel):
     sample_count: int = Field(ge=0)
     processed_count: int = Field(ge=0)
     failed_count: int = Field(ge=0)
+    incomplete_count: int = Field(default=0, ge=0)
     created_at: AwareDatetime
     updated_at: AwareDatetime
 
@@ -97,6 +98,8 @@ class AuditRun(BaseModel):
             raise ValueError("processed_count cannot exceed sample_count.")
         if self.failed_count > self.processed_count:
             raise ValueError("failed_count cannot exceed processed_count.")
+        if self.incomplete_count > self.processed_count:
+            raise ValueError("incomplete_count cannot exceed processed_count.")
         if self.updated_at < self.created_at:
             raise ValueError("updated_at cannot precede created_at.")
         return self
@@ -129,3 +132,5 @@ class AuditSampleClaim(BaseModel):
     worker_id: NonBlank
     claim_token: NonBlank
     lease_until: AwareDatetime
+    processing_deadline: AwareDatetime
+    attempt_count: int = Field(ge=1, le=3)

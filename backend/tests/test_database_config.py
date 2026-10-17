@@ -2,6 +2,7 @@
 
 import os
 
+import psycopg
 from psycopg.conninfo import conninfo_to_dict
 from pydantic import SecretStr, ValidationError
 import pytest
@@ -11,6 +12,10 @@ from backend.app.core.config import (
     DatabaseConfigurationError,
     DatabaseSettings,
     load_database_settings,
+)
+from backend.app.storage import database
+from backend.app.storage.database import (
+    CommitOutcomeUnknownError, DatabaseError, database_connection, is_retryable_database_error,
 )
 
 
@@ -174,3 +179,52 @@ def test_direct_database_settings_require_valid_strict_values(changes):
         DatabaseSettings.model_validate({
             "conninfo": SecretStr("host=127.0.0.1 port=55432 dbname=prism"), **changes,
         })
+
+
+def test_retry_classifier_accepts_known_transient_errors_only():
+    transient = psycopg.errors.SerializationFailure()
+    wrapped = DatabaseError("database operation failed")
+    wrapped.__cause__ = transient
+    assert is_retryable_database_error(transient)
+    assert is_retryable_database_error(wrapped)
+    assert not is_retryable_database_error(ValueError("invalid rule parameters"))
+
+
+@pytest.mark.parametrize("error", [
+    psycopg.OperationalError("authentication failed"),
+    psycopg.InterfaceError("client protocol misuse"),
+    psycopg.errors.InvalidPassword("bad password"),
+])
+def test_retry_classifier_rejects_permanent_connection_failures(error):
+    assert not is_retryable_database_error(error)
+
+
+@pytest.mark.parametrize("commit_error,expected_error", [
+    (psycopg.OperationalError("acknowledgement lost"), CommitOutcomeUnknownError),
+    (psycopg.errors.ConnectionFailure("connection interrupted"), CommitOutcomeUnknownError),
+    (psycopg.errors.SerializationFailure("rolled back"), DatabaseError),
+    (psycopg.errors.UniqueViolation("constraint rejected"), DatabaseError),
+])
+def test_commit_errors_distinguish_rejected_transactions_from_unknown_outcomes(
+    monkeypatch, commit_error, expected_error,
+):
+    class Connection:
+        closed = False
+
+        def execute(self, *args):
+            pass
+
+        def commit(self):
+            raise commit_error
+
+        def close(self):
+            self.closed = True
+
+    connection = Connection()
+    monkeypatch.setattr(database.psycopg, "connect", lambda *args, **kwargs: connection)
+    settings = DatabaseSettings(conninfo=SecretStr("dbname=unused"))
+    with pytest.raises(expected_error) as caught:
+        with database_connection(settings):
+            pass
+    assert type(caught.value) is expected_error
+    assert connection.closed

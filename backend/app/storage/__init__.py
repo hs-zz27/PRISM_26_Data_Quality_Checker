@@ -10,6 +10,8 @@ from .workflow_repository import (
     JobClaim,
     JobClaimLostError,
     JobNotFoundError,
+    RetryableWorkflowStorageError,
+    SampleProcessingTimeoutError,
     JobRepository,
     WorkflowStorageError,
 )
@@ -24,6 +26,8 @@ __all__ = [
     "JobClaim",
     "JobClaimLostError",
     "JobNotFoundError",
+    "RetryableWorkflowStorageError",
+    "SampleProcessingTimeoutError",
     "JobRepository",
     "WorkflowStorageError",
 ]
