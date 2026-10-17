@@ -1,0 +1,123 @@
+"""Spawn-safe, database-free execution of one sample collector."""
+
+from __future__ import annotations
+
+import pickle
+import os
+from typing import Any, Callable
+
+
+_MESSAGE_CHUNK_SIZE = 64 * 1024
+_DATABASE_ENVIRONMENT_KEYS = (
+    "DATABASE_URL", "POSTGRES_PASSWORD", "POSTGRES_USER", "POSTGRES_DB",
+    "POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_CONNECT_TIMEOUT",
+    "PGPASSWORD", "PGUSER", "PGDATABASE", "PGHOST", "PGPORT", "PGSERVICE",
+    "PGSERVICEFILE",
+)
+
+
+def _clear_database_environment() -> None:
+    """Remove inherited database settings from this child process only."""
+    for name in _DATABASE_ENVIRONMENT_KEYS:
+        os.environ.pop(name, None)
+
+
+class SampleDataError(ValueError):
+    """A collector reported an expected source-data problem."""
+
+
+class TransientSampleError(RuntimeError):
+    """A collector explicitly reported a retryable transient failure."""
+
+
+class SampleComputationError(RuntimeError):
+    """The isolated computation could not start, serialize or return safely."""
+
+
+def _send_message(result_connection: Any, message: tuple[Any, ...]) -> None:
+    """Send bounded frames so the parent can drain transport while we run."""
+    try:
+        payload = pickle.dumps(message, protocol=pickle.HIGHEST_PROTOCOL)
+    except BaseException:  # noqa: BLE001 - report serialization failure safely
+        payload = pickle.dumps((
+            "fatal", "result_serialization", "sample result serialization failed",
+        ), protocol=pickle.HIGHEST_PROTOCOL)
+    try:
+        for offset in range(0, len(payload), _MESSAGE_CHUNK_SIZE):
+            result_connection.send_bytes(payload[offset:offset + _MESSAGE_CHUNK_SIZE])
+        result_connection.send_bytes(b"")
+    except BaseException:
+        # A terminated parent may close the connection while the child reports.
+        pass
+
+
+def run_collector_child(
+    result_connection: Any,
+    collector: Callable[..., Any],
+    dataset_root: str,
+    sample_id: str,
+    allowed_labels: list[str] | None,
+    connectivity: int,
+) -> None:
+    """Run only the injected collector; this process never opens PostgreSQL."""
+    _clear_database_environment()
+    try:
+        try:
+            result = collector(dataset_root, sample_id, allowed_labels, connectivity)
+        except (OSError, UnicodeError) as error:
+            message = ("source_data", type(error).__name__, str(error))
+        except SampleDataError as error:
+            message = ("source_data", type(error).__name__, str(error))
+        except TransientSampleError as error:
+            message = ("transient", type(error).__name__, str(error))
+        except BaseException as error:  # noqa: BLE001 - child reports all failures
+            message = ("fatal", type(error).__name__, str(error))
+        else:
+            message = ("success", result)
+        _send_message(result_connection, message)
+    finally:
+        result_connection.close()
+
+
+def run_sample_child(
+    result_connection: Any,
+    collector: Callable[..., Any],
+    evaluator: Callable[..., Any],
+    rulebook: Any,
+    dataset_root: str,
+    sample_id: str,
+    allowed_labels: list[str] | None,
+    connectivity: int,
+    audit_id: str,
+    sample_revision: int,
+) -> None:
+    """Collect and evaluate one sample without opening the workflow database."""
+    _clear_database_environment()
+    try:
+        try:
+            measurements = collector(dataset_root, sample_id, allowed_labels, connectivity)
+        except (OSError, UnicodeError) as error:
+            message = ("source_data", type(error).__name__, str(error))
+        except SampleDataError as error:
+            message = ("source_data", type(error).__name__, str(error))
+        except TransientSampleError as error:
+            message = ("transient", type(error).__name__, str(error))
+        else:
+            try:
+                evaluation = evaluator(
+                    rulebook,
+                    measurements,
+                    audit_id=audit_id,
+                    sample_id=sample_id,
+                    sample_revision=sample_revision,
+                )
+                message = (
+                    "success", measurements, evaluation.findings,
+                    evaluation.internal_check_failures,
+                )
+            except BaseException as error:  # noqa: BLE001 - supervisor classifies fatal computation
+                message = ("fatal", type(error).__name__, str(error))
+    except BaseException as error:  # noqa: BLE001 - child must report all failures
+        message = ("fatal", type(error).__name__, str(error))
+    _send_message(result_connection, message)
+    result_connection.close()

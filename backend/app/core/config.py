@@ -10,7 +10,9 @@ from urllib.parse import urlsplit
 from dotenv import dotenv_values
 from psycopg import ProgrammingError
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, StringConstraints, field_validator
+from pydantic import (
+    BaseModel, ConfigDict, Field, SecretStr, StringConstraints, ValidationError, field_validator,
+)
 
 
 BACKEND_DIRECTORY = Path(__file__).resolve().parents[2]
@@ -67,6 +69,34 @@ class _BackendConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     ollama: OllamaSettings
+
+
+class AuditSettings(BaseModel):
+    """Execution bounds for one sample in a durable batch audit."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    sample_max_seconds: int = Field(default=900, ge=1, le=86_400)
+
+
+class AuditConfigurationError(ValueError):
+    """Audit execution settings are missing or invalid."""
+
+
+def load_audit_settings(*, env_path: str | Path | None = None) -> AuditSettings:
+    """Load the hard sample-processing limit without changing the environment."""
+    environment_path = DEFAULT_ENV_PATH if env_path is None else Path(env_path)
+    try:
+        values = {**dotenv_values(environment_path, interpolate=False), **os.environ}
+    except OSError:
+        raise AuditConfigurationError("Cannot read the audit environment file.") from None
+    raw = values.get("AUDIT_SAMPLE_MAX_SECONDS", "900")
+    try:
+        return AuditSettings(sample_max_seconds=int(raw))
+    except (TypeError, ValueError, ValidationError):
+        raise AuditConfigurationError(
+            "AUDIT_SAMPLE_MAX_SECONDS must be an integer between 1 and 86400."
+        ) from None
 
 
 def load_ollama_settings(

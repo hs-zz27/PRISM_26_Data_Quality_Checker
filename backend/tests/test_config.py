@@ -4,13 +4,20 @@ import tomllib
 import pytest
 from pydantic import ValidationError
 
-from backend.app.core.config import OLLAMA_CONFIG_PATH, OllamaSettings, load_ollama_settings
+from backend.app.core.config import (
+    AuditConfigurationError,
+    AuditSettings,
+    OLLAMA_CONFIG_PATH,
+    OllamaSettings,
+    load_audit_settings,
+    load_ollama_settings,
+)
 from backend.app.core import config
 
 
 @pytest.fixture(autouse=True)
 def isolated_ollama_environment(tmp_path, monkeypatch):
-    for name in ("OLLAMA_MODEL", "OLLAMA_BASE_URL"):
+    for name in ("OLLAMA_MODEL", "OLLAMA_BASE_URL", "AUDIT_SAMPLE_MAX_SECONDS"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(config, "DEFAULT_ENV_PATH", tmp_path / ".env")
 
@@ -19,6 +26,27 @@ def test_default_configuration_is_independent_of_working_directory(tmp_path, mon
     expected = load_ollama_settings()
     monkeypatch.chdir(tmp_path)
     assert load_ollama_settings() == expected
+
+
+def test_audit_sample_deadline_defaults_and_reads_env_without_mutation(monkeypatch):
+    before = dict(os.environ)
+    assert load_audit_settings().sample_max_seconds == 900
+    monkeypatch.setenv("AUDIT_SAMPLE_MAX_SECONDS", "120")
+    assert load_audit_settings().sample_max_seconds == 120
+    assert dict(os.environ) == {**before, "AUDIT_SAMPLE_MAX_SECONDS": "120"}
+
+
+@pytest.mark.parametrize("value", ["0", "86401", "not-an-integer", "1.5"])
+def test_invalid_audit_sample_deadline_is_rejected(monkeypatch, value):
+    monkeypatch.setenv("AUDIT_SAMPLE_MAX_SECONDS", value)
+    with pytest.raises(AuditConfigurationError):
+        load_audit_settings()
+
+
+def test_audit_settings_are_strict_and_frozen():
+    settings = AuditSettings(sample_max_seconds=10)
+    with pytest.raises(ValidationError):
+        settings.sample_max_seconds = 20
 
 
 def test_alternate_toml_file_selects_model(tmp_path):
