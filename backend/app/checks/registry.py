@@ -99,27 +99,68 @@ class CheckDefinition:
     name: str
     scope: Literal["sample", "object", "pair"]
     parameter_model: type[_RuleParameters]
+    prompt_description: str = ""
 
 
 CHECK_REGISTRY: dict[str, CheckDefinition] = {
-    "allowed_labels": CheckDefinition("allowed_labels", "object", AllowedLabelsParameters),
-    "annotation_ids": CheckDefinition("annotation_ids", "sample", EmptyParameters),
-    "mask_ids": CheckDefinition("mask_ids", "sample", EmptyParameters),
-    "mask_dimensions": CheckDefinition("mask_dimensions", "sample", EmptyParameters),
-    "annotation_metadata": CheckDefinition("annotation_metadata", "sample", EmptyParameters),
-    "box_validity": CheckDefinition("box_validity", "object", EmptyParameters),
-    "box_overlaps": CheckDefinition("box_overlaps", "pair", MaximumIoUParameters),
+    "allowed_labels": CheckDefinition(
+        "allowed_labels", "object", AllowedLabelsParameters,
+        "Each annotation label must be one of the explicitly configured allowed labels.",
+    ),
+    "annotation_ids": CheckDefinition(
+        "annotation_ids", "sample", EmptyParameters,
+        "Annotation object IDs must be positive and unique.",
+    ),
+    "mask_ids": CheckDefinition(
+        "mask_ids", "sample", EmptyParameters,
+        "The non-background mask IDs must match the annotation object IDs.",
+    ),
+    "mask_dimensions": CheckDefinition(
+        "mask_dimensions", "sample", EmptyParameters,
+        "The image and mask dimensions must match.",
+    ),
+    "annotation_metadata": CheckDefinition(
+        "annotation_metadata", "sample", EmptyParameters,
+        "Declared annotation metadata must match the available image and annotation measurements.",
+    ),
+    "box_validity": CheckDefinition(
+        "box_validity", "object", EmptyParameters,
+        "Each annotation box must be valid and lie within the image bounds.",
+    ),
+    "box_overlaps": CheckDefinition(
+        "box_overlaps", "pair", MaximumIoUParameters,
+        "Each pair of annotation boxes must have IoU no greater than the configured maximum.",
+    ),
     "box_mask_alignment": CheckDefinition(
         "box_mask_alignment", "object", MaximumEdgeDifferenceParameters,
+        "Each box-to-mask edge difference must be no greater than the configured maximum pixels.",
     ),
     "mask_outside_box": CheckDefinition(
         "mask_outside_box", "object", MaximumOutsideFractionParameters,
+        "The fraction of each mask outside its annotation box must be no greater than the configured maximum.",
     ),
-    "mask_box_fill": CheckDefinition("mask_box_fill", "object", FillFractionParameters),
+    "mask_box_fill": CheckDefinition(
+        "mask_box_fill", "object", FillFractionParameters,
+        "Each mask's fill fraction inside its annotation box must stay between the configured bounds.",
+    ),
     "mask_components": CheckDefinition(
         "mask_components", "object", MaximumComponentCountParameters,
+        "Each mask must have no more than the configured maximum number of connected components.",
     ),
 }
+
+
+def extraction_check_catalog() -> list[dict[str, object]]:
+    """Return deterministic, prompt-ready metadata derived from the registry."""
+    return [
+        {
+            "check_name": name,
+            "meaning": definition.prompt_description,
+            "scope": definition.scope,
+            "parameters_schema": definition.parameter_model.model_json_schema(),
+        }
+        for name, definition in sorted(CHECK_REGISTRY.items())
+    ]
 
 
 class RuleParameterError(ValueError):

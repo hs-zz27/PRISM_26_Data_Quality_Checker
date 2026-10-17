@@ -6,6 +6,7 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
+from backend.app.checks.registry import CHECK_REGISTRY, extraction_check_catalog
 from backend.app.core.config import OllamaSettings, load_ollama_settings
 from backend.app.inference.ollama_client import OllamaClientError, propose_rules
 from backend.app.models.rule import RuleProposal
@@ -79,6 +80,14 @@ def test_valid_proposals_preserve_content_and_request_uses_cpu_schema(fake_serve
     assert "source_sentence" in rule_schema["required"]
     assert rule_schema["additionalProperties"] is False
     assert GUIDELINES not in json.dumps(state["requests"][0][1])
+    instructions = request["messages"][0]["content"]
+    for entry in extraction_check_catalog():
+        assert entry["check_name"] in instructions
+        assert entry["meaning"] in instructions
+        assert entry["scope"] in instructions
+        assert json.dumps(entry["parameters_schema"], sort_keys=True) in instructions
+    assert "5%" in instructions and "0.05" in instructions
+    assert "plain language" in instructions
 
 
 def test_empty_proposals_are_valid(fake_server):
@@ -102,10 +111,65 @@ def test_model_cannot_supply_application_owned_metadata(fake_server, field, valu
     assert caught.value.reason == "invalid_rule_proposals"
 
 
-def test_unknown_requirement_is_retained_without_check(fake_server):
+def test_ambiguous_requirement_is_retained_without_check(fake_server):
     state, transport = fake_server
-    state["chat"]["message"]["content"] = json.dumps({"rules": [{**PROPOSAL, "check_name": None}]})
-    assert propose_rules(GUIDELINES, transport=transport)[0].check_name is None
+    state["chat"]["message"]["content"] = json.dumps({
+        "rules": [{**PROPOSAL, "check_name": None, "parameters": {}}],
+    })
+    proposal = propose_rules(GUIDELINES, transport=transport)[0]
+    assert proposal.check_name is None and proposal.parameters == {}
+
+
+def test_unknown_non_null_check_is_rejected(fake_server):
+    state, transport = fake_server
+    state["chat"]["message"]["content"] = json.dumps({
+        "rules": [{**PROPOSAL, "check_name": "future_check", "parameters": {}}],
+    })
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "invalid_rule_proposals"
+
+
+def test_fraction_requirement_mapping_is_preserved_and_validated(fake_server):
+    state, transport = fake_server
+    source = "At most 5% of the mask may be outside the box."
+    state["chat"]["message"]["content"] = json.dumps({"rules": [{
+        "rule_id": "MASK-1",
+        "description": "No more than five percent of a mask is outside its box.",
+        "check_name": "mask_outside_box",
+        "parameters": {"max_outside_fraction": 0.05},
+        "source_sentence": source,
+    }]})
+    proposal = propose_rules(source, transport=transport)[0]
+    assert proposal.check_name == "mask_outside_box"
+    assert proposal.parameters == {"max_outside_fraction": 0.05}
+
+
+@pytest.mark.parametrize("changes", [
+    {"check_name": "mask_outside_box", "parameters": {}},
+    {"check_name": "mask_outside_box", "parameters": {"max_outside_fraction": 1.1}},
+    {"check_name": "mask_outside_box", "parameters": {"max_outside_fraction": "0.05"}},
+    {"check_name": "box_validity", "parameters": {"unexpected": True}},
+    {"check_name": None, "parameters": {"max_outside_fraction": 0.05}},
+])
+def test_known_check_mappings_are_validated_against_the_registry(fake_server, changes):
+    state, transport = fake_server
+    state["chat"]["message"]["content"] = json.dumps({
+        "rules": [{**PROPOSAL, **changes}],
+    })
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "invalid_rule_proposals"
+
+
+def test_registry_catalog_is_complete():
+    catalog = extraction_check_catalog()
+    assert [entry["check_name"] for entry in catalog] == sorted(CHECK_REGISTRY)
+    assert all(entry["meaning"] for entry in catalog)
+    assert all(entry["check_name"] == CHECK_REGISTRY[entry["check_name"]].name for entry in catalog)
+    assert {entry["scope"] for entry in catalog} == {
+        definition.scope for definition in CHECK_REGISTRY.values()
+    }
 
 
 def test_missing_model_never_sends_guidelines(fake_server):
