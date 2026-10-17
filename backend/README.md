@@ -176,9 +176,19 @@ are not collapsed.
 `app/services/batch_audit.py` provides `BatchAuditService`. `start()` validates
 and pins one confirmed rulebook version, stores the audit request, creates the
 queued job and creates one queued sample row in one PostgreSQL transaction.
-`run_job()`/`run_audit()` claim a lease and process one sample at a time. Each
-sample transaction stores its measurements, pending findings, technical
+`run_job()`/`run_audit()` claim a lease and process one sample at a time. Workers
+that already hold a `JobClaim` from `JobRepository.claim_next_job()` dispatch an
+audit with `run_claimed_job(claim)` instead. It verifies persisted ownership,
+prepares the audit and resumes unfinished work without claiming the job again.
+Only audit claims can be passed to this method.
+
+Each sample transaction stores its measurements, pending findings, technical
 failure (when needed), terminal sample state and job progress together.
+
+`BatchAuditRequest.allowed_labels` is optional. When omitted or `None`,
+collection skips shared label checks while retaining annotation labels and
+geometry measurements. Each `allowed_labels` rule uses its own confirmed label
+list during evaluation, even when the request supplies a shared list.
 
 `app/storage/workflow_repository.py` implements atomic worker claims with
 PostgreSQL row locks, claim tokens and leases. Cancellation is cooperative:
@@ -190,7 +200,62 @@ bounded and sequential initially, while durable `queued`, `running`,
 `cancelling`, `completed`, `failed` and `cancelled` job states remain available
 for the planned HTTP layer.
 
-Apply migration `003_audit_jobs.sql` through the normal initialization command
+Lease checks use the current time after acquiring the required job and sample
+row locks. A claim that expires while waiting cannot renew or persist results.
+New leases start after the claim's lock waits, giving the worker the configured
+lease duration. Accepted transactions retain their locks through commit.
+Audit acquisition retries retain a unique acquisition ID; sharing a worker name
+does not grant access to another execution's live claim. An expired acquisition
+cannot revive its old token.
+
+Each running sample also has a persisted hard deadline. The parent worker
+checkpoints ownership and cancellation before collection, after collection,
+before evaluation and before terminal persistence. Collection runs in a
+macOS-spawned child process that receives only sample inputs and a pinned
+rulebook; the parent owns PostgreSQL access and terminates the child when
+cancellation, ownership loss or the deadline wins. The child clears inherited
+PostgreSQL credential environment variables before computation; this changes
+only the child process and is process-termination isolation, not a security
+sandbox. Both collection and confirmed-rule evaluation run in that supervised
+child; `AUDIT_SAMPLE_MAX_SECONDS` configures the default limit
+(900 seconds, bounded to 1--86400); a deadline is recorded as the explicit
+`processing_timeout` sample failure rather than being confused with bad source
+data.
+An independent local watchdog terminates computation when the hard deadline or
+last confirmed lease expires, including while the parent waits for PostgreSQL
+or result transport. Renewals only extend this local bound after acknowledgement.
+Database transactions also use a 5-second lock timeout and a 30-second statement
+timeout; these bound server waits separately from the sample's execution limit.
+
+Transient collector failures use a durable attempt counter with at most three
+total collector executions; transient database operations have a separate
+bounded transaction retry and do not consume collector attempts. Terminal
+sample writes carry a stable operation identity, so an acknowledgement lost
+after commit is reconciled as the same result rather than applied twice; an
+attempt increment is likewise idempotent. The transaction retry budget is
+bounded per operation in the current worker and is not a durable cross-restart
+retry budget. Lost commit acknowledgements are reconciled even when the driver
+has no SQLSTATE. Known server rejections retain their rollback classification;
+an unknown commit is replayed only by operations that explicitly support it. Invalid
+confirmed-rule parameters, corrupt shared
+measurement state, ownership loss, cancellation and programming errors are not
+silently retried. A retry that exhausts its attempts becomes the explicit
+`retry_exhausted` sample failure. Rule execution has a narrower per-check
+boundary: an attributable supported-check implementation failure emits an
+`unavailable` finding with reason `check_execution_failed` and marks the sample
+and audit incomplete; it does not turn into a pass or fail. The collector's
+measurement document keeps its original `status`; the durable incomplete flag
+also captures evaluator incompleteness without rewriting source-processing
+truth. Ordinary missing or
+unusable evidence remains `unavailable`, while invalid rule configuration and
+fatal workflow/storage errors stop the audit.
+Collection checks receive private copies of annotation/metadata/image inputs
+and share one mask snapshot backed by immutable bytes. Ordinary local computation
+errors can be isolated without altering later checks' inputs. Resource exhaustion,
+I/O failures and unclassified runtime failures escape that boundary and fail the
+worker; they are not presented as isolated unavailable checks.
+
+Apply migration `004_bounded_sample_processing.sql` through the normal initialization command
 before using these repositories. Dataset roots are carried as opaque strings;
 this target deliberately does not add path validation or dataset-import
 policy.
