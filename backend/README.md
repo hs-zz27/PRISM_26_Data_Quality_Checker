@@ -1,8 +1,8 @@
 # Backend
 
-This folder contains the dataset reader, box and mask measurements, sample audit
-service, local Ollama client, and rulebook extraction, review and PostgreSQL
-storage. The remaining modules contain responsibility notes for later
+This folder contains the dataset reader, box and mask measurements, local Ollama
+client, rulebook extraction and review, batch audits, and finding/sample review backed
+by PostgreSQL. The remaining modules contain responsibility notes for later
 implementation.
 
 ## Structure
@@ -142,12 +142,152 @@ matching it to the guideline remains the evaluator's responsibility.
 `Evidence` contains JSON measurements and optional asset links. Findings may be
 sample-wide (`object_id=None`) or refer to an object, including an invalid source
 ID that needs reporting. The API builder reuses these Python schemas. Rule
-evaluation and finding persistence are implemented as services; finding-review
-actions and HTTP routing remain separate work.
+evaluation, finding persistence and finding-review actions are implemented as
+services. Sample decisions are implemented separately; HTTP routing remains planned.
 
 Rule proposals, rules, finding parameters and evidence share a finite JSON-value
 validator. Nested `NaN` and infinity values are rejected before storage; ordinary
 JSON values are preserved. Repository saves also revalidate mutable rule objects.
+
+## Finding review
+
+`review_finding()` in `app/services/review.py` records `accepted`, `rejected` or
+`unsure` decisions on existing findings, including passing and unavailable
+outcomes. Accepting confirms the tool's conclusion; it does not accept the sample.
+The request contains the review revision last read, the decision, reviewer ID and
+a comment (which may be empty). The backend assigns the next revision and a UTC
+timestamp. `reviewer_id` provides attribution; authentication is separate work.
+
+Apply the new `005_finding_reviews.sql` migration before using finding reads or
+reviews on an existing database:
+
+```bash
+.venv/bin/python -m backend.app.storage.database
+```
+
+Then review a saved finding from Python:
+
+```python
+from backend.app.models.review import FindingReviewRequest
+from backend.app.services.review import review_finding
+from backend.app.storage import FindingRepository
+
+repository = FindingRepository()
+finding = repository.get_finding("finding_1")  # Use an ID from your audit.
+review = review_finding(
+    finding.finding_id,
+    FindingReviewRequest(
+        expected_review_version=finding.review.revision,
+        resolution="rejected",
+        reviewer_id="reviewer_1",
+        comment="The original label is correct; the guideline was misinterpreted.",
+    ),
+    repository=repository,
+)
+history = repository.list_finding_reviews(finding.finding_id, limit=20)
+```
+
+Pending findings start at revision 0 with empty review history. Each saved decision
+appends one record; later decisions retain earlier reviewers' comments and
+timestamps. `get_finding()` and `list_findings()` return the latest review alongside
+the original finding. History is ordered by revision and supports `limit`/`offset`
+pagination.
+
+The save checks `expected_review_version` while holding the finding's row lock. Competing
+decisions cannot both advance the same revision. An outdated request raises
+`FindingReviewConflictError`; reload the finding and inspect the newer decision
+before resubmitting. Missing findings raise `FindingNotFoundError`. Review writes
+are not automatically retried; if a connection failure leaves the commit outcome
+unknown, reload the finding and its history before deciding whether to resubmit.
+
+Review history is stored separately from the original machine snapshot. Machine
+outcomes, measurements, pinned rule/sample data and audit progress stay unchanged,
+including during audit result replays. Raw measurement `review_status` remains
+`pending_review`; current finding decisions come from `Finding.review`. These
+decisions do not change sample acceptance or correct annotations. The planned
+`PUT /findings/{finding_id}/review` contract now reuses the service's request model;
+its HTTP handler is not implemented yet.
+
+## Sample review
+
+`review_sample()` records whether an audited sample is `accepted`, `rejected` or
+`needs_correction`. A sample starts at `pending_review`, review revision 0, with
+empty history. Reviewers can explicitly reopen it to `pending_review`; that action
+also appends an attributed decision with the next review revision. Reviewer ID and
+comment are required (the comment may be empty); the service assigns a UTC timestamp.
+This decides whether the data can be used. Finding review separately decides
+whether the tool's conclusion was correct. Neither decision changes the other.
+
+Apply `006_sample_reviews.sql` with the migration runner before using sample
+review on an existing database:
+
+```bash
+.venv/bin/python -m backend.app.storage.database
+```
+
+From Python, use IDs and the sample revision stored in your audit request:
+
+```python
+from backend.app.models.review import SampleReviewRequest
+from backend.app.services.review import review_sample
+from backend.app.storage import AuditRepository, SampleReviewRepository
+
+audit_id, sample_id = "audit_1", "sample_1"  # Use your stored audit/sample IDs.
+audit_request = AuditRepository().get_request(audit_id)
+sample_revision = audit_request.sample_revisions.get(sample_id, 1)
+repository = SampleReviewRepository()
+current = repository.get_sample_review(audit_id, sample_id, sample_revision)
+saved = review_sample(
+    audit_id, sample_id,
+    SampleReviewRequest(
+        expected_sample_revision=current.sample_revision,
+        expected_review_version=current.revision,
+        decision="accepted",
+        reviewer_id="reviewer_1",
+        comment="Checked the available annotations and audit evidence.",
+    ),
+    repository=repository,
+)
+history = repository.list_sample_reviews(audit_id, sample_id, sample_revision, limit=20)
+```
+
+Every response and history entry includes `audit_id`, `sample_id` and
+`sample_revision`. `expected_sample_revision` identifies that stored audit pin;
+`expected_review_version` identifies the last-read **review** revision. These are
+independent counters. History is scoped to the exact audit/sample pin and sorted
+by ascending review revision, with `limit`/`offset` pagination. A later audit or
+sample revision starts with its own pending decision and empty history.
+
+Only samples whose durable processing status is `completed` or `failed` may be
+reviewed. Completed samples with incomplete measurements, passing findings, or no
+findings are included. Failed samples can be decided using available failure
+evidence and manual inspection; acceptance does not erase or resolve the failure.
+The parent audit may still be running or may have failed/cancelled after this
+sample completed. Queued, running and cancelled samples reject every decision,
+including reopening, with `SampleReviewStateError`. No machine outcome or confidence
+automatically accepts/rejects a sample or restricts the reviewer's decision.
+
+Saves lock the exact audit sample row and append one history record.
+`SampleReviewConflictError` means another decision advanced the review revision;
+reload before resubmitting. `SampleRevisionConflictError` means the supplied sample
+revision is not stored for that audit/sample. `AuditSampleNotFoundError` means the
+audit/sample pair does not exist. Failed inserts/commits preserve prior decisions.
+Writes are not automatically retried; after an unknown commit outcome, inspect
+the current decision and history before resubmitting. Source measurements,
+findings and their resolutions, processing states, failures, and job/audit progress
+remain unchanged, including during audit-result replays. Raw measurement
+`review_status` stays `pending_review`; use `get_sample_review()` for the current
+human decision.
+
+The pin is **not a guarantee of current dataset files**. `BatchAuditRequest`
+currently supplies sample revision numbers (default 1), and workers load assets
+from the dataset path. There is no authoritative annotation revision store or
+immutable asset loader. This guard prevents reviewing the wrong stored audit pin;
+it cannot detect edits to files on disk. `needs_correction` records a decision,
+not an annotation edit. Correction storage, validation and immutable revision
+loading still need implementation; corrected data must receive a new audit and
+explicit review rather than inheriting acceptance. HTTP adapters, review queue
+composition, reviewed-count aggregation and export remain separate work.
 
 ## Confirmed-rule evaluation
 

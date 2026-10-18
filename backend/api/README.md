@@ -58,9 +58,12 @@ https://spec.openapis.org/oas/v3.1.0.html.
    scenarios are independent examples rather than successive edits to one sample.
 4. Upload a dataset ZIP through `POST /datasets`, poll import, then inspect sample
    integrity. The first adapter is `penn_fudan`, not a universal specification.
-5. Start an audit using a confirmed rulebook ID/version. Null `sample_ids` means
-   all samples. The backend snapshots annotation revisions and selects batch
-   size from measured CPU resources. An optional active feedback policy is pinned.
+5. Start an audit using a confirmed rulebook ID/version. In the planned HTTP
+   contract, null `sample_ids` means all samples and the import boundary will
+   resolve annotation revisions. The current Python batch service requires
+   explicit sample IDs and pins caller-supplied revision numbers (default 1);
+   immutable asset loading is not implemented. Select batch size from measured
+   CPU resources. Active feedback-policy integration remains planned.
 6. Poll the job, list the complete review queue and load sample detail. Omit queue
    filters to include apparently correct cases. Findings include pass outcomes.
 7. Resolve findings and record sample decisions separately. Correct boxes, labels
@@ -73,10 +76,10 @@ https://spec.openapis.org/oas/v3.1.0.html.
     then explicitly activate the evaluated policy for later audits.
 
 Every operation has `x-implementation-status: planned` and a backing-service
-note. Python measurements, rule records, Ollama integration, rulebook review
+note. Python measurements, rule records, Ollama integration, rulebook, finding and sample review
 services, confirmed-rule evaluation, durable PostgreSQL jobs/audits/findings and
 PostgreSQL version/review storage exist. HTTP routes, dataset import, model
-checks, sample and finding review, correction/export and evaluated feedback
+checks, correction/export and evaluated feedback
 services remain planned.
 
 ## Requests, responses and jobs
@@ -117,9 +120,12 @@ map existing client reasons to uppercase codes such as `MODEL_UNAVAILABLE`,
 conflict codes are described on their operations; generic error examples show
 the shared envelope rather than every possible domain failure.
 
-Use `expected_version` for rulebook writes and `expected_revision` for annotations
-or reviews. Refresh after a 409 before deciding whether to reapply changes.
+Use `expected_version` for rulebook writes, `expected_revision` for annotations,
+and `expected_review_version` for finding/sample reviews. Refresh after a 409
+before deciding whether to reapply changes.
 Review revisions start at 0; annotation and rulebook versions start at 1.
+Sample-review writes additionally require `expected_sample_revision` for the
+stored audit sample pin; `expected_review_version` means the review counter.
 
 Dataset ZIP and mask PNG uploads use multipart FormData. Fixture strings like
 `<binary dataset ZIP>` represent file parts, not literal JSON bodies. Let the
@@ -172,6 +178,52 @@ finding. Current sample decisions use `pending_review`, `needs_correction`,
 `accepted`, `rejected`. No tool confidence automatically changes those decisions.
 `reviewer_id` records attribution for the local prototype, not an implemented
 authentication system.
+
+The finding-review Python service and PostgreSQL history storage are implemented.
+`PUT /findings/{finding_id}/review` still needs an HTTP handler. Its request schema
+comes directly from `FindingReviewRequest`: `expected_review_version`, `resolution`,
+`reviewer_id` and `comment` are required; a comment may be empty. Server-owned
+revision, timestamp, outcome and evidence cannot be supplied in the request.
+Pending findings start at review revision 0. A successful save advances it by one
+and preserves every earlier decision. The planned HTTP mapping is 409
+`VERSION_CONFLICT` for `FindingReviewConflictError`, 404 for `FindingNotFoundError`,
+and 422 for invalid request fields. Reload after a conflict before resubmitting.
+Finding repository reads include the latest review; history is available through
+`list_finding_reviews()` in Python. Sample decisions use the separate service below.
+See [finding review setup](../README.md#finding-review) for the migration and usage.
+
+The sample-review Python service and PostgreSQL history storage are implemented.
+The planned `PUT /audits/{audit_id}/samples/{sample_id}/review` uses
+`SampleReviewRequest`: `expected_sample_revision`, `expected_review_version`, `decision`,
+`reviewer_id` and `comment` are required. Responses reuse `SampleReview` and include
+`audit_id`, `sample_id` and `sample_revision`. The first two IDs come from the route;
+the sample revision must identify the stored audit pin. Review revision starts at
+0; every saved decision increments it, including an explicit `pending_review`
+reopening with reviewer attribution. Empty comments are allowed. Decision history
+uses `SampleReviewPage`/`SampleReviewRecord`, sorted by ascending review revision;
+`GET .../reviews` requires the `sample_revision` query parameter and never mixes
+other audits or sample pins. These required pin fields extend the earlier draft
+contract; frontend callers and fixtures must include them.
+
+Only `completed` and `failed` audit sample rows are reviewable. This includes
+incomplete measurement reports, no-issue/no-findings cases and failures without
+measurements; reviewers can use the available evidence and manual inspection.
+Eligibility depends on the individual sample, regardless of parent audit status.
+Queued/running/cancelled samples reject every decision, including reopening.
+Accepting failed or incomplete data preserves its technical failure/evidence.
+No machine outcome or finding-review state automatically decides sample use.
+
+Planned HTTP mappings are 409 `VERSION_CONFLICT` for `SampleReviewConflictError`,
+409 `STALE_SAMPLE_REVISION` for `SampleRevisionConflictError`, 409
+`INVALID_SAMPLE_REVIEW_STATE` for `SampleReviewStateError`, 404 for
+`AuditSampleNotFoundError`, and 422 for invalid request fields. The sample revision
+conflict only means the supplied pin is not stored for that audit/sample. It does
+**not** verify current annotation files: revision storage and immutable asset
+loading remain unimplemented. `needs_correction` saves a decision and does not
+edit annotations. Future correction/recheck workflows must create fresh evidence
+and require a new decision on corrected revisions. Current decisions/history can
+be read through `SampleReviewRepository`; detail/queue composition, reviewed-count
+aggregation and HTTP handlers remain planned. See [sample review setup](../README.md#sample-review).
 
 The audit detail's raw measurements preserve their original `pending_review`
 field. Render the separate current review record for actual reviewer decisions.
