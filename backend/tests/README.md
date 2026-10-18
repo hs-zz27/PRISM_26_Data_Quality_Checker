@@ -10,6 +10,10 @@ Tests cover inclusive box geometry, partial mask overlap, independent sample
 checks, annotation metadata, finite JSON values, rule validation, local
 Ollama configuration precedence (process environment, `.env`, TOML), request
 handling, extraction, rulebook transitions, finding/sample-review requests and API templates.
+Audit read tests cover HTTP query validation and safe errors, live route/schema
+boundaries, PostgreSQL queue pagination/filtering, current reviews, failures,
+null measurements and consistent snapshots during a concurrent review change.
+They are authored but left unrun during implementation at the user's request.
 Ollama requests are mocked; these tests do not download or run a model.
 
 The contract suite compares generated files with their source and checks that

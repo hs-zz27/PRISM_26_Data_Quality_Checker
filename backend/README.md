@@ -18,11 +18,13 @@ backend/
     inference/               Local Ollama and CPU detector integration
     services/                Workflow coordination
     storage/                 Persistence of rules, evidence and corrections
-    routers/                 Future API endpoints, if an HTTP API is used
+    routers/                 Implemented and future HTTP API endpoints
   tests/                     Backend tests added as features are implemented
 ```
 
-Routers will accept requests and call services if an HTTP API is introduced. A separate controller layer is not needed initially: services coordinate the workflow. No API framework has been installed or chosen by this scaffold.
+FastAPI routers expose the implemented audit reads and finding/sample review routes.
+Read repositories compose stored evidence; services coordinate workflow changes. A
+separate controller layer is not needed.
 
 `models/` means Python data structures, such as an annotation or a finding. AI model integration belongs in `inference/`; downloaded weights remain outside the source code, currently in the project's `.cache/torch` folder.
 
@@ -121,11 +123,68 @@ content. The client checks the response schema; `extract_rulebook()` assigns
 origin and draft state and builds the `Rulebook`, which checks unique rule IDs
 and whether citations occur in the original guidelines.
 
-## Proposed frontend API
+## Audit review API
 
-See [api/README.md](api/README.md) for the draft endpoint contract, request/response
-schemas and frontend fixtures. [api/ENDPOINTS.md](api/ENDPOINTS.md) lists every
-planned operation. These are templates; no HTTP routes are running yet.
+The audit queue/detail reads and finding/sample review routes are implemented with
+FastAPI:
+
+- `GET /api/v1/audits/{audit_id}/samples`
+- `GET /api/v1/audits/{audit_id}/samples/{sample_id}`
+- `PUT /api/v1/findings/{finding_id}/review`
+- `GET /api/v1/findings/{finding_id}/reviews`
+- `PUT /api/v1/audits/{audit_id}/samples/{sample_id}/review`
+- `GET /api/v1/audits/{audit_id}/samples/{sample_id}/reviews`
+
+From the project root, with dependencies installed and PostgreSQL configured:
+
+```bash
+docker compose up -d --wait postgres
+.venv/bin/python -B -m backend.app.storage.database
+.venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+Existing environments need `fastapi==0.143.5` and `uvicorn==0.54.0`, now pinned
+in root `requirements.txt`. This change needs no new database migration; it reads
+the existing schema through migration 006. App imports and startup do not run
+migrations, start workers or contact Ollama. `/docs` and `/openapi.json` describe
+only the implemented routes. This remains a local prototype without authentication.
+
+Use an audit ID already created by the Python batch service:
+
+```bash
+curl 'http://127.0.0.1:8000/api/v1/audits/AUDIT_ID/samples?limit=20&offset=0'
+curl 'http://127.0.0.1:8000/api/v1/audits/AUDIT_ID/samples/SAMPLE_ID'
+```
+
+The queue includes every sample in original audit order. `limit` is 1–100
+(default 20), `offset` is nonnegative (default 0). Optional `tool_status` and
+`review_status` filters apply before pagination; `total` counts matching samples.
+An existing audit with no matching results returns an empty page; a missing audit
+or sample returns 404. Invalid query fields return 422. Errors use the documented
+`error` envelope with a request ID; storage/configuration failures return 503 and
+unexpected errors return 500 without exception internals.
+
+Each summary separates `processing_status`, `incomplete`, `tool_status` and
+`review_status`. Queued/running samples are `pending`; for other states, a failed
+finding takes precedence (`flagged`), then `unsure`, then `unavailable`. Failed,
+cancelled, incomplete or zero-findings samples cannot be `no_issue`. `no_issue`
+requires completed processing and at least one finding, all passing. Counts always
+describe original machine outcomes, even when reviewers disagree with them.
+
+Detail reads combine original measurements, all findings with their latest
+reviews, technical failures and the latest sample decision in one database
+snapshot. Measurements are null when none were persisted; otherwise their stored
+document is preserved, including its original `pending_review` marker. Render the
+separate `review` for the current human decision. The queue also uses one snapshot
+for its count and page. Reads never change progress, evidence or review history.
+
+Asset and thumbnail links are null: revision-aware image/mask serving remains
+unimplemented. These endpoints do not open current dataset files or certify that
+on-disk files still match the stored sample revision.
+
+See [api/README.md](api/README.md) for the full contract and frontend fixtures.
+[api/ENDPOINTS.md](api/ENDPOINTS.md) distinguishes these implemented routes from
+remaining planned operations, including audit creation and assets.
 
 ## Finding records
 
@@ -143,7 +202,8 @@ matching it to the guideline remains the evaluator's responsibility.
 sample-wide (`object_id=None`) or refer to an object, including an invalid source
 ID that needs reporting. The API builder reuses these Python schemas. Rule
 evaluation, finding persistence and finding-review actions are implemented as
-services. Sample decisions are implemented separately; HTTP routing remains planned.
+services and FastAPI routes. Sample decisions and their review history are exposed
+through the corresponding implemented FastAPI routes.
 
 Rule proposals, rules, finding parameters and evidence share a finite JSON-value
 validator. Nested `NaN` and infinity values are rejected before storage; ordinary
@@ -204,9 +264,10 @@ Review history is stored separately from the original machine snapshot. Machine
 outcomes, measurements, pinned rule/sample data and audit progress stay unchanged,
 including during audit result replays. Raw measurement `review_status` remains
 `pending_review`; current finding decisions come from `Finding.review`. These
-decisions do not change sample acceptance or correct annotations. The planned
-`PUT /findings/{finding_id}/review` contract now reuses the service's request model;
-its HTTP handler is not implemented yet.
+decisions do not change sample acceptance or correct annotations. The implemented
+`PUT /findings/{finding_id}/review` route reuses the service's request model, and
+`GET /findings/{finding_id}/reviews` exposes its attributed, ascending review history
+with limit/offset pagination.
 
 ## Sample review
 
@@ -286,8 +347,8 @@ immutable asset loader. This guard prevents reviewing the wrong stored audit pin
 it cannot detect edits to files on disk. `needs_correction` records a decision,
 not an annotation edit. Correction storage, validation and immutable revision
 loading still need implementation; corrected data must receive a new audit and
-explicit review rather than inheriting acceptance. HTTP adapters, review queue
-composition, reviewed-count aggregation and export remain separate work.
+explicit review rather than inheriting acceptance. Reviewed-count aggregation and
+export remain separate work.
 
 ## Confirmed-rule evaluation
 

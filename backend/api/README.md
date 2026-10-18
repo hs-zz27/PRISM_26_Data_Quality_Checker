@@ -1,12 +1,17 @@
-# Proposed API contract
+# API contract
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the complete planned workflow.
-**No HTTP server or router is implemented yet.** These files describe the
-interface to build; they do not make the routes callable.
+**Audit sample reads and the four finding/sample review routes are implemented.**
+All other operations remain planned. Check `x-implementation-status` in OpenAPI
+and `implementation` in each fixture. [Server setup](../README.md#audit-review-api)
+includes the launch command. The running server's `/docs` and `/openapi.json`
+include only real routes; this folder also documents the remaining planned workflow.
 
-The draft base address is `http://127.0.0.1:8000/api/v1`. Port 8000 is a proposed
-development default. Keep the base URL configurable in the frontend.
+The development base address is `http://127.0.0.1:8000/api/v1`.
+Keep the base URL configurable in the frontend.
+For a frontend served on another port, use its development server's proxy for
+`/api/v1`; cross-origin access is not enabled by default.
 
 ## Files
 
@@ -38,7 +43,7 @@ Before committing, run the contract tests, including generated-file freshness:
 
 Edit the builder rather than generated artifacts. This is draft contract version
 `0.1.0`; agree on field changes with the frontend before implementing routes.
-No API framework is selected here. Format reference:
+The HTTP adapter uses FastAPI. Format reference:
 https://spec.openapis.org/oas/v3.1.0.html.
 
 ## Frontend workflow
@@ -75,12 +80,12 @@ https://spec.openapis.org/oas/v3.1.0.html.
     freeze reviewer-verified held-out ground truth, evaluate baseline/candidate,
     then explicitly activate the evaluated policy for later audits.
 
-Every operation has `x-implementation-status: planned` and a backing-service
-note. Python measurements, rule records, Ollama integration, rulebook, finding and sample review
+Every operation has `x-implementation-status` and a backing-service note. The
+audit queue/detail reads and finding/sample review routes are implemented. Python
+measurements, rule records, Ollama integration, rulebook, finding and sample review
 services, confirmed-rule evaluation, durable PostgreSQL jobs/audits/findings and
-PostgreSQL version/review storage exist. HTTP routes, dataset import, model
-checks, correction/export and evaluated feedback
-services remain planned.
+PostgreSQL version/review storage also exist. Other HTTP routes, dataset import,
+model checks, correction/export and evaluated feedback services remain planned.
 
 ## Requests, responses and jobs
 
@@ -179,31 +184,35 @@ finding. Current sample decisions use `pending_review`, `needs_correction`,
 `reviewer_id` records attribution for the local prototype, not an implemented
 authentication system.
 
-The finding-review Python service and PostgreSQL history storage are implemented.
-`PUT /findings/{finding_id}/review` still needs an HTTP handler. Its request schema
-comes directly from `FindingReviewRequest`: `expected_review_version`, `resolution`,
-`reviewer_id` and `comment` are required; a comment may be empty. Server-owned
-revision, timestamp, outcome and evidence cannot be supplied in the request.
+The finding-review Python service, PostgreSQL history storage and FastAPI routes are
+implemented. `PUT /findings/{finding_id}/review` uses `FindingReviewRequest`:
+`expected_review_version`, `resolution`, `reviewer_id` and `comment` are required;
+a comment may be empty. Server-owned revision and timestamp cannot be supplied in
+the request. `GET /findings/{finding_id}/reviews` returns `FindingReviewPage` with
+attributed `FindingReviewRecord` items in ascending revision order and supports
+`limit` (1–100, default 20) and `offset` (default 0). A missing finding returns
+404 and an empty history is a valid 200 page for an existing finding.
 Pending findings start at review revision 0. A successful save advances it by one
-and preserves every earlier decision. The planned HTTP mapping is 409
-`VERSION_CONFLICT` for `FindingReviewConflictError`, 404 for `FindingNotFoundError`,
-and 422 for invalid request fields. Reload after a conflict before resubmitting.
-Finding repository reads include the latest review; history is available through
-`list_finding_reviews()` in Python. Sample decisions use the separate service below.
+and preserves every earlier decision. The HTTP mapping is 409
+`VERSION_CONFLICT` for `FindingReviewConflictError`, 404
+`NOT_FOUND` for `FindingNotFoundError`, 422 `VALIDATION_ERROR` for invalid request
+fields, 503 `DEPENDENCY_UNAVAILABLE` for storage/configuration failures and 500
+`INTERNAL_ERROR` for unexpected failures. Reload after a conflict before
+resubmitting. Finding repository reads include the latest review.
 See [finding review setup](../README.md#finding-review) for the migration and usage.
 
-The sample-review Python service and PostgreSQL history storage are implemented.
-The planned `PUT /audits/{audit_id}/samples/{sample_id}/review` uses
-`SampleReviewRequest`: `expected_sample_revision`, `expected_review_version`, `decision`,
-`reviewer_id` and `comment` are required. Responses reuse `SampleReview` and include
-`audit_id`, `sample_id` and `sample_revision`. The first two IDs come from the route;
-the sample revision must identify the stored audit pin. Review revision starts at
-0; every saved decision increments it, including an explicit `pending_review`
-reopening with reviewer attribution. Empty comments are allowed. Decision history
-uses `SampleReviewPage`/`SampleReviewRecord`, sorted by ascending review revision;
-`GET .../reviews` requires the `sample_revision` query parameter and never mixes
-other audits or sample pins. These required pin fields extend the earlier draft
-contract; frontend callers and fixtures must include them.
+The sample-review Python service, PostgreSQL history storage and FastAPI routes are
+implemented. `PUT /audits/{audit_id}/samples/{sample_id}/review` uses
+`SampleReviewRequest`: `expected_sample_revision`, `expected_review_version`,
+`decision`, `reviewer_id` and `comment` are required. Responses reuse `SampleReview`
+and include `audit_id`, `sample_id` and `sample_revision`. The first two IDs come
+from the route; the sample revision must identify the stored audit pin. Review
+revision starts at 0; every saved decision increments it, including an explicit
+`pending_review` reopening with reviewer attribution. Empty comments are allowed.
+`GET .../reviews` returns `SampleReviewPage`/`SampleReviewRecord` history sorted by
+ascending review revision, requires the `sample_revision` query parameter and never
+mixes other audits or sample pins. These required pin fields extend the earlier
+draft contract; frontend callers and fixtures must include them.
 
 Only `completed` and `failed` audit sample rows are reviewable. This includes
 incomplete measurement reports, no-issue/no-findings cases and failures without
@@ -213,17 +222,36 @@ Queued/running/cancelled samples reject every decision, including reopening.
 Accepting failed or incomplete data preserves its technical failure/evidence.
 No machine outcome or finding-review state automatically decides sample use.
 
-Planned HTTP mappings are 409 `VERSION_CONFLICT` for `SampleReviewConflictError`,
-409 `STALE_SAMPLE_REVISION` for `SampleRevisionConflictError`, 409
-`INVALID_SAMPLE_REVIEW_STATE` for `SampleReviewStateError`, 404 for
-`AuditSampleNotFoundError`, and 422 for invalid request fields. The sample revision
-conflict only means the supplied pin is not stored for that audit/sample. It does
+HTTP mappings are 409 `VERSION_CONFLICT` for `SampleReviewConflictError`, 409
+`STALE_SAMPLE_REVISION` for `SampleRevisionConflictError`, 409
+`INVALID_SAMPLE_REVIEW_STATE` for `SampleReviewStateError`, 404 `NOT_FOUND` for
+`AuditSampleNotFoundError`, 422 `VALIDATION_ERROR` for invalid request fields, 503
+`DEPENDENCY_UNAVAILABLE` for storage/configuration failures and 500 `INTERNAL_ERROR`
+for unexpected failures. The sample revision conflict only means the supplied pin is not stored for that audit/sample. It does
 **not** verify current annotation files: revision storage and immutable asset
 loading remain unimplemented. `needs_correction` saves a decision and does not
 edit annotations. Future correction/recheck workflows must create fresh evidence
 and require a new decision on corrected revisions. Current decisions/history can
-be read through `SampleReviewRepository`; detail/queue composition, reviewed-count
-aggregation and HTTP handlers remain planned. See [sample review setup](../README.md#sample-review).
+be read through `SampleReviewRepository` or the implemented queue/detail/review-history
+GET routes. Reviewed-count aggregation remains planned.
+See [sample review setup](../README.md#sample-review).
+
+The implemented queue supports `limit` (1–100, default 20), `offset` (default 0),
+and optional `tool_status`/`review_status` filters. Results retain original audit
+order; totals count filtered matches. Summary fields `processing_status` and
+`incomplete` expose technical state independently of human decisions. Machine
+status is pending while queued/running; otherwise fail takes precedence over
+unsure, then unavailable. Only completed, complete, nonempty, all-pass results are
+`no_issue`. No findings means unavailable, not automatic success.
+
+Detail adds `failures` and permits `measurements: null` for samples without stored
+measurements. Non-null measurements preserve the actual stored collector object,
+including older minimal envelopes. The `AuditMeasurements` schema documents the
+full collector shape; it is not imposed on older saved documents. All findings
+and current reviews are returned, scoped to the exact audited revision. Reads
+use one database snapshot. Asset fields and `thumbnail_url` are currently null;
+these reads do not load current files or invent asset URLs. The four synthetic
+review scenarios reflect this limitation.
 
 The audit detail's raw measurements preserve their original `pending_review`
 field. Render the separate current review record for actual reviewer decisions.
