@@ -24,8 +24,12 @@ from pydantic import BaseModel, ValidationError
 
 from ..core.config import DatabaseSettings, load_database_settings
 from ..models.audit import AuditFailure, AuditRun, AuditSampleClaim, BatchAuditRequest
-from ..models.finding import Finding, FindingResolution
+from ..models.finding import Finding, FindingResolution, FindingReview
 from ..models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
+from ..models.review import (
+    FindingReviewPage, FindingReviewRecord,
+    SampleReview, SampleReviewPage, SampleReviewRecord,
+)
 from .database import (
     CommitOutcomeUnknownError,
     DatabaseError,
@@ -62,6 +66,75 @@ class FindingNotFoundError(LookupError):
     def __init__(self, finding_id: str) -> None:
         self.finding_id = finding_id
         super().__init__(f"Finding {finding_id!r} was not found.")
+
+
+class FindingReviewConflictError(RuntimeError):
+    """A reviewer submitted a decision against an outdated review revision."""
+
+    def __init__(self, finding_id: str, expected_review_version: int, actual_revision: int) -> None:
+        self.finding_id = finding_id
+        self.expected_review_version = expected_review_version
+        self.actual_revision = actual_revision
+        super().__init__(
+            f"Finding {finding_id!r}: expected review revision {expected_review_version}, "
+            f"but found {actual_revision}."
+        )
+
+
+class AuditSampleNotFoundError(LookupError):
+    def __init__(self, audit_id: str, sample_id: str) -> None:
+        self.audit_id = audit_id
+        self.sample_id = sample_id
+        super().__init__(f"Sample {sample_id!r} was not found in audit {audit_id!r}.")
+
+
+class SampleRevisionConflictError(RuntimeError):
+    """The requested sample revision is not a stored pin in this audit."""
+
+    def __init__(
+        self, audit_id: str, sample_id: str, expected_sample_revision: int,
+        available_sample_revisions: list[int],
+    ) -> None:
+        self.audit_id = audit_id
+        self.sample_id = sample_id
+        self.expected_sample_revision = expected_sample_revision
+        self.available_sample_revisions = tuple(available_sample_revisions)
+        super().__init__(
+            f"Sample {sample_id!r} in audit {audit_id!r}: sample revision "
+            f"{expected_sample_revision} is not stored; available pins: {self.available_sample_revisions}."
+        )
+
+
+class SampleReviewConflictError(RuntimeError):
+    """A newer reviewer decision exists for the same audited sample pin."""
+
+    def __init__(
+        self, audit_id: str, sample_id: str, sample_revision: int,
+        expected_review_version: int, actual_revision: int,
+    ) -> None:
+        self.audit_id = audit_id
+        self.sample_id = sample_id
+        self.sample_revision = sample_revision
+        self.expected_review_version = expected_review_version
+        self.actual_revision = actual_revision
+        super().__init__(
+            f"Sample {sample_id!r} revision {sample_revision} in audit {audit_id!r}: "
+            f"expected review revision {expected_review_version}, but found {actual_revision}."
+        )
+
+
+class SampleReviewStateError(RuntimeError):
+    """The sample has not reached a processing state eligible for review."""
+
+    def __init__(self, audit_id: str, sample_id: str, sample_revision: int, status: str) -> None:
+        self.audit_id = audit_id
+        self.sample_id = sample_id
+        self.sample_revision = sample_revision
+        self.status = status
+        super().__init__(
+            f"Sample {sample_id!r} revision {sample_revision} in audit {audit_id!r} "
+            f"is {status}; only completed or failed samples can be reviewed."
+        )
 
 
 class JobAlreadyFinishedError(RuntimeError):
@@ -593,6 +666,7 @@ class JobRepository(_WorkflowRepository):
 
 
 def _decode_finding(row: Mapping[str, Any]) -> Finding:
+    """Read the original machine snapshot, including its initial review state."""
     try:
         finding = Finding.model_validate(row["document"])
     except (KeyError, ValidationError, TypeError) as error:
@@ -613,8 +687,40 @@ def _decode_finding(row: Mapping[str, Any]) -> Finding:
     return finding
 
 
+_FINDINGS_WITH_REVIEWS = """
+    SELECT findings.*,
+           latest.revision AS current_review_revision,
+           latest.resolution AS current_review_resolution,
+           latest.reviewer_id AS current_review_reviewer_id,
+           latest.comment AS current_review_comment,
+           latest.updated_at AS current_review_updated_at
+    FROM findings
+    LEFT JOIN LATERAL (
+        SELECT revision, resolution, reviewer_id, comment, updated_at
+        FROM finding_reviews WHERE finding_id = findings.finding_id
+        ORDER BY revision DESC LIMIT 1
+    ) AS latest ON TRUE
+"""
+
+
+def _decode_reviewed_finding(row: Mapping[str, Any]) -> Finding:
+    finding = _decode_finding(row)
+    if row["current_review_revision"] is not None:
+        try:
+            finding.review = FindingReview.model_validate({
+                "revision": row["current_review_revision"],
+                "resolution": row["current_review_resolution"],
+                "reviewer_id": row["current_review_reviewer_id"],
+                "comment": row["current_review_comment"],
+                "updated_at": row["current_review_updated_at"],
+            })
+        except ValidationError as error:
+            raise WorkflowStorageError("A saved finding review failed validation.") from error
+    return finding
+
+
 class FindingRepository(_WorkflowRepository):
-    """Store immutable machine findings and their frozen evidence snapshots."""
+    """Store machine snapshots separately from append-only reviewer decisions."""
 
     @staticmethod
     def _snapshot_findings(findings: Sequence[Finding]) -> list[Finding]:
@@ -676,11 +782,11 @@ class FindingRepository(_WorkflowRepository):
         finding_id = _require_identifier(finding_id, "finding_id")
         with self._connection() as connection:
             row = connection.execute(
-                "SELECT * FROM findings WHERE finding_id = %s", (finding_id,)
+                _FINDINGS_WITH_REVIEWS + " WHERE findings.finding_id = %s", (finding_id,)
             ).fetchone()
             if row is None:
                 raise FindingNotFoundError(finding_id)
-            return _decode_finding(row)
+            return _decode_reviewed_finding(row)
 
     def list_findings(
         self,
@@ -700,17 +806,202 @@ class FindingRepository(_WorkflowRepository):
         with self._connection() as connection:
             if sample_id is None:
                 rows = connection.execute(
-                    """SELECT * FROM findings WHERE audit_id = %s
-                       ORDER BY finding_id LIMIT %s OFFSET %s""",
+                    _FINDINGS_WITH_REVIEWS + """ WHERE findings.audit_id = %s
+                       ORDER BY findings.finding_id LIMIT %s OFFSET %s""",
                     (audit_id, limit, offset),
                 ).fetchall()
             else:
                 rows = connection.execute(
-                    """SELECT * FROM findings WHERE audit_id = %s AND sample_id = %s
-                       ORDER BY finding_id LIMIT %s OFFSET %s""",
+                    _FINDINGS_WITH_REVIEWS + """ WHERE findings.audit_id = %s AND findings.sample_id = %s
+                       ORDER BY findings.finding_id LIMIT %s OFFSET %s""",
                     (audit_id, sample_id, limit, offset),
                 ).fetchall()
-            return [_decode_finding(row) for row in rows]
+            return [_decode_reviewed_finding(row) for row in rows]
+
+    def save_finding_review(
+        self, finding_id: str, review: FindingReview, *, expected_review_version: int,
+    ) -> FindingReview:
+        """Append one decision, checking the expected revision under a row lock.
+
+        Machine documents and their metadata are never rewritten. All saves
+        for the same finding lock its existing row before reading the latest
+        review, so competing decisions cannot both advance the same revision.
+        """
+        finding_id = _require_identifier(finding_id, "finding_id")
+        if type(expected_review_version) is not int or expected_review_version < 0:
+            raise ValueError("expected_review_version must be a nonnegative integer.")
+        if not isinstance(review, FindingReview):
+            raise TypeError("review must be a FindingReview instance.")
+        record = FindingReviewRecord.model_validate({
+            **review.model_dump(), "finding_id": finding_id,
+        })
+        if record.revision != expected_review_version + 1:
+            raise ValueError("The saved review revision must equal expected_review_version + 1.")
+        with self._connection(write=True) as connection:
+            exists = connection.execute(
+                "SELECT finding_id FROM findings WHERE finding_id = %s FOR UPDATE", (finding_id,),
+            ).fetchone()
+            if exists is None:
+                raise FindingNotFoundError(finding_id)
+            actual_revision = connection.execute(
+                "SELECT COALESCE(MAX(revision), 0) AS revision FROM finding_reviews WHERE finding_id = %s",
+                (finding_id,),
+            ).fetchone()["revision"]
+            if actual_revision != expected_review_version:
+                raise FindingReviewConflictError(finding_id, expected_review_version, actual_revision)
+            connection.execute(
+                """INSERT INTO finding_reviews
+                   (finding_id, revision, resolution, reviewer_id, comment, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                (record.finding_id, record.revision, record.resolution.value,
+                 record.reviewer_id, record.comment, record.updated_at),
+            )
+        return FindingReview.model_validate(record.model_dump(exclude={"finding_id"}))
+
+    def list_finding_reviews(
+        self, finding_id: str, *, limit: int = 20, offset: int = 0,
+    ) -> FindingReviewPage:
+        """Read attributed decisions in revision order; pending has no history row."""
+        finding_id = _require_identifier(finding_id, "finding_id")
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer between 1 and 100.")
+        if type(offset) is not int or offset < 0:
+            raise ValueError("offset must be a nonnegative integer.")
+        with self._connection() as connection:
+            exists = connection.execute(
+                "SELECT finding_id FROM findings WHERE finding_id = %s", (finding_id,),
+            ).fetchone()
+            if exists is None:
+                raise FindingNotFoundError(finding_id)
+            total = connection.execute(
+                "SELECT COUNT(*) AS total FROM finding_reviews WHERE finding_id = %s", (finding_id,),
+            ).fetchone()["total"]
+            rows = connection.execute(
+                """SELECT * FROM finding_reviews WHERE finding_id = %s
+                   ORDER BY revision ASC LIMIT %s OFFSET %s""",
+                (finding_id, limit, offset),
+            ).fetchall()
+            try:
+                items = [FindingReviewRecord.model_validate(row) for row in rows]
+            except ValidationError as error:
+                raise WorkflowStorageError("A saved finding review failed validation.") from error
+        next_offset = offset + len(items) if offset + len(items) < total else None
+        return FindingReviewPage(
+            items=items, limit=limit, offset=offset, total=total, next_offset=next_offset,
+        )
+
+
+class SampleReviewRepository(_WorkflowRepository):
+    """Review explicit audit sample pins without rewriting processing evidence."""
+
+    @staticmethod
+    def _sample_key(audit_id: str, sample_id: str, sample_revision: int) -> tuple[str, str, int]:
+        return (
+            _require_identifier(audit_id, "audit_id"),
+            _require_identifier(sample_id, "sample_id"),
+            _require_positive_integer(sample_revision, "sample_revision"),
+        )
+
+    @staticmethod
+    def _get_sample(connection: Any, key: tuple[str, str, int], *, lock: bool = False) -> Mapping[str, Any]:
+        row = connection.execute(
+            """SELECT status FROM audit_samples
+               WHERE audit_id = %s AND sample_id = %s AND sample_revision = %s"""
+            + (" FOR UPDATE" if lock else ""), key,
+        ).fetchone()
+        if row is None:
+            revisions = connection.execute(
+                """SELECT sample_revision FROM audit_samples WHERE audit_id = %s AND sample_id = %s
+                   ORDER BY sample_revision""", key[:2],
+            ).fetchall()
+            if not revisions:
+                raise AuditSampleNotFoundError(key[0], key[1])
+            raise SampleRevisionConflictError(
+                *key, [item["sample_revision"] for item in revisions],
+            )
+        return row
+
+    def get_sample_review(self, audit_id: str, sample_id: str, sample_revision: int) -> SampleReview:
+        """Return the latest decision, or an unreviewed state for an existing pin."""
+        key = self._sample_key(audit_id, sample_id, sample_revision)
+        with self._connection() as connection:
+            self._get_sample(connection, key)
+            row = connection.execute(
+                """SELECT * FROM sample_reviews
+                   WHERE audit_id = %s AND sample_id = %s AND sample_revision = %s
+                   ORDER BY revision DESC LIMIT 1""", key,
+            ).fetchone()
+            if row is None:
+                return SampleReview(audit_id=key[0], sample_id=key[1], sample_revision=key[2])
+            try:
+                record = SampleReviewRecord.model_validate(row)
+            except ValidationError as error:
+                raise WorkflowStorageError("A saved sample review failed validation.") from error
+        return SampleReview.model_validate(record.model_dump())
+
+    def save_sample_review(self, review: SampleReview, *, expected_review_version: int) -> SampleReview:
+        """Append a decision after checking sample state and review revision atomically.
+
+        Completed (including incomplete measurements) and failed samples are
+        reviewable regardless of machine outcomes or the parent audit's status.
+        Failures remain visible; accepting them is an explicit reviewer decision.
+        No decision certifies that on-disk assets still match this audit's pin.
+        """
+        if type(expected_review_version) is not int or expected_review_version < 0:
+            raise ValueError("expected_review_version must be a nonnegative integer.")
+        if not isinstance(review, SampleReview):
+            raise TypeError("review must be a SampleReview instance.")
+        record = SampleReviewRecord.model_validate(review.model_dump())
+        if record.revision != expected_review_version + 1:
+            raise ValueError("The saved review revision must equal expected_review_version + 1.")
+        key = (record.audit_id, record.sample_id, record.sample_revision)
+        with self._connection(write=True) as connection:
+            sample = self._get_sample(connection, key, lock=True)
+            if sample["status"] not in ("completed", "failed"):
+                raise SampleReviewStateError(*key, sample["status"])
+            actual_revision = connection.execute(
+                """SELECT COALESCE(MAX(revision), 0) AS revision FROM sample_reviews
+                   WHERE audit_id = %s AND sample_id = %s AND sample_revision = %s""", key,
+            ).fetchone()["revision"]
+            if actual_revision != expected_review_version:
+                raise SampleReviewConflictError(*key, expected_review_version, actual_revision)
+            connection.execute(
+                """INSERT INTO sample_reviews
+                   (audit_id, sample_id, sample_revision, revision, decision, reviewer_id, comment, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                (*key, record.revision, record.decision.value,
+                 record.reviewer_id, record.comment, record.updated_at),
+            )
+        return SampleReview.model_validate(record.model_dump())
+
+    def list_sample_reviews(
+        self, audit_id: str, sample_id: str, sample_revision: int, *, limit: int = 20, offset: int = 0,
+    ) -> SampleReviewPage:
+        """Read one audit/sample pin's history in ascending review revision order."""
+        key = self._sample_key(audit_id, sample_id, sample_revision)
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer between 1 and 100.")
+        if type(offset) is not int or offset < 0:
+            raise ValueError("offset must be a nonnegative integer.")
+        with self._connection() as connection:
+            self._get_sample(connection, key)
+            total = connection.execute(
+                """SELECT COUNT(*) AS total FROM sample_reviews
+                   WHERE audit_id = %s AND sample_id = %s AND sample_revision = %s""", key,
+            ).fetchone()["total"]
+            rows = connection.execute(
+                """SELECT * FROM sample_reviews
+                   WHERE audit_id = %s AND sample_id = %s AND sample_revision = %s
+                   ORDER BY revision ASC LIMIT %s OFFSET %s""", (*key, limit, offset),
+            ).fetchall()
+            try:
+                items = [SampleReviewRecord.model_validate(row) for row in rows]
+            except ValidationError as error:
+                raise WorkflowStorageError("A saved sample review failed validation.") from error
+        next_offset = offset + len(items) if offset + len(items) < total else None
+        return SampleReviewPage(
+            items=items, limit=limit, offset=offset, total=total, next_offset=next_offset,
+        )
 
 
 class AuditRepository(_WorkflowRepository):

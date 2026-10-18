@@ -182,8 +182,8 @@ def build_contract() -> JsonObject:
         parameters=pagination_parameters() + [parameter("tool_status", "query", TOOL_STATUS, "flagged"), parameter("review_status", "query", SAMPLE_REVIEW_STATUS, "pending_review")],
         description="Omit filters to include all samples, including no_issue cases. Filters are optional UI conveniences; there is no automatic acceptance.")
     add("GET", "/audits/{audit_id}/samples/{sample_id}", "getAuditSample", "Audits", "Read sample findings, evidence and measurements", "SampleAudit", examples["detail"],
-        backing="measurements embeds the actual audit_sample report shape; API findings and reviews are planned.",
-        description="Measurements are immutable evidence from the pinned sample revision. Their review_status remains pending_review; the separate review record stores actual reviewer decisions. Colored masks are previews. Findings include pass outcomes as well as suspected violations.")
+        backing="AuditRepository measurements, FindingRepository current reviews and SampleReviewRepository current decisions exist; asset/detail composition and HTTP adapter planned.",
+        description="Measurements retain the stored audit sample pin. Their review_status remains pending_review; the separate review record stores actual reviewer decisions and the audited sample revision. Colored masks are previews. Findings include pass outcomes as well as suspected violations. Current storage does not certify that on-disk assets still match the pin; immutable revision loading remains planned.")
     sample_media = contract["paths"]["/audits/{audit_id}/samples/{sample_id}"]["get"]["responses"]["200"]["content"]["application/json"]
     sample_media.pop("example")
     sample_media["examples"] = {
@@ -205,13 +205,20 @@ def build_contract() -> JsonObject:
         description="Cooperative cancellation stops at a safe processing boundary and preserves completed results. Terminal jobs return 409 JOB_ALREADY_FINISHED.")
     finding_review = {"revision": 1, "resolution": "accepted", "reviewer_id": "reviewer_demo", "comment": "Confirmed the label mismatch.", "updated_at": TIMESTAMP}
     add("PUT", "/findings/{finding_id}/review", "reviewFinding", "Reviews", "Accept or reject a tool finding", "FindingReview", finding_review,
-        body_schema="FindingReviewRequest", body_example={"expected_revision": 0, "resolution": "accepted", "reviewer_id": "reviewer_demo", "comment": finding_review["comment"]},
-        description="accepted means the reviewer confirms the finding, not that the sample is accepted. rejected dismisses the finding; unsure records unresolved review. Preserve revision history and check optimistic concurrency.")
-    reviewed = {"revision": 1, "decision": "needs_correction", "reviewer_id": "reviewer_demo", "comment": "Correct the second label before final review.", "updated_at": TIMESTAMP}
+        body_schema="FindingReviewRequest", body_example={"expected_review_version": 0, "resolution": "accepted", "reviewer_id": "reviewer_demo", "comment": finding_review["comment"]},
+        backing="review_finding service and PostgreSQL finding review history implemented; HTTP adapter planned",
+        description="accepted confirms the tool's conclusion; rejected dismisses it; unsure records unresolved review. This does not decide sample acceptance or change machine evidence. Save at expected_review_version + 1 and retain every earlier decision. A stale expected_review_version returns 409 VERSION_CONFLICT; reload before resubmitting. Pending findings start at revision 0.")
+    reviewed = {"audit_id": "audit_demo", "sample_id": "sample_001", "sample_revision": 1,
+                "revision": 1, "decision": "needs_correction", "reviewer_id": "reviewer_demo", "comment": "Correct the second label before final review.", "updated_at": TIMESTAMP}
     add("PUT", "/audits/{audit_id}/samples/{sample_id}/review", "reviewSample", "Reviews", "Record the reviewer's data decision", "SampleReview", reviewed,
-        body_schema="SampleReviewRequest", body_example={"expected_revision": 0, "decision": "needs_correction", "reviewer_id": "reviewer_demo", "comment": reviewed["comment"]},
-        description="Separate from finding resolution. Reviewer controls accepted/rejected decisions, including no_issue samples. needs_correction is not final acceptance. Only decide on the pinned, current sample revision; otherwise return 409 STALE_SAMPLE_REVISION. Save traceable review history.")
-    add("GET", "/audits/{audit_id}/samples/{sample_id}/reviews", "listSampleReviews", "Reviews", "Read sample decision history", "SampleReviewPage", page([reviewed]), parameters=pagination_parameters())
+        body_schema="SampleReviewRequest", body_example={"expected_sample_revision": 1, "expected_review_version": 0, "decision": "needs_correction", "reviewer_id": "reviewer_demo", "comment": reviewed["comment"]},
+        backing="review_sample service and PostgreSQL sample review history implemented; HTTP adapter planned",
+        description="Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: authoritative annotation revisions and immutable asset loading remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.")
+    add("GET", "/audits/{audit_id}/samples/{sample_id}/reviews", "listSampleReviews", "Reviews", "Read sample decision history", "SampleReviewPage", page([reviewed]),
+        parameters=pagination_parameters() + [parameter("sample_revision", "query", VERSION, 1, required=True,
+            description="Exact stored audit sample revision; history never merges other pins or audits.")],
+        backing="SampleReviewRepository.list_sample_reviews implemented; HTTP adapter planned",
+        description="Attributed decisions in ascending review revision order, scoped to the audit, sample and required sample_revision. A never-reviewed pin has an empty history and current pending_review revision 0. Explicit reopening is retained in history. An unknown audit/sample returns 404; an unmatched sample revision returns 409 STALE_SAMPLE_REVISION.")
     add("POST", "/exports", "startExport", "Exports", "Prepare reviewed output and manifest", "ExportStarted",
         {"export": {**examples["export"], "status": "queued", "included_count": None, "excluded_count": None, "download_url": None, "manifest_url": None}, "job": job("export", "export", "export_demo")},
         status=202, body_schema="ExportRequest", body_example={"audit_id": "audit_recheck_demo", "format": "penn_fudan", "selection": "accepted_only", "include_images": False},

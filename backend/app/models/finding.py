@@ -45,7 +45,7 @@ class FindingReview(BaseModel):
     """Review state with attribution required for non-pending resolutions.
 
     Recorded decisions require a positive revision, reviewer and timestamp.
-    Future review services own decision transitions.
+    Review services own decision transitions; machine evidence stays unchanged.
     """
 
     model_config = ConfigDict(extra="forbid", strict=True)

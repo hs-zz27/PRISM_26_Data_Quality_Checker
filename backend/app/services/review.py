@@ -1,10 +1,66 @@
-"""Review rulebooks through append-only, attributed versions."""
+"""Record attributed rulebook, finding and sample decisions."""
+
+from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
-from ..models.review import RulebookAction, RulebookReplace, RulebookReviewAction
+from ..models.finding import FindingReview
+from ..models.review import (
+    FindingReviewRequest, RulebookAction, RulebookReplace, RulebookReviewAction,
+    SampleReview, SampleReviewRequest,
+)
 from ..models.rule import ConfirmationState, Rulebook, RuleOrigin
 from ..storage.repository import RulebookRepository, RulebookVersionConflictError
+from ..storage.workflow_repository import FindingRepository, SampleReviewRepository
+
+
+def review_finding(
+    finding_id: str, request: FindingReviewRequest, *, repository: FindingRepository,
+) -> FindingReview:
+    """Record a finding resolution; accepting it confirms the tool's conclusion.
+
+    Every decision advances the review revision and retains prior decisions.
+    This does not change the machine outcome or decide whether to accept a sample.
+    """
+    if not isinstance(request, FindingReviewRequest):
+        raise TypeError("request must be a FindingReviewRequest instance.")
+    request = FindingReviewRequest.model_validate(request.model_dump())
+    review = FindingReview(
+        revision=request.expected_review_version + 1,
+        resolution=request.resolution,
+        reviewer_id=request.reviewer_id,
+        comment=request.comment,
+        updated_at=datetime.now(UTC),
+    )
+    return repository.save_finding_review(
+        finding_id, review, expected_review_version=request.expected_review_version,
+    )
+
+
+def review_sample(
+    audit_id: str, sample_id: str, request: SampleReviewRequest, *,
+    repository: SampleReviewRepository,
+) -> SampleReview:
+    """Decide whether an audited sample can be used, without changing evidence.
+
+    The sample pin and processing eligibility are checked under the repository's
+    row lock. The pin identifies the stored audit, not the current files on disk.
+    Reopening to pending_review is an attributed decision with a new revision.
+    """
+    if not isinstance(request, SampleReviewRequest):
+        raise TypeError("request must be a SampleReviewRequest instance.")
+    request = SampleReviewRequest.model_validate(request.model_dump())
+    review = SampleReview(
+        audit_id=audit_id,
+        sample_id=sample_id,
+        sample_revision=request.expected_sample_revision,
+        revision=request.expected_review_version + 1,
+        decision=request.decision,
+        reviewer_id=request.reviewer_id,
+        comment=request.comment,
+        updated_at=datetime.now(UTC),
+    )
+    return repository.save_sample_review(review, expected_review_version=request.expected_review_version)
 
 
 class RulebookReviewError(ValueError):

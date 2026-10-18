@@ -4453,9 +4453,9 @@
           "Audits"
         ],
         "summary": "Read sample findings, evidence and measurements",
-        "description": "Measurements are immutable evidence from the pinned sample revision. Their review_status remains pending_review; the separate review record stores actual reviewer decisions. Colored masks are previews. Findings include pass outcomes as well as suspected violations.",
+        "description": "Measurements retain the stored audit sample pin. Their review_status remains pending_review; the separate review record stores actual reviewer decisions and the audited sample revision. Colored masks are previews. Findings include pass outcomes as well as suspected violations. Current storage does not certify that on-disk assets still match the pin; immutable revision loading remains planned.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "measurements embeds the actual audit_sample report shape; API findings and reviews are planned.",
+        "x-backing-service-status": "AuditRepository measurements, FindingRepository current reviews and SampleReviewRepository current decisions exist; asset/detail composition and HTTP adapter planned.",
         "responses": {
           "200": {
             "description": "Read sample findings, evidence and measurements",
@@ -5007,6 +5007,9 @@
                         }
                       ],
                       "review": {
+                        "audit_id": "audit_demo",
+                        "sample_id": "sample_001",
+                        "sample_revision": 1,
                         "revision": 0,
                         "decision": "pending_review",
                         "reviewer_id": null,
@@ -5555,6 +5558,9 @@
                         }
                       ],
                       "review": {
+                        "audit_id": "audit_demo",
+                        "sample_id": "sample_001",
+                        "sample_revision": 1,
                         "revision": 0,
                         "decision": "pending_review",
                         "reviewer_id": null,
@@ -6135,6 +6141,9 @@
                         }
                       ],
                       "review": {
+                        "audit_id": "audit_demo",
+                        "sample_id": "sample_001",
+                        "sample_revision": 1,
                         "revision": 0,
                         "decision": "pending_review",
                         "reviewer_id": null,
@@ -6713,6 +6722,9 @@
                         }
                       ],
                       "review": {
+                        "audit_id": "audit_demo",
+                        "sample_id": "sample_001",
+                        "sample_revision": 1,
                         "revision": 0,
                         "decision": "pending_review",
                         "reviewer_id": null,
@@ -7538,9 +7550,9 @@
           "Reviews"
         ],
         "summary": "Accept or reject a tool finding",
-        "description": "accepted means the reviewer confirms the finding, not that the sample is accepted. rejected dismisses the finding; unsure records unresolved review. Preserve revision history and check optimistic concurrency.",
+        "description": "accepted confirms the tool's conclusion; rejected dismisses it; unsure records unresolved review. This does not decide sample acceptance or change machine evidence. Save at expected_review_version + 1 and retain every earlier decision. A stale expected_review_version returns 409 VERSION_CONFLICT; reload before resubmitting. Pending findings start at revision 0.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "x-backing-service-status": "review_finding service and PostgreSQL finding review history implemented; HTTP adapter planned",
         "responses": {
           "200": {
             "description": "Accept or reject a tool finding",
@@ -7671,7 +7683,7 @@
                 "$ref": "#/components/schemas/FindingReviewRequest"
               },
               "example": {
-                "expected_revision": 0,
+                "expected_review_version": 0,
                 "resolution": "accepted",
                 "reviewer_id": "reviewer_demo",
                 "comment": "Confirmed the label mismatch."
@@ -7688,9 +7700,9 @@
           "Reviews"
         ],
         "summary": "Record the reviewer's data decision",
-        "description": "Separate from finding resolution. Reviewer controls accepted/rejected decisions, including no_issue samples. needs_correction is not final acceptance. Only decide on the pinned, current sample revision; otherwise return 409 STALE_SAMPLE_REVISION. Save traceable review history.",
+        "description": "Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: authoritative annotation revisions and immutable asset loading remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "x-backing-service-status": "review_sample service and PostgreSQL sample review history implemented; HTTP adapter planned",
         "responses": {
           "200": {
             "description": "Record the reviewer's data decision",
@@ -7700,6 +7712,9 @@
                   "$ref": "#/components/schemas/SampleReview"
                 },
                 "example": {
+                  "audit_id": "audit_demo",
+                  "sample_id": "sample_001",
+                  "sample_revision": 1,
                   "revision": 1,
                   "decision": "needs_correction",
                   "reviewer_id": "reviewer_demo",
@@ -7832,7 +7847,8 @@
                 "$ref": "#/components/schemas/SampleReviewRequest"
               },
               "example": {
-                "expected_revision": 0,
+                "expected_sample_revision": 1,
+                "expected_review_version": 0,
                 "decision": "needs_correction",
                 "reviewer_id": "reviewer_demo",
                 "comment": "Correct the second label before final review."
@@ -7849,9 +7865,9 @@
           "Reviews"
         ],
         "summary": "Read sample decision history",
-        "description": "Read sample decision history",
+        "description": "Attributed decisions in ascending review revision order, scoped to the audit, sample and required sample_revision. A never-reviewed pin has an empty history and current pending_review revision 0. Explicit reopening is retained in history. An unknown audit/sample returns 404; an unmatched sample revision returns 409 STALE_SAMPLE_REVISION.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "x-backing-service-status": "SampleReviewRepository.list_sample_reviews implemented; HTTP adapter planned",
         "responses": {
           "200": {
             "description": "Read sample decision history",
@@ -7863,6 +7879,9 @@
                 "example": {
                   "items": [
                     {
+                      "audit_id": "audit_demo",
+                      "sample_id": "sample_001",
+                      "sample_revision": 1,
                       "revision": 1,
                       "decision": "needs_correction",
                       "reviewer_id": "reviewer_demo",
@@ -7994,6 +8013,17 @@
             },
             "example": 0,
             "description": ""
+          },
+          {
+            "name": "sample_revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1,
+            "description": "Exact stored audit sample revision; history never merges other pins or audits."
           },
           {
             "name": "audit_id",
@@ -10316,7 +10346,7 @@
       },
       "FindingReview": {
         "additionalProperties": false,
-        "description": "Review state with attribution required for non-pending resolutions.\n\nRecorded decisions require a positive revision, reviewer and timestamp.\nFuture review services own decision transitions.",
+        "description": "Review state with attribution required for non-pending resolutions.\n\nRecorded decisions require a positive revision, reviewer and timestamp.\nReview services own decision transitions; machine evidence stays unchanged.",
         "properties": {
           "revision": {
             "default": 0,
@@ -10510,6 +10540,45 @@
         "title": "Finding",
         "type": "object"
       },
+      "FindingReviewRequest": {
+        "additionalProperties": false,
+        "description": "Resolve a finding at the review revision the caller last inspected.",
+        "properties": {
+          "expected_review_version": {
+            "description": "Last-read finding review version.",
+            "minimum": 0,
+            "title": "Expected Review Version",
+            "type": "integer"
+          },
+          "resolution": {
+            "enum": [
+              "accepted",
+              "rejected",
+              "unsure"
+            ],
+            "title": "Resolution",
+            "type": "string"
+          },
+          "reviewer_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_review_version",
+          "resolution",
+          "reviewer_id",
+          "comment"
+        ],
+        "title": "FindingReviewRequest",
+        "type": "object"
+      },
       "RulebookReplace": {
         "additionalProperties": false,
         "description": "Replace the complete draft contents, including individual rule decisions.\n\nOmitted rules are removed. New IDs must use reviewer origin; retained IDs\npreserve their origin. Confirmation states are explicit reviewer decisions.",
@@ -10665,6 +10734,244 @@
           "total"
         ],
         "title": "RulebookReviewPage",
+        "type": "object"
+      },
+      "SampleReviewDecision": {
+        "description": "The reviewer's data-use decision, independent of machine findings.",
+        "enum": [
+          "pending_review",
+          "accepted",
+          "rejected",
+          "needs_correction"
+        ],
+        "title": "SampleReviewDecision",
+        "type": "string"
+      },
+      "SampleReview": {
+        "additionalProperties": false,
+        "description": "Current decision for one audited sample revision, initially pending.",
+        "properties": {
+          "audit_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "sample_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "revision": {
+            "default": 0,
+            "description": "Review revision, not annotation revision.",
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/SampleReviewDecision",
+            "default": "pending_review"
+          },
+          "reviewer_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reviewer Id"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "audit_id",
+          "sample_id",
+          "sample_revision"
+        ],
+        "title": "SampleReview",
+        "type": "object"
+      },
+      "SampleReviewRequest": {
+        "additionalProperties": false,
+        "description": "Decide on an explicit audit sample pin at the last-read review revision.",
+        "properties": {
+          "expected_sample_revision": {
+            "description": "Stored audit sample revision, not a live asset freshness check.",
+            "minimum": 1,
+            "title": "Expected Sample Revision",
+            "type": "integer"
+          },
+          "expected_review_version": {
+            "description": "Last-read sample review version.",
+            "minimum": 0,
+            "title": "Expected Review Version",
+            "type": "integer"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/SampleReviewDecision"
+          },
+          "reviewer_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_sample_revision",
+          "expected_review_version",
+          "decision",
+          "reviewer_id",
+          "comment"
+        ],
+        "title": "SampleReviewRequest",
+        "type": "object"
+      },
+      "SampleReviewRecord": {
+        "additionalProperties": false,
+        "description": "An attributed decision, including explicit reopening to pending review.",
+        "properties": {
+          "audit_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "sample_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/SampleReviewDecision",
+            "default": "pending_review"
+          },
+          "reviewer_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audit_id",
+          "sample_id",
+          "sample_revision",
+          "revision",
+          "reviewer_id",
+          "comment",
+          "updated_at"
+        ],
+        "title": "SampleReviewRecord",
+        "type": "object"
+      },
+      "SampleReviewPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SampleReviewRecord"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total"
+        ],
+        "title": "SampleReviewPage",
         "type": "object"
       },
       "ImageSize": {
@@ -12123,64 +12430,6 @@
         ],
         "additionalProperties": false
       },
-      "SampleReview": {
-        "type": "object",
-        "properties": {
-          "revision": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "decision": {
-            "type": "string",
-            "enum": [
-              "pending_review",
-              "needs_correction",
-              "accepted",
-              "rejected"
-            ]
-          },
-          "reviewer_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "comment": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "revision",
-          "decision",
-          "reviewer_id",
-          "comment",
-          "updated_at"
-        ],
-        "additionalProperties": false
-      },
       "SampleAudit": {
         "type": "object",
         "properties": {
@@ -12219,69 +12468,6 @@
           "measurements",
           "findings",
           "review"
-        ],
-        "additionalProperties": false
-      },
-      "FindingReviewRequest": {
-        "type": "object",
-        "properties": {
-          "expected_revision": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "resolution": {
-            "type": "string",
-            "enum": [
-              "accepted",
-              "rejected",
-              "unsure"
-            ]
-          },
-          "reviewer_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "comment": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "expected_revision",
-          "resolution",
-          "reviewer_id",
-          "comment"
-        ],
-        "additionalProperties": false
-      },
-      "SampleReviewRequest": {
-        "type": "object",
-        "properties": {
-          "expected_revision": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "decision": {
-            "type": "string",
-            "enum": [
-              "pending_review",
-              "needs_correction",
-              "accepted",
-              "rejected"
-            ]
-          },
-          "reviewer_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "comment": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "expected_revision",
-          "decision",
-          "reviewer_id",
-          "comment"
         ],
         "additionalProperties": false
       },
@@ -13227,48 +13413,6 @@
           "ollama",
           "detector",
           "execution_device"
-        ],
-        "additionalProperties": false
-      },
-      "SampleReviewPage": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SampleReview"
-            }
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "offset": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "total": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "next_offset": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "items",
-          "limit",
-          "offset",
-          "total",
-          "next_offset"
         ],
         "additionalProperties": false
       }

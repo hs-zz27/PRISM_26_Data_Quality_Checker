@@ -1363,7 +1363,7 @@
       "tag": "Audits",
       "summary": "Read sample findings, evidence and measurements",
       "implementation": "planned",
-      "backing_service": "measurements embeds the actual audit_sample report shape; API findings and reviews are planned.",
+      "backing_service": "AuditRepository measurements, FindingRepository current reviews and SampleReviewRepository current decisions exist; asset/detail composition and HTTP adapter planned.",
       "request": {
         "path_parameters": {
           "audit_id": "audit_demo",
@@ -1916,6 +1916,9 @@
             }
           ],
           "review": {
+            "audit_id": "audit_demo",
+            "sample_id": "sample_001",
+            "sample_revision": 1,
             "revision": 0,
             "decision": "pending_review",
             "reviewer_id": null,
@@ -2139,7 +2142,7 @@
       "tag": "Reviews",
       "summary": "Accept or reject a tool finding",
       "implementation": "planned",
-      "backing_service": "planned",
+      "backing_service": "review_finding service and PostgreSQL finding review history implemented; HTTP adapter planned",
       "request": {
         "path_parameters": {
           "finding_id": "finding_demo"
@@ -2147,7 +2150,7 @@
         "query": {},
         "content_type": "application/json",
         "body": {
-          "expected_revision": 0,
+          "expected_review_version": 0,
           "resolution": "accepted",
           "reviewer_id": "reviewer_demo",
           "comment": "Confirmed the label mismatch."
@@ -2172,7 +2175,7 @@
       "tag": "Reviews",
       "summary": "Record the reviewer's data decision",
       "implementation": "planned",
-      "backing_service": "planned",
+      "backing_service": "review_sample service and PostgreSQL sample review history implemented; HTTP adapter planned",
       "request": {
         "path_parameters": {
           "audit_id": "audit_demo",
@@ -2181,7 +2184,8 @@
         "query": {},
         "content_type": "application/json",
         "body": {
-          "expected_revision": 0,
+          "expected_sample_revision": 1,
+          "expected_review_version": 0,
           "decision": "needs_correction",
           "reviewer_id": "reviewer_demo",
           "comment": "Correct the second label before final review."
@@ -2191,6 +2195,9 @@
         "status": 200,
         "content_type": "application/json",
         "body": {
+          "audit_id": "audit_demo",
+          "sample_id": "sample_001",
+          "sample_revision": 1,
           "revision": 1,
           "decision": "needs_correction",
           "reviewer_id": "reviewer_demo",
@@ -2206,7 +2213,7 @@
       "tag": "Reviews",
       "summary": "Read sample decision history",
       "implementation": "planned",
-      "backing_service": "planned",
+      "backing_service": "SampleReviewRepository.list_sample_reviews implemented; HTTP adapter planned",
       "request": {
         "path_parameters": {
           "audit_id": "audit_demo",
@@ -2214,7 +2221,8 @@
         },
         "query": {
           "limit": 20,
-          "offset": 0
+          "offset": 0,
+          "sample_revision": 1
         },
         "content_type": null,
         "body": null
@@ -2225,6 +2233,9 @@
         "body": {
           "items": [
             {
+              "audit_id": "audit_demo",
+              "sample_id": "sample_001",
+              "sample_revision": 1,
               "revision": 1,
               "decision": "needs_correction",
               "reviewer_id": "reviewer_demo",
@@ -3337,6 +3348,9 @@
         }
       ],
       "review": {
+        "audit_id": "audit_demo",
+        "sample_id": "sample_001",
+        "sample_revision": 1,
         "revision": 0,
         "decision": "pending_review",
         "reviewer_id": null,
@@ -3882,6 +3896,9 @@
         }
       ],
       "review": {
+        "audit_id": "audit_demo",
+        "sample_id": "sample_001",
+        "sample_revision": 1,
         "revision": 0,
         "decision": "pending_review",
         "reviewer_id": null,
@@ -4459,6 +4476,9 @@
         }
       ],
       "review": {
+        "audit_id": "audit_demo",
+        "sample_id": "sample_001",
+        "sample_revision": 1,
         "revision": 0,
         "decision": "pending_review",
         "reviewer_id": null,
@@ -5034,6 +5054,9 @@
         }
       ],
       "review": {
+        "audit_id": "audit_demo",
+        "sample_id": "sample_001",
+        "sample_revision": 1,
         "revision": 0,
         "decision": "pending_review",
         "reviewer_id": null,

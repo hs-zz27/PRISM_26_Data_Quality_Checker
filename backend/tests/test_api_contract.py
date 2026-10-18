@@ -8,8 +8,11 @@ from jsonschema import Draft202012Validator, FormatChecker
 import pytest
 
 from backend.app.models.rule import Rulebook
-from backend.app.models.finding import Finding
-from backend.app.models.review import RulebookAction, RulebookReplace, RulebookReviewPage
+from backend.app.models.finding import Finding, FindingReview
+from backend.app.models.review import (
+    FindingReviewRequest, RulebookAction, RulebookReplace, RulebookReviewPage,
+    SampleReview, SampleReviewPage, SampleReviewRequest,
+)
 from backend.api.build_contract import render_artifacts
 
 
@@ -115,6 +118,18 @@ def test_rulebook_review_templates_match_service_requests_and_version_semantics(
         assert fixture["response"]["body"]["version"] == request.expected_version + 1
 
 
+def test_finding_review_template_matches_service_request_and_revision():
+    fixture = next(item for item in EXAMPLES["operations"] if item["operation_id"] == "reviewFinding")
+    request = FindingReviewRequest.model_validate_json(json.dumps(fixture["request"]["body"]))
+    response = FindingReview.model_validate_json(json.dumps(fixture["response"]["body"]))
+
+    assert response.revision == request.expected_review_version + 1
+    assert response.resolution == request.resolution
+    assert response.reviewer_id == request.reviewer_id
+    assert response.comment == request.comment
+    assert response.updated_at is not None
+
+
 def test_finding_examples_validate_with_the_python_record():
     validated = 0
     collection_fields = {
@@ -134,6 +149,31 @@ def test_finding_examples_validate_with_the_python_record():
     for sample in EXAMPLES["review_scenarios"].values():
         for finding in sample["findings"]:
             Finding.model_validate_json(json.dumps(finding))
+
+
+def test_sample_review_templates_use_distinct_sample_and_review_revisions():
+    operations = {item["operation_id"]: item for item in EXAMPLES["operations"]}
+    fixture = operations["reviewSample"]
+    request = SampleReviewRequest.model_validate_json(json.dumps(fixture["request"]["body"]))
+    response = SampleReview.model_validate_json(json.dumps(fixture["response"]["body"]))
+    assert response.revision == request.expected_review_version + 1
+    assert response.sample_revision == request.expected_sample_revision
+    assert response.audit_id == fixture["request"]["path_parameters"]["audit_id"]
+    assert response.sample_id == fixture["request"]["path_parameters"]["sample_id"]
+    assert response.decision == request.decision
+    assert response.reviewer_id == request.reviewer_id and response.comment == request.comment
+    history = operations["listSampleReviews"]
+    page = SampleReviewPage.model_validate_json(json.dumps(history["response"]["body"]))
+    assert page.items[0].model_dump() == response.model_dump()
+    assert history["request"]["query"]["sample_revision"] == response.sample_revision
+    parameters = SPEC["paths"]["/audits/{audit_id}/samples/{sample_id}/reviews"]["get"]["parameters"]
+    assert next(item for item in parameters if item["name"] == "sample_revision")["required"]
+    for state in EXAMPLES["review_scenarios"].values():
+        current = SampleReview.model_validate_json(json.dumps(state["review"]))
+        assert current.audit_id == state["audit_id"]
+        assert current.sample_id == state["summary"]["sample_id"]
+        assert current.sample_revision == state["summary"]["sample_revision"]
+        assert current.revision == 0 and current.reviewer_id is None
 
 
 @pytest.mark.parametrize("state", ["flagged", "no_issue", "unsure", "unavailable"])

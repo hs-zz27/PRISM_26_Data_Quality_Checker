@@ -3,8 +3,10 @@
 from .workflow_repository import (
     AuditNotFoundError,
     AuditRepository,
+    AuditSampleNotFoundError,
     FindingNotFoundError,
     FindingRepository,
+    FindingReviewConflictError,
     JobAlreadyFinishedError,
     JobCancellationError,
     JobClaim,
@@ -12,6 +14,10 @@ from .workflow_repository import (
     JobNotFoundError,
     RetryableWorkflowStorageError,
     SampleProcessingTimeoutError,
+    SampleReviewConflictError,
+    SampleReviewRepository,
+    SampleReviewStateError,
+    SampleRevisionConflictError,
     JobRepository,
     WorkflowStorageError,
 )
@@ -19,8 +25,10 @@ from .workflow_repository import (
 __all__ = [
     "AuditNotFoundError",
     "AuditRepository",
+    "AuditSampleNotFoundError",
     "FindingNotFoundError",
     "FindingRepository",
+    "FindingReviewConflictError",
     "JobAlreadyFinishedError",
     "JobCancellationError",
     "JobClaim",
@@ -28,6 +36,10 @@ __all__ = [
     "JobNotFoundError",
     "RetryableWorkflowStorageError",
     "SampleProcessingTimeoutError",
+    "SampleReviewConflictError",
+    "SampleReviewRepository",
+    "SampleReviewStateError",
+    "SampleRevisionConflictError",
     "JobRepository",
     "WorkflowStorageError",
 ]

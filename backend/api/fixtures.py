@@ -102,7 +102,8 @@ def build_examples() -> JsonObject:
     passing = deepcopy(finding)
     passing.update(finding_id="finding_pass_demo", object_id=1, outcome="pass", reason=None)
     passing["evidence"]["measurements"]["actual_label"] = "person"
-    sample_review = {"revision": 0, "decision": "pending_review", "reviewer_id": None, "comment": None, "updated_at": None}
+    sample_review = {"audit_id": "audit_demo", "sample_id": "sample_001", "sample_revision": 1,
+                     "revision": 0, "decision": "pending_review", "reviewer_id": None, "comment": None, "updated_at": None}
     detail = {"audit_id": "audit_demo", "dataset_id": "dataset_demo", "summary": summary, "assets": assets,
               "measurements": measurements, "findings": [passing, finding], "review": sample_review}
     no_issue = deepcopy(detail)

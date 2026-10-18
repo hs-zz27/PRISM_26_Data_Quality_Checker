@@ -279,6 +279,7 @@ from .workflow_repository import (  # noqa: E402  (import after existing definit
     AuditRepository,
     FindingNotFoundError,
     FindingRepository,
+    FindingReviewConflictError,
     JobAlreadyFinishedError,
     JobCancellationError,
     JobClaim,

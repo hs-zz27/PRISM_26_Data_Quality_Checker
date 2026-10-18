@@ -2,7 +2,9 @@
 
 from backend.app.models.finding import Finding
 from backend.app.models.review import (
+    FindingReviewRequest,
     RulebookAction, RulebookReplace, RulebookReviewPage, RulebookReviewRecord,
+    SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
 )
 from backend.app.models.rule import Rulebook
 
@@ -16,7 +18,11 @@ from .common import (
 def build_schemas() -> JsonObject:
     """Reuse implemented records; keep proposed transport records explicit."""
     schemas = {}
-    for model in (Rulebook, Finding, RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage):
+    for model in (
+        Rulebook, Finding, FindingReviewRequest,
+        RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage,
+        SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
+    ):
         schema = model.model_json_schema()
         schemas.update({name: replace_model_refs(definition)
                         for name, definition in schema.pop("$defs", {}).items()})
@@ -129,22 +135,10 @@ def build_schemas() -> JsonObject:
         "thumbnail_url": nullable(TEXT),
     })
     schemas["AuditSamplePage"] = page_schema(ref("SampleAuditSummary"))
-    schemas["SampleReview"] = obj({
-        "revision": COUNT, "decision": SAMPLE_REVIEW_STATUS, "reviewer_id": nullable(TEXT),
-        "comment": nullable({"type": "string"}), "updated_at": nullable(TIME),
-    })
     schemas["SampleAudit"] = obj({
         "audit_id": TEXT, "dataset_id": TEXT, "summary": ref("SampleAuditSummary"),
         "assets": ref("SampleAssets"), "measurements": ref("AuditMeasurements"),
         "findings": array(ref("Finding")), "review": ref("SampleReview"),
-    })
-    schemas["FindingReviewRequest"] = obj({
-        "expected_revision": COUNT, "resolution": choice("accepted", "rejected", "unsure"),
-        "reviewer_id": TEXT, "comment": {"type": "string"},
-    })
-    schemas["SampleReviewRequest"] = obj({
-        "expected_revision": COUNT, "decision": SAMPLE_REVIEW_STATUS,
-        "reviewer_id": TEXT, "comment": {"type": "string"},
     })
     schemas["RecheckRequest"] = obj({"sample_ids": {**array(TEXT), "minItems": 1}, "reviewer_id": TEXT})
     schemas["ExportRequest"] = obj({
@@ -219,5 +213,4 @@ def build_schemas() -> JsonObject:
         "detector": obj({"weights_cached": BOOLEAN, "integration_ready": BOOLEAN}),
         "execution_device": {"const": "cpu"},
     })
-    schemas["SampleReviewPage"] = page_schema(ref("SampleReview"))
     return schemas
