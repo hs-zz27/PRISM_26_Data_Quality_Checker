@@ -1,5 +1,6 @@
 """Persistence for sources, rules, jobs, evidence, reviews and corrections."""
 
+from .audit_read_repository import AuditReadRepository
 from .workflow_repository import (
     AuditNotFoundError,
     AuditRepository,
@@ -23,6 +24,7 @@ from .workflow_repository import (
 )
 
 __all__ = [
+    "AuditReadRepository",
     "AuditNotFoundError",
     "AuditRepository",
     "AuditSampleNotFoundError",
