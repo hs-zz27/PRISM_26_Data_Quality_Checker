@@ -40,6 +40,40 @@ For in-process reuse of a confirmed, immutable rulebook, we propose copying the 
 
 This is a proposed optimization, not a claim about the current implementation or measured performance. The expected workload is currently unknown, including rule counts and sizes, batch sizes, concurrent audits and deployment resources. We will confirm or revise the approach using representative runtime, peak-memory and serialization measurements. The example of 100 rules is illustrative, not a workload requirement.
 
+## Optional optimisation: newest-first review history
+
+Proposed only; the current history methods return ascending versions with `limit`/`offset` pagination and a separate `COUNT(*)` query.
+
+- Load the newest 10 saved reviews first. Fetch older reviews only when the user requests more, and retain already loaded entries in the interface.
+- Use a cursor containing the chain identifiers, the review version at the start of browsing (`snapshot_review_version`) and the oldest version already displayed (`before_review_version`). A finding chain uses `finding_id`; a sample chain uses `audit_id`, `sample_id` and `sample_revision`.
+- Fetch the next page with `revision < before_review_version`, ordered by `revision DESC`. Fetch 11 rows, display 10, and use the extra row only to determine whether more exist. The next cursor uses the oldest **displayed** row. This avoids increasingly large offsets.
+- Keep the initial snapshot version as an upper bound while browsing. New decisions appear after an explicit refresh, which resets the cursor and refreshes the total; saving a decision should also refresh the view.
+
+For example, these illustrative SQL queries load a finding's total and its history page. The `:name` values are bound parameters. First obtain the snapshot version:
+
+```sql
+SELECT COALESCE((
+    SELECT revision FROM finding_reviews
+    WHERE finding_id = :finding_id
+    ORDER BY revision DESC LIMIT 1
+), 0) AS total_reviews;
+```
+
+Under the current append-only write path, saved versions are consecutive from 1, so the latest version equals the number of saved reviews (0 when none exist). This avoids counting the whole chain. It depends on preserving that invariant: deleting history rows or importing versions with gaps would require a real count or a transactionally maintained counter instead. Pending version 0 is not a saved review.
+
+```sql
+SELECT * FROM finding_reviews
+WHERE finding_id = :finding_id
+  AND revision <= :snapshot_review_version
+  AND revision < :before_review_version
+ORDER BY revision DESC
+LIMIT 11;
+```
+
+For the first page, omit the `before_review_version` condition; for subsequent pages, pass the oldest displayed version. Keep displaying the initial total as the total at the browsing snapshot. Apply the same queries to `sample_reviews` with all three sample-chain identifiers. Validate that the parent finding/sample exists, as the current repository does, so a missing parent is not reported as an empty history.
+
+The existing primary-key indexes match the chain identifiers followed by `revision`; no additional index is proposed initially. For a list showing totals for many findings or samples, obtain the latest version for each visible chain in one SQL statement using `LEFT JOIN LATERAL (... ORDER BY revision DESC LIMIT 1)` and `COALESCE(revision, 0)`, rather than one application query per item. Where the current-review query already returns that version, reuse it for the displayed total. Validate performance on representative histories before implementation; no measured speedup is claimed.
+
 ## Queue technology choice
 
 The backend currently stores batch-audit jobs and progress in PostgreSQL. Redis is a valid alternative, but it is not clearly better for our current needs. We would adopt a Redis-backed queue when dedicated queue functionality solves a concrete requirement and justifies operating another service.
