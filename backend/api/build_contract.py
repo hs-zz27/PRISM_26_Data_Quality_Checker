@@ -32,14 +32,18 @@ def pagination_parameters() -> list[JsonObject]:
             parameter("offset", "query", {"type": "integer", "minimum": 0, "default": 0}, 0)]
 
 
+def error_example(code: str, message: str) -> JsonObject:
+    return {"error": {"code": code, "message": message, "details": [], "request_id": "request_demo"}}
+
+
 def build_contract() -> JsonObject:
     examples = build_examples()
     schemas = build_schemas()
     contract: JsonObject = {
         "openapi": "3.1.0",
-        "info": {"title": "PRISM Data Quality Checker — proposed API", "version": "0.1.0",
-                 "description": "Frontend contract templates only. No HTTP endpoints are currently implemented. Examples are synthetic, not model accuracy results. Schemas marked as existing models reuse Python records; other resources are planned. Local CPU prototype; plain text guidelines first."},
-        "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Proposed local development address; no server is provided yet."}],
+        "info": {"title": "PRISM Data Quality Checker — API contract", "version": "0.1.0",
+                 "description": "Audit sample reads and finding/sample review routes are implemented. Other operations remain planned; inspect x-implementation-status. Examples are synthetic, not model accuracy results. Local CPU prototype; plain text guidelines first."},
+        "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Local development server; only implemented operations are callable."}],
         "tags": [{"name": name} for name in ("System", "Rulebooks", "Datasets", "Jobs", "Audits", "Reviews", "Corrections", "Exports", "Feedback")],
         "paths": {}, "components": {"schemas": schemas},
     }
@@ -49,7 +53,8 @@ def build_contract() -> JsonObject:
             response_example: Any, *, status: int = 200, body_schema: str | None = None,
             body_example: Any = None, parameters: list[JsonObject] | None = None,
             description: str = "", backing: str = "planned", multipart: bool = False,
-            binary: bool = False) -> None:
+            binary: bool = False, implementation: str = "planned",
+            conflict_examples: dict[str, str] | None = None) -> None:
         params = list(parameters or [])
         values = {"rulebook_id": "rulebook_demo", "dataset_id": "dataset_demo", "sample_id": "sample_001",
                   "audit_id": "audit_demo", "job_id": "job_audit_demo", "finding_id": "finding_demo",
@@ -70,12 +75,31 @@ def build_contract() -> JsonObject:
             (409, "VERSION_CONFLICT", "The resource changed; refresh before saving."),
             (422, "VALIDATION_ERROR", "One or more request fields are invalid."),
             (503, "DEPENDENCY_UNAVAILABLE", "A required local model or service is unavailable."),
+            (500, "INTERNAL_ERROR", "The request could not be completed."),
         ):
-            responses[str(error_status)] = {"description": message, "content": {"application/json": {
-                "schema": ref("ErrorResponse"), "example": {"error": {"code": code, "message": message,
-                "details": [], "request_id": "request_demo"}}}}}
+            if implementation == "implemented" and error_status == 400:
+                continue
+            if implementation == "implemented" and error_status == 409 and not conflict_examples:
+                continue
+            if implementation == "planned" and error_status == 500:
+                continue
+            content = {"schema": ref("ErrorResponse")}
+            if error_status == 409 and conflict_examples:
+                content["examples"] = {
+                    name: {"summary": detail, "value": error_example(name, detail)}
+                    for name, detail in conflict_examples.items()
+                }
+            else:
+                content["example"] = error_example(code, message)
+            responses[str(error_status)] = {
+                "description": (
+                    "Review conflict; see the error code."
+                    if error_status == 409 and conflict_examples else message
+                ),
+                "content": {"application/json": content},
+            }
         operation = {"operationId": operation_id, "tags": [tag], "summary": summary,
-                     "description": description or summary, "x-implementation-status": "planned",
+                     "description": description or summary, "x-implementation-status": implementation,
                      "x-backing-service-status": backing, "responses": responses}
         if params:
             operation["parameters"] = params
@@ -85,7 +109,7 @@ def build_contract() -> JsonObject:
                 "schema": ref(body_schema), "example": deepcopy(body_example)}}}
         contract["paths"].setdefault(path, {})[method.lower()] = operation
         operations.append({"operation_id": operation_id, "method": method.upper(), "path": BASE_PATH + path,
-                           "tag": tag, "summary": summary, "implementation": "planned",
+                           "tag": tag, "summary": summary, "implementation": implementation,
                            "backing_service": backing, "request": {
                                "path_parameters": {p["name"]: p["example"] for p in params if p["in"] == "path"},
                                "query": {p["name"]: p["example"] for p in params if p["in"] == "query"},
@@ -180,10 +204,11 @@ def build_contract() -> JsonObject:
         description="Processing completed does not mean data was accepted. Reviewed count refers only to final decisions on the pinned revisions.")
     add("GET", "/audits/{audit_id}/samples", "listAuditSamples", "Audits", "Read the complete review queue", "AuditSamplePage", page([examples["summary"]]),
         parameters=pagination_parameters() + [parameter("tool_status", "query", TOOL_STATUS, "flagged"), parameter("review_status", "query", SAMPLE_REVIEW_STATUS, "pending_review")],
-        description="Omit filters to include all samples, including no_issue cases. Filters are optional UI conveniences; there is no automatic acceptance.")
+        implementation="implemented", backing="AuditReadRepository.list_samples and FastAPI route implemented.",
+        description="Omit filters to include every sample in original audit order. total and next_offset refer to the filtered queue. Processing state, incomplete flag, machine outcomes and human decisions are separate. Queued/running samples are pending; otherwise fail takes precedence over unsure, then unavailable. Failed/cancelled/incomplete or zero-findings samples cannot be no_issue. No automatic acceptance. Missing audits return 404, empty matching pages return 200.")
     add("GET", "/audits/{audit_id}/samples/{sample_id}", "getAuditSample", "Audits", "Read sample findings, evidence and measurements", "SampleAudit", examples["detail"],
-        backing="AuditRepository measurements, FindingRepository current reviews and SampleReviewRepository current decisions exist; asset/detail composition and HTTP adapter planned.",
-        description="Measurements retain the stored audit sample pin. Their review_status remains pending_review; the separate review record stores actual reviewer decisions and the audited sample revision. Colored masks are previews. Findings include pass outcomes as well as suspected violations. Current storage does not certify that on-disk assets still match the pin; immutable revision loading remains planned.")
+        implementation="implemented", backing="AuditReadRepository.get_sample and FastAPI route implemented.",
+        description="One database snapshot includes the stored sample pin, original measurements, all findings with latest reviews, technical failures and current sample decision. Measurements are null when not persisted and otherwise preserve the collector document (including its original pending_review field). Asset links and thumbnail are null until revision-aware asset serving exists. No current dataset files are read. Missing audit/sample returns 404.")
     sample_media = contract["paths"]["/audits/{audit_id}/samples/{sample_id}"]["get"]["responses"]["200"]["content"]["application/json"]
     sample_media.pop("example")
     sample_media["examples"] = {
@@ -204,20 +229,36 @@ def build_contract() -> JsonObject:
     add("POST", "/jobs/{job_id}/cancel", "cancelJob", "Jobs", "Request cancellation of pending work", "Job", cancelling, status=202,
         description="Cooperative cancellation stops at a safe processing boundary and preserves completed results. Terminal jobs return 409 JOB_ALREADY_FINISHED.")
     finding_review = {"revision": 1, "resolution": "accepted", "reviewer_id": "reviewer_demo", "comment": "Confirmed the label mismatch.", "updated_at": TIMESTAMP}
+    finding_review_record = {**finding_review, "finding_id": "finding_demo"}
+    add("GET", "/findings/{finding_id}/reviews", "listFindingReviews", "Reviews", "Read finding decision history", "FindingReviewPage", page([finding_review_record]),
+        parameters=pagination_parameters(), implementation="implemented",
+        backing="FindingRepository.list_finding_reviews and FastAPI route implemented.",
+        description="Attributed finding decisions in ascending review revision order, scoped to the requested finding. A missing finding returns 404; limit is 1–100 with offset starting at 0. History preserves every earlier decision and does not change machine evidence or sample acceptance.")
     add("PUT", "/findings/{finding_id}/review", "reviewFinding", "Reviews", "Accept or reject a tool finding", "FindingReview", finding_review,
         body_schema="FindingReviewRequest", body_example={"expected_review_version": 0, "resolution": "accepted", "reviewer_id": "reviewer_demo", "comment": finding_review["comment"]},
-        backing="review_finding service and PostgreSQL finding review history implemented; HTTP adapter planned",
+        implementation="implemented", conflict_examples={
+            "VERSION_CONFLICT": "The finding review is out of date. Refresh before resubmitting.",
+        },
+        backing="review_finding service, PostgreSQL finding review history and FastAPI route implemented.",
         description="accepted confirms the tool's conclusion; rejected dismisses it; unsure records unresolved review. This does not decide sample acceptance or change machine evidence. Save at expected_review_version + 1 and retain every earlier decision. A stale expected_review_version returns 409 VERSION_CONFLICT; reload before resubmitting. Pending findings start at revision 0.")
     reviewed = {"audit_id": "audit_demo", "sample_id": "sample_001", "sample_revision": 1,
                 "revision": 1, "decision": "needs_correction", "reviewer_id": "reviewer_demo", "comment": "Correct the second label before final review.", "updated_at": TIMESTAMP}
     add("PUT", "/audits/{audit_id}/samples/{sample_id}/review", "reviewSample", "Reviews", "Record the reviewer's data decision", "SampleReview", reviewed,
         body_schema="SampleReviewRequest", body_example={"expected_sample_revision": 1, "expected_review_version": 0, "decision": "needs_correction", "reviewer_id": "reviewer_demo", "comment": reviewed["comment"]},
-        backing="review_sample service and PostgreSQL sample review history implemented; HTTP adapter planned",
+        implementation="implemented", conflict_examples={
+            "VERSION_CONFLICT": "The sample review is out of date. Refresh before resubmitting.",
+            "STALE_SAMPLE_REVISION": "The requested sample revision is stale. Refresh before resubmitting.",
+            "INVALID_SAMPLE_REVIEW_STATE": "The sample is not currently eligible for review.",
+        },
+        backing="review_sample service, PostgreSQL sample review history and FastAPI route implemented.",
         description="Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: authoritative annotation revisions and immutable asset loading remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.")
     add("GET", "/audits/{audit_id}/samples/{sample_id}/reviews", "listSampleReviews", "Reviews", "Read sample decision history", "SampleReviewPage", page([reviewed]),
         parameters=pagination_parameters() + [parameter("sample_revision", "query", VERSION, 1, required=True,
             description="Exact stored audit sample revision; history never merges other pins or audits.")],
-        backing="SampleReviewRepository.list_sample_reviews implemented; HTTP adapter planned",
+        implementation="implemented", conflict_examples={
+            "STALE_SAMPLE_REVISION": "The requested sample revision is stale. Refresh before resubmitting.",
+        },
+        backing="SampleReviewRepository.list_sample_reviews and FastAPI route implemented.",
         description="Attributed decisions in ascending review revision order, scoped to the audit, sample and required sample_revision. A never-reviewed pin has an empty history and current pending_review revision 0. Explicit reopening is retained in history. An unknown audit/sample returns 404; an unmatched sample revision returns 409 STALE_SAMPLE_REVISION.")
     add("POST", "/exports", "startExport", "Exports", "Prepare reviewed output and manifest", "ExportStarted",
         {"export": {**examples["export"], "status": "queued", "included_count": None, "excluded_count": None, "download_url": None, "manifest_url": None}, "job": job("export", "export", "export_demo")},
@@ -270,7 +311,7 @@ def render_artifacts() -> dict[str, str]:
     scenarios = contract.pop("x-review-scenarios")
     scenario_rulebooks = contract.pop("x-review-scenario-rulebooks")
     documents = {"openapi.json": contract, "examples.json": {
-        "notice": "Proposed contract and synthetic frontend fixtures. No HTTP server is implemented.",
+        "notice": "Synthetic frontend fixtures. Audit sample reads and finding/sample review routes are implemented; check each operation's implementation field.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
     }}
@@ -278,13 +319,13 @@ def render_artifacts() -> dict[str, str]:
         filename: json.dumps(content, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
         for filename, content in documents.items()
     }
-    lines = ["# Proposed endpoint index", "", "Generated from `build_contract.py`. All HTTP routes are planned; none are live yet.", "",
+    lines = ["# Endpoint index", "", "Generated from `build_contract.py`. Only operations marked implemented have HTTP handlers.", "",
              "Paths include the `/api/v1` prefix. See `openapi.json` for schemas and `examples.json` for frontend fixtures.", ""]
     for tag in contract["tags"]:
         lines.extend([f"## {tag['name']}", ""])
         for operation in fixtures:
             if operation["tag"] == tag["name"]:
-                lines.append(f"- `{operation['method']} {operation['path']}` — {operation['summary']} (`{operation['operation_id']}`).")
+                lines.append(f"- `{operation['method']} {operation['path']}` — {operation['summary']} (`{operation['operation_id']}`; {operation['implementation']}).")
         lines.append("")
     artifacts["ENDPOINTS.md"] = "\n".join(lines)
     return artifacts

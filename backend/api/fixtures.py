@@ -93,18 +93,20 @@ def build_examples() -> JsonObject:
         "object_id": 2, "rulebook_id": "rulebook_demo", "rulebook_version": confirmed["version"], "rule_id": "LBL-1",
         "description": "Use an allowed label.", "check_name": "allowed_labels", "outcome": "fail",
         "reason": "label_not_allowed", "parameters": {"allowed_labels": ["person"]}, "origin": "extracted", "source_sentence": SOURCE,
-        "evidence": {"image_url": assets["image"]["url"], "mask_preview_url": assets["mask_preview"]["url"], "crop_url": None,
+        "evidence": {"image_url": None, "mask_preview_url": None, "crop_url": None,
                      "measurements": {"actual_label": "vehicle", "allowed_labels": ["person"]}},
         "review": {"revision": 0, "resolution": "pending", "reviewer_id": None, "comment": None, "updated_at": None},
     }
     summary = {"sample_id": "sample_001", "sample_revision": 1, "tool_status": "flagged", "review_status": "pending_review",
-               "finding_counts": {"pass": 1, "fail": 1, "unsure": 0, "unavailable": 0}, "thumbnail_url": assets["thumbnail"]["url"]}
+               "processing_status": "completed", "incomplete": False,
+               "finding_counts": {"pass": 1, "fail": 1, "unsure": 0, "unavailable": 0}, "thumbnail_url": None}
     passing = deepcopy(finding)
     passing.update(finding_id="finding_pass_demo", object_id=1, outcome="pass", reason=None)
     passing["evidence"]["measurements"]["actual_label"] = "person"
     sample_review = {"audit_id": "audit_demo", "sample_id": "sample_001", "sample_revision": 1,
                      "revision": 0, "decision": "pending_review", "reviewer_id": None, "comment": None, "updated_at": None}
-    detail = {"audit_id": "audit_demo", "dataset_id": "dataset_demo", "summary": summary, "assets": assets,
+    detail = {"audit_id": "audit_demo", "dataset_id": "dataset_demo", "summary": summary,
+              "assets": dict.fromkeys(assets), "failures": [],
               "measurements": measurements, "findings": [passing, finding], "review": sample_review}
     no_issue = deepcopy(detail)
     no_issue["summary"].update(tool_status="no_issue", finding_counts={"pass": 2, "fail": 0, "unsure": 0, "unavailable": 0})

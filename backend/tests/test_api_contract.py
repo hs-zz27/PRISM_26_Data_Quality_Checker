@@ -10,7 +10,7 @@ import pytest
 from backend.app.models.rule import Rulebook
 from backend.app.models.finding import Finding, FindingReview
 from backend.app.models.review import (
-    FindingReviewRequest, RulebookAction, RulebookReplace, RulebookReviewPage,
+    FindingReviewPage, FindingReviewRequest, RulebookAction, RulebookReplace, RulebookReviewPage,
     SampleReview, SampleReviewPage, SampleReviewRequest,
 )
 from backend.api.build_contract import render_artifacts
@@ -37,11 +37,17 @@ def media_examples(media):
     return [example["value"] for example in media.get("examples", {}).values()]
 
 
-def test_all_routes_are_explicitly_planned_with_unique_operation_ids():
+def test_routes_distinguish_implemented_handlers_from_planned_operations():
     assert SPEC["openapi"] == "3.1.0"
     identifiers = [operation["operationId"] for _, _, operation in OPERATIONS]
-    assert len(identifiers) == len(set(identifiers)) == 48
-    assert all(operation["x-implementation-status"] == "planned" for _, _, operation in OPERATIONS)
+    assert len(identifiers) == len(set(identifiers)) == 49
+    implemented = {
+        "listAuditSamples", "getAuditSample", "reviewFinding", "listFindingReviews",
+        "reviewSample", "listSampleReviews",
+    }
+    for _, _, operation in OPERATIONS:
+        expected = "implemented" if operation["operationId"] in implemented else "planned"
+        assert operation["x-implementation-status"] == expected
 
 
 @pytest.mark.parametrize("path,method,operation", OPERATIONS, ids=[op["operationId"] for _, _, op in OPERATIONS])
@@ -128,6 +134,50 @@ def test_finding_review_template_matches_service_request_and_revision():
     assert response.reviewer_id == request.reviewer_id
     assert response.comment == request.comment
     assert response.updated_at is not None
+
+
+def test_finding_review_history_template_uses_attributed_records_and_pagination():
+    operations = {item["operation_id"]: item for item in EXAMPLES["operations"]}
+    write = operations["reviewFinding"]
+    history = operations["listFindingReviews"]
+    response = json.loads(json.dumps(write["response"]["body"]))
+    page = FindingReviewPage.model_validate_json(json.dumps(history["response"]["body"]))
+
+    assert page.items[0].finding_id == history["request"]["path_parameters"]["finding_id"]
+    assert page.items[0].model_dump(mode="json") == {
+        **response,
+        "finding_id": history["request"]["path_parameters"]["finding_id"],
+    }
+    assert history["request"]["query"] == {"limit": 20, "offset": 0}
+    parameters = SPEC["paths"]["/findings/{finding_id}/reviews"]["get"]["parameters"]
+    assert {item["name"] for item in parameters} == {"finding_id", "limit", "offset"}
+    assert all(item["required"] for item in parameters if item["in"] == "path")
+
+
+def test_review_routes_document_live_error_statuses():
+    review_operations = {
+        "reviewFinding", "listFindingReviews", "reviewSample", "listSampleReviews",
+    }
+    expected = {"200", "404", "422", "500", "503"}
+    for _, _, operation in OPERATIONS:
+        if operation["operationId"] in review_operations:
+            conflicts = set() if operation["operationId"] == "listFindingReviews" else {"409"}
+            assert set(operation["responses"]) == expected | conflicts
+
+
+def test_review_conflict_examples_match_the_errors_each_operation_can_return():
+    expected_codes = {
+        "reviewFinding": {"VERSION_CONFLICT"},
+        "reviewSample": {"VERSION_CONFLICT", "STALE_SAMPLE_REVISION", "INVALID_SAMPLE_REVIEW_STATE"},
+        "listSampleReviews": {"STALE_SAMPLE_REVISION"},
+    }
+    for _, _, operation in OPERATIONS:
+        operation_id = operation["operationId"]
+        if operation_id not in expected_codes:
+            continue
+        media = operation["responses"]["409"]["content"]["application/json"]
+        codes = {example["error"]["code"] for example in media_examples(media)}
+        assert codes == expected_codes[operation_id]
 
 
 def test_finding_examples_validate_with_the_python_record():

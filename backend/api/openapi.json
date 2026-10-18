@@ -1,14 +1,14 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "PRISM Data Quality Checker — proposed API",
+    "title": "PRISM Data Quality Checker — API contract",
     "version": "0.1.0",
-    "description": "Frontend contract templates only. No HTTP endpoints are currently implemented. Examples are synthetic, not model accuracy results. Schemas marked as existing models reuse Python records; other resources are planned. Local CPU prototype; plain text guidelines first."
+    "description": "Audit sample reads and finding/sample review routes are implemented. Other operations remain planned; inspect x-implementation-status. Examples are synthetic, not model accuracy results. Local CPU prototype; plain text guidelines first."
   },
   "servers": [
     {
       "url": "http://127.0.0.1:8000/api/v1",
-      "description": "Proposed local development address; no server is provided yet."
+      "description": "Local development server; only implemented operations are callable."
     }
   ],
   "tags": [
@@ -4247,9 +4247,9 @@
           "Audits"
         ],
         "summary": "Read the complete review queue",
-        "description": "Omit filters to include all samples, including no_issue cases. Filters are optional UI conveniences; there is no automatic acceptance.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "description": "Omit filters to include every sample in original audit order. total and next_offset refer to the filtered queue. Processing state, incomplete flag, machine outcomes and human decisions are separate. Queued/running samples are pending; otherwise fail takes precedence over unsure, then unavailable. Failed/cancelled/incomplete or zero-findings samples cannot be no_issue. No automatic acceptance. Missing audits return 404, empty matching pages return 200.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "AuditReadRepository.list_samples and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Read the complete review queue",
@@ -4265,37 +4265,21 @@
                       "sample_revision": 1,
                       "tool_status": "flagged",
                       "review_status": "pending_review",
+                      "processing_status": "completed",
+                      "incomplete": false,
                       "finding_counts": {
                         "pass": 1,
                         "fail": 1,
                         "unsure": 0,
                         "unavailable": 0
                       },
-                      "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+                      "thumbnail_url": null
                     }
                   ],
                   "limit": 20,
                   "offset": 0,
                   "total": 1,
                   "next_offset": null
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
                 }
               }
             }
@@ -4311,24 +4295,6 @@
                   "error": {
                     "code": "NOT_FOUND",
                     "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4365,6 +4331,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4453,9 +4437,9 @@
           "Audits"
         ],
         "summary": "Read sample findings, evidence and measurements",
-        "description": "Measurements retain the stored audit sample pin. Their review_status remains pending_review; the separate review record stores actual reviewer decisions and the audited sample revision. Colored masks are previews. Findings include pass outcomes as well as suspected violations. Current storage does not certify that on-disk assets still match the pin; immutable revision loading remains planned.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "AuditRepository measurements, FindingRepository current reviews and SampleReviewRepository current decisions exist; asset/detail composition and HTTP adapter planned.",
+        "description": "One database snapshot includes the stored sample pin, original measurements, all findings with latest reviews, technical failures and current sample decision. Measurements are null when not persisted and otherwise preserve the collector document (including its original pending_review field). Asset links and thumbnail are null until revision-aware asset serving exists. No current dataset files are read. Missing audit/sample returns 404.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "AuditReadRepository.get_sample and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Read sample findings, evidence and measurements",
@@ -4475,36 +4459,23 @@
                         "sample_revision": 1,
                         "tool_status": "flagged",
                         "review_status": "pending_review",
+                        "processing_status": "completed",
+                        "incomplete": false,
                         "finding_counts": {
                           "pass": 1,
                           "fail": 1,
                           "unsure": 0,
                           "unavailable": 0
                         },
-                        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+                        "thumbnail_url": null
                       },
                       "assets": {
-                        "image": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "mask": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "mask_preview": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "thumbnail": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        }
+                        "image": null,
+                        "mask": null,
+                        "mask_preview": null,
+                        "thumbnail": null
                       },
+                      "failures": [],
                       "measurements": {
                         "image_id": "sample_001",
                         "image_size": [
@@ -4948,8 +4919,8 @@
                           "origin": "extracted",
                           "source_sentence": "Allowed labels are person.",
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {
                               "actual_label": "person",
@@ -4987,8 +4958,8 @@
                           "origin": "extracted",
                           "source_sentence": "Allowed labels are person.",
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {
                               "actual_label": "vehicle",
@@ -5028,36 +4999,23 @@
                         "sample_revision": 1,
                         "tool_status": "no_issue",
                         "review_status": "pending_review",
+                        "processing_status": "completed",
+                        "incomplete": false,
                         "finding_counts": {
                           "pass": 2,
                           "fail": 0,
                           "unsure": 0,
                           "unavailable": 0
                         },
-                        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+                        "thumbnail_url": null
                       },
                       "assets": {
-                        "image": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "mask": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "mask_preview": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "thumbnail": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        }
+                        "image": null,
+                        "mask": null,
+                        "mask_preview": null,
+                        "thumbnail": null
                       },
+                      "failures": [],
                       "measurements": {
                         "image_id": "sample_001",
                         "image_size": [
@@ -5499,8 +5457,8 @@
                           "origin": "extracted",
                           "source_sentence": "Allowed labels are person.",
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {
                               "actual_label": "person",
@@ -5538,8 +5496,8 @@
                           "origin": "extracted",
                           "source_sentence": "Allowed labels are person.",
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {
                               "actual_label": "person",
@@ -5579,36 +5537,23 @@
                         "sample_revision": 1,
                         "tool_status": "unsure",
                         "review_status": "pending_review",
+                        "processing_status": "completed",
+                        "incomplete": false,
                         "finding_counts": {
                           "pass": 2,
                           "fail": 0,
                           "unsure": 1,
                           "unavailable": 0
                         },
-                        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+                        "thumbnail_url": null
                       },
                       "assets": {
-                        "image": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "mask": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "mask_preview": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "thumbnail": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        }
+                        "image": null,
+                        "mask": null,
+                        "mask_preview": null,
+                        "thumbnail": null
                       },
+                      "failures": [],
                       "measurements": {
                         "image_id": "sample_001",
                         "image_size": [
@@ -6050,8 +5995,8 @@
                           "origin": "extracted",
                           "source_sentence": "Allowed labels are person.",
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {
                               "actual_label": "person",
@@ -6089,8 +6034,8 @@
                           "origin": "extracted",
                           "source_sentence": "Allowed labels are person.",
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {
                               "actual_label": "person",
@@ -6124,8 +6069,8 @@
                           "origin": "reviewer",
                           "source_sentence": null,
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {
                               "model_result": "uncertain"
@@ -6162,36 +6107,23 @@
                         "sample_revision": 1,
                         "tool_status": "unavailable",
                         "review_status": "pending_review",
+                        "processing_status": "completed",
+                        "incomplete": false,
                         "finding_counts": {
                           "pass": 2,
                           "fail": 0,
                           "unsure": 0,
                           "unavailable": 1
                         },
-                        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+                        "thumbnail_url": null
                       },
                       "assets": {
-                        "image": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "mask": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "mask_preview": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        },
-                        "thumbnail": {
-                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
-                          "content_type": "image/png",
-                          "revision": 1
-                        }
+                        "image": null,
+                        "mask": null,
+                        "mask_preview": null,
+                        "thumbnail": null
                       },
+                      "failures": [],
                       "measurements": {
                         "image_id": "sample_001",
                         "image_size": [
@@ -6633,8 +6565,8 @@
                           "origin": "extracted",
                           "source_sentence": "Allowed labels are person.",
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {
                               "actual_label": "person",
@@ -6672,8 +6604,8 @@
                           "origin": "extracted",
                           "source_sentence": "Allowed labels are person.",
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {
                               "actual_label": "person",
@@ -6707,8 +6639,8 @@
                           "origin": "reviewer",
                           "source_sentence": null,
                           "evidence": {
-                            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                            "image_url": null,
+                            "mask_preview_url": null,
                             "crop_url": null,
                             "measurements": {}
                           },
@@ -6737,24 +6669,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -6766,24 +6680,6 @@
                   "error": {
                     "code": "NOT_FOUND",
                     "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -6820,6 +6716,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -6895,8 +6809,8 @@
                       "origin": "extracted",
                       "source_sentence": "Allowed labels are person.",
                       "evidence": {
-                        "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                        "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                        "image_url": null,
+                        "mask_preview_url": null,
                         "crop_url": null,
                         "measurements": {
                           "actual_label": "vehicle",
@@ -7543,48 +7457,39 @@
         ]
       }
     },
-    "/findings/{finding_id}/review": {
-      "put": {
-        "operationId": "reviewFinding",
+    "/findings/{finding_id}/reviews": {
+      "get": {
+        "operationId": "listFindingReviews",
         "tags": [
           "Reviews"
         ],
-        "summary": "Accept or reject a tool finding",
-        "description": "accepted confirms the tool's conclusion; rejected dismisses it; unsure records unresolved review. This does not decide sample acceptance or change machine evidence. Save at expected_review_version + 1 and retain every earlier decision. A stale expected_review_version returns 409 VERSION_CONFLICT; reload before resubmitting. Pending findings start at revision 0.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "review_finding service and PostgreSQL finding review history implemented; HTTP adapter planned",
+        "summary": "Read finding decision history",
+        "description": "Attributed finding decisions in ascending review revision order, scoped to the requested finding. A missing finding returns 404; limit is 1–100 with offset starting at 0. History preserves every earlier decision and does not change machine evidence or sample acceptance.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "FindingRepository.list_finding_reviews and FastAPI route implemented.",
         "responses": {
           "200": {
-            "description": "Accept or reject a tool finding",
+            "description": "Read finding decision history",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FindingReview"
+                  "$ref": "#/components/schemas/FindingReviewPage"
                 },
                 "example": {
-                  "revision": 1,
-                  "resolution": "accepted",
-                  "reviewer_id": "reviewer_demo",
-                  "comment": "Confirmed the label mismatch.",
-                  "updated_at": "2026-10-14T10:00:00Z"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
+                  "items": [
+                    {
+                      "revision": 1,
+                      "resolution": "accepted",
+                      "reviewer_id": "reviewer_demo",
+                      "comment": "Confirmed the label mismatch.",
+                      "updated_at": "2026-10-14T10:00:00Z",
+                      "finding_id": "finding_demo"
+                    }
+                  ],
+                  "limit": 20,
+                  "offset": 0,
+                  "total": 1,
+                  "next_offset": null
                 }
               }
             }
@@ -7600,24 +7505,6 @@
                   "error": {
                     "code": "NOT_FOUND",
                     "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7654,6 +7541,188 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "example": 20,
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "example": 0,
+            "description": ""
+          },
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "example": "finding_demo",
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/findings/{finding_id}/review": {
+      "put": {
+        "operationId": "reviewFinding",
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Accept or reject a tool finding",
+        "description": "accepted confirms the tool's conclusion; rejected dismisses it; unsure records unresolved review. This does not decide sample acceptance or change machine evidence. Save at expected_review_version + 1 and retain every earlier decision. A stale expected_review_version returns 409 VERSION_CONFLICT; reload before resubmitting. Pending findings start at revision 0.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "review_finding service, PostgreSQL finding review history and FastAPI route implemented.",
+        "responses": {
+          "200": {
+            "description": "Accept or reject a tool finding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingReview"
+                },
+                "example": {
+                  "revision": 1,
+                  "resolution": "accepted",
+                  "reviewer_id": "reviewer_demo",
+                  "comment": "Confirmed the label mismatch.",
+                  "updated_at": "2026-10-14T10:00:00Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "The requested resource does not exist.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Review conflict; see the error code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The finding review is out of date. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The finding review is out of date. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "One or more request fields are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local model or service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "DEPENDENCY_UNAVAILABLE",
+                    "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7701,8 +7770,8 @@
         ],
         "summary": "Record the reviewer's data decision",
         "description": "Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: authoritative annotation revisions and immutable asset loading remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "review_sample service and PostgreSQL sample review history implemented; HTTP adapter planned",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "review_sample service, PostgreSQL sample review history and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Record the reviewer's data decision",
@@ -7720,24 +7789,6 @@
                   "reviewer_id": "reviewer_demo",
                   "comment": "Correct the second label before final review.",
                   "updated_at": "2026-10-14T10:00:00Z"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
                 }
               }
             }
@@ -7761,18 +7812,45 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Review conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The sample review is out of date. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The sample review is out of date. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "STALE_SAMPLE_REVISION": {
+                    "summary": "The requested sample revision is stale. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "STALE_SAMPLE_REVISION",
+                        "message": "The requested sample revision is stale. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "INVALID_SAMPLE_REVIEW_STATE": {
+                    "summary": "The sample is not currently eligible for review.",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_SAMPLE_REVIEW_STATE",
+                        "message": "The sample is not currently eligible for review.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -7807,6 +7885,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7866,8 +7962,8 @@
         ],
         "summary": "Read sample decision history",
         "description": "Attributed decisions in ascending review revision order, scoped to the audit, sample and required sample_revision. A never-reviewed pin has an empty history and current pending_review revision 0. Explicit reopening is retained in history. An unknown audit/sample returns 404; an unmatched sample revision returns 409 STALE_SAMPLE_REVISION.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "SampleReviewRepository.list_sample_reviews implemented; HTTP adapter planned",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "SampleReviewRepository.list_sample_reviews and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Read sample decision history",
@@ -7897,24 +7993,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -7934,18 +8012,23 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Review conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "STALE_SAMPLE_REVISION": {
+                    "summary": "The requested sample revision is stale. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "STALE_SAMPLE_REVISION",
+                        "message": "The requested sample revision is stale. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -7980,6 +8063,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -10579,6 +10680,106 @@
         "title": "FindingReviewRequest",
         "type": "object"
       },
+      "FindingReviewRecord": {
+        "additionalProperties": false,
+        "description": "One attributed decision in a finding's append-only review history.",
+        "properties": {
+          "revision": {
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "resolution": {
+            "enum": [
+              "accepted",
+              "rejected",
+              "unsure"
+            ],
+            "title": "Resolution",
+            "type": "string"
+          },
+          "reviewer_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "finding_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Finding Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "resolution",
+          "reviewer_id",
+          "comment",
+          "updated_at",
+          "finding_id"
+        ],
+        "title": "FindingReviewRecord",
+        "type": "object"
+      },
+      "FindingReviewPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FindingReviewRecord"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total"
+        ],
+        "title": "FindingReviewPage",
+        "type": "object"
+      },
       "RulebookReplace": {
         "additionalProperties": false,
         "description": "Replace the complete draft contents, including individual rule decisions.\n\nOmitted rules are removed. New IDs must use reviewer origin; retained IDs\npreserve their origin. Confirmation states are explicit reviewer decisions.",
@@ -10972,6 +11173,374 @@
           "total"
         ],
         "title": "SampleReviewPage",
+        "type": "object"
+      },
+      "FindingCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "pass": {
+            "minimum": 0,
+            "title": "Pass",
+            "type": "integer"
+          },
+          "fail": {
+            "minimum": 0,
+            "title": "Fail",
+            "type": "integer"
+          },
+          "unsure": {
+            "minimum": 0,
+            "title": "Unsure",
+            "type": "integer"
+          },
+          "unavailable": {
+            "minimum": 0,
+            "title": "Unavailable",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pass",
+          "fail",
+          "unsure",
+          "unavailable"
+        ],
+        "title": "FindingCounts",
+        "type": "object"
+      },
+      "SampleAuditSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "sample_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "processing_status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Processing Status",
+            "type": "string"
+          },
+          "incomplete": {
+            "title": "Incomplete",
+            "type": "boolean"
+          },
+          "tool_status": {
+            "$ref": "#/components/schemas/ToolStatus"
+          },
+          "review_status": {
+            "$ref": "#/components/schemas/SampleReviewDecision"
+          },
+          "finding_counts": {
+            "$ref": "#/components/schemas/FindingCounts"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thumbnail Url"
+          }
+        },
+        "required": [
+          "sample_id",
+          "sample_revision",
+          "processing_status",
+          "incomplete",
+          "tool_status",
+          "review_status",
+          "finding_counts"
+        ],
+        "title": "SampleAuditSummary",
+        "type": "object"
+      },
+      "ToolStatus": {
+        "enum": [
+          "pending",
+          "flagged",
+          "unsure",
+          "no_issue",
+          "unavailable"
+        ],
+        "title": "ToolStatus",
+        "type": "string"
+      },
+      "AuditSamplePage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SampleAuditSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total",
+          "next_offset"
+        ],
+        "title": "AuditSamplePage",
+        "type": "object"
+      },
+      "AssetReference": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Url",
+            "type": "string"
+          },
+          "content_type": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Content Type",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "url",
+          "content_type",
+          "revision"
+        ],
+        "title": "AssetReference",
+        "type": "object"
+      },
+      "AuditFailure": {
+        "additionalProperties": false,
+        "description": "A sample-level technical failure retained for later review/recovery.",
+        "properties": {
+          "failure_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Failure Id",
+            "type": "string"
+          },
+          "audit_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "sample_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "stage": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Stage",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          },
+          "detail": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Detail",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "failure_id",
+          "audit_id",
+          "sample_id",
+          "sample_revision",
+          "stage",
+          "reason",
+          "detail",
+          "created_at"
+        ],
+        "title": "AuditFailure",
+        "type": "object"
+      },
+      "SampleAssets": {
+        "additionalProperties": false,
+        "description": "Null links mean that revision-pinned asset serving is unavailable.",
+        "properties": {
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "mask": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "mask_preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "title": "SampleAssets",
+        "type": "object"
+      },
+      "SampleAudit": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "dataset_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/SampleAuditSummary"
+          },
+          "assets": {
+            "$ref": "#/components/schemas/SampleAssets"
+          },
+          "measurements": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurements"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/AuditFailure"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "review": {
+            "$ref": "#/components/schemas/SampleReview"
+          }
+        },
+        "required": [
+          "audit_id",
+          "dataset_id",
+          "summary",
+          "measurements",
+          "findings",
+          "failures",
+          "review"
+        ],
+        "title": "SampleAudit",
         "type": "object"
       },
       "ImageSize": {
@@ -11449,81 +12018,6 @@
           "offset",
           "total",
           "next_offset"
-        ],
-        "additionalProperties": false
-      },
-      "AssetReference": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "minLength": 1
-          },
-          "content_type": {
-            "type": "string",
-            "minLength": 1
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "url",
-          "content_type",
-          "revision"
-        ],
-        "additionalProperties": false
-      },
-      "SampleAssets": {
-        "type": "object",
-        "properties": {
-          "image": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AssetReference"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "mask": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AssetReference"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "mask_preview": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AssetReference"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "thumbnail": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AssetReference"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "image",
-          "mask",
-          "mask_preview",
-          "thumbnail"
         ],
         "additionalProperties": false
       },
@@ -12305,169 +12799,6 @@
           "offset",
           "total",
           "next_offset"
-        ],
-        "additionalProperties": false
-      },
-      "SampleAuditSummary": {
-        "type": "object",
-        "properties": {
-          "sample_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "sample_revision": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "tool_status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "flagged",
-              "unsure",
-              "no_issue",
-              "unavailable"
-            ]
-          },
-          "review_status": {
-            "type": "string",
-            "enum": [
-              "pending_review",
-              "needs_correction",
-              "accepted",
-              "rejected"
-            ]
-          },
-          "finding_counts": {
-            "type": "object",
-            "properties": {
-              "pass": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "fail": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "unsure": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "unavailable": {
-                "type": "integer",
-                "minimum": 0
-              }
-            },
-            "required": [
-              "pass",
-              "fail",
-              "unsure",
-              "unavailable"
-            ],
-            "additionalProperties": false
-          },
-          "thumbnail_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "sample_id",
-          "sample_revision",
-          "tool_status",
-          "review_status",
-          "finding_counts",
-          "thumbnail_url"
-        ],
-        "additionalProperties": false
-      },
-      "AuditSamplePage": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SampleAuditSummary"
-            }
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "offset": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "total": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "next_offset": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "items",
-          "limit",
-          "offset",
-          "total",
-          "next_offset"
-        ],
-        "additionalProperties": false
-      },
-      "SampleAudit": {
-        "type": "object",
-        "properties": {
-          "audit_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "dataset_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "summary": {
-            "$ref": "#/components/schemas/SampleAuditSummary"
-          },
-          "assets": {
-            "$ref": "#/components/schemas/SampleAssets"
-          },
-          "measurements": {
-            "$ref": "#/components/schemas/AuditMeasurements"
-          },
-          "findings": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Finding"
-            }
-          },
-          "review": {
-            "$ref": "#/components/schemas/SampleReview"
-          }
-        },
-        "required": [
-          "audit_id",
-          "dataset_id",
-          "summary",
-          "assets",
-          "measurements",
-          "findings",
-          "review"
         ],
         "additionalProperties": false
       },

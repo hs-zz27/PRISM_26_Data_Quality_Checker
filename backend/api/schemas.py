@@ -1,8 +1,9 @@
 """Resource schemas, reusing implemented Python models where available."""
 
 from backend.app.models.finding import Finding
+from backend.app.models.audit_read import AuditSamplePage, SampleAudit, SampleAuditSummary
 from backend.app.models.review import (
-    FindingReviewRequest,
+    FindingReviewPage, FindingReviewRecord, FindingReviewRequest,
     RulebookAction, RulebookReplace, RulebookReviewPage, RulebookReviewRecord,
     SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
 )
@@ -10,7 +11,7 @@ from backend.app.models.rule import Rulebook
 
 from .common import (
     BOOLEAN, COUNT, FRACTION, INTEGER, JOB_STATUS, SAMPLE_REVIEW_STATUS,
-    TEXT, TIME, TOOL_STATUS, VERSION, JsonObject, array, choice, nullable,
+    TEXT, TIME, VERSION, JsonObject, array, choice, nullable,
     obj, page_schema, ref, replace_model_refs,
 )
 
@@ -19,9 +20,10 @@ def build_schemas() -> JsonObject:
     """Reuse implemented records; keep proposed transport records explicit."""
     schemas = {}
     for model in (
-        Rulebook, Finding, FindingReviewRequest,
+        Rulebook, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
         RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage,
         SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
+        AuditSamplePage, SampleAudit, SampleAuditSummary,
     ):
         schema = model.model_json_schema()
         schemas.update({name: replace_model_refs(definition)
@@ -66,10 +68,6 @@ def build_schemas() -> JsonObject:
         "import_job_id": TEXT, "created_at": TIME, "issues": array(ref("ErrorDetail")),
     })
     schemas["DatasetPage"] = page_schema(ref("Dataset"))
-    schemas["AssetReference"] = obj({"url": TEXT, "content_type": TEXT, "revision": VERSION})
-    schemas["SampleAssets"] = obj({
-        name: nullable(ref("AssetReference")) for name in ("image", "mask", "mask_preview", "thumbnail")
-    })
     schemas["Sample"] = obj({
         "sample_id": TEXT, "dataset_id": TEXT, "revision": VERSION,
         "image_size": nullable(ref("ImageSize")),
@@ -128,18 +126,6 @@ def build_schemas() -> JsonObject:
         "objects": array(ref("ObjectMeasurements")),
     })
     schemas["FindingPage"] = page_schema(ref("Finding"))
-    schemas["SampleAuditSummary"] = obj({
-        "sample_id": TEXT, "sample_revision": VERSION, "tool_status": TOOL_STATUS,
-        "review_status": SAMPLE_REVIEW_STATUS,
-        "finding_counts": obj({name: COUNT for name in ("pass", "fail", "unsure", "unavailable")}),
-        "thumbnail_url": nullable(TEXT),
-    })
-    schemas["AuditSamplePage"] = page_schema(ref("SampleAuditSummary"))
-    schemas["SampleAudit"] = obj({
-        "audit_id": TEXT, "dataset_id": TEXT, "summary": ref("SampleAuditSummary"),
-        "assets": ref("SampleAssets"), "measurements": ref("AuditMeasurements"),
-        "findings": array(ref("Finding")), "review": ref("SampleReview"),
-    })
     schemas["RecheckRequest"] = obj({"sample_ids": {**array(TEXT), "minItems": 1}, "reviewer_id": TEXT})
     schemas["ExportRequest"] = obj({
         "audit_id": TEXT, "format": choice("penn_fudan"),

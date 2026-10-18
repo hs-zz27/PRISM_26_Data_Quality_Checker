@@ -1,5 +1,5 @@
 {
-  "notice": "Proposed contract and synthetic frontend fixtures. No HTTP server is implemented.",
+  "notice": "Synthetic frontend fixtures. Audit sample reads and finding/sample review routes are implemented; check each operation's implementation field.",
   "base_url": "http://127.0.0.1:8000",
   "operations": [
     {
@@ -1315,8 +1315,8 @@
       "path": "/api/v1/audits/{audit_id}/samples",
       "tag": "Audits",
       "summary": "Read the complete review queue",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "implementation": "implemented",
+      "backing_service": "AuditReadRepository.list_samples and FastAPI route implemented.",
       "request": {
         "path_parameters": {
           "audit_id": "audit_demo"
@@ -1340,13 +1340,15 @@
               "sample_revision": 1,
               "tool_status": "flagged",
               "review_status": "pending_review",
+              "processing_status": "completed",
+              "incomplete": false,
               "finding_counts": {
                 "pass": 1,
                 "fail": 1,
                 "unsure": 0,
                 "unavailable": 0
               },
-              "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+              "thumbnail_url": null
             }
           ],
           "limit": 20,
@@ -1362,8 +1364,8 @@
       "path": "/api/v1/audits/{audit_id}/samples/{sample_id}",
       "tag": "Audits",
       "summary": "Read sample findings, evidence and measurements",
-      "implementation": "planned",
-      "backing_service": "AuditRepository measurements, FindingRepository current reviews and SampleReviewRepository current decisions exist; asset/detail composition and HTTP adapter planned.",
+      "implementation": "implemented",
+      "backing_service": "AuditReadRepository.get_sample and FastAPI route implemented.",
       "request": {
         "path_parameters": {
           "audit_id": "audit_demo",
@@ -1384,36 +1386,23 @@
             "sample_revision": 1,
             "tool_status": "flagged",
             "review_status": "pending_review",
+            "processing_status": "completed",
+            "incomplete": false,
             "finding_counts": {
               "pass": 1,
               "fail": 1,
               "unsure": 0,
               "unavailable": 0
             },
-            "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+            "thumbnail_url": null
           },
           "assets": {
-            "image": {
-              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-              "content_type": "image/png",
-              "revision": 1
-            },
-            "mask": {
-              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
-              "content_type": "image/png",
-              "revision": 1
-            },
-            "mask_preview": {
-              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
-              "content_type": "image/png",
-              "revision": 1
-            },
-            "thumbnail": {
-              "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
-              "content_type": "image/png",
-              "revision": 1
-            }
+            "image": null,
+            "mask": null,
+            "mask_preview": null,
+            "thumbnail": null
           },
+          "failures": [],
           "measurements": {
             "image_id": "sample_001",
             "image_size": [
@@ -1857,8 +1846,8 @@
               "origin": "extracted",
               "source_sentence": "Allowed labels are person.",
               "evidence": {
-                "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                "image_url": null,
+                "mask_preview_url": null,
                 "crop_url": null,
                 "measurements": {
                   "actual_label": "person",
@@ -1896,8 +1885,8 @@
               "origin": "extracted",
               "source_sentence": "Allowed labels are person.",
               "evidence": {
-                "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                "image_url": null,
+                "mask_preview_url": null,
                 "crop_url": null,
                 "measurements": {
                   "actual_label": "vehicle",
@@ -1975,8 +1964,8 @@
               "origin": "extracted",
               "source_sentence": "Allowed labels are person.",
               "evidence": {
-                "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-                "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                "image_url": null,
+                "mask_preview_url": null,
                 "crop_url": null,
                 "measurements": {
                   "actual_label": "vehicle",
@@ -2136,13 +2125,53 @@
       }
     },
     {
+      "operation_id": "listFindingReviews",
+      "method": "GET",
+      "path": "/api/v1/findings/{finding_id}/reviews",
+      "tag": "Reviews",
+      "summary": "Read finding decision history",
+      "implementation": "implemented",
+      "backing_service": "FindingRepository.list_finding_reviews and FastAPI route implemented.",
+      "request": {
+        "path_parameters": {
+          "finding_id": "finding_demo"
+        },
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "revision": 1,
+              "resolution": "accepted",
+              "reviewer_id": "reviewer_demo",
+              "comment": "Confirmed the label mismatch.",
+              "updated_at": "2026-10-14T10:00:00Z",
+              "finding_id": "finding_demo"
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      }
+    },
+    {
       "operation_id": "reviewFinding",
       "method": "PUT",
       "path": "/api/v1/findings/{finding_id}/review",
       "tag": "Reviews",
       "summary": "Accept or reject a tool finding",
-      "implementation": "planned",
-      "backing_service": "review_finding service and PostgreSQL finding review history implemented; HTTP adapter planned",
+      "implementation": "implemented",
+      "backing_service": "review_finding service, PostgreSQL finding review history and FastAPI route implemented.",
       "request": {
         "path_parameters": {
           "finding_id": "finding_demo"
@@ -2174,8 +2203,8 @@
       "path": "/api/v1/audits/{audit_id}/samples/{sample_id}/review",
       "tag": "Reviews",
       "summary": "Record the reviewer's data decision",
-      "implementation": "planned",
-      "backing_service": "review_sample service and PostgreSQL sample review history implemented; HTTP adapter planned",
+      "implementation": "implemented",
+      "backing_service": "review_sample service, PostgreSQL sample review history and FastAPI route implemented.",
       "request": {
         "path_parameters": {
           "audit_id": "audit_demo",
@@ -2212,8 +2241,8 @@
       "path": "/api/v1/audits/{audit_id}/samples/{sample_id}/reviews",
       "tag": "Reviews",
       "summary": "Read sample decision history",
-      "implementation": "planned",
-      "backing_service": "SampleReviewRepository.list_sample_reviews implemented; HTTP adapter planned",
+      "implementation": "implemented",
+      "backing_service": "SampleReviewRepository.list_sample_reviews and FastAPI route implemented.",
       "request": {
         "path_parameters": {
           "audit_id": "audit_demo",
@@ -2816,36 +2845,23 @@
         "sample_revision": 1,
         "tool_status": "flagged",
         "review_status": "pending_review",
+        "processing_status": "completed",
+        "incomplete": false,
         "finding_counts": {
           "pass": 1,
           "fail": 1,
           "unsure": 0,
           "unavailable": 0
         },
-        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+        "thumbnail_url": null
       },
       "assets": {
-        "image": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "mask": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "mask_preview": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "thumbnail": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        }
+        "image": null,
+        "mask": null,
+        "mask_preview": null,
+        "thumbnail": null
       },
+      "failures": [],
       "measurements": {
         "image_id": "sample_001",
         "image_size": [
@@ -3289,8 +3305,8 @@
           "origin": "extracted",
           "source_sentence": "Allowed labels are person.",
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {
               "actual_label": "person",
@@ -3328,8 +3344,8 @@
           "origin": "extracted",
           "source_sentence": "Allowed labels are person.",
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {
               "actual_label": "vehicle",
@@ -3366,36 +3382,23 @@
         "sample_revision": 1,
         "tool_status": "no_issue",
         "review_status": "pending_review",
+        "processing_status": "completed",
+        "incomplete": false,
         "finding_counts": {
           "pass": 2,
           "fail": 0,
           "unsure": 0,
           "unavailable": 0
         },
-        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+        "thumbnail_url": null
       },
       "assets": {
-        "image": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "mask": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "mask_preview": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "thumbnail": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        }
+        "image": null,
+        "mask": null,
+        "mask_preview": null,
+        "thumbnail": null
       },
+      "failures": [],
       "measurements": {
         "image_id": "sample_001",
         "image_size": [
@@ -3837,8 +3840,8 @@
           "origin": "extracted",
           "source_sentence": "Allowed labels are person.",
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {
               "actual_label": "person",
@@ -3876,8 +3879,8 @@
           "origin": "extracted",
           "source_sentence": "Allowed labels are person.",
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {
               "actual_label": "person",
@@ -3914,36 +3917,23 @@
         "sample_revision": 1,
         "tool_status": "unsure",
         "review_status": "pending_review",
+        "processing_status": "completed",
+        "incomplete": false,
         "finding_counts": {
           "pass": 2,
           "fail": 0,
           "unsure": 1,
           "unavailable": 0
         },
-        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+        "thumbnail_url": null
       },
       "assets": {
-        "image": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "mask": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "mask_preview": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "thumbnail": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        }
+        "image": null,
+        "mask": null,
+        "mask_preview": null,
+        "thumbnail": null
       },
+      "failures": [],
       "measurements": {
         "image_id": "sample_001",
         "image_size": [
@@ -4385,8 +4375,8 @@
           "origin": "extracted",
           "source_sentence": "Allowed labels are person.",
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {
               "actual_label": "person",
@@ -4424,8 +4414,8 @@
           "origin": "extracted",
           "source_sentence": "Allowed labels are person.",
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {
               "actual_label": "person",
@@ -4459,8 +4449,8 @@
           "origin": "reviewer",
           "source_sentence": null,
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {
               "model_result": "uncertain"
@@ -4494,36 +4484,23 @@
         "sample_revision": 1,
         "tool_status": "unavailable",
         "review_status": "pending_review",
+        "processing_status": "completed",
+        "incomplete": false,
         "finding_counts": {
           "pass": 2,
           "fail": 0,
           "unsure": 0,
           "unavailable": 1
         },
-        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
+        "thumbnail_url": null
       },
       "assets": {
-        "image": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "mask": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "mask_preview": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        },
-        "thumbnail": {
-          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
-          "content_type": "image/png",
-          "revision": 1
-        }
+        "image": null,
+        "mask": null,
+        "mask_preview": null,
+        "thumbnail": null
       },
+      "failures": [],
       "measurements": {
         "image_id": "sample_001",
         "image_size": [
@@ -4965,8 +4942,8 @@
           "origin": "extracted",
           "source_sentence": "Allowed labels are person.",
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {
               "actual_label": "person",
@@ -5004,8 +4981,8 @@
           "origin": "extracted",
           "source_sentence": "Allowed labels are person.",
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {
               "actual_label": "person",
@@ -5039,8 +5016,8 @@
           "origin": "reviewer",
           "source_sentence": null,
           "evidence": {
-            "image_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
-            "mask_preview_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+            "image_url": null,
+            "mask_preview_url": null,
             "crop_url": null,
             "measurements": {}
           },
