@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 import pytest
 
 from backend.app.checks.segmentation import measure_mask_components
@@ -53,3 +54,28 @@ def test_invalid_connectivity(connectivity):
 def test_invalid_mask_or_object_id(mask, object_id):
     with pytest.raises(ValueError):
         measure_mask_components(mask, object_id)
+
+
+@pytest.mark.parametrize("connectivity", [4, 8])
+@pytest.mark.parametrize("offset", [(0, 0), (7, 13), (100, 200)])
+def test_cropped_components_match_full_image_geometry(connectivity, offset):
+    top, left = offset
+    mask = np.zeros((128, 256), dtype=np.uint16)
+    # Include a hole, diagonal contacts and a distant disconnected piece.
+    mask[top:top + 8, left:left + 8] = 257
+    mask[top + 2:top + 5, left + 2:left + 5] = 0
+    mask[top + 8, left + 8] = 257
+    mask[top + 12:top + 14, left + 20:left + 22] = 257
+    mask[top + 3, left + 3] = 2
+    count, _, stats, _ = cv2.connectedComponentsWithStats(
+        (mask == 257).astype(np.uint8), connectivity=connectivity,
+    )
+    expected = sorted(
+        (int(area), (int(x) + 1, int(y) + 1, int(x + width), int(y + height)))
+        for x, y, width, height, area in stats[1:]
+    )
+    result = measure_mask_components(mask, 257, connectivity)
+    assert result["component_count"] == count - 1
+    assert sorted((part["area"], part["bbox"]) for part in result["components"]) == expected
+    assert result["total_mask_pixels"] == int(np.count_nonzero(mask == 257))
+    assert {part["component_id"] for part in result["components"]} == set(range(1, count))

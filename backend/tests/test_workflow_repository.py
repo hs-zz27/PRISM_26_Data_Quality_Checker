@@ -24,6 +24,7 @@ from backend.app.storage import workflow_repository
 from backend.app.storage.database import CommitOutcomeUnknownError, database_connection, initialize_database
 from backend.app.storage.workflow_repository import (
     AuditRepository,
+    FindingRepository,
     JobCancellationError,
     JobAlreadyFinishedError,
     JobClaimLostError,
@@ -335,7 +336,8 @@ def test_queued_cancellation_is_terminal_and_idempotence_is_explicit(workflow_se
         repository.request_cancellation("job_1", now=now)
 
 
-def test_audit_sample_result_commits_measurements_findings_and_progress(workflow_settings):
+@pytest.mark.parametrize("finding_count", [0, 1, 260])
+def test_audit_sample_result_commits_measurements_findings_and_progress(workflow_settings, finding_count):
     repository = AuditRepository(settings=workflow_settings)
     request = BatchAuditRequest(
         dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
@@ -352,20 +354,67 @@ def test_audit_sample_result_commits_measurements_findings_and_progress(workflow
         description="A rule.", check_name=None, outcome="unavailable",
         reason="unsupported_check", origin="reviewer", evidence={"measurements": {}},
     )
+    findings = [finding.model_copy(update={"finding_id": f"finding_{i}"}) for i in range(finding_count)]
     job = repository.persist_sample_success(
         sample_claim,
         measurements={"image_id": "sample_1", "review_status": "pending_review"},
-        findings=[finding],
+        findings=findings,
     )
     assert job.status is JobStatus.COMPLETED
     replayed = repository.persist_sample_success(
         sample_claim,
         measurements={"image_id": "sample_1", "review_status": "pending_review"},
-        findings=[finding],
+        findings=findings,
     )
     assert replayed.status is JobStatus.COMPLETED
     assert repository.get_measurements("audit_1", "sample_1", 1)["image_id"] == "sample_1"
     assert repository.get_job("audit_1").progress.processed == 1
+    assert len(FindingRepository(settings=workflow_settings).list_findings("audit_1")) == finding_count
+
+
+@pytest.mark.parametrize("failure", ["conflict", "lease", "deadline"])
+def test_finding_batch_failure_rolls_back_all_chunks(
+    queued_audit_claim, workflow_settings, monkeypatch, failure,
+):
+    repository, _, job_claim, now = queued_audit_claim
+    prepared = repository.prepare_claimed_audit(job_claim, now=now)
+    claim = repository.claim_next_sample(
+        prepared, now=now, lease_seconds=1 if failure == "lease" else 60,
+        processing_seconds=1 if failure == "deadline" else 300,
+    )
+    assert claim is not None
+    monkeypatch.setattr(workflow_repository, "_FINDING_WRITE_BATCH_SIZE", 2)
+    findings = [Finding(
+        finding_id=f"finding_{i}", audit_id=claim.audit_id, sample_id=claim.sample_id,
+        sample_revision=claim.sample_revision, rulebook_id="book_1", rulebook_version=2,
+        rule_id="r1", description="Original evidence.", check_name=None,
+        outcome="unavailable", reason="unsupported_check", origin="reviewer",
+        evidence={"measurements": {}},
+    ) for i in range(3)]
+    if failure == "conflict":
+        FindingRepository(settings=workflow_settings).save_findings([
+            findings[-1].model_copy(update={"description": "Different stored evidence."}),
+        ])
+        expected_error = WorkflowStorageError
+    else:
+        current_time = [now]
+        monkeypatch.setattr(workflow_repository, "_timestamp", lambda value=None: value or current_time[0])
+        insert_batch = repository._insert_or_verify_findings
+
+        def expire_after_insert(connection, batch, timestamp):
+            insert_batch(connection, batch, timestamp)
+            bound = claim.lease_until if failure == "lease" else claim.processing_deadline
+            current_time[0] = bound + timedelta(seconds=1)
+
+        monkeypatch.setattr(repository, "_insert_or_verify_findings", expire_after_insert)
+        expected_error = JobClaimLostError if failure == "lease" else SampleProcessingTimeoutError
+    before = _saved_workflow_state(workflow_settings)
+    with pytest.raises(expected_error):
+        repository.persist_sample_success(
+            claim, measurements={"image_id": "sample_1", "review_status": "pending_review"},
+            findings=findings, now=now if failure == "conflict" else None,
+        )
+    assert _saved_workflow_state(workflow_settings) == before
 
 
 def test_attempt_increment_is_idempotent_for_one_operation(workflow_settings):

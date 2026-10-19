@@ -38,3 +38,20 @@ def test_pairwise_results_include_each_unordered_pair_once():
     results = measure_pairwise_box_iou(objects, (3, 1))
     assert [result["object_ids"] for result in results] == [(1, 2), (1, 3), (2, 3)]
     assert all(result["iou"] == 0 for result in results)
+
+
+def test_pairwise_reuse_preserves_invalid_boxes_and_duplicate_object_ids():
+    from itertools import combinations
+
+    objects = [
+        {"object_id": 1, "label": "person", "bbox": (1, 1, 3, 3)},
+        {"object_id": 1, "label": "person", "bbox": (0, 1, 2, 2)},
+        {"object_id": 2, "label": "person", "bbox": (2, 2, 4, 4)},
+        {"object_id": 3, "label": "person", "bbox": (3, 2, 1, 4)},
+    ]
+    expected = [
+        {**measure_box_iou(first["bbox"], second["bbox"], (4, 4)),
+         "object_ids": (first["object_id"], second["object_id"])}
+        for first, second in combinations(objects, 2)
+    ]
+    assert measure_pairwise_box_iou(objects, (4, 4)) == expected

@@ -44,6 +44,9 @@ from .database import (
 )
 
 
+_FINDING_WRITE_BATCH_SIZE = 128
+
+
 class WorkflowStorageError(RuntimeError):
     """The workflow database is unavailable or contains invalid records."""
 
@@ -2277,30 +2280,37 @@ class AuditRepository(_WorkflowRepository):
             raise WorkflowStorageError("A sample already has different measurement evidence.")
 
     @staticmethod
-    def _insert_or_verify_finding(connection: Any, finding: Finding, timestamp: datetime) -> None:
-        document = finding.model_dump(mode="json")
-        connection.execute(
-            """INSERT INTO findings
+    def _insert_or_verify_findings(
+        connection: Any, findings: Sequence[Finding], timestamp: datetime,
+    ) -> None:
+        """Pipeline bounded inserts and verify their immutable evidence together."""
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                """INSERT INTO findings
                (finding_id, audit_id, sample_id, sample_revision, object_id,
                 rulebook_id, rulebook_version, rule_id, outcome, review_resolution,
                 document, created_at)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                ON CONFLICT (finding_id) DO NOTHING""",
-            (
-                finding.finding_id, finding.audit_id, finding.sample_id,
-                finding.sample_revision, finding.object_id, finding.rulebook_id,
-                finding.rulebook_version, finding.rule_id, finding.outcome.value,
-                finding.review.resolution.value, Jsonb(document), timestamp,
-            ),
-        )
-        stored = connection.execute(
-            "SELECT * FROM findings WHERE finding_id = %s", (finding.finding_id,)
-        ).fetchone()
-        assert stored is not None
-        if _decode_finding(stored) != finding:
-            raise WorkflowStorageError(
-                f"Finding {finding.finding_id!r} already exists with different evidence."
+                [(
+                    finding.finding_id, finding.audit_id, finding.sample_id,
+                    finding.sample_revision, finding.object_id, finding.rulebook_id,
+                    finding.rulebook_version, finding.rule_id, finding.outcome.value,
+                    finding.review.resolution.value,
+                    Jsonb(finding.model_dump(mode="json")), timestamp,
+                ) for finding in findings],
             )
+        rows = connection.execute(
+            "SELECT * FROM findings WHERE finding_id = ANY(%s)",
+            ([finding.finding_id for finding in findings],),
+        ).fetchall()
+        stored = {row["finding_id"]: row for row in rows}
+        for finding in findings:
+            row = stored.get(finding.finding_id)
+            if row is None or _decode_finding(row) != finding:
+                raise WorkflowStorageError(
+                    f"Finding {finding.finding_id!r} could not be saved with the expected evidence."
+                )
 
     @staticmethod
     def _sample_operation_id(
@@ -2483,10 +2493,14 @@ class AuditRepository(_WorkflowRepository):
                 document=document,
                 timestamp=write_timestamp,
             )
-            for finding in finding_snapshots:
+            for offset in range(0, len(finding_snapshots), _FINDING_WRITE_BATCH_SIZE):
+                batch = finding_snapshots[offset:offset + _FINDING_WRITE_BATCH_SIZE]
                 write_timestamp = timestamp if now is not None else _timestamp()
                 self._recheck_sample_claim(connection, claim, now=write_timestamp)
-                self._insert_or_verify_finding(connection, finding, write_timestamp)
+                self._insert_or_verify_findings(connection, batch, write_timestamp)
+            # The next batch's entry check, or this final check, detects expiry
+            # during an insert and rolls back all chunks. Row locks prevent
+            # ownership replacement while this transaction is active.
             write_timestamp = timestamp if now is not None else _timestamp()
             self._recheck_sample_claim(connection, claim, now=write_timestamp)
             result = connection.execute(

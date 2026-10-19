@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TypedDict
 
 import cv2
@@ -100,22 +101,28 @@ class _InstancePixels:
     """Temporary per-call data shared by measurements, never cached across edits."""
 
     binary: NDArray[np.uint8]
-    rows: NDArray[np.intp]
-    columns: NDArray[np.intp]
+    rows: NDArray[np.int32]
+    columns: NDArray[np.int32]
 
     @classmethod
     def from_mask(cls, mask: NDArray, object_id: int) -> "_InstancePixels":
         validate_instance_mask(mask)
         _validate_object_id(object_id)
         binary = (mask == object_id).astype(np.uint8)
-        rows, columns = np.nonzero(binary)
+        # OpenCV scans the byte mask directly and stores compact (x, y) pairs.
+        coordinates = cv2.findNonZero(binary) if binary.size else None
+        if coordinates is None:
+            rows = columns = np.empty(0, dtype=np.int32)
+        else:
+            coordinates = coordinates.reshape(-1, 2)
+            columns, rows = coordinates[:, 0], coordinates[:, 1]
         return cls(binary, rows, columns)
 
     @property
     def area(self) -> int:
         return int(self.rows.size)
 
-    @property
+    @cached_property
     def bbox(self) -> BoundingBox | None:
         if self.area == 0:
             return None
@@ -250,12 +257,17 @@ def _measure_components(pixels: _InstancePixels, object_id: int, connectivity: i
     }
     if pixels.area == 0:
         return result
+    xmin, ymin, xmax, ymax = pixels.bbox
+    left_offset, top_offset = xmin - 1, ymin - 1
+    # Crop to actual foreground bounds, never the annotation box: pixels outside
+    # that box and distant disconnected pieces must remain part of the evidence.
+    binary = np.ascontiguousarray(pixels.binary[top_offset:ymax, left_offset:xmax])
     label_count, _, stats, _ = cv2.connectedComponentsWithStats(
-        pixels.binary, connectivity=int(connectivity)
+        binary, connectivity=int(connectivity)
     )
     for component_id in range(1, label_count):
-        left = int(stats[component_id, cv2.CC_STAT_LEFT])
-        top = int(stats[component_id, cv2.CC_STAT_TOP])
+        left = int(stats[component_id, cv2.CC_STAT_LEFT]) + left_offset
+        top = int(stats[component_id, cv2.CC_STAT_TOP]) + top_offset
         width = int(stats[component_id, cv2.CC_STAT_WIDTH])
         height = int(stats[component_id, cv2.CC_STAT_HEIGHT])
         area = int(stats[component_id, cv2.CC_STAT_AREA])

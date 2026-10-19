@@ -86,6 +86,11 @@ def measure_box_iou(
     """
     check1 = check_box_validity(box1, image_size)
     check2 = check_box_validity(box2, image_size)
+    return _measure_validated_box_iou(check1, check2)
+
+
+def _measure_validated_box_iou(check1: BoxValidity, check2: BoxValidity) -> BoxIoU:
+    """Reuse validation within one call while retaining invalid-box evidence."""
     invalid_boxes = {}
     if not check1["valid"]:
         invalid_boxes["box1"] = check1["reason"]
@@ -132,8 +137,11 @@ def measure_pairwise_box_iou(objects: Sequence[AnnotationObject], image_size: Im
     produce an empty list. High IoU alone does not establish a duplicate.
     """
     results = []
-    for obj1, obj2 in combinations(objects, 2):
-        measurement = measure_box_iou(obj1["bbox"], obj2["bbox"], image_size)
+    if len(objects) < 2:
+        return results
+    checked = [(obj, check_box_validity(obj["bbox"], image_size)) for obj in objects]
+    for (obj1, check1), (obj2, check2) in combinations(checked, 2):
+        measurement = _measure_validated_box_iou(check1, check2)
         measurement["object_ids"] = (obj1["object_id"], obj2["object_id"])
         results.append(measurement)
     return results
