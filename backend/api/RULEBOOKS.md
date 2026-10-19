@@ -21,7 +21,13 @@ start jobs, repair data, inspect dataset assets or perform model inference.
 No GET declares mutation-only 409 responses. Dependency configuration is
 resolved at request time, not import time.
 
-Generated `openapi.json`, `examples.json` and `ENDPOINTS.md` must be refreshed
+Use [implemented-openapi.json](implemented-openapi.json) for live client generation
+and [examples.json](examples.json) for request/response fixtures. The combined
+`openapi.json` also includes planned operations. Rulebooks must already exist;
+creation and extraction are not callable through HTTP yet.
+
+Generated `openapi.json`, `implemented-openapi.json`, `examples.json` and
+`ENDPOINTS.md` must be refreshed
 with `.venv/bin/python -B -m backend.api.build_contract`. They are generated
 outputs, not hand-edited sources. Examples are independent synthetic snapshots.
 
@@ -48,10 +54,13 @@ for invalid origins, duplicate IDs and mismatched citations. Invalid requests
 reject unknown fields and boolean/string `expected_version` values. Reviewer
 IDs are attribution, not authenticated identities; authentication is out of scope.
 
-A dedicated ValidationError subtype marks only replacement snapshot construction.
-Request revalidation, repository decoding/saving and unrelated validation defects
-are outside that boundary. Corrupt records and unexpected failures are not
-silently relabelled as user mistakes. Unknown review-error reasons remain 500.
+For editing controls, `examples.check_catalog` provides registered check names,
+human-readable meanings, scopes and parameter schemas. For example, 5% outside
+a box maps to `mask_outside_box` with `max_outside_fraction: 0.05`; this is an
+illustrative threshold, not a default. Do not invent thresholds for vague rules.
+Confirmation records reviewer approval; it does not guarantee that a check is
+supported or its parameters can be evaluated. Invalid content uses safe 422
+responses; stored corruption and unexpected failures remain server errors.
 
 The generated examples show edit v1→v2, confirm v2→v3 and revise v3→v4.
 Reject-v1→v2 is an alternative branch, not an action after confirmation.

@@ -1,7 +1,7 @@
 """Assemble and write API endpoints and frontend contract artifacts.
 
 Run from the project root with python -m backend.api.build_contract.
-These templates do not register or run HTTP routes.
+Schema generation imports the app without serving requests or connecting to storage.
 """
 
 from copy import deepcopy
@@ -9,6 +9,9 @@ import json
 from pathlib import Path
 import re
 from typing import Any
+
+from backend.app.checks.registry import CHECK_REGISTRY, extraction_check_catalog
+from backend.app.main import create_app
 
 from .common import (
     BASE_PATH, SAMPLE_REVIEW_STATUS, TEXT, TOOL_STATUS, VERSION,
@@ -45,7 +48,7 @@ def build_contract() -> JsonObject:
     contract: JsonObject = {
         "openapi": "3.1.0",
         "info": {"title": "PRISM Data Quality Checker — API contract", "version": "0.1.0",
-                 "description": "Audit sample reads, revision-pinned asset delivery, job status/cancellation and finding/sample review routes and rulebook reads/reviewer actions are implemented. Other operations remain planned; inspect x-implementation-status. Examples are synthetic, not model accuracy results. Local CPU prototype; plain text guidelines first."},
+                 "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review and saved-rulebook read/review operations are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
         "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Local development server; only implemented operations are callable."}],
         "tags": [{"name": name} for name in ("System", "Rulebooks", "Datasets", "Jobs", "Audits", "Reviews", "Corrections", "Exports", "Feedback")],
         "paths": {}, "components": {"schemas": schemas},
@@ -66,13 +69,17 @@ def build_contract() -> JsonObject:
                   "ground_truth_id": "truth_demo"}
         for name in re.findall(r"\{([^}]+)\}", path):
             if not any(item["name"] == name and item["in"] == "path" for item in params):
-                identifier = {**TEXT, "pattern": r"\S"} if path.startswith("/rulebooks") else TEXT
+                identifier = {**TEXT, "pattern": r"\S"}
                 params.append(parameter(name, "path", identifier, values[name]))
         media = "application/zip" if binary else "application/json"
         success_content = {"schema": {"type": "string", "format": "binary"} if binary else ref(response_schema)}
         if not binary:
             success_content["example"] = deepcopy(response_example)
-        responses = {str(status): {"description": "Job accepted; poll the returned job ID." if status == 202 else summary,
+        success_description = (
+            "Cancellation requested; inspect the returned job state." if operation_id == "cancelJob"
+            else "Job accepted; poll the returned job ID." if status == 202 else summary
+        )
+        responses = {str(status): {"description": success_description,
                                   "content": {media: success_content}}}
         for error_status, code, message in (
             (400, "INVALID_REQUEST", "The request could not be processed."),
@@ -82,6 +89,16 @@ def build_contract() -> JsonObject:
             (503, "DEPENDENCY_UNAVAILABLE", "A required local model or service is unavailable."),
             (500, "INTERNAL_ERROR", "The request could not be completed."),
         ):
+            if implementation == "implemented":
+                if error_status == 404:
+                    message = (
+                        "The requested rulebook or version does not exist." if path.startswith("/rulebooks")
+                        else "The requested job does not exist." if path.startswith("/jobs")
+                        else "The requested sample asset does not exist." if path.startswith("/datasets")
+                        else "The requested audit, sample, or finding does not exist."
+                    )
+                elif error_status == 503:
+                    message = "Rulebook storage is unavailable." if path.startswith("/rulebooks") else "Audit storage is unavailable."
             if implementation == "implemented" and error_status == 400:
                 continue
             if implementation == "implemented" and error_status == 409 and not conflict_examples:
@@ -129,14 +146,14 @@ def build_contract() -> JsonObject:
 
     add("GET", "/health", "getHealth", "System", "Check HTTP server liveness", "Health", {"status": "ok", "api_version": "v1"},
         description="Liveness only. Ollama being offline must not make this endpoint fail.")
-    checks = ["allowed_labels", "annotation_metadata", "mask_dimensions", "mask_ids", "box_validity", "box_iou", "box_mask_alignment", "mask_outside_box", "mask_box_fill", "mask_components"]
+    checks = sorted(CHECK_REGISTRY)
     add("GET", "/capabilities", "getCapabilities", "System", "List supported and planned checks", "Capabilities",
         {"dataset_formats": ["penn_fudan"], "guideline_input_formats": ["plain_text"], "coordinate_convention": "one_based_inclusive",
          "checks": [{"name": name, "implementation": "implemented"} for name in checks] +
                    [{"name": name, "implementation": "planned"} for name in
                     ("person_detection", "detection_annotation_matches", "detection_mask_coverage", "mask_person_count", "person_posture")],
          "execution_device": "cpu"},
-        backing="Existing measurement functions; registry and HTTP route are planned.")
+        backing="CHECK_REGISTRY and measurement/evaluation services exist; the HTTP route is planned.")
     add("GET", "/system/status", "getSystemStatus", "System", "Inspect local model readiness", "SystemStatus",
         {"ollama": {"reachable": False, "model": EXAMPLE_MODEL, "model_available": None},
          "detector": {"weights_cached": True, "integration_ready": False}, "execution_device": "cpu"},
@@ -225,7 +242,7 @@ def build_contract() -> JsonObject:
     audit_request = {"dataset_id": "dataset_demo", "rulebook_id": "rulebook_demo", "rulebook_version": examples["confirmed"]["version"], "sample_ids": None, "feedback_policy_id": None}
     add("POST", "/audits", "startAudit", "Audits", "Start an audit against confirmed rules", "AuditStarted",
         {"audit": {**examples["audit"], "status": "queued", "processed_count": 0}, "job": job("audit", "audit", "audit_demo")}, status=202,
-        body_schema="AuditRequest", body_example=audit_request, backing="audit_sample measurements exist; confirmed-rule execution, batch processing and route are planned.",
+        body_schema="AuditRequest", body_example=audit_request, backing="Measurement collection, confirmed-rule evaluation and PostgreSQL batch processing exist; dataset import/revision selection and the HTTP route remain planned.",
         description="sample_ids null means all samples. Require ready dataset and a confirmed rulebook version; return 409 RULEBOOK_NOT_CONFIRMED otherwise. Snapshot sample revisions and rules. Unsupported rules yield unavailable findings. A non-null feedback policy must be active. Batch size is selected from measured CPU resources, not supplied as a universal fixed size.")
     add("GET", "/audits", "listAudits", "Audits", "List audit runs", "AuditPage", page([examples["audit"]]), parameters=pagination_parameters())
     add("GET", "/audits/{audit_id}", "getAudit", "Audits", "Read persisted audit progress", "AuditRun", examples["audit_run"],
@@ -233,7 +250,7 @@ def build_contract() -> JsonObject:
         backing="AuditRepository.get_audit and FastAPI route implemented.",
         description="Read the persisted audit lifecycle summary without executing, claiming, recovering or modifying work, inspecting asset files or contacting Ollama. HTTP 200 is returned for every persisted lifecycle state. Processing completion does not imply reviewer acceptance.")
     add("GET", "/audits/{audit_id}/samples", "listAuditSamples", "Audits", "Read the complete review queue", "AuditSamplePage", page([examples["summary"]]),
-        parameters=pagination_parameters() + [parameter("tool_status", "query", TOOL_STATUS, "flagged"), parameter("review_status", "query", SAMPLE_REVIEW_STATUS, "pending_review")],
+        parameters=pagination_parameters() + [parameter("tool_status", "query", {"anyOf": [TOOL_STATUS, {"type": "null"}], "default": None}, "flagged"), parameter("review_status", "query", {"anyOf": [SAMPLE_REVIEW_STATUS, {"type": "null"}], "default": None}, "pending_review")],
         implementation="implemented", backing="AuditReadRepository.list_samples and FastAPI route implemented.",
         description="Omit filters to include every sample in original audit order. total and next_offset refer to the filtered queue. Processing state, incomplete flag, machine outcomes and human decisions are separate. Queued/running samples are pending; otherwise fail takes precedence over unsure, then unavailable. Failed/cancelled/incomplete or zero-findings samples cannot be no_issue. No automatic acceptance. Snapshot-backed samples with an available captured original image advertise a revision-pinned thumbnail_url; legacy samples without a manifest association keep it null. Missing audits return 404, empty matching pages return 200.")
     add("GET", "/audits/{audit_id}/samples/{sample_id}", "getAuditSample", "Audits", "Read sample findings, evidence and measurements", "SampleAudit", examples["detail"],
@@ -293,7 +310,7 @@ def build_contract() -> JsonObject:
             "INVALID_SAMPLE_REVIEW_STATE": "The sample is not currently eligible for review.",
         },
         backing="review_sample service, PostgreSQL sample review history and FastAPI route implemented.",
-        description="Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: authoritative annotation revisions and immutable asset loading remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.")
+        description="Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: snapshot-backed audits use immutable captured assets; legacy audits use live files. Application-owned revision selection and correction workflows remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.")
     add("GET", "/audits/{audit_id}/samples/{sample_id}/reviews", "listSampleReviews", "Reviews", "Read sample decision history", "SampleReviewPage", page([reviewed]),
         parameters=pagination_parameters() + [parameter("sample_revision", "query", VERSION, 1, required=True,
             description="Exact stored audit sample revision; history never merges other pins or audits.")],
@@ -343,7 +360,56 @@ def build_contract() -> JsonObject:
     contract["x-template-operations"] = operations
     contract["x-review-scenarios"] = examples["review_scenarios"]
     contract["x-review-scenario-rulebooks"] = examples["review_scenario_rulebooks"]
+    contract["x-job-scenarios"] = examples["job_scenarios"]
+    contract["x-audit-scenarios"] = examples["audit_scenarios"]
     return contract
+
+
+def build_implemented_contract(reference: JsonObject) -> JsonObject:
+    """Use live FastAPI schemas for callable endpoints and retain frontend examples."""
+    implemented = create_app().openapi()
+    published = {
+        (BASE_PATH + path, method): operation
+        for path, methods in reference["paths"].items()
+        for method, operation in methods.items()
+        if operation["x-implementation-status"] == "implemented"
+    }
+    registered = {
+        (path, method) for path, methods in implemented["paths"].items() for method in methods
+    }
+    if set(published) != registered:
+        raise ValueError("Implemented contract operations must match the registered HTTP routes.")
+    for (path, method), documented in published.items():
+        operation = implemented["paths"][path][method]
+        if operation["operationId"] != documented["operationId"]:
+            raise ValueError(f"Operation ID disagrees with the registered route: {method} {path}")
+        if set(operation["responses"]) != set(documented["responses"]):
+            raise ValueError(f"Response statuses disagree with the registered route: {method} {path}")
+        for key in ("summary", "description", "x-implementation-status", "x-backing-service-status"):
+            operation[key] = deepcopy(documented[key])
+        parameter_docs = {(item["in"], item["name"]): item for item in documented.get("parameters", [])}
+        for parameter in operation.get("parameters", []):
+            matching = parameter_docs.get((parameter["in"], parameter["name"]), {})
+            for key in ("example", "description"):
+                if key in matching:
+                    parameter[key] = deepcopy(matching[key])
+        for status, response in operation["responses"].items():
+            for media_type, media in response.get("content", {}).items():
+                matching = documented["responses"][status].get("content", {}).get(media_type, {})
+                for key in ("example", "examples"):
+                    media.pop(key, None)
+                    if key in matching:
+                        media[key] = deepcopy(matching[key])
+        for media_type, media in operation.get("requestBody", {}).get("content", {}).items():
+            matching = documented.get("requestBody", {}).get("content", {}).get(media_type, {})
+            if "example" in matching:
+                media["example"] = deepcopy(matching["example"])
+    implemented["servers"] = [{"url": "http://127.0.0.1:8000", "description": "Paths already include /api/v1."}]
+    implemented["info"]["description"] = (
+        "Callable backend endpoints only, with schemas from the FastAPI application. "
+        "Use this document for frontend client generation. Examples are independent synthetic snapshots."
+    )
+    return implemented
 
 
 def render_artifacts() -> dict[str, str]:
@@ -352,23 +418,33 @@ def render_artifacts() -> dict[str, str]:
     fixtures = contract.pop("x-template-operations")
     scenarios = contract.pop("x-review-scenarios")
     scenario_rulebooks = contract.pop("x-review-scenario-rulebooks")
-    documents = {"openapi.json": contract, "examples.json": {
-        "notice": "Synthetic frontend fixtures. Audit sample reads, revision-pinned asset delivery, job status/cancellation and finding/sample review routes and rulebook reads/reviewer actions are implemented; check each operation's implementation field. The four machine-outcome scenarios show snapshot-backed available links; the legacy scenario demonstrates null asset fields while preserving audit evidence.",
+    job_scenarios = contract.pop("x-job-scenarios")
+    audit_scenarios = contract.pop("x-audit-scenarios")
+    documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
+        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Audit metadata, queue/detail, assets, jobs, finding/sample reviews and saved-rulebook read/review are implemented. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
+        "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,
+        "check_catalog": extraction_check_catalog(),
     }}
     artifacts = {
         filename: json.dumps(content, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
         for filename, content in documents.items()
     }
-    lines = ["# Endpoint index", "", "Generated from `build_contract.py`. Only operations marked implemented have HTTP handlers.", "",
-             "Paths include the `/api/v1` prefix. See `openapi.json` for schemas and `examples.json` for frontend fixtures.", ""]
-    for tag in contract["tags"]:
-        lines.extend([f"## {tag['name']}", ""])
-        for operation in fixtures:
-            if operation["tag"] == tag["name"]:
-                lines.append(f"- `{operation['method']} {operation['path']}` — {operation['summary']} (`{operation['operation_id']}`; {operation['implementation']}).")
-        lines.append("")
+    lines = ["# Endpoint index", "", "Generated from `build_contract.py`. Paths include `/api/v1`.", "",
+             "Use [implemented-openapi.json](implemented-openapi.json) for callable endpoint schemas and client generation. "
+             "[openapi.json](openapi.json) also includes planned designs. [examples.json](examples.json) contains synthetic fixtures.", ""]
+    for status, heading in (("implemented", "Implemented"), ("planned", "Planned — unavailable on the running server")):
+        matching = [operation for operation in fixtures if operation["implementation"] == status]
+        lines.extend([f"## {heading} ({len(matching)} operations)", ""])
+        for tag in contract["tags"]:
+            grouped = [operation for operation in matching if operation["tag"] == tag["name"]]
+            if not grouped:
+                continue
+            lines.extend([f"### {tag['name']}", ""])
+            for operation in grouped:
+                lines.append(f"- `{operation['method']} {operation['path']}` — {operation['summary']} (`{operation['operation_id']}`; {status}).")
+            lines.append("")
     artifacts["ENDPOINTS.md"] = "\n".join(lines)
     return artifacts
 
@@ -376,7 +452,7 @@ def render_artifacts() -> dict[str, str]:
 def main() -> None:
     for filename, content in render_artifacts().items():
         (API_DIRECTORY / filename).write_text(content, encoding="utf-8")
-    print("Generated OpenAPI schemas, frontend fixtures and the endpoint index.")
+    print("Generated combined and implemented-only OpenAPI, frontend fixtures and the endpoint index.")
 
 
 if __name__ == "__main__":

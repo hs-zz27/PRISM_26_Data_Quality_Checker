@@ -1,5 +1,5 @@
 {
-  "notice": "Synthetic frontend fixtures. Audit sample reads, revision-pinned asset delivery, job status/cancellation and finding/sample review routes and rulebook reads/reviewer actions are implemented; check each operation's implementation field. The four machine-outcome scenarios show snapshot-backed available links; the legacy scenario demonstrates null asset fields while preserving audit evidence.",
+  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Audit metadata, queue/detail, assets, jobs, finding/sample reviews and saved-rulebook read/review are implemented. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
   "base_url": "http://127.0.0.1:8000",
   "operations": [
     {
@@ -32,7 +32,7 @@
       "tag": "System",
       "summary": "List supported and planned checks",
       "implementation": "planned",
-      "backing_service": "Existing measurement functions; registry and HTTP route are planned.",
+      "backing_service": "CHECK_REGISTRY and measurement/evaluation services exist; the HTTP route is planned.",
       "request": {
         "path_parameters": {},
         "query": {},
@@ -56,7 +56,31 @@
               "implementation": "implemented"
             },
             {
+              "name": "annotation_ids",
+              "implementation": "implemented"
+            },
+            {
               "name": "annotation_metadata",
+              "implementation": "implemented"
+            },
+            {
+              "name": "box_mask_alignment",
+              "implementation": "implemented"
+            },
+            {
+              "name": "box_overlaps",
+              "implementation": "implemented"
+            },
+            {
+              "name": "box_validity",
+              "implementation": "implemented"
+            },
+            {
+              "name": "mask_box_fill",
+              "implementation": "implemented"
+            },
+            {
+              "name": "mask_components",
               "implementation": "implemented"
             },
             {
@@ -68,27 +92,7 @@
               "implementation": "implemented"
             },
             {
-              "name": "box_validity",
-              "implementation": "implemented"
-            },
-            {
-              "name": "box_iou",
-              "implementation": "implemented"
-            },
-            {
-              "name": "box_mask_alignment",
-              "implementation": "implemented"
-            },
-            {
               "name": "mask_outside_box",
-              "implementation": "implemented"
-            },
-            {
-              "name": "mask_box_fill",
-              "implementation": "implemented"
-            },
-            {
-              "name": "mask_components",
               "implementation": "implemented"
             },
             {
@@ -1181,7 +1185,7 @@
       "tag": "Audits",
       "summary": "Start an audit against confirmed rules",
       "implementation": "planned",
-      "backing_service": "audit_sample measurements exist; confirmed-rule execution, batch processing and route are planned.",
+      "backing_service": "Measurement collection, confirmed-rule evaluation and PostgreSQL batch processing exist; dataset import/revision selection and the HTTP route remain planned.",
       "request": {
         "path_parameters": {},
         "query": {},
@@ -5789,5 +5793,401 @@
       ],
       "confirmation_state": "confirmed"
     }
-  }
+  },
+  "job_scenarios": {
+    "queued": {
+      "job_id": "job_audit_demo",
+      "kind": "audit",
+      "status": "queued",
+      "progress": {
+        "phase": "queued",
+        "processed": 0,
+        "total": 2,
+        "fraction": 0.0
+      },
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "running": {
+      "job_id": "job_audit_demo",
+      "kind": "audit",
+      "status": "running",
+      "progress": {
+        "phase": "running",
+        "processed": 1,
+        "total": 2,
+        "fraction": 0.5
+      },
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "cancelling": {
+      "job_id": "job_audit_demo",
+      "kind": "audit",
+      "status": "cancelling",
+      "progress": {
+        "phase": "cancelling",
+        "processed": 1,
+        "total": 2,
+        "fraction": 0.5
+      },
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "completed": {
+      "job_id": "job_audit_demo",
+      "kind": "audit",
+      "status": "completed",
+      "progress": {
+        "phase": "completed",
+        "processed": 2,
+        "total": 2,
+        "fraction": 1.0
+      },
+      "result": {
+        "kind": "audit",
+        "id": "audit_demo",
+        "version": null,
+        "href": "/api/v1/audits/audit_demo"
+      },
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "failed": {
+      "job_id": "job_audit_demo",
+      "kind": "audit",
+      "status": "failed",
+      "progress": {
+        "phase": "failed",
+        "processed": 1,
+        "total": 2,
+        "fraction": 0.5
+      },
+      "result": null,
+      "error": {
+        "code": "AUDIT_FAILED",
+        "message": "The audit worker failed before the batch completed.",
+        "details": [],
+        "request_id": "request_demo"
+      },
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "cancelled": {
+      "job_id": "job_audit_demo",
+      "kind": "audit",
+      "status": "cancelled",
+      "progress": {
+        "phase": "cancelled",
+        "processed": 1,
+        "total": 2,
+        "fraction": 0.5
+      },
+      "result": {
+        "kind": "audit",
+        "id": "audit_demo",
+        "version": null,
+        "href": "/api/v1/audits/audit_demo"
+      },
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    }
+  },
+  "audit_scenarios": {
+    "queued": {
+      "audit_id": "audit_demo",
+      "job_id": "job_audit_demo",
+      "dataset_id": "dataset_demo",
+      "rulebook_id": "rulebook_demo",
+      "rulebook_version": 3,
+      "source_mode": "snapshot",
+      "status": "queued",
+      "sample_count": 2,
+      "processed_count": 0,
+      "failed_count": 0,
+      "incomplete_count": 0,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "running": {
+      "audit_id": "audit_demo",
+      "job_id": "job_audit_demo",
+      "dataset_id": "dataset_demo",
+      "rulebook_id": "rulebook_demo",
+      "rulebook_version": 3,
+      "source_mode": "snapshot",
+      "status": "running",
+      "sample_count": 2,
+      "processed_count": 1,
+      "failed_count": 0,
+      "incomplete_count": 0,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "cancelling": {
+      "audit_id": "audit_demo",
+      "job_id": "job_audit_demo",
+      "dataset_id": "dataset_demo",
+      "rulebook_id": "rulebook_demo",
+      "rulebook_version": 3,
+      "source_mode": "snapshot",
+      "status": "cancelling",
+      "sample_count": 2,
+      "processed_count": 1,
+      "failed_count": 0,
+      "incomplete_count": 0,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "completed": {
+      "audit_id": "audit_demo",
+      "job_id": "job_audit_demo",
+      "dataset_id": "dataset_demo",
+      "rulebook_id": "rulebook_demo",
+      "rulebook_version": 3,
+      "source_mode": "snapshot",
+      "status": "completed",
+      "sample_count": 2,
+      "processed_count": 2,
+      "failed_count": 0,
+      "incomplete_count": 0,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "failed": {
+      "audit_id": "audit_demo",
+      "job_id": "job_audit_demo",
+      "dataset_id": "dataset_demo",
+      "rulebook_id": "rulebook_demo",
+      "rulebook_version": 3,
+      "source_mode": "snapshot",
+      "status": "failed",
+      "sample_count": 2,
+      "processed_count": 1,
+      "failed_count": 1,
+      "incomplete_count": 0,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "cancelled": {
+      "audit_id": "audit_demo",
+      "job_id": "job_audit_demo",
+      "dataset_id": "dataset_demo",
+      "rulebook_id": "rulebook_demo",
+      "rulebook_version": 3,
+      "source_mode": "snapshot",
+      "status": "cancelled",
+      "sample_count": 2,
+      "processed_count": 1,
+      "failed_count": 0,
+      "incomplete_count": 0,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    }
+  },
+  "check_catalog": [
+    {
+      "check_name": "allowed_labels",
+      "meaning": "Each annotation label must be one of the explicitly configured allowed labels.",
+      "scope": "object",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_labels": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Allowed Labels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "allowed_labels"
+        ],
+        "title": "AllowedLabelsParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "annotation_ids",
+      "meaning": "Annotation object IDs must be positive and unique.",
+      "scope": "sample",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Checks whose semantics do not require a threshold or label list.",
+        "properties": {},
+        "title": "EmptyParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "annotation_metadata",
+      "meaning": "Declared annotation metadata must match the available image and annotation measurements.",
+      "scope": "sample",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Checks whose semantics do not require a threshold or label list.",
+        "properties": {},
+        "title": "EmptyParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "box_mask_alignment",
+      "meaning": "Each box-to-mask edge difference must be no greater than the configured maximum pixels.",
+      "scope": "object",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_edge_difference": {
+            "minimum": 0,
+            "title": "Max Edge Difference",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_edge_difference"
+        ],
+        "title": "MaximumEdgeDifferenceParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "box_overlaps",
+      "meaning": "Each pair of annotation boxes must have IoU no greater than the configured maximum.",
+      "scope": "pair",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_iou": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Max Iou",
+            "type": "number"
+          }
+        },
+        "required": [
+          "max_iou"
+        ],
+        "title": "MaximumIoUParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "box_validity",
+      "meaning": "Each annotation box must be valid and lie within the image bounds.",
+      "scope": "object",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Checks whose semantics do not require a threshold or label list.",
+        "properties": {},
+        "title": "EmptyParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "mask_box_fill",
+      "meaning": "Each mask's fill fraction inside its annotation box must stay between the configured bounds.",
+      "scope": "object",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "min_fill_fraction": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Min Fill Fraction",
+            "type": "number"
+          },
+          "max_fill_fraction": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Max Fill Fraction",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min_fill_fraction",
+          "max_fill_fraction"
+        ],
+        "title": "FillFractionParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "mask_components",
+      "meaning": "Each mask must have no more than the configured maximum number of connected components.",
+      "scope": "object",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_component_count": {
+            "minimum": 1,
+            "title": "Max Component Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_component_count"
+        ],
+        "title": "MaximumComponentCountParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "mask_dimensions",
+      "meaning": "The image and mask dimensions must match.",
+      "scope": "sample",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Checks whose semantics do not require a threshold or label list.",
+        "properties": {},
+        "title": "EmptyParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "mask_ids",
+      "meaning": "The non-background mask IDs must match the annotation object IDs.",
+      "scope": "sample",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Checks whose semantics do not require a threshold or label list.",
+        "properties": {},
+        "title": "EmptyParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "mask_outside_box",
+      "meaning": "The fraction of each mask outside its annotation box must be no greater than the configured maximum.",
+      "scope": "object",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_outside_fraction": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Max Outside Fraction",
+            "type": "number"
+          }
+        },
+        "required": [
+          "max_outside_fraction"
+        ],
+        "title": "MaximumOutsideFractionParameters",
+        "type": "object"
+      }
+    }
+  ]
 }

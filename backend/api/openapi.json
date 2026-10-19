@@ -3,7 +3,7 @@
   "info": {
     "title": "PRISM Data Quality Checker — API contract",
     "version": "0.1.0",
-    "description": "Audit sample reads, revision-pinned asset delivery, job status/cancellation and finding/sample review routes and rulebook reads/reviewer actions are implemented. Other operations remain planned; inspect x-implementation-status. Examples are synthetic, not model accuracy results. Local CPU prototype; plain text guidelines first."
+    "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review and saved-rulebook read/review operations are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
   },
   "servers": [
     {
@@ -168,7 +168,7 @@
         "summary": "List supported and planned checks",
         "description": "List supported and planned checks",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "Existing measurement functions; registry and HTTP route are planned.",
+        "x-backing-service-status": "CHECK_REGISTRY and measurement/evaluation services exist; the HTTP route is planned.",
         "responses": {
           "200": {
             "description": "List supported and planned checks",
@@ -191,7 +191,31 @@
                       "implementation": "implemented"
                     },
                     {
+                      "name": "annotation_ids",
+                      "implementation": "implemented"
+                    },
+                    {
                       "name": "annotation_metadata",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "box_mask_alignment",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "box_overlaps",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "box_validity",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "mask_box_fill",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "mask_components",
                       "implementation": "implemented"
                     },
                     {
@@ -203,27 +227,7 @@
                       "implementation": "implemented"
                     },
                     {
-                      "name": "box_validity",
-                      "implementation": "implemented"
-                    },
-                    {
-                      "name": "box_iou",
-                      "implementation": "implemented"
-                    },
-                    {
-                      "name": "box_mask_alignment",
-                      "implementation": "implemented"
-                    },
-                    {
                       "name": "mask_outside_box",
-                      "implementation": "implemented"
-                    },
-                    {
-                      "name": "mask_box_fill",
-                      "implementation": "implemented"
-                    },
-                    {
-                      "name": "mask_components",
                       "implementation": "implemented"
                     },
                     {
@@ -683,7 +687,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -724,7 +728,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -979,7 +983,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1020,7 +1024,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1137,7 +1141,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1212,7 +1216,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1392,7 +1396,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1433,7 +1437,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1559,7 +1563,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1600,7 +1604,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1725,7 +1729,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1811,7 +1815,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1925,7 +1929,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2000,7 +2004,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2114,7 +2118,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2189,7 +2193,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2705,7 +2709,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "dataset_demo",
             "description": ""
@@ -2919,7 +2924,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "dataset_demo",
             "description": ""
@@ -3111,7 +3117,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "dataset_demo",
             "description": ""
@@ -3122,7 +3129,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "sample_001",
             "description": ""
@@ -3153,7 +3161,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested sample asset does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3221,7 +3229,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3301,7 +3309,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "dataset_demo",
             "description": ""
@@ -3312,7 +3321,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "sample_001",
             "description": ""
@@ -3454,7 +3464,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "dataset_demo",
             "description": ""
@@ -3465,7 +3476,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "sample_001",
             "description": ""
@@ -3638,7 +3650,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "dataset_demo",
             "description": ""
@@ -3649,7 +3662,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "sample_001",
             "description": ""
@@ -3879,7 +3893,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "dataset_demo",
             "description": ""
@@ -3890,7 +3905,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "sample_001",
             "description": ""
@@ -3907,7 +3923,7 @@
         "summary": "Start an audit against confirmed rules",
         "description": "sample_ids null means all samples. Require ready dataset and a confirmed rulebook version; return 409 RULEBOOK_NOT_CONFIRMED otherwise. Snapshot sample revisions and rules. Unsupported rules yield unavailable findings. A non-null feedback policy must be active. Batch size is selected from measured CPU resources, not supplied as a universal fixed size.",
         "x-implementation-status": "planned",
-        "x-backing-service-status": "audit_sample measurements exist; confirmed-rule execution, batch processing and route are planned.",
+        "x-backing-service-status": "Measurement collection, confirmed-rule evaluation and PostgreSQL batch processing exist; dataset import/revision selection and the HTTP route remain planned.",
         "responses": {
           "202": {
             "description": "Job accepted; poll the returned job ID.",
@@ -4258,7 +4274,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested audit, sample, or finding does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4267,7 +4283,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested audit, sample, or finding does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4294,7 +4310,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4303,7 +4319,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4337,7 +4353,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "audit_demo",
             "description": ""
@@ -4390,7 +4407,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested audit, sample, or finding does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4399,7 +4416,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested audit, sample, or finding does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4426,7 +4443,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4435,7 +4452,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4493,14 +4510,22 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "flagged",
-                "unsure",
-                "no_issue",
-                "unavailable"
-              ]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "flagged",
+                    "unsure",
+                    "no_issue",
+                    "unavailable"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "example": "flagged",
             "description": ""
@@ -4510,13 +4535,21 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "enum": [
-                "pending_review",
-                "needs_correction",
-                "accepted",
-                "rejected"
-              ]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "pending_review",
+                    "needs_correction",
+                    "accepted",
+                    "rejected"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "example": "pending_review",
             "description": ""
@@ -4527,7 +4560,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "audit_demo",
             "description": ""
@@ -7379,7 +7413,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested audit, sample, or finding does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7388,7 +7422,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested audit, sample, or finding does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7415,7 +7449,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7424,7 +7458,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7458,7 +7492,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "audit_demo",
             "description": ""
@@ -7469,7 +7504,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "sample_001",
             "description": ""
@@ -7695,7 +7731,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "audit_demo",
             "description": ""
@@ -7853,7 +7890,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "audit_demo",
             "description": ""
@@ -7919,7 +7957,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested job does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7928,7 +7966,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested job does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7955,7 +7993,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7964,7 +8002,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7998,7 +8036,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "job_audit_demo",
             "description": ""
@@ -8018,7 +8057,7 @@
         "x-backing-service-status": "AuditRepository.cancel_job dispatch boundary and FastAPI route implemented.",
         "responses": {
           "202": {
-            "description": "Job accepted; poll the returned job ID.",
+            "description": "Cancellation requested; inspect the returned job state.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8048,7 +8087,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested job does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8057,7 +8096,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested job does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8107,7 +8146,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8116,7 +8155,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8150,7 +8189,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "job_audit_demo",
             "description": ""
@@ -8196,7 +8236,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested audit, sample, or finding does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8205,7 +8245,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested audit, sample, or finding does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8232,7 +8272,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8241,7 +8281,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8300,7 +8340,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "finding_demo",
             "description": ""
@@ -8337,7 +8378,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested audit, sample, or finding does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8346,7 +8387,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested audit, sample, or finding does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8396,7 +8437,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8405,7 +8446,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8439,7 +8480,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "finding_demo",
             "description": ""
@@ -8470,7 +8512,7 @@
           "Reviews"
         ],
         "summary": "Record the reviewer's data decision",
-        "description": "Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: authoritative annotation revisions and immutable asset loading remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.",
+        "description": "Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: snapshot-backed audits use immutable captured assets; legacy audits use live files. Application-owned revision selection and correction workflows remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "review_sample service, PostgreSQL sample review history and FastAPI route implemented.",
         "responses": {
@@ -8495,7 +8537,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested audit, sample, or finding does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8504,7 +8546,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested audit, sample, or finding does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8576,7 +8618,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8585,7 +8627,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8619,7 +8661,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "audit_demo",
             "description": ""
@@ -8630,7 +8673,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "sample_001",
             "description": ""
@@ -8695,7 +8739,7 @@
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested audit, sample, or finding does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8704,7 +8748,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested audit, sample, or finding does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8754,7 +8798,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8763,7 +8807,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -8833,7 +8877,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "audit_demo",
             "description": ""
@@ -8844,7 +8889,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "sample_001",
             "description": ""
@@ -9146,7 +9192,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "export_demo",
             "description": ""
@@ -9274,7 +9321,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "export_demo",
             "description": ""
@@ -9416,7 +9464,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "export_demo",
             "description": ""
@@ -10024,7 +10073,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "policy_demo",
             "description": ""
@@ -10302,7 +10352,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "truth_demo",
             "description": ""
@@ -10776,7 +10827,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "evaluation_demo",
             "description": ""
@@ -10916,7 +10968,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "policy_demo",
             "description": ""

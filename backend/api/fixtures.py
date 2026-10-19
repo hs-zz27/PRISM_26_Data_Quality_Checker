@@ -12,7 +12,7 @@ from PIL import Image
 
 from backend.app.models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin
 from backend.app.models.audit import AuditRun
-from backend.app.models.job import JobStatus
+from backend.app.models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
 from backend.app.services.audit import audit_sample
 
 from .common import BASE_PATH, JsonObject
@@ -40,6 +40,33 @@ def job(kind: str, resource_kind: str, resource_id: str, *, completed: bool = Fa
                    "href": f"{BASE_PATH}/{collection}/{resource_id}"} if completed else None,
         "error": None, "created_at": TIMESTAMP, "updated_at": TIMESTAMP,
     }
+
+
+def build_lifecycle_scenarios(rulebook_version: int) -> tuple[JsonObject, JsonObject]:
+    """Create independent, model-validated job/audit snapshots for frontend states."""
+    timestamp = datetime.fromisoformat(TIMESTAMP)
+    jobs, audits = {}, {}
+    for status in JobStatus:
+        processed = 0 if status is JobStatus.QUEUED else 2 if status is JobStatus.COMPLETED else 1
+        result = ResultReference(kind="audit", id="audit_demo", href=f"{BASE_PATH}/audits/audit_demo")
+        error = ApiError(
+            code="AUDIT_FAILED", message="The audit worker failed before the batch completed.",
+            request_id="request_demo",
+        ) if status is JobStatus.FAILED else None
+        jobs[status.value] = Job(
+            job_id="job_audit_demo", kind=JobKind.AUDIT, status=status,
+            progress=Progress(phase=status.value, processed=processed, total=2, fraction=processed / 2),
+            result=result if status in (JobStatus.COMPLETED, JobStatus.CANCELLED) else None,
+            error=error, created_at=timestamp, updated_at=timestamp,
+        ).model_dump(mode="json")
+        audits[status.value] = AuditRun(
+            audit_id="audit_demo", job_id="job_audit_demo", dataset_id="dataset_demo",
+            rulebook_id="rulebook_demo", rulebook_version=rulebook_version,
+            source_mode="snapshot", status=status, sample_count=2, processed_count=processed,
+            failed_count=1 if status is JobStatus.FAILED else 0, incomplete_count=0,
+            created_at=timestamp, updated_at=timestamp,
+        ).model_dump(mode="json")
+    return jobs, audits
 
 
 def build_examples() -> JsonObject:
@@ -174,6 +201,7 @@ def build_examples() -> JsonObject:
     evaluation = {"evaluation_id": "evaluation_demo", "policy_id": "policy_demo", "job_id": "job_feedback_evaluation_demo",
                   "status": "queued", "evaluation_dataset_id": "dataset_holdout", "ground_truth_id": "truth_demo", "ground_truth_version": 1,
                   "baseline": None, "candidate": None, "error": None}
+    job_scenarios, audit_scenarios = build_lifecycle_scenarios(confirmed["version"])
     return {
         "draft": draft, "manual_draft": manual_draft, "reviewed": reviewed, "confirmed": confirmed,
         "sample": sample, "dataset": dataset,
@@ -186,4 +214,6 @@ def build_examples() -> JsonObject:
             "unavailable": unavailable, "legacy": legacy,
         },
         "review_scenario_rulebooks": scenario_rulebooks,
+        "job_scenarios": job_scenarios,
+        "audit_scenarios": audit_scenarios,
     }

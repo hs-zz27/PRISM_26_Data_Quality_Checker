@@ -1,8 +1,10 @@
-# API contract
+# Frontend API guide
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**Audit sample reads, revision-pinned asset delivery, job status/cancellation and the four finding/sample review routes and all eight saved-rulebook read/review operations are implemented.**
+**18 HTTP operations are implemented:** saved-rulebook read/review, audit metadata
+and sample reads, revision-pinned assets, job polling/cancellation, and
+finding/sample decisions with history.
 All other operations remain planned. Check `x-implementation-status` in OpenAPI
 and `implementation` in each fixture. [Server setup](../README.md#audit-review-api)
 includes the launch command. The running server's `/docs` and `/openapi.json`
@@ -13,11 +15,23 @@ Keep the base URL configurable in the frontend.
 For a frontend served on another port, use its development server's proxy for
 `/api/v1`; cross-origin access is not enabled by default.
 
+Use [implemented-openapi.json](implemented-openapi.json) to generate a client
+for the running backend. Its server URL is `http://127.0.0.1:8000` and paths
+already include `/api/v1`. The combined `openapi.json` uses a server URL ending
+in `/api/v1` and paths without that prefix. Apply the prefix exactly once.
+`examples.json` uses the origin in `base_url` and includes the prefix in paths.
+Resolve asset URLs and `result.href` against the backend origin or its proxy,
+not an SPA route.
+
 ## Files
 
-- [ENDPOINTS.md](ENDPOINTS.md): every method, path and operation ID.
-- [openapi.json](openapi.json): OpenAPI 3.1 schemas and examples for local Swagger
-  UI, API clients and client-type generation.
+- [ENDPOINTS.md](ENDPOINTS.md): every method, path and operation ID, grouped by
+  implemented versus planned.
+- [RULEBOOKS.md](RULEBOOKS.md): saved-rulebook editing, confirmation and history.
+- [implemented-openapi.json](implemented-openapi.json): callable endpoints only,
+  with actual FastAPI transport schemas and frontend examples; use for client generation.
+- [openapi.json](openapi.json): combined implementation/planning reference; the
+  31 planned operations are not available on the running server.
 - [examples.json](examples.json): frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
@@ -33,28 +47,83 @@ For a frontend served on another port, use its development server's proxy for
 Run from the project root:
 
 ```bash
-.venv/bin/python -m backend.api.build_contract
+.venv/bin/python -B -m backend.api.build_contract
 ```
 
 Before committing, run the contract tests, including generated-file freshness:
 
 ```bash
-.venv/bin/python -m pytest backend/tests/test_api_contract.py -q
+.venv/bin/python -m pytest backend/tests/test_api_contract.py backend/tests/test_rulebook_contract.py -q
 ```
 
-Edit the builder rather than generated artifacts. This is draft contract version
-`0.1.0`; agree on field changes with the frontend before implementing routes.
+Edit generator inputs rather than generated artifacts. The implemented-only
+spec imports the app without serving requests, connecting to PostgreSQL,
+applying migrations, or running inference/workers. This is contract version
+`0.1.0`; coordinate field changes with the frontend.
 The HTTP adapter uses FastAPI. Format reference:
 https://spec.openapis.org/oas/v3.1.0.html.
 
-## Frontend workflow
+## Available operations
 
-1. Inspect health, capabilities and system status. Liveness is separate from
+Paths below are relative to `/api/v1`. GET requests have no body.
+
+Saved rulebooks (see [the detailed guide](RULEBOOKS.md)):
+
+- `GET /rulebooks` → 200 `RulebookPage`.
+- `GET /rulebooks/{rulebook_id}?version=N` → 200 `Rulebook`; omit version for latest.
+- `GET /rulebooks/{rulebook_id}/versions` → 200 `RulebookPage`.
+- `GET /rulebooks/{rulebook_id}/reviews` → 200 `RulebookReviewPage`.
+- `PUT /rulebooks/{rulebook_id}` → 200 `Rulebook`; `RulebookReplace` body.
+- `POST /rulebooks/{rulebook_id}/confirm` → 200 `Rulebook`; `RulebookAction` body.
+- `POST /rulebooks/{rulebook_id}/reject` → 200 `Rulebook`; `RulebookAction` body.
+- `POST /rulebooks/{rulebook_id}/revisions` → 201 `Rulebook`; `RulebookAction` body.
+
+Audits, assets and jobs:
+
+- `GET /audits/{audit_id}` → 200 `AuditRun`.
+- `GET /audits/{audit_id}/samples` → 200 `AuditSamplePage`.
+- `GET /audits/{audit_id}/samples/{sample_id}` → 200 `SampleAudit`.
+- `GET /datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}?revision=N`
+  → 200 PNG bytes; the positive revision is required.
+- `GET /jobs/{job_id}` → 200 `Job`, including failed jobs.
+- `POST /jobs/{job_id}/cancel` → 202 `Job`; no body.
+
+Finding and sample decisions:
+
+- `PUT /findings/{finding_id}/review` → 200 `FindingReview`;
+  `FindingReviewRequest` body.
+- `GET /findings/{finding_id}/reviews` → 200 `FindingReviewPage`.
+- `PUT /audits/{audit_id}/samples/{sample_id}/review` → 200 `SampleReview`;
+  `SampleReviewRequest` body.
+- `GET /audits/{audit_id}/samples/{sample_id}/reviews?sample_revision=N`
+  → 200 `SampleReviewPage`; the positive audited pin is required.
+
+Lists support `limit` (1–100, default 20) and nonnegative `offset` (default 0).
+Audit sample lists also accept `tool_status` and `review_status`; omit a filter
+to disable it rather than sending the string `null`.
+
+Resource creation/import and audit listing are not HTTP features yet. Obtain
+existing audit/job IDs from the backend developer, list saved rulebooks, or use
+the fixtures while building the UI. App startup does not create demo resources;
+fixture IDs do not imply that matching PostgreSQL records exist.
+
+`GET /audits/{audit_id}` uses `AuditRun`: IDs, pinned rulebook version,
+`source_mode`, lifecycle status, sample/processed/failed/incomplete counts and
+timestamps. It does not return `reviewed_count`, `parent_audit_id` or
+`feedback_policy_id`. The separate planned `Audit` schema is not this endpoint's
+response. Processing completion does not mean human acceptance.
+
+## Planned end-to-end workflow
+
+This is the target workflow. Planned steps are mock/UI design references, not
+actions the running backend currently supports.
+
+1. **Planned:** inspect health, capabilities and system status. Liveness is separate from
    model readiness; these endpoints do not start services or download models.
-2. Submit plain text through `POST /rulebooks/extractions`, poll the job, then
+2. **Planned:** submit plain text through `POST /rulebooks/extractions`, poll the job, then
    follow `result.href` to its saved draft. Manual rulebook creation is also
    specified. Other guideline input formats are deferred.
-3. Show source sentences, descriptions and parameters. Save reviewed rules with
+3. **Implemented for saved rulebooks:** show source sentences, descriptions and parameters. Save reviewed rules with
    `PUT /rulebooks/{rulebook_id}`. The example saves version 2 with confirmed
    individual rules while the book stays draft. Confirm the book separately,
    creating version 3. Confirmed and rejected versions are frozen; later edits
@@ -62,9 +131,9 @@ https://spec.openapis.org/oas/v3.1.0.html.
    The main audit, finding and export fixtures all reference confirmed version 3.
    Rejection is an alternative branch from the original draft; the review-state
    scenarios are independent examples rather than successive edits to one sample.
-4. Upload a dataset ZIP through `POST /datasets`, poll import, then inspect sample
+4. **Planned:** upload a dataset ZIP through `POST /datasets`, poll import, then inspect sample
    integrity. The first adapter is `penn_fudan`, not a universal specification.
-5. Start an audit using a confirmed rulebook ID/version. In the planned HTTP
+5. **Planned HTTP entry point:** start an audit using a confirmed rulebook ID/version. In the planned HTTP
    contract, null `sample_ids` means all samples and the import boundary will
    resolve annotation revisions. The current Python batch service requires
    explicit sample IDs. Legacy mode pins caller-supplied revision numbers
@@ -72,17 +141,17 @@ https://spec.openapis.org/oas/v3.1.0.html.
    and reads immutable captured assets. Dataset import and application-owned
    revision selection remain planned. Select batch size from measured CPU
    resources. Active feedback-policy integration remains planned.
-6. Poll the job, list the complete review queue and load sample detail. Omit queue
+6. **Implemented for existing audits/jobs:** poll the job, list the complete review queue and load sample detail. Omit queue
    filters to include apparently correct cases. Findings include pass outcomes.
    Snapshot-backed samples advertise captured asset links when their manifest
    roles are available; legacy samples without manifest associations retain null
    links. Follow an asset link only with its explicit revision query parameter.
-7. Resolve findings and record sample decisions separately. Correct boxes, labels
-   and masks through a new annotation revision while preserving originals.
-8. Recheck corrected revisions. This creates a child audit, retaining old evidence
+7. **Implemented:** resolve findings and record sample decisions separately.
+   **Planned:** correct boxes, labels and masks through a new annotation revision.
+8. **Planned:** recheck corrected revisions. This creates a child audit, retaining old evidence
    and requiring a new reviewer decision. Export the reviewed child audit.
-9. Prepare an export, poll its job, then download the ZIP and JSON manifest.
-10. Inspect approved correction examples, create an example-retrieval policy,
+9. **Planned:** prepare an export, poll its job, then download the ZIP and JSON manifest.
+10. **Planned:** inspect approved correction examples, create an example-retrieval policy,
     freeze reviewer-verified held-out ground truth, evaluate baseline/candidate,
     then explicitly activate the evaluated policy for later audits.
 
@@ -132,15 +201,16 @@ Errors share this envelope:
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "One or more request fields are invalid.",
-    "details": [{"field": "/rulebook_version", "message": "Expected a positive integer."}],
+    "details": [{"field": "body.expected_version", "message": "Input should be greater than or equal to 1"}],
     "request_id": "request_demo"
   }
 }
 ```
 
-Use codes for handling and messages/details for display. The HTTP adapter will
-map existing client reasons to uppercase codes such as `MODEL_UNAVAILABLE`,
-`REQUEST_TIMEOUT`, `INVALID_RULE_PROPOSALS`. Validation uses 422, missing records
+Use codes for handling and messages/details for display. Validation locations
+are dotted, such as `body.expected_version` or `query.limit`. Model extraction
+codes such as `MODEL_UNAVAILABLE`, `REQUEST_TIMEOUT` and `INVALID_RULE_PROPOSALS`
+belong to the planned extraction HTTP workflow. Validation uses 422, missing records
 404, stale revisions and invalid workflow transitions 409. Domain-specific
 conflict codes are described on their operations; generic error examples show
 the shared envelope rather than every possible domain failure.
@@ -267,8 +337,9 @@ unsure, then unavailable. Only completed, complete, nonempty, all-pass results a
 `no_issue`. No findings means unavailable, not automatic success.
 
 Detail adds `failures` and permits `measurements: null` for samples without stored
-measurements. Non-null measurements preserve the actual stored collector object,
-including older minimal envelopes. The `AuditMeasurements` schema documents the
+measurements. Non-null measurements preserve the stored collector object, including older
+minimal envelopes, except loading-error details use safe messages even for old
+reports. The stored evidence is not rewritten. The `AuditMeasurements` schema documents the
 full collector shape; it is not imposed on older saved documents. All findings
 and current reviews are returned, scoped to the exact audited revision. Reads
 use one database snapshot. Snapshot-backed samples populate asset fields from
@@ -331,13 +402,13 @@ Asset links never expose private storage paths. Missing/unavailable assets use t
 JSON error envelope, and legacy audit samples without manifest associations keep
 null links.
 
-For mask corrections, stage the PNG first, then submit its upload ID with the
+**Planned correction workflow:** stage the PNG first, then submit its upload ID with the
 complete replacement object list. Add/remove objects by adding/removing entries.
 Commit objects and mask atomically after checking IDs, labels and geometry.
 Staged masks expire; expired uploads must be repeated. Old audit evidence and
 final decisions do not automatically carry forward to corrected data.
 
-Exports use pinned reviewed revisions and preserve source coordinates. The
+**Planned exports** use pinned reviewed revisions and preserve source coordinates. The
 example uses `accepted_only`; `all_reviewed` explicitly includes accepted and
 rejected data with decisions in the manifest. Pending and needs-correction data
 remain excluded. Stale decisions do not authorize changed data. Images are only
@@ -362,7 +433,8 @@ Load `examples.json` into your mock/test layer:
 
 ```javascript
 const template = examples.operations.find(
-  operation => operation.operation_id === "getAuditSample"
+  operation => operation.implementation === "implemented"
+    && operation.operation_id === "getAuditSample"
 );
 const responseBody = structuredClone(template.response.body);
 ```
@@ -372,9 +444,15 @@ to develop review states, and `.legacy` to handle unavailable asset links.
 Their matching confirmed rulebooks are under
 `examples.review_scenario_rulebooks` with the same keys; the uncertain and
 unavailable cases include their additional reviewer-authored rules.
-Fixtures are independent lifecycle snapshots, not a
-mutable mock server. Import OpenAPI into locally running tooling for schema
-inspection or code generation. Keep binary downloads mocked separately.
+`examples.job_scenarios` and `examples.audit_scenarios` cover all six lifecycle
+states with model-validated snapshots. `examples.check_catalog` comes from the
+current registry and includes supported check names, meanings, scopes and parameter
+schemas. These are bundled reference data, not a live `/capabilities` endpoint.
+Do not invent default thresholds for vague rules.
+
+Fixtures are independent synthetic snapshots, not a mutable mock server. Example
+IDs are not stored resources, and no binary PNG/ZIP files are embedded. Generate
+live clients from `implemented-openapi.json`; mock planned operations separately.
 
 ## Implemented rulebook HTTP workflow
 

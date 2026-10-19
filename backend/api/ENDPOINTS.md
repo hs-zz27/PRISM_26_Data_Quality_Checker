@@ -1,19 +1,13 @@
 # Endpoint index
 
-Generated from `build_contract.py`. Only operations marked implemented have HTTP handlers.
+Generated from `build_contract.py`. Paths include `/api/v1`.
 
-Paths include the `/api/v1` prefix. See `openapi.json` for schemas and `examples.json` for frontend fixtures.
+Use [implemented-openapi.json](implemented-openapi.json) for callable endpoint schemas and client generation. [openapi.json](openapi.json) also includes planned designs. [examples.json](examples.json) contains synthetic fixtures.
 
-## System
+## Implemented (18 operations)
 
-- `GET /api/v1/health` — Check HTTP server liveness (`getHealth`; planned).
-- `GET /api/v1/capabilities` — List supported and planned checks (`getCapabilities`; planned).
-- `GET /api/v1/system/status` — Inspect local model readiness (`getSystemStatus`; planned).
+### Rulebooks
 
-## Rulebooks
-
-- `POST /api/v1/rulebooks` — Create a manually assembled draft (`createRulebook`; planned).
-- `POST /api/v1/rulebooks/extractions` — Propose draft rules from plain text (`extractRulebook`; planned).
 - `GET /api/v1/rulebooks` — List latest rulebook versions (`listRulebooks`; implemented).
 - `GET /api/v1/rulebooks/{rulebook_id}` — Read a rulebook version (`getRulebook`; implemented).
 - `GET /api/v1/rulebooks/{rulebook_id}/versions` — Read rulebook version history (`listRulebookVersions`; implemented).
@@ -23,51 +17,70 @@ Paths include the `/api/v1` prefix. See `openapi.json` for schemas and `examples
 - `POST /api/v1/rulebooks/{rulebook_id}/reject` — Reject a draft rulebook (`rejectRulebook`; implemented).
 - `POST /api/v1/rulebooks/{rulebook_id}/revisions` — Start a new draft from a final version (`reviseRulebook`; implemented).
 
-## Datasets
+### Datasets
 
-- `POST /api/v1/datasets` — Upload a dataset archive for local import (`importDataset`; planned).
-- `GET /api/v1/datasets` — List imported datasets (`listDatasets`; planned).
-- `GET /api/v1/datasets/{dataset_id}` — Read dataset import and integrity summary (`getDataset`; planned).
-- `GET /api/v1/datasets/{dataset_id}/samples` — List every dataset sample (`listDatasetSamples`; planned).
-- `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}` — Read annotations and pinned asset URLs (`getDatasetSample`; planned).
 - `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}` — Download a revision-pinned image or mask asset (`getSampleAsset`; implemented).
 
-## Jobs
+### Jobs
 
 - `GET /api/v1/jobs/{job_id}` — Poll persisted job progress and completion (`getJob`; implemented).
 - `POST /api/v1/jobs/{job_id}/cancel` — Request audit-aware job cancellation (`cancelJob`; implemented).
 
-## Audits
+### Audits
 
-- `POST /api/v1/audits` — Start an audit against confirmed rules (`startAudit`; planned).
-- `GET /api/v1/audits` — List audit runs (`listAudits`; planned).
 - `GET /api/v1/audits/{audit_id}` — Read persisted audit progress (`getAudit`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples` — Read the complete review queue (`listAuditSamples`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}` — Read sample findings, evidence and measurements (`getAuditSample`; implemented).
-- `GET /api/v1/audits/{audit_id}/findings` — List findings with rule sources and review state (`listAuditFindings`; planned).
-- `POST /api/v1/audits/{audit_id}/rechecks` — Audit corrected sample revisions again (`recheckSamples`; planned).
 
-## Reviews
+### Reviews
 
 - `GET /api/v1/findings/{finding_id}/reviews` — Read finding decision history (`listFindingReviews`; implemented).
 - `PUT /api/v1/findings/{finding_id}/review` — Accept or reject a tool finding (`reviewFinding`; implemented).
 - `PUT /api/v1/audits/{audit_id}/samples/{sample_id}/review` — Record the reviewer's data decision (`reviewSample`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}/reviews` — Read sample decision history (`listSampleReviews`; implemented).
 
-## Corrections
+## Planned — unavailable on the running server (31 operations)
+
+### System
+
+- `GET /api/v1/health` — Check HTTP server liveness (`getHealth`; planned).
+- `GET /api/v1/capabilities` — List supported and planned checks (`getCapabilities`; planned).
+- `GET /api/v1/system/status` — Inspect local model readiness (`getSystemStatus`; planned).
+
+### Rulebooks
+
+- `POST /api/v1/rulebooks` — Create a manually assembled draft (`createRulebook`; planned).
+- `POST /api/v1/rulebooks/extractions` — Propose draft rules from plain text (`extractRulebook`; planned).
+
+### Datasets
+
+- `POST /api/v1/datasets` — Upload a dataset archive for local import (`importDataset`; planned).
+- `GET /api/v1/datasets` — List imported datasets (`listDatasets`; planned).
+- `GET /api/v1/datasets/{dataset_id}` — Read dataset import and integrity summary (`getDataset`; planned).
+- `GET /api/v1/datasets/{dataset_id}/samples` — List every dataset sample (`listDatasetSamples`; planned).
+- `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}` — Read annotations and pinned asset URLs (`getDatasetSample`; planned).
+
+### Audits
+
+- `POST /api/v1/audits` — Start an audit against confirmed rules (`startAudit`; planned).
+- `GET /api/v1/audits` — List audit runs (`listAudits`; planned).
+- `GET /api/v1/audits/{audit_id}/findings` — List findings with rule sources and review state (`listAuditFindings`; planned).
+- `POST /api/v1/audits/{audit_id}/rechecks` — Audit corrected sample revisions again (`recheckSamples`; planned).
+
+### Corrections
 
 - `POST /api/v1/datasets/{dataset_id}/samples/{sample_id}/mask-uploads` — Stage a replacement instance-ID mask (`uploadCorrectionMask`; planned).
 - `POST /api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions` — Save corrected annotations and optional mask (`correctAnnotations`; planned).
 - `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions` — Read correction history (`listAnnotationRevisions`; planned).
 
-## Exports
+### Exports
 
 - `POST /api/v1/exports` — Prepare reviewed output and manifest (`startExport`; planned).
 - `GET /api/v1/exports/{export_id}` — Read export status and download URLs (`getExport`; planned).
 - `GET /api/v1/exports/{export_id}/download` — Download corrected dataset archive (`downloadExport`; planned).
 - `GET /api/v1/exports/{export_id}/manifest` — Read exported and excluded sample decisions (`getExportManifest`; planned).
 
-## Feedback
+### Feedback
 
 - `GET /api/v1/feedback/examples` — List approved reviewer correction examples (`listFeedbackExamples`; planned).
 - `POST /api/v1/feedback/policies` — Define a candidate reviewer-example policy (`createFeedbackPolicy`; planned).
