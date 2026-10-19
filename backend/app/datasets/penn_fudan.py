@@ -57,7 +57,7 @@ def load_sample(dataset_root: str | Path, image_id: str) -> tuple[Image.Image, s
 
 
 def parse_annotations(annotation_text: str) -> list[AnnotationObject]:
-    """Extract each person's ID, label and box, keeping source coordinates."""
+    """Extract source boxes; an empty annotation must explicitly declare zero objects."""
     objects: list[AnnotationObject] = []
 
     for line_number, line in enumerate(annotation_text.splitlines(), start=1):
@@ -79,6 +79,8 @@ def parse_annotations(annotation_text: str) -> list[AnnotationObject]:
             ),
         })
 
+    if not objects and parse_annotation_metadata(annotation_text)["object_count"] != 0:
+        raise ValueError("No bounding boxes were parsed and no valid zero-object declaration was found.")
     return objects
 
 

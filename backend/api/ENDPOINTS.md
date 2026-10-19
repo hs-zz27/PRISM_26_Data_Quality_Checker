@@ -14,14 +14,14 @@ Paths include the `/api/v1` prefix. See `openapi.json` for schemas and `examples
 
 - `POST /api/v1/rulebooks` — Create a manually assembled draft (`createRulebook`; planned).
 - `POST /api/v1/rulebooks/extractions` — Propose draft rules from plain text (`extractRulebook`; planned).
-- `GET /api/v1/rulebooks` — List latest rulebook versions (`listRulebooks`; planned).
-- `GET /api/v1/rulebooks/{rulebook_id}` — Read a rulebook version (`getRulebook`; planned).
-- `GET /api/v1/rulebooks/{rulebook_id}/versions` — Read rulebook version history (`listRulebookVersions`; planned).
-- `GET /api/v1/rulebooks/{rulebook_id}/reviews` — Read rulebook review attribution (`listRulebookReviews`; planned).
-- `PUT /api/v1/rulebooks/{rulebook_id}` — Save a reviewed draft (`replaceDraftRulebook`; planned).
-- `POST /api/v1/rulebooks/{rulebook_id}/confirm` — Confirm a reviewed rulebook (`confirmRulebook`; planned).
-- `POST /api/v1/rulebooks/{rulebook_id}/reject` — Reject a draft rulebook (`rejectRulebook`; planned).
-- `POST /api/v1/rulebooks/{rulebook_id}/revisions` — Start a new draft from a final version (`reviseRulebook`; planned).
+- `GET /api/v1/rulebooks` — List latest rulebook versions (`listRulebooks`; implemented).
+- `GET /api/v1/rulebooks/{rulebook_id}` — Read a rulebook version (`getRulebook`; implemented).
+- `GET /api/v1/rulebooks/{rulebook_id}/versions` — Read rulebook version history (`listRulebookVersions`; implemented).
+- `GET /api/v1/rulebooks/{rulebook_id}/reviews` — Read rulebook review attribution (`listRulebookReviews`; implemented).
+- `PUT /api/v1/rulebooks/{rulebook_id}` — Save a reviewed draft (`replaceDraftRulebook`; implemented).
+- `POST /api/v1/rulebooks/{rulebook_id}/confirm` — Confirm a reviewed rulebook (`confirmRulebook`; implemented).
+- `POST /api/v1/rulebooks/{rulebook_id}/reject` — Reject a draft rulebook (`rejectRulebook`; implemented).
+- `POST /api/v1/rulebooks/{rulebook_id}/revisions` — Start a new draft from a final version (`reviseRulebook`; implemented).
 
 ## Datasets
 
@@ -30,18 +30,18 @@ Paths include the `/api/v1` prefix. See `openapi.json` for schemas and `examples
 - `GET /api/v1/datasets/{dataset_id}` — Read dataset import and integrity summary (`getDataset`; planned).
 - `GET /api/v1/datasets/{dataset_id}/samples` — List every dataset sample (`listDatasetSamples`; planned).
 - `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}` — Read annotations and pinned asset URLs (`getDatasetSample`; planned).
-- `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}` — Download an image or mask asset (`getSampleAsset`; planned).
+- `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}` — Download a revision-pinned image or mask asset (`getSampleAsset`; implemented).
 
 ## Jobs
 
-- `GET /api/v1/jobs/{job_id}` — Poll progress and completion (`getJob`; planned).
-- `POST /api/v1/jobs/{job_id}/cancel` — Request cancellation of pending work (`cancelJob`; planned).
+- `GET /api/v1/jobs/{job_id}` — Poll persisted job progress and completion (`getJob`; implemented).
+- `POST /api/v1/jobs/{job_id}/cancel` — Request audit-aware job cancellation (`cancelJob`; implemented).
 
 ## Audits
 
 - `POST /api/v1/audits` — Start an audit against confirmed rules (`startAudit`; planned).
 - `GET /api/v1/audits` — List audit runs (`listAudits`; planned).
-- `GET /api/v1/audits/{audit_id}` — Read audit processing and review counts (`getAudit`; planned).
+- `GET /api/v1/audits/{audit_id}` — Read persisted audit progress (`getAudit`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples` — Read the complete review queue (`listAuditSamples`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}` — Read sample findings, evidence and measurements (`getAuditSample`; implemented).
 - `GET /api/v1/audits/{audit_id}/findings` — List findings with rule sources and review state (`listAuditFindings`; planned).

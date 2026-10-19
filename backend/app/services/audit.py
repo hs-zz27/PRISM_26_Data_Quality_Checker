@@ -28,6 +28,7 @@ from ..datasets.penn_fudan import (
 )
 from ..models.annotation import AnnotationObject
 from ..models.measurements import (
+    ASSET_LOAD_FAILURE_DETAIL,
     AuditMeasurements,
     CheckEnvelope,
     MeasurementResult,
@@ -71,8 +72,16 @@ def _load_asset(
 ) -> T | None:
     try:
         return loader(dataset_root, image_id)
-    except (OSError, UnicodeError) as error:
-        errors.append({"stage": "load", "reason": f"{asset}_load_failed", "detail": str(error)})
+    except (OSError, UnicodeError):
+        logger.warning(
+            "Sample asset could not be loaded",
+            extra={"sample_id": image_id, "asset": asset},
+            exc_info=True,
+        )
+        errors.append({
+            "stage": "load", "reason": f"{asset}_load_failed",
+            "detail": ASSET_LOAD_FAILURE_DETAIL,
+        })
         return None
 
 

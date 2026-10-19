@@ -3,10 +3,12 @@
 from copy import deepcopy
 
 import pytest
+from PIL import Image
 from pydantic import ValidationError
 
 from backend.app.models.finding import FindingOutcome, FindingResolution
 from backend.app.models.rule import Rule, Rulebook
+from backend.app.services.audit import audit_sample
 from backend.app.services.evaluation import (
     CheckExecutionError,
     RuleEvaluationError,
@@ -293,12 +295,60 @@ def test_parsed_zero_object_annotation_can_pass_allowed_labels():
     measurements = report(labels=[])
     measurements["annotation_text"] = "Objects with ground truth: 0 {}"
     measurements["checks"]["annotation_metadata"]["result"]["actual_object_count"] = 0
+    measurements["checks"]["annotation_metadata"]["result"]["declared"] = {"object_count": 0}
     measurements["objects"] = []
     findings = evaluate_rules(
         confirmed_book(label_rule()), measurements,
         audit_id="audit_1", sample_id="sample", sample_revision=1,
     )
     assert findings[0].outcome is FindingOutcome.PASS
+
+
+@pytest.mark.parametrize("declared_count", [None, 2, -1, "0", False])
+def test_zero_parsed_rows_without_a_valid_zero_declaration_cannot_pass_labels(declared_count):
+    measurements = report(labels=[])
+    # Older collectors could report completed parsing and zero objects for any
+    # nonempty unrecognized text. Do not trust that count alone on reevaluation.
+    measurements["annotation_text"] = "unrecognized annotation"
+    measurements["checks"]["annotation_metadata"]["result"]["declared"] = {
+        "object_count": declared_count,
+    }
+
+    findings = evaluate_rules(
+        confirmed_book(label_rule()), measurements,
+        audit_id="audit_1", sample_id="sample", sample_revision=1,
+    )
+
+    assert findings[0].outcome is FindingOutcome.UNAVAILABLE
+    assert findings[0].reason == "annotation_evidence_unavailable"
+
+
+def test_legacy_zero_count_without_declared_metadata_cannot_pass_labels():
+    findings = evaluate_rules(
+        confirmed_book(label_rule()), report(labels=[]),
+        audit_id="audit_1", sample_id="sample", sample_revision=1,
+    )
+    assert findings[0].outcome is FindingOutcome.UNAVAILABLE
+
+
+@pytest.mark.parametrize("missing_asset", [None, "image", "mask"])
+def test_real_empty_annotation_can_pass_labels_despite_unrelated_missing_inputs(tmp_path, missing_asset):
+    for directory in ("PNGImages", "Annotation", "PedMasks"):
+        (tmp_path / directory).mkdir()
+    if missing_asset != "image":
+        Image.new("RGB", (2, 2)).save(tmp_path / "PNGImages/sample.png")
+    if missing_asset != "mask":
+        Image.new("L", (2, 2)).save(tmp_path / "PedMasks/sample_mask.png")
+    (tmp_path / "Annotation/sample.txt").write_text("Objects with ground truth : 0 {}")
+
+    measurements = audit_sample(tmp_path, "sample", None)
+    findings = evaluate_rules(
+        confirmed_book(label_rule()), measurements,
+        audit_id="audit_1", sample_id="sample", sample_revision=1,
+    )
+
+    assert len(findings) == 1 and findings[0].outcome is FindingOutcome.PASS
+    assert findings[0].review.resolution is FindingResolution.PENDING
 
 
 def test_unrelated_asset_errors_do_not_block_usable_annotation_labels():

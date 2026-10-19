@@ -20,6 +20,7 @@ from backend.app.core.config import DatabaseSettings
 from backend.app.models.audit import AuditFailure, BatchAuditRequest
 from backend.app.models.finding import Finding
 from backend.app.models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
+from backend.app.models.review import SampleReview
 from backend.app.storage import workflow_repository
 from backend.app.storage.database import CommitOutcomeUnknownError, database_connection, initialize_database
 from backend.app.storage.workflow_repository import (
@@ -31,6 +32,7 @@ from backend.app.storage.workflow_repository import (
     JobRepository,
     RetryableWorkflowStorageError,
     SampleProcessingTimeoutError,
+    SampleReviewRepository,
     WorkflowStorageError,
 )
 
@@ -336,6 +338,220 @@ def test_queued_cancellation_is_terminal_and_idempotence_is_explicit(workflow_se
         repository.request_cancellation("job_1", now=now)
 
 
+def test_audit_job_cancellation_dispatches_queued_state_transactionally(workflow_settings):
+    repository = AuditRepository(settings=workflow_settings)
+    now = datetime(2026, 10, 16, 20, tzinfo=UTC)
+    audit, job = repository.start_audit(
+        BatchAuditRequest(
+            dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
+            rulebook_version=1, sample_ids=["one", "two"],
+        ),
+        audit_id="audit_cancel_queued", job_id="job_cancel_queued", now=now,
+    )
+
+    cancelled = repository.cancel_job(job.job_id, now=now + timedelta(seconds=1))
+
+    assert cancelled.status is JobStatus.CANCELLED
+    assert cancelled.result is not None
+    assert repository.get_job(audit.audit_id).status is JobStatus.CANCELLED
+    assert repository.get_audit(audit.audit_id).status is JobStatus.CANCELLED
+    with database_connection(workflow_settings, readonly=True) as connection:
+        samples = connection.execute(
+            "SELECT status, finished_at FROM audit_samples WHERE audit_id = %s ORDER BY ordinal",
+            (audit.audit_id,),
+        ).fetchall()
+    assert len(samples) == 2
+    assert all(sample["status"] == "cancelled" and sample["finished_at"] is not None for sample in samples)
+
+
+def test_audit_job_cancellation_keeps_running_work_in_cancelling_state(workflow_settings):
+    repository = AuditRepository(settings=workflow_settings)
+    now = datetime(2026, 10, 16, 20, tzinfo=UTC)
+    audit, job = repository.start_audit(
+        BatchAuditRequest(
+            dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
+            rulebook_version=1, sample_ids=["one", "two"],
+        ),
+        audit_id="audit_cancel_running", job_id="job_cancel_running", now=now,
+    )
+    claim = repository.claim_audit(audit.audit_id, worker_id="worker_a", now=now)
+    assert claim is not None
+    sample_claim = repository.claim_next_sample(claim, now=now)
+    assert sample_claim is not None
+
+    requested = repository.cancel_job(job.job_id, now=now + timedelta(seconds=1))
+    repeated = repository.cancel_job(job.job_id, now=now + timedelta(seconds=2))
+
+    assert requested.status is JobStatus.CANCELLING
+    assert repeated.status is JobStatus.CANCELLING
+    assert repository.get_audit(audit.audit_id).status is JobStatus.CANCELLING
+    with database_connection(workflow_settings, readonly=True) as connection:
+        saved_job = connection.execute(
+            "SELECT status, claimed_by, claim_token FROM jobs WHERE job_id = %s",
+            (job.job_id,),
+        ).fetchone()
+        saved_samples = connection.execute(
+            "SELECT sample_id, status FROM audit_samples WHERE audit_id = %s ORDER BY ordinal",
+            (audit.audit_id,),
+        ).fetchall()
+    assert saved_job["status"] == "cancelling"
+    assert saved_job["claimed_by"] == "worker_a"
+    assert saved_job["claim_token"] == claim.claim_token
+    assert saved_samples == [
+        {"sample_id": "one", "status": "running"},
+        {"sample_id": "two", "status": "queued"},
+    ]
+
+
+def test_audit_job_cancellation_rejects_terminal_states_and_preserves_completed_evidence(
+    workflow_settings,
+):
+    repository = AuditRepository(settings=workflow_settings)
+    now = datetime(2026, 10, 16, 20, tzinfo=UTC)
+
+    completed_audit, completed_job = repository.start_audit(
+        BatchAuditRequest(
+            dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
+            rulebook_version=1, sample_ids=["completed_sample"],
+        ),
+        audit_id="audit_cancel_completed", job_id="job_cancel_completed", now=now,
+    )
+    completed_claim = repository.claim_audit(completed_audit.audit_id, worker_id="worker_completed", now=now)
+    assert completed_claim is not None
+    completed_sample_claim = repository.claim_next_sample(completed_claim, now=now)
+    assert completed_sample_claim is not None
+    finding = Finding(
+        finding_id="finding_cancel_preserved", audit_id=completed_audit.audit_id,
+        sample_id="completed_sample", sample_revision=1, rulebook_id="book_1",
+        rulebook_version=1, rule_id="rule_1", description="A preserved finding.",
+        check_name=None, outcome="pass", origin="reviewer", evidence={"measurements": {}},
+    )
+    repository.persist_sample_success(
+        completed_sample_claim,
+        measurements={"image_id": "completed_sample", "review_status": "pending_review"},
+        findings=[finding], now=now,
+    )
+    review_repository = SampleReviewRepository(settings=workflow_settings)
+    review = review_repository.save_sample_review(
+        SampleReview(
+            audit_id=completed_audit.audit_id, sample_id="completed_sample", sample_revision=1,
+            revision=1, decision="accepted", reviewer_id="reviewer_1",
+            comment="Preserve this decision.", updated_at=now,
+        ),
+        expected_review_version=0,
+    )
+    measurements_before = repository.get_measurements(
+        completed_audit.audit_id, "completed_sample", 1,
+    )
+    findings_before = FindingRepository(settings=workflow_settings).list_findings(
+        completed_audit.audit_id,
+    )
+    review_before = review_repository.get_sample_review(
+        completed_audit.audit_id, "completed_sample", 1,
+    )
+    assert review_before == review
+    with pytest.raises(JobAlreadyFinishedError):
+        repository.cancel_job(completed_job.job_id, now=now + timedelta(seconds=1))
+    assert repository.get_measurements(completed_audit.audit_id, "completed_sample", 1) == measurements_before
+    assert FindingRepository(settings=workflow_settings).list_findings(completed_audit.audit_id) == findings_before
+    assert review_repository.get_sample_review(
+        completed_audit.audit_id, "completed_sample", 1,
+    ) == review_before
+    assert repository.get_audit(completed_audit.audit_id).status is JobStatus.COMPLETED
+
+    failed_audit, failed_job = repository.start_audit(
+        BatchAuditRequest(
+            dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
+            rulebook_version=1, sample_ids=["failed_sample"],
+        ),
+        audit_id="audit_cancel_failed", job_id="job_cancel_failed", now=now,
+    )
+    failed_claim = repository.claim_audit(
+        failed_audit.audit_id, worker_id="worker_failed", now=now,
+    )
+    assert failed_claim is not None
+    failed_result = repository.fail_audit(
+        failed_claim,
+        ApiError(
+            code="AUDIT_WORKER_FAILED", message="The audit worker failed.",
+            request_id="request_failed",
+        ),
+        now=now + timedelta(seconds=1),
+    )
+    assert failed_result.status is JobStatus.FAILED
+    assert repository.get_job(failed_audit.audit_id).status is JobStatus.FAILED
+    with pytest.raises(JobAlreadyFinishedError):
+        repository.cancel_job(failed_job.job_id, now=now + timedelta(seconds=1))
+
+    cancelled_audit, cancelled_job = repository.start_audit(
+        BatchAuditRequest(
+            dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
+            rulebook_version=1, sample_ids=["cancelled_sample"],
+        ),
+        audit_id="audit_cancelled", job_id="job_cancelled", now=now,
+    )
+    assert repository.cancel_job(cancelled_job.job_id, now=now + timedelta(seconds=1)).status is JobStatus.CANCELLED
+    with pytest.raises(JobAlreadyFinishedError):
+        repository.cancel_job(cancelled_job.job_id, now=now + timedelta(seconds=2))
+
+
+def test_partial_audit_cancellation_preserves_completed_evidence_and_review(workflow_settings):
+    repository = AuditRepository(settings=workflow_settings)
+    review_repository = SampleReviewRepository(settings=workflow_settings)
+    now = datetime(2026, 10, 16, 20, tzinfo=UTC)
+    audit, job = repository.start_audit(
+        BatchAuditRequest(
+            dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
+            rulebook_version=1, sample_ids=["completed_sample", "queued_sample"],
+        ),
+        audit_id="audit_cancel_partial", job_id="job_cancel_partial", now=now,
+    )
+    claim = repository.claim_audit(audit.audit_id, worker_id="worker_partial", now=now)
+    assert claim is not None
+    completed_claim = repository.claim_next_sample(claim, now=now)
+    assert completed_claim is not None
+    finding = Finding(
+        finding_id="finding_partial_preserved", audit_id=audit.audit_id,
+        sample_id="completed_sample", sample_revision=1, rulebook_id="book_1",
+        rulebook_version=1, rule_id="rule_1", description="A preserved finding.",
+        check_name=None, outcome="pass", origin="reviewer", evidence={"measurements": {}},
+    )
+    repository.persist_sample_success(
+        completed_claim,
+        measurements={"image_id": "completed_sample", "review_status": "pending_review"},
+        findings=[finding], now=now,
+    )
+    saved_review = review_repository.save_sample_review(
+        SampleReview(
+            audit_id=audit.audit_id, sample_id="completed_sample", sample_revision=1,
+            revision=1, decision="accepted", reviewer_id="reviewer_partial",
+            comment="Keep the completed result.", updated_at=now,
+        ),
+        expected_review_version=0,
+    )
+    measurements_before = repository.get_measurements(audit.audit_id, "completed_sample", 1)
+    findings_before = FindingRepository(settings=workflow_settings).list_findings(audit.audit_id)
+    review_before = review_repository.get_sample_review(audit.audit_id, "completed_sample", 1)
+
+    requested = repository.cancel_job(job.job_id, now=now + timedelta(seconds=1))
+
+    assert requested.status is JobStatus.CANCELLING
+    assert review_before == saved_review
+    assert repository.get_measurements(audit.audit_id, "completed_sample", 1) == measurements_before
+    assert FindingRepository(settings=workflow_settings).list_findings(audit.audit_id) == findings_before
+    assert review_repository.get_sample_review(audit.audit_id, "completed_sample", 1) == review_before
+    assert repository.get_audit(audit.audit_id).status is JobStatus.CANCELLING
+    with database_connection(workflow_settings, readonly=True) as connection:
+        sample_states = connection.execute(
+            "SELECT sample_id, status FROM audit_samples WHERE audit_id = %s ORDER BY ordinal",
+            (audit.audit_id,),
+        ).fetchall()
+    assert sample_states == [
+        {"sample_id": "completed_sample", "status": "completed"},
+        {"sample_id": "queued_sample", "status": "queued"},
+    ]
+
+
 @pytest.mark.parametrize("finding_count", [0, 1, 260])
 def test_audit_sample_result_commits_measurements_findings_and_progress(workflow_settings, finding_count):
     repository = AuditRepository(settings=workflow_settings)
@@ -369,7 +585,11 @@ def test_audit_sample_result_commits_measurements_findings_and_progress(workflow
     assert replayed.status is JobStatus.COMPLETED
     assert repository.get_measurements("audit_1", "sample_1", 1)["image_id"] == "sample_1"
     assert repository.get_job("audit_1").progress.processed == 1
-    assert len(FindingRepository(settings=workflow_settings).list_findings("audit_1")) == finding_count
+    finding_repository = FindingRepository(settings=workflow_settings)
+    stored = []
+    while page := finding_repository.list_findings("audit_1", limit=100, offset=len(stored)):
+        stored.extend(page)
+    assert stored == sorted(findings, key=lambda item: item.finding_id)
 
 
 @pytest.mark.parametrize("failure", ["conflict", "lease", "deadline"])

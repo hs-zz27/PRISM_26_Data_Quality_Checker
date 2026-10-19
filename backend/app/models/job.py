@@ -1,4 +1,4 @@
-"""Durable job records shared by workers and the planned transport layer."""
+"""Durable job records shared by workers and the HTTP job endpoints."""
 
 from datetime import UTC, datetime
 from enum import StrEnum

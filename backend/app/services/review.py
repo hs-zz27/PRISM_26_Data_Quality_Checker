@@ -62,6 +62,13 @@ def review_sample(
     )
     return repository.save_sample_review(review, expected_review_version=request.expected_review_version)
 
+class RulebookContentValidationError(ValidationError):
+    """Invalid submitted replacement content, not a storage or programming error.
+
+    This remains a Pydantic ValidationError for existing Python callers. Only
+    the construction of a replacement snapshot creates this HTTP-safe subtype.
+    Request revalidation, reads and repository writes stay outside its boundary.
+    """
 
 class RulebookReviewError(ValueError):
     """A review action violates the rulebook workflow."""
@@ -111,13 +118,20 @@ def save_rulebook_review(
                 "invalid_rule_origin",
                 "Retained rules must preserve origin; new rules must use reviewer origin.",
             )
-    updated = Rulebook(
-        rulebook_id=current.rulebook_id,
-        version=current.version + 1,
-        guideline_text=request.guideline_text,
-        rules=request.rules,
-        confirmation_state=ConfirmationState.DRAFT,
-    )
+    try:
+        updated = Rulebook(
+            rulebook_id=current.rulebook_id,
+            version=current.version + 1,
+            guideline_text=request.guideline_text,
+            rules=request.rules,
+            confirmation_state=ConfirmationState.DRAFT,
+        )
+    except ValidationError as error:
+        # Only this caller-supplied replacement snapshot is a client boundary.
+        # Preserve Pydantic exception compatibility; never expose its details.
+        raise RulebookContentValidationError.from_exception_data(
+            error.title, error.errors(include_url=False),
+        ) from error
     return repository.save_rulebook_review(
         updated, expected_version=request.expected_version,
         reviewer_id=request.reviewer_id, action=RulebookReviewAction.EDIT,

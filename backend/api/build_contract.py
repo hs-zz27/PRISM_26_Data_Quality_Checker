@@ -1,4 +1,4 @@
-"""Assemble and write proposed endpoints and frontend contract artifacts.
+"""Assemble and write API endpoints and frontend contract artifacts.
 
 Run from the project root with python -m backend.api.build_contract.
 These templates do not register or run HTTP routes.
@@ -19,7 +19,10 @@ from .schemas import build_schemas
 
 
 API_DIRECTORY = Path(__file__).resolve().parent
-
+RULEBOOK_ERROR_EXAMPLES = {
+    404: {"NOT_FOUND": "The requested rulebook or version does not exist."},
+    503: {"DEPENDENCY_UNAVAILABLE": "Rulebook storage is unavailable."},
+}
 
 def parameter(name: str, location: str, schema: JsonObject, example: Any, *, required: bool = False,
               description: str = "") -> JsonObject:
@@ -42,7 +45,7 @@ def build_contract() -> JsonObject:
     contract: JsonObject = {
         "openapi": "3.1.0",
         "info": {"title": "PRISM Data Quality Checker — API contract", "version": "0.1.0",
-                 "description": "Audit sample reads and finding/sample review routes are implemented. Other operations remain planned; inspect x-implementation-status. Examples are synthetic, not model accuracy results. Local CPU prototype; plain text guidelines first."},
+                 "description": "Audit sample reads, revision-pinned asset delivery, job status/cancellation and finding/sample review routes and rulebook reads/reviewer actions are implemented. Other operations remain planned; inspect x-implementation-status. Examples are synthetic, not model accuracy results. Local CPU prototype; plain text guidelines first."},
         "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Local development server; only implemented operations are callable."}],
         "tags": [{"name": name} for name in ("System", "Rulebooks", "Datasets", "Jobs", "Audits", "Reviews", "Corrections", "Exports", "Feedback")],
         "paths": {}, "components": {"schemas": schemas},
@@ -54,7 +57,8 @@ def build_contract() -> JsonObject:
             body_example: Any = None, parameters: list[JsonObject] | None = None,
             description: str = "", backing: str = "planned", multipart: bool = False,
             binary: bool = False, implementation: str = "planned",
-            conflict_examples: dict[str, str] | None = None) -> None:
+            conflict_examples: dict[str, str] | None = None,
+            error_examples: dict[int, dict[str, str]] | None = None) -> None:
         params = list(parameters or [])
         values = {"rulebook_id": "rulebook_demo", "dataset_id": "dataset_demo", "sample_id": "sample_001",
                   "audit_id": "audit_demo", "job_id": "job_audit_demo", "finding_id": "finding_demo",
@@ -62,7 +66,8 @@ def build_contract() -> JsonObject:
                   "ground_truth_id": "truth_demo"}
         for name in re.findall(r"\{([^}]+)\}", path):
             if not any(item["name"] == name and item["in"] == "path" for item in params):
-                params.append(parameter(name, "path", TEXT, values[name]))
+                identifier = {**TEXT, "pattern": r"\S"} if path.startswith("/rulebooks") else TEXT
+                params.append(parameter(name, "path", identifier, values[name]))
         media = "application/zip" if binary else "application/json"
         success_content = {"schema": {"type": "string", "format": "binary"} if binary else ref(response_schema)}
         if not binary:
@@ -89,11 +94,16 @@ def build_contract() -> JsonObject:
                     name: {"summary": detail, "value": error_example(name, detail)}
                     for name, detail in conflict_examples.items()
                 }
+            elif error_examples and error_status in error_examples:
+                content["examples"] = {
+                    name: {"summary": detail, "value": error_example(name, detail)}
+                    for name, detail in error_examples[error_status].items()
+                }
             else:
                 content["example"] = error_example(code, message)
             responses[str(error_status)] = {
                 "description": (
-                    "Review conflict; see the error code."
+                    "Conflict; see the error code."
                     if error_status == 409 and conflict_examples else message
                 ),
                 "content": {"application/json": content},
@@ -139,35 +149,39 @@ def build_contract() -> JsonObject:
         body_schema="RuleExtractionRequest", body_example={"guideline_text": SOURCE}, backing="extract_and_save_rulebook coordinates extraction and PostgreSQL storage; jobs and route are planned.",
         description="Poll GET /jobs/{job_id}. On completion, result.href points to the saved draft rulebook. Failure is stored in job.error, including MODEL_UNAVAILABLE or INVALID_RULE_PROPOSALS.")
     add("GET", "/rulebooks", "listRulebooks", "Rulebooks", "List latest rulebook versions", "RulebookPage", page([examples["confirmed"]]), parameters=pagination_parameters(),
-        backing="RulebookRepository.list_rulebooks exists; route is planned.")
+        implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, backing="RulebookRepository.list_rulebooks and FastAPI route implemented.")
     add("GET", "/rulebooks/{rulebook_id}", "getRulebook", "Rulebooks", "Read a rulebook version", "Rulebook", examples["confirmed"],
-        parameters=[parameter("version", "query", VERSION, examples["confirmed"]["version"], description="Omit for latest; audits must reference a specific version.")],
-        backing="RulebookRepository.get_rulebook exists; route is planned.")
+        parameters=[parameter("version", "query", {"anyOf": [VERSION, {"type": "null"}], "default": None}, examples["confirmed"]["version"], description="Omit for latest; audits must reference a specific version.")],
+        implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, backing="RulebookRepository.get_rulebook and FastAPI route implemented.")
     add("GET", "/rulebooks/{rulebook_id}/versions", "listRulebookVersions", "Rulebooks", "Read rulebook version history", "RulebookPage", page([examples["draft"], examples["reviewed"], examples["confirmed"]]), parameters=pagination_parameters(),
-        backing="RulebookRepository.list_rulebook_versions exists; route is planned.",
+        implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, backing="RulebookRepository.list_rulebook_versions and FastAPI route implemented.",
         description="Snapshots are ordered by ascending version. Unknown rulebooks return 404; an offset past the last version returns an empty page.")
     add("GET", "/rulebooks/{rulebook_id}/reviews", "listRulebookReviews", "Rulebooks", "Read rulebook review attribution", "RulebookReviewPage",
         page([
             {"rulebook_id": "rulebook_demo", "version": 2, "reviewer_id": "reviewer_demo", "action": "edit", "created_at": TIMESTAMP},
             {"rulebook_id": "rulebook_demo", "version": 3, "reviewer_id": "reviewer_demo", "action": "confirm", "created_at": TIMESTAMP},
         ]),
-        parameters=pagination_parameters(), backing="RulebookRepository.list_rulebook_reviews exists; route is planned.",
+        parameters=pagination_parameters(), implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, backing="RulebookRepository.list_rulebook_reviews and FastAPI route implemented.",
         description="Attributed review actions ordered by ascending version. Each action and snapshot commit together. Extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.")
     add("PUT", "/rulebooks/{rulebook_id}", "replaceDraftRulebook", "Rulebooks", "Save a reviewed draft", "Rulebook", examples["reviewed"],
         body_schema="RulebookReplace", body_example={"expected_version": 1, "reviewer_id": "reviewer_demo", "guideline_text": SOURCE, "rules": examples["confirmed"]["rules"]},
-        backing="save_rulebook_review service and transactional PostgreSQL review history exist; route is planned.",
+        implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state."},
+        backing="save_rulebook_review service and transactional PostgreSQL review history and FastAPI route implemented.",
         description="Only latest drafts are editable. Submit the complete rule list and explicit rule decisions; omission removes a rule. Retained IDs preserve origin; added IDs must use reviewer origin. All citations must match the supplied text. Save increments version, attributes the reviewer and preserves history. The book stays draft; example save confirms individual rules only.")
     add("POST", "/rulebooks/{rulebook_id}/confirm", "confirmRulebook", "Rulebooks", "Confirm a reviewed rulebook", "Rulebook", examples["confirmed"],
         body_schema="RulebookAction", body_example={"expected_version": 2, "reviewer_id": "reviewer_demo"},
-        backing="confirm_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state.", "RULEBOOK_NOT_READY": "Confirm every retained rule and remove rejected rules before confirming the book."},
+        backing="confirm_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         description="Only a latest draft can be confirmed. Require a nonempty book with all included rules confirmed. Rejected rules must be removed; prior versions preserve them. Append expected_version + 1 as a frozen confirmed snapshot for audits. 409 RULEBOOK_NOT_READY when rules are unconfirmed or empty.")
     add("POST", "/rulebooks/{rulebook_id}/reject", "rejectRulebook", "Rulebooks", "Reject a draft rulebook", "Rulebook", {**examples["draft"], "version": 2, "confirmation_state": "rejected"},
         body_schema="RulebookAction", body_example={"expected_version": 1, "reviewer_id": "reviewer_demo"},
-        backing="reject_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state."},
+        backing="reject_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         description="Reject the latest draft as a whole. Append a new version without changing individual rule decisions. Start a revision before further edits. This example is an alternative branch from the original version-1 draft, not a step after confirmation.")
     add("POST", "/rulebooks/{rulebook_id}/revisions", "reviseRulebook", "Rulebooks", "Start a new draft from a final version", "Rulebook", {**examples["draft"], "version": 4}, status=201,
         body_schema="RulebookAction", body_example={"expected_version": 3, "reviewer_id": "reviewer_demo"},
-        backing="revise_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state."},
+        backing="revise_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         description="Require the latest confirmed or rejected book. Keep its snapshot immutable; append expected_version + 1 as a draft and reset every included rule to draft. Draft books are already editable. Invalid state transitions return 409 INVALID_RULEBOOK_STATE; stale expected_version returns 409 VERSION_CONFLICT.")
     add("POST", "/datasets", "importDataset", "Datasets", "Upload a dataset archive for local import", "DatasetImportStarted",
         {"dataset": {**examples["dataset"], "status": "importing", "sample_count": None, "object_count": None}, "job": job("dataset_import", "dataset", "dataset_demo")},
@@ -178,10 +192,24 @@ def build_contract() -> JsonObject:
     add("GET", "/datasets/{dataset_id}/samples", "listDatasetSamples", "Datasets", "List every dataset sample", "SamplePage", page([examples["sample"]]), parameters=pagination_parameters())
     add("GET", "/datasets/{dataset_id}/samples/{sample_id}", "getDatasetSample", "Datasets", "Read annotations and pinned asset URLs", "Sample", examples["sample"],
         parameters=[parameter("revision", "query", VERSION, 1, description="Omit for latest. Returned asset URLs always pin a revision.")])
-    asset = parameter("asset_kind", "path", choice("image", "mask", "mask_preview", "thumbnail"), "image")
-    add("GET", "/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}", "getSampleAsset", "Datasets", "Download an image or mask asset", "", None, binary=True,
-        parameters=[asset, parameter("revision", "query", VERSION, 1, required=True)],
-        description="Returns PNG bytes. mask preserves 2D integer instance IDs; mask_preview is a colored display image and must never be used as raw IDs. Missing or unreadable assets return a JSON error.")
+    asset = parameter("asset_kind", "path", choice("image", "mask", "mask_preview", "thumbnail"), "image",
+                      description="One of image, mask, mask_preview or thumbnail.")
+    add("GET", "/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}", "getSampleAsset", "Datasets", "Download a revision-pinned image or mask asset", "", None, binary=True,
+        parameters=[asset, parameter("revision", "query", VERSION, 1, required=True,
+                                     description="Required positive captured sample revision; the service never falls back to the latest revision.")],
+        implementation="implemented",
+        backing="SampleAssetService, SamplePreviewService, SampleAssetManifestRepository and FastAPI route implemented.",
+        error_examples={
+            404: {"NOT_FOUND": "The requested sample asset does not exist."},
+            422: {
+                "VALIDATION_ERROR": "One or more request fields are invalid.",
+                "ASSET_NOT_RENDERABLE": "The requested sample asset cannot be rendered.",
+                "ASSET_TOO_LARGE": "The requested sample asset exceeds the read limit.",
+            },
+            503: {"DEPENDENCY_UNAVAILABLE": "Audit storage is unavailable."},
+            500: {"INTERNAL_ERROR": "The request could not be completed."},
+        },
+        description="Returns image/png for exactly the requested revision with X-Content-Type-Options: nosniff. image and mask return exact captured bytes after size and SHA-256 verification, including malformed source bytes retained for inspection; no raw mask decoding or conversion occurs. Stored content-type metadata cannot select a different response type. thumbnail and mask_preview are derived display PNGs; previews never replace raw mask bytes and may reject corrupt or unsupported sources with ASSET_NOT_RENDERABLE. All four kinds enforce a 64 MiB source-byte limit and return ASSET_TOO_LARGE when exceeded. Missing or unavailable assets return a JSON error, and integrity, storage-configuration and unexpected failures retain the documented JSON error envelope. No latest-revision lookup or private storage path is exposed.")
     asset_response = contract["paths"]["/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}"]["get"]["responses"]["200"]
     asset_response["content"]["image/png"] = asset_response["content"].pop("application/zip")
     operations[-1]["response"]["content_type"] = "image/png"
@@ -200,15 +228,17 @@ def build_contract() -> JsonObject:
         body_schema="AuditRequest", body_example=audit_request, backing="audit_sample measurements exist; confirmed-rule execution, batch processing and route are planned.",
         description="sample_ids null means all samples. Require ready dataset and a confirmed rulebook version; return 409 RULEBOOK_NOT_CONFIRMED otherwise. Snapshot sample revisions and rules. Unsupported rules yield unavailable findings. A non-null feedback policy must be active. Batch size is selected from measured CPU resources, not supplied as a universal fixed size.")
     add("GET", "/audits", "listAudits", "Audits", "List audit runs", "AuditPage", page([examples["audit"]]), parameters=pagination_parameters())
-    add("GET", "/audits/{audit_id}", "getAudit", "Audits", "Read audit processing and review counts", "Audit", examples["audit"],
-        description="Processing completed does not mean data was accepted. Reviewed count refers only to final decisions on the pinned revisions.")
+    add("GET", "/audits/{audit_id}", "getAudit", "Audits", "Read persisted audit progress", "AuditRun", examples["audit_run"],
+        implementation="implemented",
+        backing="AuditRepository.get_audit and FastAPI route implemented.",
+        description="Read the persisted audit lifecycle summary without executing, claiming, recovering or modifying work, inspecting asset files or contacting Ollama. HTTP 200 is returned for every persisted lifecycle state. Processing completion does not imply reviewer acceptance.")
     add("GET", "/audits/{audit_id}/samples", "listAuditSamples", "Audits", "Read the complete review queue", "AuditSamplePage", page([examples["summary"]]),
         parameters=pagination_parameters() + [parameter("tool_status", "query", TOOL_STATUS, "flagged"), parameter("review_status", "query", SAMPLE_REVIEW_STATUS, "pending_review")],
         implementation="implemented", backing="AuditReadRepository.list_samples and FastAPI route implemented.",
-        description="Omit filters to include every sample in original audit order. total and next_offset refer to the filtered queue. Processing state, incomplete flag, machine outcomes and human decisions are separate. Queued/running samples are pending; otherwise fail takes precedence over unsure, then unavailable. Failed/cancelled/incomplete or zero-findings samples cannot be no_issue. No automatic acceptance. Missing audits return 404, empty matching pages return 200.")
+        description="Omit filters to include every sample in original audit order. total and next_offset refer to the filtered queue. Processing state, incomplete flag, machine outcomes and human decisions are separate. Queued/running samples are pending; otherwise fail takes precedence over unsure, then unavailable. Failed/cancelled/incomplete or zero-findings samples cannot be no_issue. No automatic acceptance. Snapshot-backed samples with an available captured original image advertise a revision-pinned thumbnail_url; legacy samples without a manifest association keep it null. Missing audits return 404, empty matching pages return 200.")
     add("GET", "/audits/{audit_id}/samples/{sample_id}", "getAuditSample", "Audits", "Read sample findings, evidence and measurements", "SampleAudit", examples["detail"],
         implementation="implemented", backing="AuditReadRepository.get_sample and FastAPI route implemented.",
-        description="One database snapshot includes the stored sample pin, original measurements, all findings with latest reviews, technical failures and current sample decision. Measurements are null when not persisted and otherwise preserve the collector document (including its original pending_review field). Asset links and thumbnail are null until revision-aware asset serving exists. No current dataset files are read. Missing audit/sample returns 404.")
+        description="One database snapshot includes the stored sample pin, exact captured manifest availability, original measurements, all findings with latest reviews, technical failures and current sample decision. Snapshot-backed samples advertise image/thumbnail links when original_image is available and mask/mask_preview links when raw_mask is available; recorded missing or unreadable roles and legacy samples without a manifest association remain null. Links advertise captured availability only: the asset route verifies exact bytes and derived previews may reject corrupt or unsupported sources. Measurements are null when not persisted and otherwise preserve the collector document (including its original pending_review field), except that loading-error details use safe messages even for legacy reports. Stored evidence is not rewritten. No current dataset files are read or latest revision inferred. Missing audit/sample returns 404.")
     sample_media = contract["paths"]["/audits/{audit_id}/samples/{sample_id}"]["get"]["responses"]["200"]["content"]["application/json"]
     sample_media.pop("example")
     sample_media["examples"] = {
@@ -222,12 +252,24 @@ def build_contract() -> JsonObject:
          "job": job("recheck", "audit", "audit_recheck_demo")}, status=202,
         body_schema="RecheckRequest", body_example={"sample_ids": ["sample_001"], "reviewer_id": "reviewer_demo"},
         description="Create a new audit linked to the previous run. Pin latest revisions at request time and keep the original rulebook version and feedback policy. Do not overwrite old evidence or inherit final reviewer decisions.")
-    add("GET", "/jobs/{job_id}", "getJob", "Jobs", "Poll progress and completion", "Job", job("audit", "audit", "audit_demo", completed=True),
-        description="Poll until completed, failed or cancelled. Follow result.href after completion. total/fraction null means indeterminate progress. Job failures are data in a 200 response, not a successful audit outcome.")
-    cancelling = job("audit", "audit", "audit_demo")
-    cancelling["status"] = "cancelling"
-    add("POST", "/jobs/{job_id}/cancel", "cancelJob", "Jobs", "Request cancellation of pending work", "Job", cancelling, status=202,
-        description="Cooperative cancellation stops at a safe processing boundary and preserves completed results. Terminal jobs return 409 JOB_ALREADY_FINISHED.")
+    add("GET", "/jobs/{job_id}", "getJob", "Jobs", "Poll persisted job progress and completion", "Job", job("audit", "audit", "audit_demo", completed=True),
+        implementation="implemented",
+        backing="JobRepository.get_job and FastAPI route implemented.",
+        description="Read the persisted public Job resource without claiming, executing, recovering or modifying work. Return HTTP 200 for queued, running, cancelling, completed, failed and cancelled states. progress.total and progress.fraction may be null when work is indeterminate; result and error are nullable. Failed jobs remain HTTP 200 with their structured error in the response, not an HTTP failure. Preserve result.href exactly when present; the audit result destination /api/v1/audits/{audit_id} is callable. Missing jobs return 404; invalid identifiers return 422; storage and unexpected failures use the shared safe 503/500 envelopes. Worker identity, claim tokens, leases, attempts and resource columns are never public.")
+    cancelled = job("audit", "audit", "audit_demo")
+    cancelled["status"] = "cancelled"
+    cancelled["progress"]["phase"] = "cancelled"
+    cancelled["result"] = {
+        "kind": "audit", "id": "audit_demo", "version": None,
+        "href": "/api/v1/audits/audit_demo",
+    }
+    add("POST", "/jobs/{job_id}/cancel", "cancelJob", "Jobs", "Request audit-aware job cancellation", "Job", cancelled, status=202,
+        implementation="implemented",
+        conflict_examples={
+            "JOB_ALREADY_FINISHED": "A terminal job cannot be cancelled.",
+        },
+        backing="AuditRepository.cancel_job dispatch boundary and FastAPI route implemented.",
+        description="Accept no request body and return HTTP 202 with the public Job resource. For a queued audit, the existing transactional repository operation immediately marks the job cancelled, updates the audit and queued samples, and may preserve its stored result link. For a running audit, return cancelling while the worker reaches a safe boundary; repeated requests while cancelling preserve that state. Completed, failed and already-cancelled jobs return 409 JOB_ALREADY_FINISHED. Missing jobs return 404; invalid identifiers return 422; storage and unexpected failures use the shared safe 503/500 envelopes. Worker identity, claim tokens, leases, attempts and resource columns are never public. Cancellation does not rewrite completed measurements, findings or reviewer decisions.")
     finding_review = {"revision": 1, "resolution": "accepted", "reviewer_id": "reviewer_demo", "comment": "Confirmed the label mismatch.", "updated_at": TIMESTAMP}
     finding_review_record = {**finding_review, "finding_id": "finding_demo"}
     add("GET", "/findings/{finding_id}/reviews", "listFindingReviews", "Reviews", "Read finding decision history", "FindingReviewPage", page([finding_review_record]),
@@ -311,7 +353,7 @@ def render_artifacts() -> dict[str, str]:
     scenarios = contract.pop("x-review-scenarios")
     scenario_rulebooks = contract.pop("x-review-scenario-rulebooks")
     documents = {"openapi.json": contract, "examples.json": {
-        "notice": "Synthetic frontend fixtures. Audit sample reads and finding/sample review routes are implemented; check each operation's implementation field.",
+        "notice": "Synthetic frontend fixtures. Audit sample reads, revision-pinned asset delivery, job status/cancellation and finding/sample review routes and rulebook reads/reviewer actions are implemented; check each operation's implementation field. The four machine-outcome scenarios show snapshot-backed available links; the legacy scenario demonstrates null asset fields while preserving audit evidence.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
     }}

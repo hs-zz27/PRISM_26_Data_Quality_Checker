@@ -3,11 +3,13 @@
 import json
 from pathlib import Path
 import re
+from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 import pytest
 
 from backend.app.models.rule import Rulebook
+from backend.app.main import create_app
 from backend.app.models.finding import Finding, FindingReview
 from backend.app.models.review import (
     FindingReviewPage, FindingReviewRequest, RulebookAction, RulebookReplace, RulebookReviewPage,
@@ -42,12 +44,112 @@ def test_routes_distinguish_implemented_handlers_from_planned_operations():
     identifiers = [operation["operationId"] for _, _, operation in OPERATIONS]
     assert len(identifiers) == len(set(identifiers)) == 49
     implemented = {
-        "listAuditSamples", "getAuditSample", "reviewFinding", "listFindingReviews",
-        "reviewSample", "listSampleReviews",
+        "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
+        "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
+        "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "getJob", "cancelJob",
+        "reviewFinding", "listFindingReviews", "reviewSample", "listSampleReviews",
     }
     for _, _, operation in OPERATIONS:
         expected = "implemented" if operation["operationId"] in implemented else "planned"
         assert operation["x-implementation-status"] == expected
+
+
+def test_asset_contract_matches_revision_pinned_png_delivery():
+    operation = SPEC["paths"]["/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}"]["get"]
+    assert operation["operationId"] == "getSampleAsset"
+    assert operation["x-implementation-status"] == "implemented"
+    parameters = {parameter["name"]: parameter for parameter in operation["parameters"]}
+    assert parameters["asset_kind"]["schema"]["enum"] == [
+        "image", "mask", "mask_preview", "thumbnail",
+    ]
+    assert parameters["revision"]["required"]
+    assert parameters["revision"]["schema"] == {"type": "integer", "minimum": 1}
+    assert set(operation["responses"]) == {"200", "404", "422", "500", "503"}
+    assert operation["responses"]["200"]["content"]["image/png"]["schema"] == {
+        "type": "string", "format": "binary",
+    }
+    for status in ("404", "422", "500", "503"):
+        response = operation["responses"][status]
+        assert response["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/ErrorResponse",
+        }
+    assert {
+        example["value"]["error"]["code"]
+        for example in operation["responses"]["422"]["content"]["application/json"]["examples"].values()
+    } == {"VALIDATION_ERROR", "ASSET_NOT_RENDERABLE", "ASSET_TOO_LARGE"}
+    assert "never falls back to the latest revision" in parameters["revision"]["description"]
+    assert "corrupt or unsupported sources" in operation["description"]
+
+
+def test_job_contract_matches_public_polling_and_audit_aware_cancellation():
+    job_schema = SPEC["components"]["schemas"]["Job"]
+    assert set(job_schema["properties"]) == {
+        "job_id", "kind", "status", "progress", "result", "error", "created_at", "updated_at",
+    }
+    polling = SPEC["paths"]["/jobs/{job_id}"]["get"]
+    cancellation = SPEC["paths"]["/jobs/{job_id}/cancel"]["post"]
+    assert polling["operationId"] == "getJob"
+    assert polling["x-implementation-status"] == "implemented"
+    assert set(polling["responses"]) == {"200", "404", "422", "500", "503"}
+    assert polling["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/Job",
+    }
+    assert "failed jobs remain http 200" in polling["description"].lower()
+    assert "claim tokens" in polling["description"]
+    assert "audit result destination" in polling["description"]
+
+    assert cancellation["operationId"] == "cancelJob"
+    assert cancellation["x-implementation-status"] == "implemented"
+    assert set(cancellation["responses"]) == {"202", "404", "409", "422", "500", "503"}
+    assert "requestBody" not in cancellation
+    assert cancellation["responses"]["202"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/Job",
+    }
+    conflicts = cancellation["responses"]["409"]["content"]["application/json"]["examples"]
+    assert set(conflicts) == {"JOB_ALREADY_FINISHED"}
+    assert cancellation["responses"]["409"]["description"] == "Conflict; see the error code."
+    assert "queued audit" in cancellation["description"]
+    assert "running audit" in cancellation["description"]
+    assert "reviewer decisions" in cancellation["description"]
+
+
+def _normalize_job_schema(value: Any) -> Any:
+    """Ignore metadata/reference/default representation differences only."""
+    if isinstance(value, dict):
+        normalized = {
+            key: _normalize_job_schema(item)
+            for key, item in value.items()
+            if key not in {"title", "description", "default"}
+        }
+        reference = normalized.get("$ref")
+        if reference is not None:
+            normalized["$ref"] = reference.replace("#/$defs/", "#/components/schemas/")
+        return normalized
+    if isinstance(value, list):
+        return [_normalize_job_schema(item) for item in value]
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
+def test_generated_job_schemas_match_live_openapi_constraints():
+    live = create_app().openapi()["components"]["schemas"]
+    generated = SPEC["components"]["schemas"]
+    models = {
+        "ErrorDetail", "ApiError", "Progress", "ResultReference", "Job", "JobKind", "JobStatus",
+    }
+    for name in models:
+        assert _normalize_job_schema(generated[name]) == _normalize_job_schema(live[name])
+
+    # Live FastAPI schemas may omit explicit default values, but generated
+    # artifacts must retain them from the source Pydantic models.
+    assert generated["ErrorDetail"]["properties"]["field"]["default"] is None
+    assert generated["Progress"]["properties"]["total"]["default"] is None
+    assert generated["Progress"]["properties"]["fraction"]["default"] is None
+    assert "details" not in generated["ApiError"]["required"]
+    assert generated["ResultReference"]["properties"]["version"]["default"] is None
+    assert generated["Job"]["properties"]["result"]["default"] is None
+    assert generated["Job"]["properties"]["error"]["default"] is None
 
 
 @pytest.mark.parametrize("path,method,operation", OPERATIONS, ids=[op["operationId"] for _, _, op in OPERATIONS])
@@ -254,6 +356,17 @@ def test_example_measurements_keep_actual_service_semantics():
         assert row["checks"]["mask_components"]["result"]["component_count"] == 1
         assert row["checks"]["mask_outside_box"]["result"]["outside_fraction"] == 0
         assert row["checks"]["mask_box_fill"]["result"]["fill_fraction"] == 1
+
+
+def test_legacy_example_retains_evidence_with_no_asset_links():
+    legacy = EXAMPLES["review_scenarios"]["legacy"]
+    snapshot = EXAMPLES["review_scenarios"]["flagged"]
+    validate({"$ref": "#/components/schemas/SampleAudit"}, legacy)
+    assert all(reference is None for reference in legacy["assets"].values())
+    assert legacy["summary"]["thumbnail_url"] is None
+    assert legacy["measurements"] == snapshot["measurements"]
+    assert legacy["findings"] == snapshot["findings"]
+    assert legacy["review"] == snapshot["review"]
 
 
 def test_completed_job_result_link_points_to_a_declared_resource():

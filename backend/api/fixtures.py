@@ -1,6 +1,7 @@
 """Deterministic synthetic frontend fixtures, including actual sample measurements."""
 
 from copy import deepcopy
+from datetime import datetime
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,6 +11,8 @@ import numpy as np
 from PIL import Image
 
 from backend.app.models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin
+from backend.app.models.audit import AuditRun
+from backend.app.models.job import JobStatus
 from backend.app.services.audit import audit_sample
 
 from .common import BASE_PATH, JsonObject
@@ -88,6 +91,14 @@ def build_examples() -> JsonObject:
              "rulebook_id": "rulebook_demo", "rulebook_version": confirmed["version"], "feedback_policy_id": None,
              "status": "completed", "job_id": "job_audit_demo", "sample_count": 1, "processed_count": 1,
              "reviewed_count": 0, "created_at": TIMESTAMP}
+    audit_timestamp = datetime.fromisoformat(TIMESTAMP)
+    audit_run = AuditRun(
+        audit_id="audit_demo", job_id="job_audit_demo", dataset_id="dataset_demo",
+        rulebook_id="rulebook_demo", rulebook_version=confirmed["version"],
+        source_mode="snapshot", status=JobStatus.COMPLETED, sample_count=1, processed_count=1,
+        failed_count=0, incomplete_count=0,
+        created_at=audit_timestamp, updated_at=audit_timestamp,
+    ).model_dump(mode="json")
     finding = {
         "finding_id": "finding_demo", "audit_id": "audit_demo", "sample_id": "sample_001", "sample_revision": 1,
         "object_id": 2, "rulebook_id": "rulebook_demo", "rulebook_version": confirmed["version"], "rule_id": "LBL-1",
@@ -99,15 +110,19 @@ def build_examples() -> JsonObject:
     }
     summary = {"sample_id": "sample_001", "sample_revision": 1, "tool_status": "flagged", "review_status": "pending_review",
                "processing_status": "completed", "incomplete": False,
-               "finding_counts": {"pass": 1, "fail": 1, "unsure": 0, "unavailable": 0}, "thumbnail_url": None}
+               "finding_counts": {"pass": 1, "fail": 1, "unsure": 0, "unavailable": 0},
+               "thumbnail_url": assets["thumbnail"]["url"]}
     passing = deepcopy(finding)
     passing.update(finding_id="finding_pass_demo", object_id=1, outcome="pass", reason=None)
     passing["evidence"]["measurements"]["actual_label"] = "person"
     sample_review = {"audit_id": "audit_demo", "sample_id": "sample_001", "sample_revision": 1,
                      "revision": 0, "decision": "pending_review", "reviewer_id": None, "comment": None, "updated_at": None}
     detail = {"audit_id": "audit_demo", "dataset_id": "dataset_demo", "summary": summary,
-              "assets": dict.fromkeys(assets), "failures": [],
+              "assets": assets, "failures": [],
               "measurements": measurements, "findings": [passing, finding], "review": sample_review}
+    legacy = deepcopy(detail)
+    legacy["assets"] = dict.fromkeys(assets)
+    legacy["summary"]["thumbnail_url"] = None
     no_issue = deepcopy(detail)
     no_issue["summary"].update(tool_status="no_issue", finding_counts={"pass": 2, "fail": 0, "unsure": 0, "unavailable": 0})
     no_issue["measurements"] = correct_measurements
@@ -128,7 +143,7 @@ def build_examples() -> JsonObject:
     blocked_finding["evidence"]["measurements"] = {}
     unavailable["findings"].append(blocked_finding)
     unavailable["summary"].update(tool_status="unavailable", finding_counts={"pass": 2, "fail": 0, "unsure": 0, "unavailable": 1})
-    scenario_rulebooks = {"flagged": confirmed, "no_issue": confirmed}
+    scenario_rulebooks = {"flagged": confirmed, "no_issue": confirmed, "legacy": confirmed}
     for name, scenario, rule_id in (("unsure", uncertain, "POSTURE-1"), ("unavailable", unavailable, "CUSTOM-1")):
         extra_finding = scenario["findings"][-1]
         extra_rule = Rule(
@@ -162,10 +177,13 @@ def build_examples() -> JsonObject:
     return {
         "draft": draft, "manual_draft": manual_draft, "reviewed": reviewed, "confirmed": confirmed,
         "sample": sample, "dataset": dataset,
-        "audit": audit, "finding": finding, "passing": passing, "summary": summary,
+        "audit": audit, "audit_run": audit_run, "finding": finding, "passing": passing, "summary": summary,
         "detail": detail, "sample_review": sample_review, "corrected": corrected,
         "revision": revision, "export": export, "feedback": feedback,
         "policy": policy, "evaluation": evaluation,
-        "review_scenarios": {"flagged": detail, "no_issue": no_issue, "unsure": uncertain, "unavailable": unavailable},
+        "review_scenarios": {
+            "flagged": detail, "no_issue": no_issue, "unsure": uncertain,
+            "unavailable": unavailable, "legacy": legacy,
+        },
         "review_scenario_rulebooks": scenario_rulebooks,
     }

@@ -57,3 +57,23 @@ def test_duplicate_origins_are_unavailable_instead_of_choosing_one():
 def test_malformed_box_reports_its_source_line():
     with pytest.raises(ValueError, match="line 4"):
         parse_annotations(HEADERS + "Bounding box for object broken")
+
+
+@pytest.mark.parametrize("text", [
+    "", " \n", "not an annotation", HEADERS,
+    "Objects with ground truth : -1 {}",
+    "Objects with ground truth : broken {}",
+    "Objects with ground truth : 0 {}\nObjects with ground truth : 0 {}",
+])
+def test_unusable_annotation_is_not_a_valid_empty_annotation(text):
+    with pytest.raises(ValueError, match="zero-object declaration"):
+        parse_annotations(text)
+
+
+def test_explicit_zero_object_annotation_does_not_require_unrelated_headers():
+    assert parse_annotations("Objects with ground truth : 0 {}") == []
+
+
+def test_zero_object_header_does_not_hide_a_malformed_box():
+    with pytest.raises(ValueError, match="Malformed bounding box"):
+        parse_annotations("Objects with ground truth : 0 {}\nBounding box for object broken")

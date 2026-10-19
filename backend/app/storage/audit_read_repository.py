@@ -2,11 +2,20 @@
 
 import json
 from typing import Any
+from urllib.parse import quote
 
 from pydantic import ValidationError
 
 from ..models.audit import AuditFailure
-from ..models.audit_read import AuditSamplePage, SampleAudit, SampleAuditSummary, ToolStatus
+from ..models.audit_read import (
+    AssetReference,
+    AuditSamplePage,
+    SampleAssets,
+    SampleAudit,
+    SampleAuditSummary,
+    ToolStatus,
+)
+from ..models.measurements import ASSET_LOAD_FAILURE_DETAIL
 from ..models.review import SampleReview, SampleReviewDecision, SampleReviewRecord
 from .workflow_repository import (
     AuditNotFoundError, AuditSampleNotFoundError, WorkflowStorageError,
@@ -16,9 +25,14 @@ from .workflow_repository import (
 
 
 # Keep aggregation in SQL so filtering and pagination apply to the entire queue.
-# Both methods use this same view; counts always describe machine outcomes.
+# Both methods use this same view; counts and captured-asset metadata always
+# describe the same repeatable-read snapshot.
+_ASSET_CONTENT_TYPE = "image/png"
 _SAMPLE_VIEW = """
     SELECT s.audit_id, s.sample_id, s.sample_revision, s.ordinal,
+           s.manifest_dataset_id,
+           manifest.original_image_availability AS manifest_image_availability,
+           manifest.raw_mask_availability AS manifest_mask_availability,
            s.status AS processing_status, s.incomplete,
            to_jsonb(latest) AS current_review,
            COALESCE(latest.decision, 'pending_review') AS review_status,
@@ -32,6 +46,10 @@ _SAMPLE_VIEW = """
                ELSE 'no_issue'
            END AS tool_status
     FROM audit_samples AS s
+    LEFT JOIN sample_asset_manifests AS manifest
+      ON manifest.dataset_id = s.manifest_dataset_id
+     AND manifest.sample_id = s.sample_id
+     AND manifest.sample_revision = s.sample_revision
     LEFT JOIN LATERAL (
         SELECT * FROM sample_reviews AS r
         WHERE (r.audit_id, r.sample_id, r.sample_revision) =
@@ -51,17 +69,78 @@ _SAMPLE_VIEW = """
 """
 
 
+def _asset_url(row: dict[str, Any], asset_kind: str) -> str:
+    """Build a relative URL from the stored manifest association only."""
+    return (
+        "/api/v1/datasets/"
+        f"{quote(row['manifest_dataset_id'], safe='')}/samples/"
+        f"{quote(row['sample_id'], safe='')}/assets/{asset_kind}"
+        f"?revision={row['sample_revision']}"
+    )
+
+
+def _asset_reference(
+    row: dict[str, Any], *, asset_kind: str, availability_column: str,
+) -> AssetReference | None:
+    """Advertise captured availability without touching managed storage."""
+    if (
+        row["manifest_dataset_id"] is None
+        or row[availability_column] != "available"
+    ):
+        return None
+    return AssetReference(
+        url=_asset_url(row, asset_kind),
+        content_type=_ASSET_CONTENT_TYPE,
+        revision=row["sample_revision"],
+    )
+
+
+def _assets(row: dict[str, Any]) -> SampleAssets:
+    """Compose public links from the exact audit sample manifest pin."""
+    return SampleAssets(
+        image=_asset_reference(
+            row, asset_kind="image", availability_column="manifest_image_availability",
+        ),
+        mask=_asset_reference(
+            row, asset_kind="mask", availability_column="manifest_mask_availability",
+        ),
+        mask_preview=_asset_reference(
+            row, asset_kind="mask_preview", availability_column="manifest_mask_availability",
+        ),
+        thumbnail=_asset_reference(
+            row, asset_kind="thumbnail", availability_column="manifest_image_availability",
+        ),
+    )
+
+
 def _summary(row: dict[str, Any]) -> SampleAuditSummary:
     try:
+        thumbnail = _asset_reference(
+            row, asset_kind="thumbnail", availability_column="manifest_image_availability",
+        )
         return SampleAuditSummary(
             sample_id=row["sample_id"], sample_revision=row["sample_revision"],
             processing_status=row["processing_status"], incomplete=row["incomplete"],
             tool_status=row["tool_status"], review_status=row["review_status"],
             finding_counts={"pass": row["pass_count"], "fail": row["fail"],
                             "unsure": row["unsure"], "unavailable": row["unavailable"]},
+            thumbnail_url=None if thumbnail is None else thumbnail.url,
         )
     except ValidationError as error:
         raise WorkflowStorageError("A saved audit sample failed validation.") from error
+
+
+def _public_measurements(document: dict[str, Any], sample_id: str) -> dict[str, Any]:
+    """Keep stored evidence intact while hiding legacy loader exception details."""
+    # Validation normalizes into a new document, so this projection cannot edit
+    # either the database record or the caller's nested error dictionaries.
+    public = _validate_measurement_document(document, sample_id)
+    errors = public.get("errors")
+    if isinstance(errors, list):
+        for error in errors:
+            if isinstance(error, dict) and error.get("stage") == "load":
+                error["detail"] = ASSET_LOAD_FAILURE_DETAIL
+    return public
 
 
 class AuditReadRepository(_WorkflowRepository):
@@ -150,8 +229,9 @@ class AuditReadRepository(_WorkflowRepository):
                 )
                 return SampleAudit(
                     audit_id=audit_id, dataset_id=audit["dataset_id"], summary=_summary(row),
+                    assets=_assets(row),
                     measurements=None if measurement is None else
-                    _validate_measurement_document(measurement["document"], sample_id),
+                    _public_measurements(measurement["document"], sample_id),
                     findings=[_decode_reviewed_finding(item) for item in finding_rows],
                     failures=[AuditFailure.model_validate(item) for item in failure_rows],
                     review=review,

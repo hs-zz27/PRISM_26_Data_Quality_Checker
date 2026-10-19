@@ -5,6 +5,9 @@ from typing import Any, Literal, TypedDict
 from .annotation import AnnotationObject, ImageSize
 
 
+ASSET_LOAD_FAILURE_DETAIL = "The source asset could not be loaded."
+
+
 class MeasurementResult(TypedDict):
     measurement_available: bool
     reason: str | None

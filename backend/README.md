@@ -22,7 +22,8 @@ backend/
   tests/                     Backend tests added as features are implemented
 ```
 
-FastAPI routers expose the implemented audit reads and finding/sample review routes.
+FastAPI routers expose the implemented audit reads, revision-pinned asset delivery,
+job status/cancellation, finding/sample review routes and saved-rulebook reads/reviewer actions.
 Read repositories compose stored evidence; services coordinate workflow changes. A
 separate controller layer is not needed.
 
@@ -42,6 +43,13 @@ coordinate origin separately from the bounding boxes. Missing, malformed or
 duplicate headers are reported per field. Metadata comparisons include the source
 image's channel count before any RGB conversion. Box checks require a declared
 origin of `(1, 1)`; other or missing origins make those checks unavailable.
+
+An annotation with no parsed boxes must explicitly declare
+`Objects with ground truth : 0 {}`. Empty files, unrecognized text and unusable
+object-count declarations are parsing failures, not evidence of zero objects.
+Label evaluation also requires the declared zero count, including when given
+an older measurement report. Unrelated image or coordinate metadata failures
+do not prevent label evaluation for a valid zero-object annotation.
 
 `audit_sample()` loads each asset independently. A missing or corrupt mask leaves
 label and box checks available; a missing annotation leaves the image/mask size
@@ -159,10 +167,13 @@ Rendering is in memory with a 64 MiB encoded-source limit and a
 checks the opened file's size, and bounds the read to detect later growth.
 Mask coloring uses a fixed lookup table instead of sorting all pixels. PNG
 chunk checksums are verified before decoding. Corrupt PNGs,
-animated PNGs and unsupported mask formats raise `PreviewUnavailableError`;
-missing manifests/assets and integrity failures retain their repository errors.
-There is no fallback to live dataset files. Preview serving routes, caching and
-public asset links are not implemented yet.
+animated PNGs and unsupported mask formats raise `PreviewUnavailableError`.
+Missing manifests/assets, integrity failures and byte-limit failures retain
+their repository errors (`AssetReadLimitError` for the source-byte limit).
+There is no fallback to live dataset files. The implemented HTTP asset route
+serves exact revision-pinned raw bytes or in-memory derived previews; it does
+not expose private storage paths or mutate source files. Links are documented
+below with the audit reads. Caching remains unimplemented.
 
 For a one-off model selection, use `propose_rules(text, model="installed-model:tag")`.
 To supply an alternate configuration file, pass
@@ -179,11 +190,15 @@ and whether citations occur in the original guidelines.
 
 ## Audit review API
 
-The audit queue/detail reads and finding/sample review routes are implemented with
+The audit queue/detail reads, revision-pinned asset delivery, job status and
+audit-aware cancellation, and finding/sample review routes are implemented with
 FastAPI:
 
 - `GET /api/v1/audits/{audit_id}/samples`
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}`
+- `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}?revision={revision}`
+- `GET /api/v1/jobs/{job_id}`
+- `POST /api/v1/jobs/{job_id}/cancel`
 - `PUT /api/v1/findings/{finding_id}/review`
 - `GET /api/v1/findings/{finding_id}/reviews`
 - `PUT /api/v1/audits/{audit_id}/samples/{sample_id}/review`
@@ -210,6 +225,9 @@ Use an audit ID already created by the Python batch service:
 ```bash
 curl 'http://127.0.0.1:8000/api/v1/audits/AUDIT_ID/samples?limit=20&offset=0'
 curl 'http://127.0.0.1:8000/api/v1/audits/AUDIT_ID/samples/SAMPLE_ID'
+curl --output sample.png 'http://127.0.0.1:8000/api/v1/datasets/DATASET_ID/samples/SAMPLE_ID/assets/thumbnail?revision=2'
+curl 'http://127.0.0.1:8000/api/v1/jobs/JOB_ID'
+curl -X POST 'http://127.0.0.1:8000/api/v1/jobs/JOB_ID/cancel'
 ```
 
 The queue includes every sample in original audit order. `limit` is 1–100
@@ -230,17 +248,57 @@ describe original machine outcomes, even when reviewers disagree with them.
 Detail reads combine original measurements, all findings with their latest
 reviews, technical failures and the latest sample decision in one database
 snapshot. Measurements are null when none were persisted; otherwise their stored
-document is preserved, including its original `pending_review` marker. Render the
-separate `review` for the current human decision. The queue also uses one snapshot
+document retains its original `pending_review` marker. Loading-error details use
+safe messages, including for older reports that stored filesystem exceptions;
+the original stored evidence is not rewritten. New loader diagnostics remain in
+server logs. Render the separate `review` for the current human decision.
+The queue also uses one snapshot
 for its count and page. Reads never change progress, evidence or review history.
 
-Asset and thumbnail links are null: revision-aware image/mask serving remains
-unimplemented. These endpoints do not open current dataset files or certify that
-on-disk files still match the stored sample revision.
+Job polling returns the public `Job` record with HTTP 200 for every persisted
+state: `queued`, `running`, `cancelling`, `completed`, `failed` and `cancelled`.
+`progress.total` and `progress.fraction` may be null for indeterminate work;
+`result` and `error` are nullable. Failed jobs remain HTTP 200 with their
+structured `error`. `result.href` is returned from storage unchanged; the
+current audit result destination `/api/v1/audits/{audit_id}` is callable and
+returns the persisted audit lifecycle summary.
+
+Cancellation accepts no body and returns HTTP 202 with the same public Job
+model. Queued audit cancellation immediately becomes `cancelled` through the
+existing transaction that updates the audit and queued samples. Running audits
+become `cancelling` until a worker reaches a safe boundary; repeated requests
+preserve that state. Completed, failed and already-cancelled jobs return 409
+`JOB_ALREADY_FINISHED`; missing jobs return 404. Invalid IDs use 422, while
+storage and unexpected failures use safe 503/500 envelopes. Worker identities,
+claim tokens, leases, attempts and internal resource fields are never returned,
+and cancellation does not rewrite completed measurements, findings or reviewer
+decisions.
+
+Snapshot-backed audit samples use the exact `audit_samples` manifest association
+and pinned `sample_revision` to populate relative `assets.image`, `assets.mask`,
+`assets.mask_preview`, `assets.thumbnail` and `summary.thumbnail_url` links when
+the corresponding captured source is available. Image and thumbnail depend on
+`original_image`; mask and mask preview depend on `raw_mask`. Recorded missing or
+unreadable assets, and legacy samples without a manifest association, retain null
+links. Queue/detail reads fetch only manifest availability metadata in their
+database snapshot: they never open current dataset or managed asset files.
+
+Links advertise captured availability rather than guaranteeing successful
+rendering. The asset route requires an explicit positive revision, verifies the
+exact manifest bytes and integrity before serving raw assets, and may reject
+corrupt or unsupported sources when generating previews. Raw responses preserve
+the exact captured bytes, including malformed files retained for inspection;
+integrity verification checks stored size and SHA-256 rather than PNG validity.
+The public source roles always use `image/png` and `X-Content-Type-Options:
+nosniff`, independent of stored content-type metadata. Valid raw masks preserve
+their integer IDs; colored mask previews are display-only PNGs. All four asset
+kinds enforce the 64 MiB source-byte limit and return `422 ASSET_TOO_LARGE`
+when exceeded; preview decoding failures return `422 ASSET_NOT_RENDERABLE`.
 
 See [api/README.md](api/README.md) for the full contract and frontend fixtures.
 [api/ENDPOINTS.md](api/ENDPOINTS.md) distinguishes these implemented routes from
-remaining planned operations, including audit creation and assets.
+remaining planned operations, including audit creation, dataset import and
+correction/export workflows.
 
 ## Finding records
 
@@ -516,8 +574,10 @@ the worker stops before starting the next sample. Expired leases can be
 recovered by `AuditRepository.recover_stale_jobs()`; a replacement claim has a
 new token, so a stale worker cannot finalize it later. The implementation is
 bounded and sequential initially, while durable `queued`, `running`,
-`cancelling`, `completed`, `failed` and `cancelled` job states remain available
-for the planned HTTP layer.
+`cancelling`, `completed`, `failed` and `cancelled` job states are exposed by
+the implemented job polling and cancellation routes. Cancellation remains
+cooperative: queued audit work is terminal immediately, while running work
+waits for a safe worker boundary.
 
 Lease checks use the current time after acquiring the required job and sample
 row locks. A claim that expires while waiting cannot renew or persist results.
@@ -860,8 +920,9 @@ Both lists are ordered by ascending version and expose `items`, `limit`, `offset
 `total` and `next_offset`; limits are 1–100. A missing rulebook raises
 `RulebookNotFoundError`. An existing book can have an empty review history:
 extraction and earlier low-level saves do not gain invented reviewer records.
-These are Python services and repository operations; HTTP routes and rulebook
-extraction job wiring remain separate. Audit jobs are documented above.
+Saved-rulebook HTTP reads and reviewer actions now reuse these Python services
+and repository operations. Rulebook extraction-job HTTP wiring remains planned.
+See [the rulebook HTTP guide](api/RULEBOOKS.md). Audit jobs are documented above.
 
 ## Database tests
 
@@ -877,3 +938,30 @@ string to include the integration tests. Each test creates a unique schema and
 removes only that schema afterward, preserving application tables. The test user
 needs permission to create schemas. A configured but unavailable database fails
 the tests instead of being silently skipped.
+
+## Rulebook HTTP read and review
+
+All eight saved-rulebook operations are implemented: list latest snapshots,
+read latest/explicit versions, list versions, list attributed reviews, replace
+a draft, confirm, reject and reopen a final book as a draft. See
+[the API rulebook guide](api/RULEBOOKS.md) for exact paths,
+strict requests, states and error codes. No manual creation, extraction-job,
+audit-start, authentication or feedback-evaluation routes are added by this work.
+
+Mutations use request-time repository injection and the existing transactional
+review services. They append a snapshot and real attribution atomically; reads
+never write, run inference or inspect assets. reviewer_id is attribution, not
+verified identity. Conflicts require refreshing and explicit reviewer resubmission.
+An unsupported check can be confirmed for human review without becoming an
+implemented evaluator. Replacement can remove rules; book confirmation never
+implicitly confirms rules. Earlier snapshots remain unchanged.
+
+The four GETs exclude mutation-only 409 declarations. Each mutation documents
+only its supported conflicts. Invalid replacement IDs/citations use a narrow
+client-error boundary; stored corruption and unrelated validation errors do not.
+No exception internals are returned to clients.
+
+Generated OpenAPI, fixtures and endpoint inventories must come from
+`.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
+Runtime HTTP/PostgreSQL verification remains pending; syntax or generator checks
+do not establish runtime correctness.

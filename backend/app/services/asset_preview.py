@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 from ..models.asset_manifest import AssetKind
-from ..storage.workflow_repository import AssetReadLimitError, SampleAssetManifestRepository
+from ..storage.workflow_repository import SampleAssetManifestRepository
 
 
 THUMBNAIL_MAX_SIZE = (256, 256)
@@ -98,14 +98,12 @@ class SamplePreviewService:
             AssetKind.ORIGINAL_IMAGE if kind is PreviewKind.THUMBNAIL else AssetKind.RAW_MASK
         )
         # The repository verifies size and SHA-256 for this exact revision.
-        # Missing assets and integrity failures retain their storage error types.
-        try:
-            content = self.repository.read_asset_bytes(
-                dataset_id, sample_id, sample_revision, asset_kind,
-                max_bytes=MAX_PREVIEW_SOURCE_BYTES,
-            )
-        except AssetReadLimitError as error:
-            raise PreviewUnavailableError("The captured asset exceeds the preview byte limit.") from error
+        # Availability, integrity and byte-limit failures retain their storage
+        # error types so HTTP callers can distinguish them from decoding errors.
+        content = self.repository.read_asset_bytes(
+            dataset_id, sample_id, sample_revision, asset_kind,
+            max_bytes=MAX_PREVIEW_SOURCE_BYTES,
+        )
         with _decode_png(content) as source:
             if kind is PreviewKind.THUMBNAIL:
                 rendered = source.convert("RGBA")

@@ -198,7 +198,18 @@ def _annotation_unavailable_reason(report: Mapping[str, Any]) -> str | None:
     if not report.get("objects"):
         metadata = report.get("checks", {}).get("annotation_metadata")
         metadata_result = metadata.get("result") if isinstance(metadata, Mapping) else None
-        if not isinstance(metadata_result, Mapping) or metadata_result.get("actual_object_count") != 0:
+        if not isinstance(metadata_result, Mapping):
+            return "annotation_evidence_unavailable"
+        declared = metadata_result.get("declared")
+        actual_count = metadata_result.get("actual_object_count")
+        # Zero parsed rows alone can also mean an unreadable annotation format.
+        # Only the object-count declaration matters here; missing image/coordinate
+        # metadata must not block labels on an explicitly empty annotation.
+        declared_count = declared.get("object_count") if isinstance(declared, Mapping) else None
+        if (
+            type(actual_count) is not int or actual_count != 0
+            or type(declared_count) is not int or declared_count != 0
+        ):
             return "annotation_evidence_unavailable"
     return None
 

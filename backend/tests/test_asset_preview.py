@@ -141,15 +141,17 @@ def test_invalid_pixel_chunk_checksum_is_rejected_even_with_decodable_pixels(kin
         render(bytes(content), kind)
 
 
-def test_preview_byte_budget_has_a_safe_error_before_decoding():
+def test_preview_byte_budget_preserves_the_typed_error_before_decoding():
+    error = AssetReadLimitError("private internal detail")
+
     class OversizedAsset:
         def read_asset_bytes(self, *args, max_bytes):
             assert max_bytes == MAX_PREVIEW_SOURCE_BYTES
-            raise AssetReadLimitError("private internal detail")
+            raise error
 
-    with pytest.raises(PreviewUnavailableError, match="byte limit") as caught:
+    with pytest.raises(AssetReadLimitError) as caught:
         SamplePreviewService(OversizedAsset()).render("dataset", "sample", 3, "thumbnail")
-    assert "private" not in str(caught.value)
+    assert caught.value is error
 
 
 def test_oversized_preview_is_rejected_before_pixel_decoding(monkeypatch):

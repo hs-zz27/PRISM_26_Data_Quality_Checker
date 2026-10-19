@@ -3,7 +3,7 @@
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
@@ -11,7 +11,9 @@ import pytest
 
 from backend.app.core.config import DatabaseConfigurationError
 from backend.app.main import create_app
+from backend.app.models.audit import AuditRun
 from backend.app.models.audit_read import AuditSamplePage, SampleAudit
+from backend.app.models.job import JobStatus
 from backend.app.models.finding import FindingReview
 from backend.app.models.review import (
     FindingReviewPage,
@@ -22,7 +24,7 @@ from backend.app.models.review import (
     SampleReviewRecord,
     SampleReviewRequest,
 )
-from backend.app.routers.audits import get_audit_read_repository
+from backend.app.routers.audits import get_audit_read_repository, get_audit_repository
 from backend.app.routers.finding_reviews import get_finding_repository
 from backend.app.routers.sample_reviews import get_sample_review_repository
 from backend.app.storage.audit_read_repository import AuditReadRepository
@@ -44,9 +46,11 @@ from backend.app.storage.workflow_repository import (
 def api():
     app = create_app()
     repository = Mock(spec=AuditReadRepository)
+    repository.get_audit = Mock()
     finding_repository = Mock(spec=FindingRepository)
     sample_repository = Mock(spec=SampleReviewRepository)
     app.dependency_overrides[get_audit_read_repository] = lambda: repository
+    app.dependency_overrides[get_audit_repository] = lambda: repository
     app.dependency_overrides[get_finding_repository] = lambda: finding_repository
     app.dependency_overrides[get_sample_review_repository] = lambda: sample_repository
     repository.finding_repository = finding_repository
@@ -68,6 +72,50 @@ def detail():
         "measurements": None, "findings": [], "failures": [],
         "review": {"audit_id": "audit_1", "sample_id": "sample_1", "sample_revision": 2},
     })
+
+
+def _audit_run(status: JobStatus = JobStatus.COMPLETED) -> AuditRun:
+    return AuditRun(
+        audit_id="audit_1", job_id="job_1", dataset_id="dataset_1",
+        rulebook_id="book_1", rulebook_version=1, status=status,
+        sample_count=2, processed_count=1, failed_count=0, incomplete_count=0,
+        created_at=datetime(2026, 10, 18, tzinfo=UTC),
+        updated_at=datetime(2026, 10, 18, 1, tzinfo=UTC),
+    )
+
+
+@pytest.mark.parametrize("status", list(JobStatus))
+def test_get_audit_returns_public_persisted_lifecycle_state(api, status):
+    client, repository = api
+    repository.get_audit.return_value = _audit_run(status)
+
+    response = client.get("/api/v1/audits/audit_1")
+
+    assert response.status_code == 200
+    assert response.json() == _audit_run(status).model_dump(mode="json")
+    assert set(response.json()) == {
+        "audit_id", "job_id", "dataset_id", "rulebook_id", "rulebook_version",
+        "source_mode", "status", "sample_count", "processed_count", "failed_count",
+        "incomplete_count", "created_at", "updated_at",
+    }
+    repository.get_audit.assert_called_once_with("audit_1")
+    assert repository.method_calls == [call.get_audit("audit_1")]
+
+
+@pytest.mark.parametrize("error,status,code", [
+    (AuditNotFoundError("private-audit"), 404, "NOT_FOUND"),
+    (WorkflowStorageError("private SQL and claim token"), 503, "DEPENDENCY_UNAVAILABLE"),
+])
+def test_get_audit_errors_use_safe_existing_envelopes(api, error, status, code):
+    client, repository = api
+    repository.get_audit.side_effect = error
+
+    response = client.get("/api/v1/audits/private-audit")
+
+    assert response.status_code == status
+    assert response.json()["error"]["code"] == code
+    assert str(error) not in response.text
+    assert_contract("ErrorResponse", response.json())
 
 
 def assert_contract(name, payload):
@@ -557,15 +605,28 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
     client, _ = api
     spec = client.get("/openapi.json").json()
     assert set(spec["paths"]) == {
+        "/api/v1/rulebooks",
+        "/api/v1/rulebooks/{rulebook_id}",
+        "/api/v1/rulebooks/{rulebook_id}/versions",
+        "/api/v1/rulebooks/{rulebook_id}/reviews",
+        "/api/v1/rulebooks/{rulebook_id}/confirm",
+        "/api/v1/rulebooks/{rulebook_id}/reject",
+        "/api/v1/rulebooks/{rulebook_id}/revisions",
+        "/api/v1/audits/{audit_id}",
         "/api/v1/audits/{audit_id}/samples",
         "/api/v1/audits/{audit_id}/samples/{sample_id}",
+        "/api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}",
         "/api/v1/findings/{finding_id}/review",
         "/api/v1/findings/{finding_id}/reviews",
+        "/api/v1/jobs/{job_id}",
+        "/api/v1/jobs/{job_id}/cancel",
         "/api/v1/audits/{audit_id}/samples/{sample_id}/review",
         "/api/v1/audits/{audit_id}/samples/{sample_id}/reviews",
     }
     assert {operation["operationId"] for path in spec["paths"].values() for operation in path.values()} == {
-        "listAuditSamples", "getAuditSample", "reviewFinding", "listFindingReviews",
+        "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
+        "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
+        "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "reviewFinding", "listFindingReviews", "getJob", "cancelJob",
         "reviewSample", "listSampleReviews",
     }
     assert client.post("/api/v1/audits/audit_1/samples").status_code == 405

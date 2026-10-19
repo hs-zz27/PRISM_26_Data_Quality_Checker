@@ -8,6 +8,7 @@ from uuid import uuid4
 import psycopg
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
+from psycopg.types.json import Jsonb
 from pydantic import SecretStr
 import pytest
 
@@ -45,6 +46,16 @@ def repository(empty_database_settings):
     return FindingRepository(settings=empty_database_settings)
 
 
+def make_finding(outcome="fail"):
+    return Finding(
+        finding_id="finding_1", audit_id="audit_1", sample_id="sample_1", sample_revision=1,
+        object_id=1, rulebook_id="book_1", rulebook_version=2, rule_id="r1",
+        description="Use person labels.", check_name="allowed_labels", outcome=outcome,
+        origin="extracted", source_sentence="Use person labels.",
+        parameters={"allowed_labels": ["person"]}, evidence={"measurements": {"label": "car"}},
+    )
+
+
 def seed_finding(settings, outcome="fail"):
     audits = AuditRepository(settings=settings)
     audit, _ = audits.start_audit(
@@ -56,13 +67,7 @@ def seed_finding(settings, outcome="fail"):
     assert job_claim is not None
     sample_claim = audits.claim_next_sample(job_claim)
     assert sample_claim is not None
-    finding = Finding(
-        finding_id="finding_1", audit_id="audit_1", sample_id="sample_1", sample_revision=1,
-        object_id=1, rulebook_id="book_1", rulebook_version=2, rule_id="r1",
-        description="Use person labels.", check_name="allowed_labels", outcome=outcome,
-        origin="extracted", source_sentence="Use person labels.",
-        parameters={"allowed_labels": ["person"]}, evidence={"measurements": {"label": "car"}},
-    )
+    finding = make_finding(outcome)
     measurements = {"image_id": "sample_1", "review_status": "pending_review", "status": "completed"}
     audits.persist_sample_success(sample_claim, measurements=measurements, findings=[finding])
     return audits, sample_claim, finding, measurements
@@ -221,12 +226,52 @@ def test_upgrade_preserves_existing_findings_without_fabricating_reviews(
     with monkeypatch.context() as patch:
         patch.setattr(database, "MIGRATIONS_DIRECTORY", prior_migrations)
         initialize_database(empty_database_settings)
-        _, _, original, _ = seed_finding(empty_database_settings)
+        # Seed the historical schema directly. Current workflow writers require
+        # source_mode and manifest columns introduced after this schema version.
+        original = make_finding()
+        legacy_request = BatchAuditRequest(
+            dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
+            rulebook_version=2, sample_ids=["sample_1"],
+        ).model_dump(mode="json", exclude={"source_mode"})
+        with database_connection(empty_database_settings) as connection:
+            connection.execute(
+                """INSERT INTO jobs (job_id, kind, status, progress, result, created_at,
+                       updated_at, resource_kind, resource_id)
+                   VALUES ('job_1', 'audit', 'completed', %s, %s,
+                       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'audit', 'audit_1')""",
+                (Jsonb({"phase": "completed", "processed": 1, "total": 1, "fraction": 1.0}),
+                 Jsonb({"kind": "audit", "id": "audit_1", "href": "/api/v1/audits/audit_1"})),
+            )
+            connection.execute(
+                """INSERT INTO audit_runs (audit_id, job_id, dataset_id, dataset_root,
+                       rulebook_id, rulebook_version, status, request, sample_count,
+                       processed_count, created_at, updated_at)
+                   VALUES ('audit_1', 'job_1', 'dataset_1', 'opaque-root', 'book_1',
+                       2, 'completed', %s, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""",
+                (Jsonb(legacy_request),),
+            )
+            connection.execute(
+                """INSERT INTO audit_samples (audit_id, sample_id, sample_revision, ordinal,
+                       status, started_at, finished_at, attempt_count)
+                   VALUES ('audit_1', 'sample_1', 1, 0, 'completed',
+                       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)""",
+            )
+            connection.execute(
+                """INSERT INTO findings (finding_id, audit_id, sample_id, sample_revision,
+                       object_id, rulebook_id, rulebook_version, rule_id, outcome,
+                       review_resolution, document, created_at)
+                   VALUES ('finding_1', 'audit_1', 'sample_1', 1, 1, 'book_1', 2,
+                       'r1', 'fail', 'pending', %s, CURRENT_TIMESTAMP)""",
+                (Jsonb(original.model_dump(mode="json")),),
+            )
+            before = connection.execute("SELECT * FROM findings").fetchone()
 
     initialize_database(empty_database_settings)
     initialize_database(empty_database_settings)
 
     repository = FindingRepository(settings=empty_database_settings)
+    with database_connection(empty_database_settings, readonly=True) as connection:
+        assert connection.execute("SELECT * FROM findings").fetchone() == before
     assert repository.get_finding("finding_1") == original
     assert repository.list_finding_reviews("finding_1").total == 0
     decide(repository)

@@ -1,13 +1,15 @@
 """Resource schemas, reusing implemented Python models where available."""
 
 from backend.app.models.finding import Finding
+from backend.app.models.audit import AuditRun
 from backend.app.models.audit_read import AuditSamplePage, SampleAudit, SampleAuditSummary
+from backend.app.models.job import ApiError, ErrorDetail, Job, Progress, ResultReference
 from backend.app.models.review import (
     FindingReviewPage, FindingReviewRecord, FindingReviewRequest,
     RulebookAction, RulebookReplace, RulebookReviewPage, RulebookReviewRecord,
     SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
 )
-from backend.app.models.rule import Rulebook
+from backend.app.models.rule import Rulebook, RulebookPage
 
 from .common import (
     BOOLEAN, COUNT, FRACTION, INTEGER, JOB_STATUS, SAMPLE_REVIEW_STATUS,
@@ -20,10 +22,11 @@ def build_schemas() -> JsonObject:
     """Reuse implemented records; keep proposed transport records explicit."""
     schemas = {}
     for model in (
-        Rulebook, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
+        Rulebook, RulebookPage, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
         RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage,
         SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
         AuditSamplePage, SampleAudit, SampleAuditSummary,
+        ErrorDetail, ApiError, Progress, ResultReference, Job, AuditRun,
     ):
         schema = model.model_json_schema()
         schemas.update({name: replace_model_refs(definition)
@@ -39,26 +42,7 @@ def build_schemas() -> JsonObject:
     }
     schemas["AnnotationObject"] = obj({"object_id": INTEGER, "label": TEXT, "bbox": ref("BoundingBox")})
     schemas["CorrectionObject"] = obj({"object_id": VERSION, "label": TEXT, "bbox": ref("BoundingBox")})
-    schemas["ErrorDetail"] = obj({"field": nullable(TEXT), "message": TEXT})
-    schemas["ApiError"] = obj({
-        "code": TEXT, "message": TEXT, "details": array(ref("ErrorDetail")), "request_id": TEXT,
-    })
     schemas["ErrorResponse"] = obj({"error": ref("ApiError")})
-    schemas["Progress"] = obj({
-        "phase": TEXT, "processed": COUNT, "total": nullable(COUNT), "fraction": nullable(FRACTION),
-    })
-    schemas["ResultReference"] = obj({
-        "kind": choice("rulebook", "dataset", "audit", "export", "feedback_evaluation"),
-        "id": TEXT, "version": nullable(VERSION), "href": TEXT,
-    })
-    schemas["Job"] = obj({
-        "job_id": TEXT,
-        "kind": choice("rule_extraction", "dataset_import", "audit", "recheck", "export", "feedback_evaluation"),
-        "status": JOB_STATUS, "progress": ref("Progress"),
-        "result": nullable(ref("ResultReference")), "error": nullable(ref("ApiError")),
-        "created_at": TIME, "updated_at": TIME,
-    })
-    schemas["RulebookPage"] = page_schema(ref("Rulebook"))
     schemas["RulebookCreate"] = obj({"guideline_text": {"type": "string"}, "rules": array(ref("Rule"))})
     schemas["RuleExtractionRequest"] = obj({"guideline_text": TEXT})
     schemas["Dataset"] = obj({

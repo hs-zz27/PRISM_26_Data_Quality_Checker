@@ -1,8 +1,8 @@
 # API contract
 
 This folder gives the frontend developer endpoint templates, request bodies,
-response schemas and synthetic examples for the complete planned workflow.
-**Audit sample reads and the four finding/sample review routes are implemented.**
+response schemas and synthetic examples for the implemented and planned workflow.
+**Audit sample reads, revision-pinned asset delivery, job status/cancellation and the four finding/sample review routes and all eight saved-rulebook read/review operations are implemented.**
 All other operations remain planned. Check `x-implementation-status` in OpenAPI
 and `implementation` in each fixture. [Server setup](../README.md#audit-review-api)
 includes the launch command. The running server's `/docs` and `/openapi.json`
@@ -20,7 +20,8 @@ For a frontend served on another port, use its development server's proxy for
   UI, API clients and client-type generation.
 - [examples.json](examples.json): frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
-  no-issue, uncertain and unavailable review scenarios.
+  no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
+  null asset links.
 - [build_contract.py](build_contract.py): endpoint definitions and artifact generation.
 - [schemas.py](schemas.py): transport schemas, reusing implemented rulebook,
   finding and review models.
@@ -73,6 +74,9 @@ https://spec.openapis.org/oas/v3.1.0.html.
    resources. Active feedback-policy integration remains planned.
 6. Poll the job, list the complete review queue and load sample detail. Omit queue
    filters to include apparently correct cases. Findings include pass outcomes.
+   Snapshot-backed samples advertise captured asset links when their manifest
+   roles are available; legacy samples without manifest associations retain null
+   links. Follow an asset link only with its explicit revision query parameter.
 7. Resolve findings and record sample decisions separately. Correct boxes, labels
    and masks through a new annotation revision while preserving originals.
 8. Recheck corrected revisions. This creates a child audit, retaining old evidence
@@ -83,7 +87,8 @@ https://spec.openapis.org/oas/v3.1.0.html.
     then explicitly activate the evaluated policy for later audits.
 
 Every operation has `x-implementation-status` and a backing-service note. The
-audit queue/detail reads and finding/sample review routes are implemented. Python
+audit queue/detail reads, revision-pinned asset delivery, job status/cancellation
+and finding/sample review routes plus rulebook reads/reviewer actions are implemented. Python
 measurements, rule records, Ollama integration, rulebook, finding and sample review
 services, confirmed-rule evaluation, durable PostgreSQL jobs/audits/findings and
 PostgreSQL version/review storage also exist. Other HTTP routes, dataset import,
@@ -102,10 +107,23 @@ pages. During processing, counts refer to currently available records and can
 change. Query parameters and example filtered results agree.
 
 Long-running operations return 202 and a job, sometimes alongside the new
-resource. Jobs use `queued`, `running`, `cancelling`, `completed`, `failed`,
+resource. The implemented `GET /jobs/{job_id}` returns the public `Job` model
+with HTTP 200 for `queued`, `running`, `cancelling`, `completed`, `failed` and
 `cancelled`. Stop polling at the final three states. Unknown progress has null
-total/fraction. Completed jobs provide `result.href`. A failed job remains a
-200 response from its GET endpoint, with a non-null error.
+`total`/`fraction`; `result` and `error` are nullable. Failed jobs remain HTTP
+200 with a non-null structured error. `result.href` is preserved from storage; the audit destination
+`/api/v1/audits/{audit_id}` is callable and returns the persisted audit
+lifecycle summary. Worker identity, claim tokens, leases, attempts and resource columns
+are not part of the public schema.
+
+`POST /jobs/{job_id}/cancel` takes no body and returns HTTP 202 with the same
+public `Job` model. Queued audit cancellation immediately returns `cancelled`
+after the repository transaction updates the audit and queued samples. Running
+audits return `cancelling` until a worker reaches a safe boundary; repeated
+requests preserve that state. Completed, failed or already-cancelled jobs return
+409 `JOB_ALREADY_FINISHED`. Missing jobs return 404, invalid identifiers return
+422, and storage/unexpected failures return the shared safe 503/500 envelopes.
+Cancellation preserves completed measurements, findings and reviewer decisions.
 
 Errors share this envelope:
 
@@ -170,13 +188,14 @@ timestamp. Failures preserve both histories. Existing databases must apply
 `002_rulebook_reviews.sql` through the migration runner described in
 [the backend setup](../README.md#rulebook-review).
 
-The planned HTTP mapping is 409 `VERSION_CONFLICT` for stale versions,
+The implemented HTTP mapping is 409 `VERSION_CONFLICT` for stale versions,
 409 `INVALID_RULEBOOK_STATE` for invalid transitions and 409 `RULEBOOK_NOT_READY`
 for premature confirmation. Invalid fields or citations use 422
 `VALIDATION_ERROR`; missing books or requested versions use 404. The Python
 service also rejects origin changes with reason `invalid_rule_origin`. Reload
 after a conflict before resubmitting reviewer decisions. Services currently raise
-exceptions; the HTTP adapter and its error mapping remain to be implemented.
+exceptions; the implemented HTTP adapter maps known reasons to safe responses.
+Storage failures return safe 503 and unknown/internal failures return safe 500.
 
 Finding outcomes are `pass`, `fail`, `unsure`, `unavailable`. Resolutions are
 `pending`, `accepted`, `rejected`, `unsure`. **Accepting a finding confirms the
@@ -252,9 +271,14 @@ measurements. Non-null measurements preserve the actual stored collector object,
 including older minimal envelopes. The `AuditMeasurements` schema documents the
 full collector shape; it is not imposed on older saved documents. All findings
 and current reviews are returned, scoped to the exact audited revision. Reads
-use one database snapshot. Asset fields and `thumbnail_url` are currently null;
-these reads do not load current files or invent asset URLs. The four synthetic
-review scenarios reflect this limitation.
+use one database snapshot. Snapshot-backed samples populate asset fields from
+the exact manifest association: image and thumbnail depend on `original_image`,
+while mask and `mask_preview` depend on `raw_mask`. Missing/unreadable roles and
+legacy samples without a manifest association remain null. Links advertise
+captured availability only; the asset route verifies integrity and previews may
+reject corrupt or unsupported sources. The four machine-outcome scenarios show
+snapshot-backed available links; the additional `legacy` scenario demonstrates
+null links with the same stored evidence and pending review.
 
 The audit detail's raw measurements preserve their original `pending_review`
 field. Render the separate current review record for actual reviewer decisions.
@@ -292,9 +316,20 @@ mask PNGs retain integer instance IDs, with 0 as background. Colored mask previe
 are display assets and must never be submitted as raw masks. One pixel holds
 one ID; box overlap does not imply shared mask ownership. URLs pin revisions.
 
-The Python preview service now generates thumbnails and colored mask PNGs from
-verified snapshots for an explicit revision. HTTP asset routes and public links
-remain planned, so current queue/detail responses still return null asset URLs.
+The Python preview service and the implemented asset route generate or return
+PNG bytes for an explicit revision. `GET /datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}`
+accepts only `image`, `mask`, `mask_preview` and `thumbnail`, and requires a
+positive `revision`; it never chooses the latest revision. Raw image/mask bytes
+are verified against the immutable manifest, while previews are rendered in
+memory and can return `ASSET_NOT_RENDERABLE` for corrupt or unsupported sources.
+All four kinds return `ASSET_TOO_LARGE` when the captured source exceeds 64 MiB.
+Raw responses preserve malformed captured files too: size/SHA-256 verification
+does not certify PNG validity. Their content type is selected by the public
+source role (`image/png`), never by stored metadata, and responses include
+`X-Content-Type-Options: nosniff`.
+Asset links never expose private storage paths. Missing/unavailable assets use the
+JSON error envelope, and legacy audit samples without manifest associations keep
+null links.
 
 For mask corrections, stage the PNG first, then submit its upload ID with the
 complete replacement object list. Add/remove objects by adding/removing entries.
@@ -333,9 +368,37 @@ const responseBody = structuredClone(template.response.body);
 ```
 
 Use `examples.review_scenarios.flagged`, `.no_issue`, `.unsure`, `.unavailable`
-to develop review states. Their matching confirmed rulebooks are under
+to develop review states, and `.legacy` to handle unavailable asset links.
+Their matching confirmed rulebooks are under
 `examples.review_scenario_rulebooks` with the same keys; the uncertain and
 unavailable cases include their additional reviewer-authored rules.
 Fixtures are independent lifecycle snapshots, not a
 mutable mock server. Import OpenAPI into locally running tooling for schema
 inspection or code generation. Keep binary downloads mocked separately.
+
+## Implemented rulebook HTTP workflow
+
+All eight saved-rulebook operations are implemented: list latest snapshots,
+read latest/explicit versions, list versions, list attributed reviews, replace
+a draft, confirm, reject and reopen a final book as a draft. See
+[the rulebook guide](RULEBOOKS.md) for exact paths,
+strict requests, states and error codes. No manual creation, extraction-job,
+audit-start, authentication or feedback-evaluation routes are added by this work.
+
+Mutations use request-time repository injection and the existing transactional
+review services. They append a snapshot and real attribution atomically; reads
+never write, run inference or inspect assets. reviewer_id is attribution, not
+verified identity. Conflicts require refreshing and explicit reviewer resubmission.
+An unsupported check can be confirmed for human review without becoming an
+implemented evaluator. Replacement can remove rules; book confirmation never
+implicitly confirms rules. Earlier snapshots remain unchanged.
+
+The four GETs exclude mutation-only 409 declarations. Each mutation documents
+only its supported conflicts. Invalid replacement IDs/citations use a narrow
+client-error boundary; stored corruption and unrelated validation errors do not.
+No exception internals are returned to clients.
+
+Generated OpenAPI, fixtures and endpoint inventories must come from
+`.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
+Runtime HTTP/PostgreSQL verification remains pending; syntax or generator checks
+do not establish runtime correctness.

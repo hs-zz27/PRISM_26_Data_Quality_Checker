@@ -130,11 +130,14 @@ def test_failed_check_cannot_modify_shared_mask_pixels(sample_root, monkeypatch)
     ("Annotation/sample.txt", "annotation_load_failed", ["mask_dimensions"]),
     ("PedMasks/sample_mask.png", "mask_load_failed", ["labels", "box_overlaps", "annotation_metadata"]),
 ])
-def test_missing_files_preserve_independent_checks(sample_root, file, reason, independent_checks):
+def test_missing_files_preserve_independent_checks(sample_root, file, reason, independent_checks, caplog):
     (sample_root / file).unlink()
     report = audit_sample(sample_root, "sample", ["person"])
     assert report["status"] == "incomplete" and report["errors"][0]["stage"] == "load"
     assert report["errors"][0]["reason"] == reason
+    assert report["errors"][0]["detail"] == "The source asset could not be loaded."
+    assert str(sample_root) not in json.dumps(report)
+    assert str(sample_root / file) in caplog.text
     for name in independent_checks:
         assert report["checks"][name]["status"] == "completed"
     assert report["checks"]["mask_dimensions"]["status"] == (
@@ -163,6 +166,32 @@ def test_malformed_annotation_is_reported(sample_root):
     assert report["status"] == "incomplete" and report["annotation_text"]
     assert report["errors"][0]["reason"] == "annotation_parse_failed"
     assert report["checks"]["mask_dimensions"]["result"]["matches"]
+
+
+@pytest.mark.parametrize("text", [
+    "", "not an annotation", "Objects with ground truth : 2 {}",
+    "Objects with ground truth : 0 {}\nObjects with ground truth : 0 {}",
+])
+def test_unusable_annotation_cannot_pass_a_label_only_audit(sample_root, text):
+    (sample_root / "Annotation/sample.txt").write_text(text)
+    report = audit_sample(sample_root, "sample", None)
+    book = Rulebook(
+        rulebook_id="book_labels", version=1, guideline_text="Use allowed labels.",
+        confirmation_state="confirmed",
+        rules=[Rule(
+            rule_id="labels", description="Use allowed labels.", check_name="allowed_labels",
+            parameters={"allowed_labels": ["person"]}, origin="reviewer",
+            confirmation_state="confirmed",
+        )],
+    )
+
+    findings = evaluate_rules(book, report, audit_id="audit", sample_id="sample", sample_revision=1)
+
+    assert report["status"] == "incomplete"
+    assert report["checks"]["mask_dimensions"]["result"]["matches"]
+    assert report["errors"][0]["reason"] == "annotation_parse_failed"
+    assert len(findings) == 1 and findings[0].outcome is FindingOutcome.UNAVAILABLE
+    assert findings[0].review.resolution == "pending"
 
 
 def test_dimension_mismatch_blocks_only_dependent_comparisons(sample_root):
@@ -229,7 +258,7 @@ def test_label_mismatch_remains_a_completed_check_not_a_final_rejection(sample_r
 
 
 def test_no_annotations_still_reports_unannotated_mask_ids(sample_root):
-    (sample_root / "Annotation/sample.txt").write_text("")
+    (sample_root / "Annotation/sample.txt").write_text("Objects with ground truth : 0 {}")
     report = audit_sample(sample_root, "sample", ["person"])
     assert report["objects"] == [] and report["status"] == "completed"
     assert report["checks"]["mask_ids"]["result"]["missing_annotations"] == [1, 2]

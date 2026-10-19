@@ -4,9 +4,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query
 
+from ..models.audit import AuditRun
 from ..models.audit_read import AuditSamplePage, ErrorResponse, SampleAudit, ToolStatus
 from ..models.review import SampleReviewDecision
 from ..storage.audit_read_repository import AuditReadRepository
+from ..storage.workflow_repository import AuditRepository
 
 
 router = APIRouter(prefix="/audits", tags=["Audits"], responses={
@@ -22,8 +24,20 @@ def get_audit_read_repository() -> AuditReadRepository:
     return AuditReadRepository()
 
 
+def get_audit_repository() -> AuditRepository:
+    """Resolve audit storage only when an audit overview is requested."""
+    return AuditRepository()
+
+
 Repository = Annotated[AuditReadRepository, Depends(get_audit_read_repository)]
+AuditRepositoryDependency = Annotated[AuditRepository, Depends(get_audit_repository)]
 Identifier = Annotated[str, Path(min_length=1, pattern=r"\S")]
+
+
+@router.get("/{audit_id}", response_model=AuditRun, operation_id="getAudit")
+def get_audit(audit_id: Identifier, repository: AuditRepositoryDependency) -> AuditRun:
+    """Read persisted audit progress without changing workflow or review state."""
+    return repository.get_audit(audit_id)
 
 
 @router.get("/{audit_id}/samples", response_model=AuditSamplePage, operation_id="listAuditSamples")

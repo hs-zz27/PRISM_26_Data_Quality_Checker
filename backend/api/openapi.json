@@ -3,7 +3,7 @@
   "info": {
     "title": "PRISM Data Quality Checker — API contract",
     "version": "0.1.0",
-    "description": "Audit sample reads and finding/sample review routes are implemented. Other operations remain planned; inspect x-implementation-status. Examples are synthetic, not model accuracy results. Local CPU prototype; plain text guidelines first."
+    "description": "Audit sample reads, revision-pinned asset delivery, job status/cancellation and finding/sample review routes and rulebook reads/reviewer actions are implemented. Other operations remain planned; inspect x-implementation-status. Examples are synthetic, not model accuracy results. Local CPU prototype; plain text guidelines first."
   },
   "servers": [
     {
@@ -640,8 +640,8 @@
         ],
         "summary": "List latest rulebook versions",
         "description": "List latest rulebook versions",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "RulebookRepository.list_rulebooks exists; route is planned.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "RulebookRepository.list_rulebooks and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "List latest rulebook versions",
@@ -682,24 +682,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -707,30 +689,17 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -761,10 +730,33 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
                 "example": {
                   "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -952,8 +944,8 @@
         ],
         "summary": "Read a rulebook version",
         "description": "Read a rulebook version",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "RulebookRepository.get_rulebook exists; route is planned.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "RulebookRepository.get_rulebook and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Read a rulebook version",
@@ -986,24 +978,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -1011,30 +985,17 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -1065,10 +1026,33 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
                 "example": {
                   "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -1083,8 +1067,16 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer",
-              "minimum": 1
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "example": 3,
             "description": "Omit for latest; audits must reference a specific version."
@@ -1095,7 +1087,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "rulebook_demo",
             "description": ""
@@ -1109,8 +1102,8 @@
         ],
         "summary": "Save a reviewed draft",
         "description": "Only latest drafts are editable. Submit the complete rule list and explicit rule decisions; omission removes a rule. Retained IDs preserve origin; added IDs must use reviewer origin. All citations must match the supplied text. Save increments version, attributes the reviewer and preserves history. The book stays draft; example save confirms individual rules only.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "save_rulebook_review service and transactional PostgreSQL review history exist; route is planned.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "save_rulebook_review service and transactional PostgreSQL review history and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Save a reviewed draft",
@@ -1143,24 +1136,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -1168,30 +1143,51 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The rulebook is out of date. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The rulebook is out of date. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "INVALID_RULEBOOK_STATE": {
+                    "summary": "This action is not allowed in the current rulebook state.",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_RULEBOOK_STATE",
+                        "message": "This action is not allowed in the current rulebook state.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -1222,10 +1218,33 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
                 "example": {
                   "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -1241,7 +1260,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "rulebook_demo",
             "description": ""
@@ -1287,8 +1307,8 @@
         ],
         "summary": "Read rulebook version history",
         "description": "Snapshots are ordered by ascending version. Unknown rulebooks return 404; an offset past the last version returns an empty page.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "RulebookRepository.list_rulebook_versions exists; route is planned.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "RulebookRepository.list_rulebook_versions and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Read rulebook version history",
@@ -1371,24 +1391,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -1396,30 +1398,17 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -1450,10 +1439,33 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
                 "example": {
                   "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -1494,7 +1506,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "rulebook_demo",
             "description": ""
@@ -1510,8 +1523,8 @@
         ],
         "summary": "Read rulebook review attribution",
         "description": "Attributed review actions ordered by ascending version. Each action and snapshot commit together. Extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "RulebookRepository.list_rulebook_reviews exists; route is planned.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "RulebookRepository.list_rulebook_reviews and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Read rulebook review attribution",
@@ -1545,24 +1558,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -1570,30 +1565,17 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -1624,10 +1606,33 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
                 "example": {
                   "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -1668,7 +1673,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "rulebook_demo",
             "description": ""
@@ -1684,8 +1690,8 @@
         ],
         "summary": "Confirm a reviewed rulebook",
         "description": "Only a latest draft can be confirmed. Require a nonempty book with all included rules confirmed. Rejected rules must be removed; prior versions preserve them. Append expected_version + 1 as a frozen confirmed snapshot for audits. 409 RULEBOOK_NOT_READY when rules are unconfirmed or empty.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "confirm_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "confirm_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Confirm a reviewed rulebook",
@@ -1718,24 +1724,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -1743,30 +1731,62 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The rulebook is out of date. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The rulebook is out of date. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "INVALID_RULEBOOK_STATE": {
+                    "summary": "This action is not allowed in the current rulebook state.",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_RULEBOOK_STATE",
+                        "message": "This action is not allowed in the current rulebook state.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "RULEBOOK_NOT_READY": {
+                    "summary": "Confirm every retained rule and remove rejected rules before confirming the book.",
+                    "value": {
+                      "error": {
+                        "code": "RULEBOOK_NOT_READY",
+                        "message": "Confirm every retained rule and remove rejected rules before confirming the book.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -1797,10 +1817,33 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
                 "example": {
                   "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -1816,7 +1859,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "rulebook_demo",
             "description": ""
@@ -1846,8 +1890,8 @@
         ],
         "summary": "Reject a draft rulebook",
         "description": "Reject the latest draft as a whole. Append a new version without changing individual rule decisions. Start a revision before further edits. This example is an alternative branch from the original version-1 draft, not a step after confirmation.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "reject_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "reject_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "Reject a draft rulebook",
@@ -1880,24 +1924,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -1905,30 +1931,51 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The rulebook is out of date. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The rulebook is out of date. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "INVALID_RULEBOOK_STATE": {
+                    "summary": "This action is not allowed in the current rulebook state.",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_RULEBOOK_STATE",
+                        "message": "This action is not allowed in the current rulebook state.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -1959,10 +2006,33 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
                 "example": {
                   "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -1978,7 +2048,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "rulebook_demo",
             "description": ""
@@ -2008,8 +2079,8 @@
         ],
         "summary": "Start a new draft from a final version",
         "description": "Require the latest confirmed or rejected book. Keep its snapshot immutable; append expected_version + 1 as a draft and reset every included rule to draft. Draft books are already editable. Invalid state transitions return 409 INVALID_RULEBOOK_STATE; stale expected_version returns 409 VERSION_CONFLICT.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "revise_rulebook service and transactional PostgreSQL review history exist; route is planned.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "revise_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         "responses": {
           "201": {
             "description": "Start a new draft from a final version",
@@ -2042,24 +2113,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -2067,30 +2120,51 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The rulebook is out of date. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The rulebook is out of date. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "INVALID_RULEBOOK_STATE": {
+                    "summary": "This action is not allowed in the current rulebook state.",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_RULEBOOK_STATE",
+                        "message": "This action is not allowed in the current rulebook state.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -2121,10 +2195,33 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
                 "example": {
                   "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -2140,7 +2237,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "example": "rulebook_demo",
             "description": ""
@@ -3038,36 +3136,18 @@
         "tags": [
           "Datasets"
         ],
-        "summary": "Download an image or mask asset",
-        "description": "Returns PNG bytes. mask preserves 2D integer instance IDs; mask_preview is a colored display image and must never be used as raw IDs. Missing or unreadable assets return a JSON error.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "summary": "Download a revision-pinned image or mask asset",
+        "description": "Returns image/png for exactly the requested revision with X-Content-Type-Options: nosniff. image and mask return exact captured bytes after size and SHA-256 verification, including malformed source bytes retained for inspection; no raw mask decoding or conversion occurs. Stored content-type metadata cannot select a different response type. thumbnail and mask_preview are derived display PNGs; previews never replace raw mask bytes and may reject corrupt or unsupported sources with ASSET_NOT_RENDERABLE. All four kinds enforce a 64 MiB source-byte limit and return ASSET_TOO_LARGE when exceeded. Missing or unavailable assets return a JSON error, and integrity, storage-configuration and unexpected failures retain the documented JSON error envelope. No latest-revision lookup or private storage path is exposed.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "SampleAssetService, SamplePreviewService, SampleAssetManifestRepository and FastAPI route implemented.",
         "responses": {
           "200": {
-            "description": "Download an image or mask asset",
+            "description": "Download a revision-pinned image or mask asset",
             "content": {
               "image/png": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
                 }
               }
             }
@@ -3079,30 +3159,17 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested sample asset does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested sample asset does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -3115,12 +3182,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "One or more request fields are invalid.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "One or more request fields are invalid.",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more request fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "ASSET_NOT_RENDERABLE": {
+                    "summary": "The requested sample asset cannot be rendered.",
+                    "value": {
+                      "error": {
+                        "code": "ASSET_NOT_RENDERABLE",
+                        "message": "The requested sample asset cannot be rendered.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "ASSET_TOO_LARGE": {
+                    "summary": "The requested sample asset exceeds the read limit.",
+                    "value": {
+                      "error": {
+                        "code": "ASSET_TOO_LARGE",
+                        "message": "The requested sample asset exceeds the read limit.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -3133,12 +3227,40 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Audit storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Audit storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "summary": "The request could not be completed.",
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -3160,7 +3282,7 @@
               ]
             },
             "example": "image",
-            "description": ""
+            "description": "One of image, mask, mask_preview or thumbnail."
           },
           {
             "name": "revision",
@@ -3171,7 +3293,7 @@
               "minimum": 1
             },
             "example": 1,
-            "description": ""
+            "description": "Required positive captured sample revision; the service never falls back to the latest revision."
           },
           {
             "name": "dataset_id",
@@ -4105,49 +4227,32 @@
         "tags": [
           "Audits"
         ],
-        "summary": "Read audit processing and review counts",
-        "description": "Processing completed does not mean data was accepted. Reviewed count refers only to final decisions on the pinned revisions.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "summary": "Read persisted audit progress",
+        "description": "Read the persisted audit lifecycle summary without executing, claiming, recovering or modifying work, inspecting asset files or contacting Ollama. HTTP 200 is returned for every persisted lifecycle state. Processing completion does not imply reviewer acceptance.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "AuditRepository.get_audit and FastAPI route implemented.",
         "responses": {
           "200": {
-            "description": "Read audit processing and review counts",
+            "description": "Read persisted audit progress",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Audit"
+                  "$ref": "#/components/schemas/AuditRun"
                 },
                 "example": {
                   "audit_id": "audit_demo",
-                  "parent_audit_id": null,
+                  "job_id": "job_audit_demo",
                   "dataset_id": "dataset_demo",
                   "rulebook_id": "rulebook_demo",
                   "rulebook_version": 3,
-                  "feedback_policy_id": null,
+                  "source_mode": "snapshot",
                   "status": "completed",
-                  "job_id": "job_audit_demo",
                   "sample_count": 1,
                   "processed_count": 1,
-                  "reviewed_count": 0,
-                  "created_at": "2026-10-14T10:00:00Z"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
+                  "failed_count": 0,
+                  "incomplete_count": 0,
+                  "created_at": "2026-10-14T10:00:00Z",
+                  "updated_at": "2026-10-14T10:00:00Z"
                 }
               }
             }
@@ -4163,24 +4268,6 @@
                   "error": {
                     "code": "NOT_FOUND",
                     "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4223,6 +4310,24 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -4247,7 +4352,7 @@
           "Audits"
         ],
         "summary": "Read the complete review queue",
-        "description": "Omit filters to include every sample in original audit order. total and next_offset refer to the filtered queue. Processing state, incomplete flag, machine outcomes and human decisions are separate. Queued/running samples are pending; otherwise fail takes precedence over unsure, then unavailable. Failed/cancelled/incomplete or zero-findings samples cannot be no_issue. No automatic acceptance. Missing audits return 404, empty matching pages return 200.",
+        "description": "Omit filters to include every sample in original audit order. total and next_offset refer to the filtered queue. Processing state, incomplete flag, machine outcomes and human decisions are separate. Queued/running samples are pending; otherwise fail takes precedence over unsure, then unavailable. Failed/cancelled/incomplete or zero-findings samples cannot be no_issue. No automatic acceptance. Snapshot-backed samples with an available captured original image advertise a revision-pinned thumbnail_url; legacy samples without a manifest association keep it null. Missing audits return 404, empty matching pages return 200.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "AuditReadRepository.list_samples and FastAPI route implemented.",
         "responses": {
@@ -4273,7 +4378,7 @@
                         "unsure": 0,
                         "unavailable": 0
                       },
-                      "thumbnail_url": null
+                      "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
                     }
                   ],
                   "limit": 20,
@@ -4437,7 +4542,7 @@
           "Audits"
         ],
         "summary": "Read sample findings, evidence and measurements",
-        "description": "One database snapshot includes the stored sample pin, original measurements, all findings with latest reviews, technical failures and current sample decision. Measurements are null when not persisted and otherwise preserve the collector document (including its original pending_review field). Asset links and thumbnail are null until revision-aware asset serving exists. No current dataset files are read. Missing audit/sample returns 404.",
+        "description": "One database snapshot includes the stored sample pin, exact captured manifest availability, original measurements, all findings with latest reviews, technical failures and current sample decision. Snapshot-backed samples advertise image/thumbnail links when original_image is available and mask/mask_preview links when raw_mask is available; recorded missing or unreadable roles and legacy samples without a manifest association remain null. Links advertise captured availability only: the asset route verifies exact bytes and derived previews may reject corrupt or unsupported sources. Measurements are null when not persisted and otherwise preserve the collector document (including its original pending_review field), except that loading-error details use safe messages even for legacy reports. Stored evidence is not rewritten. No current dataset files are read or latest revision inferred. Missing audit/sample returns 404.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "AuditReadRepository.get_sample and FastAPI route implemented.",
         "responses": {
@@ -4467,13 +4572,29 @@
                           "unsure": 0,
                           "unavailable": 0
                         },
-                        "thumbnail_url": null
+                        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
                       },
                       "assets": {
-                        "image": null,
-                        "mask": null,
-                        "mask_preview": null,
-                        "thumbnail": null
+                        "image": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask_preview": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "thumbnail": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        }
                       },
                       "failures": [],
                       "measurements": {
@@ -5007,13 +5128,29 @@
                           "unsure": 0,
                           "unavailable": 0
                         },
-                        "thumbnail_url": null
+                        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
                       },
                       "assets": {
-                        "image": null,
-                        "mask": null,
-                        "mask_preview": null,
-                        "thumbnail": null
+                        "image": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask_preview": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "thumbnail": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        }
                       },
                       "failures": [],
                       "measurements": {
@@ -5545,13 +5682,29 @@
                           "unsure": 1,
                           "unavailable": 0
                         },
-                        "thumbnail_url": null
+                        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
                       },
                       "assets": {
-                        "image": null,
-                        "mask": null,
-                        "mask_preview": null,
-                        "thumbnail": null
+                        "image": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask_preview": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "thumbnail": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        }
                       },
                       "failures": [],
                       "measurements": {
@@ -6115,13 +6268,29 @@
                           "unsure": 0,
                           "unavailable": 1
                         },
-                        "thumbnail_url": null
+                        "thumbnail_url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1"
                       },
                       "assets": {
-                        "image": null,
-                        "mask": null,
-                        "mask_preview": null,
-                        "thumbnail": null
+                        "image": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask_preview": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "thumbnail": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        }
                       },
                       "failures": [],
                       "measurements": {
@@ -6664,6 +6833,546 @@
                         "updated_at": null
                       }
                     }
+                  },
+                  "legacy": {
+                    "summary": "Synthetic legacy review state",
+                    "value": {
+                      "audit_id": "audit_demo",
+                      "dataset_id": "dataset_demo",
+                      "summary": {
+                        "sample_id": "sample_001",
+                        "sample_revision": 1,
+                        "tool_status": "flagged",
+                        "review_status": "pending_review",
+                        "processing_status": "completed",
+                        "incomplete": false,
+                        "finding_counts": {
+                          "pass": 1,
+                          "fail": 1,
+                          "unsure": 0,
+                          "unavailable": 0
+                        },
+                        "thumbnail_url": null
+                      },
+                      "assets": {
+                        "image": null,
+                        "mask": null,
+                        "mask_preview": null,
+                        "thumbnail": null
+                      },
+                      "failures": [],
+                      "measurements": {
+                        "image_id": "sample_001",
+                        "image_size": [
+                          4,
+                          3
+                        ],
+                        "annotation_text": "Image size (X x Y x C) : 4 x 3 x 3\nObjects with ground truth : 2 { \"person\" \"vehicle\" }\n# Top left pixel co-ordinates : (1, 1)\nBounding box for object 1 \"person\" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\nBounding box for object 2 \"vehicle\" (Xmin, Ymin) - (Xmax, Ymax) : (4, 3) - (4, 3)\n",
+                        "allowed_labels": [
+                          "person"
+                        ],
+                        "status": "completed",
+                        "review_status": "pending_review",
+                        "errors": [],
+                        "checks": {
+                          "mask_dimensions": {
+                            "status": "completed",
+                            "reason": null,
+                            "detail": null,
+                            "result": {
+                              "matches": true,
+                              "image_size": [
+                                4,
+                                3
+                              ],
+                              "mask_size": [
+                                4,
+                                3
+                              ]
+                            }
+                          },
+                          "annotation_metadata": {
+                            "status": "completed",
+                            "reason": null,
+                            "detail": null,
+                            "result": {
+                              "measurement_available": true,
+                              "reason": null,
+                              "matches": true,
+                              "declared": {
+                                "image_size": [
+                                  4,
+                                  3,
+                                  3
+                                ],
+                                "object_count": 2,
+                                "coordinate_origin": [
+                                  1,
+                                  1
+                                ],
+                                "errors": {}
+                              },
+                              "actual_image_size": [
+                                4,
+                                3,
+                                3
+                              ],
+                              "actual_object_count": 2,
+                              "issues": {}
+                            }
+                          },
+                          "labels": {
+                            "status": "completed",
+                            "reason": null,
+                            "detail": null,
+                            "result": {
+                              "matches": false,
+                              "allowed_labels": [
+                                "person"
+                              ],
+                              "object_results": [
+                                {
+                                  "object_id": 1,
+                                  "label": "person",
+                                  "matches": true,
+                                  "reason": null
+                                },
+                                {
+                                  "object_id": 2,
+                                  "label": "vehicle",
+                                  "matches": false,
+                                  "reason": "label_not_allowed"
+                                }
+                              ],
+                              "invalid_object_ids": [
+                                2
+                              ]
+                            }
+                          },
+                          "annotation_ids": {
+                            "status": "completed",
+                            "reason": null,
+                            "detail": null,
+                            "result": {
+                              "valid": true,
+                              "duplicate_ids": [],
+                              "invalid_ids": []
+                            }
+                          },
+                          "mask_ids": {
+                            "status": "completed",
+                            "reason": null,
+                            "detail": null,
+                            "result": {
+                              "matches": true,
+                              "annotation_ids": [
+                                1,
+                                2
+                              ],
+                              "mask_ids": [
+                                1,
+                                2
+                              ],
+                              "missing_masks": [],
+                              "missing_annotations": []
+                            }
+                          },
+                          "box_overlaps": {
+                            "status": "completed",
+                            "reason": null,
+                            "detail": null,
+                            "result": {
+                              "pairs": [
+                                {
+                                  "box1": [
+                                    1,
+                                    1,
+                                    2,
+                                    2
+                                  ],
+                                  "box2": [
+                                    4,
+                                    3,
+                                    4,
+                                    3
+                                  ],
+                                  "measurement_available": true,
+                                  "reason": null,
+                                  "invalid_boxes": {},
+                                  "intersection_area": 0,
+                                  "union_area": 5,
+                                  "iou": 0.0,
+                                  "object_ids": [
+                                    1,
+                                    2
+                                  ]
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "objects": [
+                          {
+                            "annotation": {
+                              "object_id": 1,
+                              "label": "person",
+                              "bbox": [
+                                1,
+                                1,
+                                2,
+                                2
+                              ]
+                            },
+                            "checks": {
+                              "label": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 1,
+                                  "label": "person",
+                                  "matches": true,
+                                  "reason": null
+                                }
+                              },
+                              "box_validity": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "valid": true,
+                                  "bbox": [
+                                    1,
+                                    1,
+                                    2,
+                                    2
+                                  ],
+                                  "reason": null,
+                                  "detail": null
+                                }
+                              },
+                              "mask_components": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 1,
+                                  "connectivity": 8,
+                                  "measurement_available": true,
+                                  "reason": null,
+                                  "total_mask_pixels": 4,
+                                  "component_count": 1,
+                                  "components": [
+                                    {
+                                      "component_id": 1,
+                                      "area": 4,
+                                      "area_fraction": 1.0,
+                                      "bbox": [
+                                        1,
+                                        1,
+                                        2,
+                                        2
+                                      ]
+                                    }
+                                  ]
+                                }
+                              },
+                              "box_mask_alignment": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 1,
+                                  "annotation_bbox": [
+                                    1,
+                                    1,
+                                    2,
+                                    2
+                                  ],
+                                  "measurement_available": true,
+                                  "reason": null,
+                                  "mask_bbox": [
+                                    1,
+                                    1,
+                                    2,
+                                    2
+                                  ],
+                                  "edge_differences": {
+                                    "left": 0,
+                                    "top": 0,
+                                    "right": 0,
+                                    "bottom": 0
+                                  },
+                                  "max_edge_difference": 0
+                                }
+                              },
+                              "mask_outside_box": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 1,
+                                  "annotation_bbox": [
+                                    1,
+                                    1,
+                                    2,
+                                    2
+                                  ],
+                                  "measurement_available": true,
+                                  "reason": null,
+                                  "total_mask_pixels": 4,
+                                  "outside_pixels": 0,
+                                  "outside_fraction": 0.0
+                                }
+                              },
+                              "mask_box_fill": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 1,
+                                  "annotation_bbox": [
+                                    1,
+                                    1,
+                                    2,
+                                    2
+                                  ],
+                                  "measurement_available": true,
+                                  "reason": null,
+                                  "box_area": 4,
+                                  "inside_mask_pixels": 4,
+                                  "fill_fraction": 1.0
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "annotation": {
+                              "object_id": 2,
+                              "label": "vehicle",
+                              "bbox": [
+                                4,
+                                3,
+                                4,
+                                3
+                              ]
+                            },
+                            "checks": {
+                              "label": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 2,
+                                  "label": "vehicle",
+                                  "matches": false,
+                                  "reason": "label_not_allowed"
+                                }
+                              },
+                              "box_validity": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "valid": true,
+                                  "bbox": [
+                                    4,
+                                    3,
+                                    4,
+                                    3
+                                  ],
+                                  "reason": null,
+                                  "detail": null
+                                }
+                              },
+                              "mask_components": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 2,
+                                  "connectivity": 8,
+                                  "measurement_available": true,
+                                  "reason": null,
+                                  "total_mask_pixels": 1,
+                                  "component_count": 1,
+                                  "components": [
+                                    {
+                                      "component_id": 1,
+                                      "area": 1,
+                                      "area_fraction": 1.0,
+                                      "bbox": [
+                                        4,
+                                        3,
+                                        4,
+                                        3
+                                      ]
+                                    }
+                                  ]
+                                }
+                              },
+                              "box_mask_alignment": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 2,
+                                  "annotation_bbox": [
+                                    4,
+                                    3,
+                                    4,
+                                    3
+                                  ],
+                                  "measurement_available": true,
+                                  "reason": null,
+                                  "mask_bbox": [
+                                    4,
+                                    3,
+                                    4,
+                                    3
+                                  ],
+                                  "edge_differences": {
+                                    "left": 0,
+                                    "top": 0,
+                                    "right": 0,
+                                    "bottom": 0
+                                  },
+                                  "max_edge_difference": 0
+                                }
+                              },
+                              "mask_outside_box": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 2,
+                                  "annotation_bbox": [
+                                    4,
+                                    3,
+                                    4,
+                                    3
+                                  ],
+                                  "measurement_available": true,
+                                  "reason": null,
+                                  "total_mask_pixels": 1,
+                                  "outside_pixels": 0,
+                                  "outside_fraction": 0.0
+                                }
+                              },
+                              "mask_box_fill": {
+                                "status": "completed",
+                                "reason": null,
+                                "detail": null,
+                                "result": {
+                                  "object_id": 2,
+                                  "annotation_bbox": [
+                                    4,
+                                    3,
+                                    4,
+                                    3
+                                  ],
+                                  "measurement_available": true,
+                                  "reason": null,
+                                  "box_area": 1,
+                                  "inside_mask_pixels": 1,
+                                  "fill_fraction": 1.0
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "findings": [
+                        {
+                          "finding_id": "finding_pass_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 1,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "pass",
+                          "reason": null,
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "person",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 0,
+                            "resolution": "pending",
+                            "reviewer_id": null,
+                            "comment": null,
+                            "updated_at": null
+                          }
+                        },
+                        {
+                          "finding_id": "finding_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 2,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "fail",
+                          "reason": "label_not_allowed",
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "vehicle",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 0,
+                            "resolution": "pending",
+                            "reviewer_id": null,
+                            "comment": null,
+                            "updated_at": null
+                          }
+                        }
+                      ],
+                      "review": {
+                        "audit_id": "audit_demo",
+                        "sample_id": "sample_001",
+                        "sample_revision": 1,
+                        "revision": 0,
+                        "decision": "pending_review",
+                        "reviewer_id": null,
+                        "comment": null,
+                        "updated_at": null
+                      }
+                    }
                   }
                 }
               }
@@ -7174,13 +7883,13 @@
         "tags": [
           "Jobs"
         ],
-        "summary": "Poll progress and completion",
-        "description": "Poll until completed, failed or cancelled. Follow result.href after completion. total/fraction null means indeterminate progress. Job failures are data in a 200 response, not a successful audit outcome.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "summary": "Poll persisted job progress and completion",
+        "description": "Read the persisted public Job resource without claiming, executing, recovering or modifying work. Return HTTP 200 for queued, running, cancelling, completed, failed and cancelled states. progress.total and progress.fraction may be null when work is indeterminate; result and error are nullable. Failed jobs remain HTTP 200 with their structured error in the response, not an HTTP failure. Preserve result.href exactly when present; the audit result destination /api/v1/audits/{audit_id} is callable. Missing jobs return 404; invalid identifiers return 422; storage and unexpected failures use the shared safe 503/500 envelopes. Worker identity, claim tokens, leases, attempts and resource columns are never public.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "JobRepository.get_job and FastAPI route implemented.",
         "responses": {
           "200": {
-            "description": "Poll progress and completion",
+            "description": "Poll persisted job progress and completion",
             "content": {
               "application/json": {
                 "schema": {
@@ -7209,24 +7918,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "The requested resource does not exist.",
             "content": {
@@ -7238,24 +7929,6 @@
                   "error": {
                     "code": "NOT_FOUND",
                     "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7292,6 +7965,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7321,10 +8012,10 @@
         "tags": [
           "Jobs"
         ],
-        "summary": "Request cancellation of pending work",
-        "description": "Cooperative cancellation stops at a safe processing boundary and preserves completed results. Terminal jobs return 409 JOB_ALREADY_FINISHED.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "summary": "Request audit-aware job cancellation",
+        "description": "Accept no request body and return HTTP 202 with the public Job resource. For a queued audit, the existing transactional repository operation immediately marks the job cancelled, updates the audit and queued samples, and may preserve its stored result link. For a running audit, return cancelling while the worker reaches a safe boundary; repeated requests while cancelling preserve that state. Completed, failed and already-cancelled jobs return 409 JOB_ALREADY_FINISHED. Missing jobs return 404; invalid identifiers return 422; storage and unexpected failures use the shared safe 503/500 envelopes. Worker identity, claim tokens, leases, attempts and resource columns are never public. Cancellation does not rewrite completed measurements, findings or reviewer decisions.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "AuditRepository.cancel_job dispatch boundary and FastAPI route implemented.",
         "responses": {
           "202": {
             "description": "Job accepted; poll the returned job ID.",
@@ -7336,35 +8027,22 @@
                 "example": {
                   "job_id": "job_audit_demo",
                   "kind": "audit",
-                  "status": "cancelling",
+                  "status": "cancelled",
                   "progress": {
-                    "phase": "queued",
+                    "phase": "cancelled",
                     "processed": 0,
                     "total": 1,
                     "fraction": 0.0
                   },
-                  "result": null,
+                  "result": {
+                    "kind": "audit",
+                    "id": "audit_demo",
+                    "version": null,
+                    "href": "/api/v1/audits/audit_demo"
+                  },
                   "error": null,
                   "created_at": "2026-10-14T10:00:00Z",
                   "updated_at": "2026-10-14T10:00:00Z"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
                 }
               }
             }
@@ -7388,18 +8066,23 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "JOB_ALREADY_FINISHED": {
+                    "summary": "A terminal job cannot be cancelled.",
+                    "value": {
+                      "error": {
+                        "code": "JOB_ALREADY_FINISHED",
+                        "message": "A terminal job cannot be cancelled.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -7434,6 +8117,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7654,7 +8355,7 @@
             }
           },
           "409": {
-            "description": "Review conflict; see the error code.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7812,7 +8513,7 @@
             }
           },
           "409": {
-            "description": "Review conflict; see the error code.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8012,7 +8713,7 @@
             }
           },
           "409": {
-            "description": "Review conflict; see the error code.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10366,6 +11067,56 @@
         "title": "Rulebook",
         "type": "object"
       },
+      "RulebookPage": {
+        "additionalProperties": false,
+        "description": "A page of latest rulebooks or one rulebook's saved version history.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Rulebook"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total"
+        ],
+        "title": "RulebookPage",
+        "type": "object"
+      },
       "Evidence": {
         "additionalProperties": false,
         "description": "JSON measurements and optional asset links supporting the outcome.\n\nAsset links may be relative API paths. Empty measurements are valid when\nevaluation could not run, such as for an unsupported requirement.",
@@ -11428,7 +12179,7 @@
       },
       "SampleAssets": {
         "additionalProperties": false,
-        "description": "Null links mean that revision-pinned asset serving is unavailable.",
+        "description": "Links advertise captured source availability for the audited revision.",
         "properties": {
           "image": {
             "anyOf": [
@@ -11543,6 +12294,356 @@
         "title": "SampleAudit",
         "type": "object"
       },
+      "ErrorDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Field"
+          },
+          "message": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "ApiError": {
+        "additionalProperties": false,
+        "description": "Structured, secret-free error information retained on failed jobs.",
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Message",
+            "type": "string"
+          },
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "request_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "title": "ApiError",
+        "type": "object"
+      },
+      "Progress": {
+        "additionalProperties": false,
+        "description": "Safe-boundary progress; unknown work is represented by null values.",
+        "properties": {
+          "phase": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Phase",
+            "type": "string"
+          },
+          "processed": {
+            "minimum": 0,
+            "title": "Processed",
+            "type": "integer"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total"
+          },
+          "fraction": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fraction"
+          }
+        },
+        "required": [
+          "phase",
+          "processed"
+        ],
+        "title": "Progress",
+        "type": "object"
+      },
+      "ResultReference": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "rulebook",
+              "dataset",
+              "audit",
+              "export",
+              "feedback_evaluation"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Version"
+          },
+          "href": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Href",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "href"
+        ],
+        "title": "ResultReference",
+        "type": "object"
+      },
+      "JobKind": {
+        "description": "Kinds reserved by the public API contract.",
+        "enum": [
+          "rule_extraction",
+          "dataset_import",
+          "audit",
+          "recheck",
+          "export",
+          "feedback_evaluation"
+        ],
+        "title": "JobKind",
+        "type": "string"
+      },
+      "JobStatus": {
+        "description": "Persisted lifecycle states for asynchronous work.",
+        "enum": [
+          "queued",
+          "running",
+          "cancelling",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "JobStatus",
+        "type": "string"
+      },
+      "Job": {
+        "additionalProperties": false,
+        "description": "The public job resource; worker lease fields stay private in storage.",
+        "properties": {
+          "job_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/JobKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/Progress"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResultReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "kind",
+          "status",
+          "progress",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Job",
+        "type": "object"
+      },
+      "AuditSourceMode": {
+        "description": "Whether an audit reads mutable legacy files or an immutable snapshot.",
+        "enum": [
+          "legacy",
+          "snapshot"
+        ],
+        "title": "AuditSourceMode",
+        "type": "string"
+      },
+      "AuditRun": {
+        "additionalProperties": false,
+        "description": "Read model for a durable audit and its job-backed progress.",
+        "properties": {
+          "audit_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "job_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "dataset_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "rulebook_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rulebook Id",
+            "type": "string"
+          },
+          "rulebook_version": {
+            "minimum": 1,
+            "title": "Rulebook Version",
+            "type": "integer"
+          },
+          "source_mode": {
+            "$ref": "#/components/schemas/AuditSourceMode",
+            "default": "legacy"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "sample_count": {
+            "minimum": 0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "processed_count": {
+            "minimum": 0,
+            "title": "Processed Count",
+            "type": "integer"
+          },
+          "failed_count": {
+            "minimum": 0,
+            "title": "Failed Count",
+            "type": "integer"
+          },
+          "incomplete_count": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Incomplete Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audit_id",
+          "job_id",
+          "dataset_id",
+          "rulebook_id",
+          "rulebook_version",
+          "status",
+          "sample_count",
+          "processed_count",
+          "failed_count",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AuditRun",
+        "type": "object"
+      },
       "ImageSize": {
         "type": "array",
         "items": {
@@ -11605,61 +12706,6 @@
         ],
         "additionalProperties": false
       },
-      "ErrorDetail": {
-        "type": "object",
-        "properties": {
-          "field": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "message": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "field",
-          "message"
-        ],
-        "additionalProperties": false
-      },
-      "ApiError": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "string",
-            "minLength": 1
-          },
-          "message": {
-            "type": "string",
-            "minLength": 1
-          },
-          "details": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ErrorDetail"
-            }
-          },
-          "request_id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "code",
-          "message",
-          "details",
-          "request_id"
-        ],
-        "additionalProperties": false
-      },
       "ErrorResponse": {
         "type": "object",
         "properties": {
@@ -11669,205 +12715,6 @@
         },
         "required": [
           "error"
-        ],
-        "additionalProperties": false
-      },
-      "Progress": {
-        "type": "object",
-        "properties": {
-          "phase": {
-            "type": "string",
-            "minLength": 1
-          },
-          "processed": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "total": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "fraction": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "phase",
-          "processed",
-          "total",
-          "fraction"
-        ],
-        "additionalProperties": false
-      },
-      "ResultReference": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "rulebook",
-              "dataset",
-              "audit",
-              "export",
-              "feedback_evaluation"
-            ]
-          },
-          "id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "version": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "href": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "kind",
-          "id",
-          "version",
-          "href"
-        ],
-        "additionalProperties": false
-      },
-      "Job": {
-        "type": "object",
-        "properties": {
-          "job_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "rule_extraction",
-              "dataset_import",
-              "audit",
-              "recheck",
-              "export",
-              "feedback_evaluation"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "running",
-              "cancelling",
-              "completed",
-              "failed",
-              "cancelled"
-            ]
-          },
-          "progress": {
-            "$ref": "#/components/schemas/Progress"
-          },
-          "result": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ResultReference"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ApiError"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "job_id",
-          "kind",
-          "status",
-          "progress",
-          "result",
-          "error",
-          "created_at",
-          "updated_at"
-        ],
-        "additionalProperties": false
-      },
-      "RulebookPage": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Rulebook"
-            }
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "offset": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "total": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "next_offset": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "items",
-          "limit",
-          "offset",
-          "total",
-          "next_offset"
         ],
         "additionalProperties": false
       },

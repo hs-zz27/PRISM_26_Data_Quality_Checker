@@ -39,7 +39,7 @@ class AssetReference(BaseModel):
 
 
 class SampleAssets(BaseModel):
-    """Null links mean that revision-pinned asset serving is unavailable."""
+    """Links advertise captured source availability for the audited revision."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
