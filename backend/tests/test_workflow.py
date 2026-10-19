@@ -18,16 +18,19 @@ from pydantic import SecretStr
 from PIL import Image
 import pytest
 
-from backend.app.core.config import DatabaseSettings
-from backend.app.models.audit import AuditSampleClaim, BatchAuditRequest
+from backend.app.core.config import AssetStorageSettings, DatabaseSettings
+from backend.app.models.audit import AuditSampleClaim, AuditSourceMode, BatchAuditRequest
 from backend.app.models.finding import FindingResolution
 from backend.app.models.rule import ConfirmationState, Rule, Rulebook
-from backend.app.services.batch_audit import BatchAuditService
+from backend.app.services.batch_audit import BatchAuditService, ResolvedSampleRevision
+from backend.app.services.asset_snapshot import capture_sample
 from backend.app.services.evaluation import evaluate_rules
 from backend.app.services.evaluation import CheckExecutionError
 from backend.app.storage.database import database_connection, initialize_database
 from backend.app.storage.repository import RulebookRepository
-from backend.app.storage.workflow_repository import AuditRepository, FindingRepository
+from backend.app.storage.workflow_repository import (
+    AuditRepository, FindingRepository, SampleAssetManifestRepository,
+)
 
 
 NOW = datetime.now(UTC) - timedelta(seconds=1)
@@ -175,6 +178,128 @@ def make_service(
         isolate_sample_computation=isolate_sample_computation,
         sample_max_seconds=sample_max_seconds,
     ), audits
+
+
+def test_snapshot_audit_persists_manifest_association_on_each_claim(workflow_settings, tmp_path):
+    source_root = tmp_path / "source"
+    for directory in ("PNGImages", "PedMasks", "Annotation"):
+        (source_root / directory).mkdir(parents=True)
+    (source_root / "PNGImages/sample.png").write_bytes(b"image")
+    (source_root / "PedMasks/sample_mask.png").write_bytes(b"mask")
+    (source_root / "Annotation/sample.txt").write_bytes(b"annotation")
+    asset_settings = AssetStorageSettings(root=tmp_path / "managed")
+    manifest_repository = SampleAssetManifestRepository(
+        settings=workflow_settings, asset_settings=asset_settings,
+    )
+    manifest = capture_sample(
+        dataset_id="dataset_1", sample_id="sample", sample_revision=2,
+        source_root=source_root, repository=manifest_repository,
+    )
+    audits = AuditRepository(settings=workflow_settings)
+    request = BatchAuditRequest(
+        dataset_id="dataset_1", dataset_root="legacy-root", rulebook_id="book_workflow",
+        rulebook_version=1, sample_ids=["sample"], sample_revisions={"sample": 2},
+        source_mode=AuditSourceMode.SNAPSHOT,
+    )
+    audits.start_audit(
+        request, sample_manifests={"sample": manifest}, audit_id="snapshot_audit", job_id="snapshot_job",
+    )
+    job_claim = audits.claim_audit("snapshot_audit", worker_id="snapshot_worker")
+    sample_claim = audits.claim_next_sample(job_claim)
+
+    assert sample_claim is not None
+    assert sample_claim.source_mode is AuditSourceMode.SNAPSHOT
+    assert sample_claim.manifest_dataset_id == "dataset_1"
+    with database_connection(workflow_settings, readonly=True) as connection:
+        row = connection.execute(
+            "SELECT source_mode FROM audit_runs WHERE audit_id = 'snapshot_audit'"
+        ).fetchone()
+        sample = connection.execute(
+            """SELECT manifest_dataset_id, sample_revision FROM audit_samples
+               WHERE audit_id = 'snapshot_audit' AND sample_id = 'sample'"""
+        ).fetchone()
+    assert row == {"source_mode": "snapshot"}
+    assert sample == {"manifest_dataset_id": "dataset_1", "sample_revision": 2}
+
+
+def start_snapshot_audit(settings, tmp_path, *, isolated):
+    source = tmp_path / "source"
+    for directory in ("PNGImages", "PedMasks", "Annotation"):
+        (source / directory).mkdir(parents=True)
+    Image.new("RGB", (2, 2)).save(source / "PNGImages/sample.png")
+    Image.new("L", (2, 2), 1).save(source / "PedMasks/sample_mask.png")
+    (source / "Annotation/sample.txt").write_text(
+        'Image size (X x Y x C) : 2 x 2 x 3\n'
+        'Objects with ground truth : 1 { "person" }\n'
+        'Top left pixel co-ordinates : (1, 1)\n'
+        'Bounding box for object 1 "person" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (2, 2)\n',
+    )
+
+    class Resolver:
+        def resolve_samples(self, **kwargs):
+            return {"sample": ResolvedSampleRevision(2, source)}
+
+    rulebooks = RulebookRepository(settings=settings)
+    rulebooks.save_rulebook(clean_rulebook())
+    audits = AuditRepository(settings=settings)
+    service = BatchAuditService(
+        rulebook_repository=rulebooks, audit_repository=audits,
+        sample_revision_resolver=Resolver(),
+        manifest_repository=SampleAssetManifestRepository(
+            settings=settings, asset_settings=AssetStorageSettings(root=tmp_path / "managed"),
+        ),
+        isolate_sample_computation=isolated,
+    )
+    audit, _ = service.start(BatchAuditRequest(
+        dataset_id="dataset_1", dataset_root="unused-legacy-root", rulebook_id="book_workflow",
+        rulebook_version=1, sample_ids=["sample"], source_mode="snapshot",
+    ))
+    return service, audits, audit, source
+
+
+@pytest.mark.parametrize("isolated", [False, True])
+def test_snapshot_audit_persists_results_from_original_bytes(workflow_settings, tmp_path, isolated):
+    service, audits, audit, source = start_snapshot_audit(workflow_settings, tmp_path, isolated=isolated)
+    Image.new("RGB", (8, 8)).save(source / "PNGImages/sample.png")
+    (source / "PedMasks/sample_mask.png").unlink()
+    (source / "Annotation/sample.txt").write_text("changed source annotation")
+
+    job = service.run_audit(audit.audit_id, worker_id="snapshot_worker")
+
+    assert job.status.value == "completed"
+    measurements = audits.get_measurements(audit.audit_id, "sample", 2)
+    assert measurements["image_size"] == [2, 2]
+    assert measurements["objects"][0]["annotation"]["label"] == "person"
+    findings = FindingRepository(settings=workflow_settings).list_findings(audit.audit_id)
+    assert len(findings) == 1
+    assert findings[0].outcome.value == "pass"
+    assert findings[0].sample_revision == 2
+    assert findings[0].review.resolution is FindingResolution.PENDING
+    assert audits.get_failures(audit.audit_id) == []
+
+
+@pytest.mark.parametrize("isolated", [False, True])
+@pytest.mark.parametrize("failure", ["temporary_storage", "snapshot_integrity"])
+def test_snapshot_storage_failures_fail_the_job(
+    workflow_settings, tmp_path, monkeypatch, isolated, failure,
+):
+    service, audits, audit, _ = start_snapshot_audit(workflow_settings, tmp_path, isolated=isolated)
+    if failure == "temporary_storage":
+        def disk_full(*args, **kwargs):
+            raise OSError(28, "No space left on device")
+
+        monkeypatch.setattr("backend.app.services.asset_snapshot.TemporaryDirectory", disk_full)
+    else:
+        repository = service.manifest_repository
+        manifest = repository.get_manifest("dataset_1", "sample", 2)
+        (repository.asset_settings.root / manifest.raw_mask.storage_key).write_bytes(b"tampered")
+
+    job = service.run_audit(audit.audit_id, worker_id="snapshot_worker")
+
+    assert job.status.value == "failed"
+    assert job.error.code == "AUDIT_FAILED"
+    assert audits.get_measurements(audit.audit_id, "sample", 2) is None
+    assert all(failure.reason != "source_data_unavailable" for failure in audits.get_failures(audit.audit_id))
 
 
 def test_retry_rebuilds_the_pydantic_sample_claim_with_validation(monkeypatch):

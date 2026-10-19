@@ -2,23 +2,27 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from contextlib import ExitStack
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from datetime import UTC, datetime, timedelta
 import logging
 import multiprocessing as multiprocessing
 import pickle
 import random
+import sys
 import time
+from pathlib import Path
 from threading import Condition, Thread
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Protocol, TypeVar
 from uuid import uuid4
 
 from ..checks.registry import validate_check_parameters
 from ..core.config import load_audit_settings
-from ..models.audit import AuditFailure, AuditRun, AuditSampleClaim, BatchAuditRequest
+from ..models.asset_manifest import SampleAssetManifest
+from ..models.audit import AuditFailure, AuditRun, AuditSampleClaim, AuditSourceMode, BatchAuditRequest
 from ..models.job import ApiError, Job, JobStatus
 from ..models.rule import ConfirmationState, Rulebook
 from ..storage.workflow_repository import (
@@ -27,9 +31,12 @@ from ..storage.workflow_repository import (
     JobClaim,
     JobClaimLostError,
     RetryableWorkflowStorageError,
+    SampleAssetManifestNotFoundError,
+    SampleAssetManifestRepository,
     SampleProcessingTimeoutError,
 )
 from .audit import audit_sample
+from .asset_snapshot import capture_sample, materialize_sample, sample_work_directory
 from .evaluation import RuleEvaluationResult, evaluate_rules_detailed
 from .sample_worker import (
     SampleComputationError,
@@ -45,6 +52,26 @@ class BatchAuditError(ValueError):
 
 logger = logging.getLogger(__name__)
 StorageResult = TypeVar("StorageResult")
+
+
+@dataclass(frozen=True)
+class ResolvedSampleRevision:
+    """Authoritative revision and trusted source root selected before an audit."""
+
+    sample_revision: int
+    source_root: str | Path
+
+
+class SampleRevisionResolver(Protocol):
+    """Resolve every requested sample to one authoritative local source root."""
+
+    def resolve_samples(
+        self,
+        *,
+        dataset_id: str,
+        sample_ids: Sequence[str],
+        requested_revisions: Mapping[str, int],
+    ) -> Mapping[str, ResolvedSampleRevision]: ...
 
 
 class _SampleWatchdog:
@@ -141,6 +168,9 @@ class BatchAuditService:
         audit_repository: AuditRepository,
         measurement_collector: Callable[..., Any] = audit_sample,
         rule_evaluator: Callable[..., RuleEvaluationResult] = evaluate_rules_detailed,
+        sample_revision_resolver: SampleRevisionResolver | None = None,
+        manifest_repository: SampleAssetManifestRepository | None = None,
+        snapshot_capturer: Callable[..., SampleAssetManifest] = capture_sample,
         lease_seconds: int = 300,
         sample_max_seconds: int | None = None,
         isolate_sample_computation: bool = True,
@@ -151,6 +181,20 @@ class BatchAuditService:
         if not callable(rule_evaluator):
             raise TypeError("rule_evaluator must be callable.")
         self.rule_evaluator = rule_evaluator
+        if sample_revision_resolver is not None and not hasattr(
+            sample_revision_resolver, "resolve_samples",
+        ):
+            raise TypeError("sample_revision_resolver must provide resolve_samples().")
+        if manifest_repository is not None and not all(
+            hasattr(manifest_repository, name)
+            for name in ("get_manifest", "read_asset_bytes", "asset_settings")
+        ):
+            raise TypeError("manifest_repository must provide manifest and asset operations.")
+        if not callable(snapshot_capturer):
+            raise TypeError("snapshot_capturer must be callable.")
+        self.sample_revision_resolver = sample_revision_resolver
+        self.manifest_repository = manifest_repository
+        self.snapshot_capturer = snapshot_capturer
         if type(lease_seconds) is not int or lease_seconds < 1:
             raise ValueError("lease_seconds must be a positive integer.")
         if sample_max_seconds is None:
@@ -177,6 +221,82 @@ class BatchAuditService:
         # remain independent; each label rule uses its own parameters later.
         return request, rulebook
 
+    @staticmethod
+    def _snapshot_manifest_identity(
+        manifest: SampleAssetManifest,
+        *,
+        dataset_id: str,
+        sample_id: str,
+        sample_revision: int,
+    ) -> SampleAssetManifest:
+        if not isinstance(manifest, SampleAssetManifest):
+            raise BatchAuditError("The snapshot provider returned an invalid manifest.")
+        if (
+            manifest.dataset_id != dataset_id
+            or manifest.sample_id != sample_id
+            or manifest.sample_revision != sample_revision
+        ):
+            raise BatchAuditError("The snapshot manifest does not match the authoritative sample revision.")
+        return SampleAssetManifest.model_validate(manifest.model_dump(mode="json"))
+
+    def _prepare_snapshot_request(
+        self, request: BatchAuditRequest,
+    ) -> tuple[BatchAuditRequest, dict[str, SampleAssetManifest]]:
+        if request.source_mode is AuditSourceMode.LEGACY:
+            return request, {}
+        if self.sample_revision_resolver is None or self.manifest_repository is None:
+            raise BatchAuditError(
+                "Snapshot audits require a sample revision resolver and manifest repository."
+            )
+        try:
+            resolved = self.sample_revision_resolver.resolve_samples(
+                dataset_id=request.dataset_id,
+                sample_ids=tuple(request.sample_ids),
+                requested_revisions=dict(request.sample_revisions),
+            )
+        except BatchAuditError:
+            raise
+        except Exception as error:
+            raise BatchAuditError("Authoritative sample revisions could not be resolved.") from error
+        if not isinstance(resolved, Mapping) or set(resolved) != set(request.sample_ids):
+            raise BatchAuditError("The sample revision resolver must return every requested sample exactly once.")
+
+        revisions: dict[str, int] = {}
+        manifests: dict[str, SampleAssetManifest] = {}
+        for sample_id in request.sample_ids:
+            selected = resolved[sample_id]
+            if not isinstance(selected, ResolvedSampleRevision):
+                raise BatchAuditError("The sample revision resolver returned an invalid result.")
+            if type(selected.sample_revision) is not int or selected.sample_revision < 1:
+                raise BatchAuditError("The sample revision resolver returned an invalid revision.")
+            requested = request.sample_revisions.get(sample_id)
+            if requested is not None and requested != selected.sample_revision:
+                raise BatchAuditError("The requested revision differs from the authoritative revision.")
+            revision = selected.sample_revision
+            try:
+                manifest = self.manifest_repository.get_manifest(
+                    request.dataset_id, sample_id, revision,
+                )
+            except SampleAssetManifestNotFoundError:
+                manifest = self.snapshot_capturer(
+                    dataset_id=request.dataset_id,
+                    sample_id=sample_id,
+                    sample_revision=revision,
+                    source_root=selected.source_root,
+                    repository=self.manifest_repository,
+                )
+            manifests[sample_id] = self._snapshot_manifest_identity(
+                manifest,
+                dataset_id=request.dataset_id,
+                sample_id=sample_id,
+                sample_revision=revision,
+            )
+            revisions[sample_id] = revision
+
+        request_values = request.model_dump()
+        request_values["sample_revisions"] = revisions
+        return BatchAuditRequest.model_validate(request_values), manifests
+
     def start(
         self,
         request: BatchAuditRequest,
@@ -187,6 +307,15 @@ class BatchAuditService:
     ) -> tuple[AuditRun, Job]:
         """Validate and pin all inputs before creating the queued job."""
         resolved, _ = self._resolve_request(request)
+        resolved, manifests = self._prepare_snapshot_request(resolved)
+        if resolved.source_mode is AuditSourceMode.SNAPSHOT:
+            return self.audit_repository.start_audit(
+                resolved,
+                sample_manifests=manifests,
+                audit_id=audit_id,
+                job_id=job_id,
+                now=now,
+            )
         return self.audit_repository.start_audit(
             resolved, audit_id=audit_id, job_id=job_id, now=now,
         )
@@ -267,10 +396,41 @@ class BatchAuditService:
         if process.is_alive():
             raise SampleComputationError("The isolated sample process could not be cleaned up.")
 
+    def _snapshot_for_claim(
+        self, request: BatchAuditRequest, sample_claim: AuditSampleClaim,
+    ) -> SampleAssetManifest | None:
+        if request.source_mode is AuditSourceMode.LEGACY:
+            if sample_claim.source_mode is not AuditSourceMode.LEGACY:
+                raise BatchAuditError("A legacy audit received a snapshot sample claim.")
+            return None
+        if (
+            sample_claim.source_mode is not AuditSourceMode.SNAPSHOT
+            or sample_claim.manifest_dataset_id != request.dataset_id
+            or self.manifest_repository is None
+        ):
+            raise BatchAuditError("A snapshot audit received an invalid sample source claim.")
+        try:
+            manifest = self._storage_retry(
+                sample_claim,
+                lambda: self.manifest_repository.get_manifest(
+                    sample_claim.manifest_dataset_id,
+                    sample_claim.sample_id,
+                    sample_claim.sample_revision,
+                ),
+            )
+            return self._snapshot_manifest_identity(
+                manifest,
+                dataset_id=sample_claim.manifest_dataset_id,
+                sample_id=sample_claim.sample_id,
+                sample_revision=sample_claim.sample_revision,
+            )
+        except SampleAssetManifestNotFoundError as error:
+            raise SampleDataError("The immutable sample snapshot could not be read.") from error
+
     def _compute_isolated(
         self, request: BatchAuditRequest, rulebook: Rulebook, sample_claim,
     ) -> tuple[Mapping[str, Any], RuleEvaluationResult]:
-        """Supervise collection and evaluation in one database-free child."""
+        """Supervise snapshot preparation, collection and evaluation together."""
         try:
             pickle.dumps((self.measurement_collector, self.rule_evaluator, rulebook))
         except Exception as error:  # noqa: BLE001 - preflight serialization boundary
@@ -280,22 +440,8 @@ class BatchAuditService:
 
         context = multiprocessing.get_context("spawn")
         receive_connection, send_connection = context.Pipe(duplex=False)
-        process = context.Process(
-            target=run_sample_child,
-            args=(
-                send_connection,
-                self.measurement_collector,
-                self.rule_evaluator,
-                rulebook,
-                request.dataset_root,
-                sample_claim.sample_id,
-                request.allowed_labels,
-                request.connectivity,
-                sample_claim.audit_id,
-                sample_claim.sample_revision,
-            ),
-            daemon=True,
-        )
+        process = None
+        resources = ExitStack()
         watchdog = _SampleWatchdog(sample_claim, lambda: self._stop_process(process))
 
         def checkpoint(*, renew: bool) -> None:
@@ -312,6 +458,32 @@ class BatchAuditService:
 
         watchdog.start()
         try:
+            checkpoint(renew=True)
+            manifest = self._snapshot_for_claim(request, sample_claim)
+            checkpoint(renew=True)
+            collection_root = request.dataset_root
+            asset_settings = None
+            if manifest is not None:
+                collection_root = str(resources.enter_context(sample_work_directory()))
+                asset_settings = self.manifest_repository.asset_settings
+            watchdog.raise_if_expired()
+            process = context.Process(
+                target=run_sample_child,
+                args=(
+                    send_connection,
+                    self.measurement_collector,
+                    self.rule_evaluator,
+                    rulebook,
+                    collection_root,
+                    sample_claim.sample_id,
+                    request.allowed_labels,
+                    request.connectivity,
+                    sample_claim.audit_id,
+                    sample_claim.sample_revision,
+                ),
+                kwargs={"snapshot_manifest": manifest, "asset_settings": asset_settings},
+                daemon=True,
+            )
             try:
                 process.start()
             except Exception as error:  # noqa: BLE001 - child startup boundary
@@ -400,14 +572,27 @@ class BatchAuditService:
             finally:
                 receive_connection.close()
                 send_connection.close()
+                # Preserve the active processing exception through temporary
+                # directory cleanup, just as a normal `with` statement would.
+                resources.__exit__(*sys.exc_info())
 
     def _collect_sample(self, request: BatchAuditRequest, sample_claim) -> Mapping[str, Any]:
-        return self.measurement_collector(
-            request.dataset_root,
-            sample_claim.sample_id,
-            request.allowed_labels,
-            request.connectivity,
-        )
+        manifest = self._snapshot_for_claim(request, sample_claim)
+        with ExitStack() as resources:
+            collection_root = request.dataset_root
+            if manifest is not None:
+                root = resources.enter_context(sample_work_directory())
+                materialize_sample(
+                    manifest, asset_settings=self.manifest_repository.asset_settings,
+                    target_root=root,
+                )
+                collection_root = str(root)
+            return self.measurement_collector(
+                collection_root,
+                sample_claim.sample_id,
+                request.allowed_labels,
+                request.connectivity,
+            )
 
     def _retry_delay(self, retry_number: int) -> float:
         return min(2.0, 0.1 * (2 ** max(0, retry_number - 1))) * random.uniform(0.5, 1.5)

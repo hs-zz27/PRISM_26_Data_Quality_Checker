@@ -9,6 +9,7 @@ from uuid import uuid4
 import psycopg
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
+from psycopg.types.json import Jsonb
 from pydantic import SecretStr
 import pytest
 
@@ -90,18 +91,19 @@ def decide(repository, *, audit_id="audit_1", sample_id="sample_1", sample_revis
 def machine_snapshot(settings):
     """Capture persisted inputs/results and finding reviews, excluding sample decisions."""
     with database_connection(settings, readonly=True) as connection:
-        return {
-            table: connection.execute(sql.SQL("SELECT * FROM {} ORDER BY {}").format(
+        snapshots = {}
+        for table, order in (
+            ("jobs", "job_id"), ("audit_runs", "audit_id"),
+            ("audit_samples", "audit_id, sample_id, sample_revision"),
+            ("audit_measurements", "audit_id, sample_id, sample_revision"),
+            ("audit_failures", "failure_id"), ("findings", "finding_id"),
+            ("finding_reviews", "finding_id, revision"),
+        ):
+            rows = connection.execute(sql.SQL("SELECT * FROM {} ORDER BY {}").format(
                 sql.Identifier(table), sql.SQL(order),
             )).fetchall()
-            for table, order in (
-                ("jobs", "job_id"), ("audit_runs", "audit_id"),
-                ("audit_samples", "audit_id, sample_id, sample_revision"),
-                ("audit_measurements", "audit_id, sample_id, sample_revision"),
-                ("audit_failures", "failure_id"), ("findings", "finding_id"),
-                ("finding_reviews", "finding_id, revision"),
-            )
-        }
+            snapshots[table] = rows
+        return snapshots
 
 
 @pytest.mark.parametrize("outcome", [None, *FindingOutcome])
@@ -303,8 +305,49 @@ def test_upgrade_preserves_existing_audits_and_finding_reviews_without_inventing
     with monkeypatch.context() as patch:
         patch.setattr(database, "MIGRATIONS_DIRECTORY", prior_migrations)
         initialize_database(empty_database_settings)
-        _, _, _, _, findings = seed_result(empty_database_settings, outcome="fail")
-        review_finding(findings[0].finding_id, FindingReviewRequest(
+        # Seed the old schema directly: current audit writers require columns
+        # deliberately absent until the upgrade under test has been applied.
+        legacy_request = BatchAuditRequest(
+            dataset_id="dataset_1", dataset_root="opaque-root", rulebook_id="book_1",
+            rulebook_version=3, sample_ids=["sample_1"], sample_revisions={"sample_1": 2},
+        ).model_dump(mode="json", exclude={"source_mode"})
+        with database_connection(empty_database_settings) as connection:
+            connection.execute(
+                """INSERT INTO jobs (job_id, kind, status, progress, result, created_at,
+                       updated_at, resource_kind, resource_id)
+                   VALUES ('job_audit_1', 'audit', 'completed', %s, %s,
+                       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'audit', 'audit_1')""",
+                (Jsonb({"phase": "completed", "processed": 1, "total": 1, "fraction": 1.0}),
+                 Jsonb({"kind": "audit", "id": "audit_1", "version": None, "href": "/api/v1/audits/audit_1"})),
+            )
+            connection.execute(
+                """INSERT INTO audit_runs (audit_id, job_id, dataset_id, dataset_root,
+                       rulebook_id, rulebook_version, status, request, sample_count,
+                       processed_count, created_at, updated_at)
+                   VALUES ('audit_1', 'job_audit_1', 'dataset_1', 'opaque-root', 'book_1',
+                       3, 'completed', %s, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""",
+                (Jsonb(legacy_request),),
+            )
+            connection.execute(
+                """INSERT INTO audit_samples (audit_id, sample_id, sample_revision, ordinal,
+                       status, started_at, finished_at, attempt_count)
+                   VALUES ('audit_1', 'sample_1', 2, 0, 'completed',
+                       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)""",
+            )
+            connection.execute(
+                """INSERT INTO audit_measurements
+                       (audit_id, sample_id, sample_revision, document, created_at)
+                   VALUES ('audit_1', 'sample_1', 2, %s, CURRENT_TIMESTAMP)""",
+                (Jsonb({"image_id": "sample_1", "status": "completed", "review_status": "pending_review"}),),
+            )
+        finding = Finding(
+            finding_id="finding_legacy", audit_id="audit_1", sample_id="sample_1",
+            sample_revision=2, rulebook_id="book_1", rulebook_version=3, rule_id="r1",
+            description="Use person labels.", check_name="allowed_labels", outcome="fail",
+            origin="reviewer", evidence={"measurements": {"label": "car"}},
+        )
+        FindingRepository(settings=empty_database_settings).save_findings([finding])
+        review_finding(finding.finding_id, FindingReviewRequest(
             expected_review_version=0, resolution="accepted", reviewer_id="reviewer_1", comment="Confirmed.",
         ), repository=FindingRepository(settings=empty_database_settings))
         before = machine_snapshot(empty_database_settings)
@@ -313,7 +356,20 @@ def test_upgrade_preserves_existing_audits_and_finding_reviews_without_inventing
     initialize_database(empty_database_settings)
 
     repository = SampleReviewRepository(settings=empty_database_settings)
-    assert machine_snapshot(empty_database_settings) == before
+    after = machine_snapshot(empty_database_settings)
+    for row in after["audit_runs"]:
+        assert row.pop("source_mode") == "legacy"
+    for row in after["audit_samples"]:
+        assert row.pop("manifest_dataset_id") is None
+    assert after == before
     assert repository.get_sample_review("audit_1", "sample_1", 2).revision == 0
     assert repository.list_sample_reviews("audit_1", "sample_1", 2).total == 0
+    with database_connection(empty_database_settings, readonly=True) as connection:
+        assert connection.execute(
+            "SELECT source_mode FROM audit_runs WHERE audit_id = 'audit_1'"
+        ).fetchone() == {"source_mode": "legacy"}
+        assert connection.execute(
+            "SELECT manifest_dataset_id FROM audit_samples "
+            "WHERE audit_id = 'audit_1' AND sample_id = 'sample_1'"
+        ).fetchone() == {"manifest_dataset_id": None}
     assert decide(repository).decision is SampleReviewDecision.ACCEPTED

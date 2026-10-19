@@ -20,9 +20,12 @@ def test_watchdog_stops_child_while_database_checkpoint_is_blocked(monkeypatch, 
     blocked = Event()
     release = Event()
     terminated = Event()
+    started = Event()
 
     class Repository:
         def checkpoint_sample_claim(self, *args, **kwargs):
+            if not started.is_set():
+                return
             blocked.set()
             if not release.wait(timeout=5):
                 raise AssertionError("The test did not release its database checkpoint")
@@ -34,6 +37,7 @@ def test_watchdog_stops_child_while_database_checkpoint_is_blocked(monkeypatch, 
         def start(self):
             self.pid = 1
             self.alive = True
+            started.set()
 
         def is_alive(self):
             return self.alive
@@ -59,6 +63,7 @@ def test_watchdog_stops_child_while_database_checkpoint_is_blocked(monkeypatch, 
     monkeypatch.setattr("backend.app.services.batch_audit.multiprocessing.get_context", lambda _: context)
     service = BatchAuditService(
         rulebook_repository=object(), audit_repository=Repository(), sample_max_seconds=30,
+        lease_seconds=1,
     )
     request = BatchAuditRequest(
         dataset_id="dataset", dataset_root="unused", rulebook_id="book",

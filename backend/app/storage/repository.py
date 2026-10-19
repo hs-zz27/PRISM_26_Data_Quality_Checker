@@ -277,6 +277,8 @@ class RulebookRepository:
 from .workflow_repository import (  # noqa: E402  (import after existing definitions)
     AuditNotFoundError,
     AuditRepository,
+    AssetIntegrityError,
+    AssetUnavailableError,
     FindingNotFoundError,
     FindingRepository,
     FindingReviewConflictError,
@@ -286,5 +288,8 @@ from .workflow_repository import (  # noqa: E402  (import after existing definit
     JobClaimLostError,
     JobNotFoundError,
     JobRepository,
+    SampleAssetManifestConflictError,
+    SampleAssetManifestNotFoundError,
+    SampleAssetManifestRepository,
     WorkflowStorageError,
 )

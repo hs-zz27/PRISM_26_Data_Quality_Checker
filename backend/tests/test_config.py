@@ -5,11 +5,14 @@ import pytest
 from pydantic import ValidationError
 
 from backend.app.core.config import (
+    AssetStorageConfigurationError,
+    AssetStorageSettings,
     AuditConfigurationError,
     AuditSettings,
     OLLAMA_CONFIG_PATH,
     OllamaSettings,
     load_audit_settings,
+    load_asset_storage_settings,
     load_ollama_settings,
 )
 from backend.app.core import config
@@ -17,7 +20,9 @@ from backend.app.core import config
 
 @pytest.fixture(autouse=True)
 def isolated_ollama_environment(tmp_path, monkeypatch):
-    for name in ("OLLAMA_MODEL", "OLLAMA_BASE_URL", "AUDIT_SAMPLE_MAX_SECONDS"):
+    for name in (
+        "OLLAMA_MODEL", "OLLAMA_BASE_URL", "AUDIT_SAMPLE_MAX_SECONDS", "ASSET_STORAGE_ROOT",
+    ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(config, "DEFAULT_ENV_PATH", tmp_path / ".env")
 
@@ -47,6 +52,36 @@ def test_audit_settings_are_strict_and_frozen():
     settings = AuditSettings(sample_max_seconds=10)
     with pytest.raises(ValidationError):
         settings.sample_max_seconds = 20
+
+
+def test_asset_storage_defaults_to_private_project_path_without_creating_it(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "BACKEND_DIRECTORY", tmp_path / "backend")
+    settings = load_asset_storage_settings()
+    assert settings.root == tmp_path / "backend" / "data" / "assets"
+    assert not settings.root.exists()
+    settings.root.mkdir(parents=True)
+    assert load_asset_storage_settings().root == settings.root
+
+
+def test_asset_storage_process_environment_overrides_env_file_without_mutation(tmp_path, monkeypatch):
+    config.DEFAULT_ENV_PATH.write_text("ASSET_STORAGE_ROOT=/from-file\n", encoding="utf-8")
+    monkeypatch.setenv("ASSET_STORAGE_ROOT", str(tmp_path / "from-process"))
+    before = dict(os.environ)
+    assert load_asset_storage_settings().root == (tmp_path / "from-process").resolve()
+    assert dict(os.environ) == before
+
+
+@pytest.mark.parametrize("value", ["", " ", "relative/assets"])
+def test_invalid_asset_storage_root_is_rejected(value, monkeypatch):
+    monkeypatch.setenv("ASSET_STORAGE_ROOT", value)
+    with pytest.raises(AssetStorageConfigurationError):
+        load_asset_storage_settings()
+
+
+def test_asset_storage_settings_are_strict_and_frozen(tmp_path):
+    settings = AssetStorageSettings(root=tmp_path)
+    with pytest.raises(ValidationError):
+        settings.root = tmp_path / "replacement"
 
 
 def test_alternate_toml_file_selects_model(tmp_path):

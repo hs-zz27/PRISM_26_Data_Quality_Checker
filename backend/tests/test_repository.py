@@ -165,6 +165,7 @@ def test_concurrent_schema_initialization_creates_one_migration_history(empty_da
             "SELECT version FROM schema_migrations ORDER BY version"
         ).fetchall() == [
             {"version": 1}, {"version": 2}, {"version": 3}, {"version": 4}, {"version": 5}, {"version": 6},
+            {"version": 7}, {"version": 8},
         ]
         assert connection.execute(
             "SELECT COUNT(*) AS total FROM rulebook_versions"
@@ -195,10 +196,10 @@ def test_failed_migration_batch_rolls_back_ddl_and_history(store, tmp_path, monk
     migrations.mkdir()
     for source in database.MIGRATIONS_DIRECTORY.glob("[0-9][0-9][0-9]_*.sql"):
         (migrations / source.name).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
-    (migrations / "007_probe.sql").write_text(
+    (migrations / "009_probe.sql").write_text(
         "CREATE TABLE migration_probe (probe_id INTEGER);", encoding="utf-8",
     )
-    failing_migration = migrations / "008_failure.sql"
+    failing_migration = migrations / "010_failure.sql"
     failing_migration.write_text(
         "CREATE TABLE second_migration_probe (probe_id INTEGER);\n"
         "SELECT 'invalid integer'::INTEGER;", encoding="utf-8",
@@ -213,6 +214,7 @@ def test_failed_migration_batch_rolls_back_ddl_and_history(store, tmp_path, monk
             "SELECT version FROM schema_migrations ORDER BY version"
         ).fetchall() == [
             {"version": 1}, {"version": 2}, {"version": 3}, {"version": 4}, {"version": 5}, {"version": 6},
+            {"version": 7}, {"version": 8},
         ]
         assert connection.execute(
             "SELECT to_regclass('migration_probe') AS first, "
@@ -229,7 +231,7 @@ def test_failed_migration_batch_rolls_back_ddl_and_history(store, tmp_path, monk
             "SELECT version FROM schema_migrations ORDER BY version"
         ).fetchall() == [
             {"version": 1}, {"version": 2}, {"version": 3},
-            {"version": 4}, {"version": 5}, {"version": 6}, {"version": 7}, {"version": 8},
+            {"version": 4}, {"version": 5}, {"version": 6}, {"version": 7}, {"version": 8}, {"version": 9}, {"version": 10},
         ]
         assert connection.execute("SELECT COUNT(*) AS total FROM migration_probe").fetchone() == {"total": 0}
         assert connection.execute("SELECT COUNT(*) AS total FROM second_migration_probe").fetchone() == {"total": 0}

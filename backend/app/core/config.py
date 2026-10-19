@@ -99,6 +99,48 @@ def load_audit_settings(*, env_path: str | Path | None = None) -> AuditSettings:
         ) from None
 
 
+class AssetStorageConfigurationError(ValueError):
+    """Private local asset-storage settings are missing or invalid."""
+
+
+class AssetStorageSettings(BaseModel):
+    """Immutable, private root for captured source-asset bytes."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    root: Path
+
+    @field_validator("root")
+    @classmethod
+    def require_absolute_root(cls, value: Path) -> Path:
+        if not value.is_absolute():
+            raise ValueError("Asset storage root must be an absolute path.")
+        return value
+
+
+def load_asset_storage_settings(*, env_path: str | Path | None = None) -> AssetStorageSettings:
+    """Load a private asset root without creating it or changing the environment."""
+    environment_path = DEFAULT_ENV_PATH if env_path is None else Path(env_path)
+    try:
+        values = {**dotenv_values(environment_path, interpolate=False), **os.environ}
+    except OSError:
+        raise AssetStorageConfigurationError("Cannot read the asset storage environment file.") from None
+    if "ASSET_STORAGE_ROOT" not in values:
+        return AssetStorageSettings(root=BACKEND_DIRECTORY / "data" / "assets")
+    raw = values["ASSET_STORAGE_ROOT"]
+    if not isinstance(raw, str) or not raw.strip():
+        raise AssetStorageConfigurationError("ASSET_STORAGE_ROOT must be a non-empty absolute path.")
+    try:
+        root = Path(raw).expanduser()
+        if not root.is_absolute():
+            raise ValueError
+        return AssetStorageSettings(root=root.resolve(strict=False))
+    except (OSError, RuntimeError, ValueError):
+        raise AssetStorageConfigurationError(
+            "ASSET_STORAGE_ROOT must be a non-empty absolute path."
+        ) from None
+
+
 def load_ollama_settings(
     path: str | Path | None = None, *, env_path: str | Path | None = None,
 ) -> OllamaSettings:

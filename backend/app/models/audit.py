@@ -1,5 +1,6 @@
 """Pinned batch-audit requests and durable audit summaries."""
 
+from enum import StrEnum
 from typing import Annotated
 
 from pydantic import (
@@ -18,12 +19,19 @@ from .job import JobStatus
 NonBlank = Annotated[str, StringConstraints(min_length=1, pattern=r"\S")]
 
 
+class AuditSourceMode(StrEnum):
+    """Whether an audit reads mutable legacy files or an immutable snapshot."""
+
+    LEGACY = "legacy"
+    SNAPSHOT = "snapshot"
+
+
 class BatchAuditRequest(BaseModel):
     """All immutable inputs needed to process a bounded sample batch.
 
-    ``dataset_root`` is intentionally only carried as a string.  Filesystem
-    existence, symlink policy and archive/path validation belong to a future
-    dataset-import boundary and are not performed here.
+    ``dataset_root`` remains the legacy source for old audits. Snapshot-mode
+    audits persist their source mode and resolve managed manifests before work
+    is created; the path is retained for request compatibility and provenance.
     """
 
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -37,6 +45,7 @@ class BatchAuditRequest(BaseModel):
     sample_revisions: dict[str, int] = Field(default_factory=dict)
     connectivity: int = Field(default=8)
     feedback_policy_id: NonBlank | None = None
+    source_mode: AuditSourceMode = Field(default=AuditSourceMode.LEGACY, strict=False)
 
     @field_validator("sample_ids")
     @classmethod
@@ -84,6 +93,7 @@ class AuditRun(BaseModel):
     dataset_id: NonBlank
     rulebook_id: NonBlank
     rulebook_version: int = Field(ge=1)
+    source_mode: AuditSourceMode = Field(default=AuditSourceMode.LEGACY, strict=False)
     status: JobStatus = Field(strict=False)
     sample_count: int = Field(ge=0)
     processed_count: int = Field(ge=0)
@@ -129,8 +139,18 @@ class AuditSampleClaim(BaseModel):
     job_id: NonBlank
     sample_id: NonBlank
     sample_revision: int = Field(ge=1)
+    source_mode: AuditSourceMode = Field(default=AuditSourceMode.LEGACY, strict=False)
+    manifest_dataset_id: NonBlank | None = None
     worker_id: NonBlank
     claim_token: NonBlank
     lease_until: AwareDatetime
     processing_deadline: AwareDatetime
     attempt_count: int = Field(ge=1, le=3)
+
+    @model_validator(mode="after")
+    def validate_source_identity(self) -> "AuditSampleClaim":
+        if self.source_mode is AuditSourceMode.SNAPSHOT and self.manifest_dataset_id is None:
+            raise ValueError("snapshot claims require a manifest association.")
+        if self.source_mode is AuditSourceMode.LEGACY and self.manifest_dataset_id is not None:
+            raise ValueError("legacy claims cannot contain a manifest association.")
+        return self

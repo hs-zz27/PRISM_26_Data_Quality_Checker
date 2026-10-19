@@ -16,14 +16,20 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 import json
+import os
+from pathlib import Path
+import stat
 from typing import Any
 from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ValidationError
 
-from ..core.config import DatabaseSettings, load_database_settings
-from ..models.audit import AuditFailure, AuditRun, AuditSampleClaim, BatchAuditRequest
+from ..core.config import (
+    AssetStorageSettings, DatabaseSettings, load_asset_storage_settings, load_database_settings,
+)
+from ..models.asset_manifest import AssetAvailability, AssetKind, SampleAssetManifest
+from ..models.audit import AuditFailure, AuditRun, AuditSampleClaim, AuditSourceMode, BatchAuditRequest
 from ..models.finding import Finding, FindingResolution, FindingReview
 from ..models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
 from ..models.review import (
@@ -135,6 +141,58 @@ class SampleReviewStateError(RuntimeError):
             f"Sample {sample_id!r} revision {sample_revision} in audit {audit_id!r} "
             f"is {status}; only completed or failed samples can be reviewed."
         )
+
+
+class SampleAssetManifestNotFoundError(LookupError):
+    """No source manifest exists for the exact dataset sample revision."""
+
+    def __init__(self, dataset_id: str, sample_id: str, sample_revision: int) -> None:
+        self.dataset_id = dataset_id
+        self.sample_id = sample_id
+        self.sample_revision = sample_revision
+        super().__init__(
+            f"Source assets for sample {sample_id!r} revision {sample_revision} "
+            f"in dataset {dataset_id!r} were not found."
+        )
+
+
+class SampleAssetManifestConflictError(RuntimeError):
+    """A source manifest key already contains different immutable metadata."""
+
+    def __init__(self, dataset_id: str, sample_id: str, sample_revision: int) -> None:
+        self.dataset_id = dataset_id
+        self.sample_id = sample_id
+        self.sample_revision = sample_revision
+        super().__init__(
+            f"Source assets for sample {sample_id!r} revision {sample_revision} "
+            f"in dataset {dataset_id!r} already have a different manifest."
+        )
+
+
+class AssetUnavailableError(LookupError):
+    """The requested source asset was recorded as unavailable."""
+
+    def __init__(
+        self, dataset_id: str, sample_id: str, sample_revision: int,
+        asset_kind: AssetKind, availability: str,
+    ) -> None:
+        self.dataset_id = dataset_id
+        self.sample_id = sample_id
+        self.sample_revision = sample_revision
+        self.asset_kind = asset_kind
+        self.availability = availability
+        super().__init__(
+            f"The {asset_kind.value} asset for sample {sample_id!r} revision "
+            f"{sample_revision} is {availability}."
+        )
+
+
+class AssetIntegrityError(WorkflowStorageError):
+    """A captured source asset no longer matches its immutable manifest."""
+
+
+class AssetReadLimitError(RuntimeError):
+    """An asset exceeds the caller's in-memory read budget."""
 
 
 class JobAlreadyFinishedError(RuntimeError):
@@ -278,6 +336,7 @@ def _decode_audit(row: Mapping[str, Any]) -> AuditRun:
             "rulebook_id": row["rulebook_id"],
             "rulebook_version": row["rulebook_version"],
             "status": row["status"],
+            "source_mode": row.get("source_mode", AuditSourceMode.LEGACY.value),
             "sample_count": row["sample_count"],
             "processed_count": row["processed_count"],
             "failed_count": row["failed_count"],
@@ -1004,6 +1063,195 @@ class SampleReviewRepository(_WorkflowRepository):
         )
 
 
+def read_manifest_asset_file(
+    manifest: SampleAssetManifest,
+    asset_kind: AssetKind | str,
+    asset_settings: AssetStorageSettings,
+    *,
+    max_bytes: int | None = None,
+) -> tuple[Path, bytes]:
+    """Read exact managed bytes using already resolved metadata, without SQL."""
+    if max_bytes is not None and (type(max_bytes) is not int or max_bytes < 1):
+        raise ValueError("max_bytes must be a positive integer.")
+    try:
+        kind = AssetKind(asset_kind)
+    except (TypeError, ValueError):
+        raise ValueError("asset_kind is not a supported sample asset.") from None
+    entry = getattr(manifest, kind.value)
+    if entry.availability is not AssetAvailability.AVAILABLE:
+        raise AssetUnavailableError(
+            manifest.dataset_id, manifest.sample_id, manifest.sample_revision,
+            kind, entry.availability.value,
+        )
+    if entry.storage_key is None or entry.sha256 is None or entry.size_bytes is None:
+        raise AssetIntegrityError("The stored sample asset manifest is incomplete.")
+    if max_bytes is not None and entry.size_bytes > max_bytes:
+        raise AssetReadLimitError("The stored sample asset exceeds the read byte limit.")
+    try:
+        root = asset_settings.root.resolve(strict=False)
+        raw_candidate = root / entry.storage_key
+        if raw_candidate.is_symlink():
+            raise OSError
+        candidate = raw_candidate.resolve(strict=False)
+        candidate.relative_to(root)
+        if not candidate.is_file():
+            raise OSError
+        with candidate.open("rb") as source:
+            metadata = os.fstat(source.fileno())
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or metadata.st_size != entry.size_bytes
+            ):
+                raise OSError
+            # An extra byte detects growth after fstat without reading an
+            # unbounded replacement file into memory.
+            content = source.read(entry.size_bytes + 1)
+    except (OSError, RuntimeError, ValueError):
+        raise AssetIntegrityError("The stored sample asset is unavailable or outside private storage.") from None
+    if len(content) != entry.size_bytes or sha256(content).hexdigest() != entry.sha256:
+        raise AssetIntegrityError("The stored sample asset does not match its manifest.")
+    return candidate, content
+
+
+class SampleAssetManifestRepository(_WorkflowRepository):
+    """Register and resolve immutable source metadata for exact sample revisions."""
+
+    def __init__(
+        self, *, settings: DatabaseSettings | None = None,
+        asset_settings: AssetStorageSettings | None = None,
+    ) -> None:
+        super().__init__(settings=settings)
+        if asset_settings is not None and not isinstance(asset_settings, AssetStorageSettings):
+            raise TypeError("asset_settings must be an AssetStorageSettings instance.")
+        self.asset_settings = load_asset_storage_settings() if asset_settings is None else asset_settings
+
+    @staticmethod
+    def _key(dataset_id: str, sample_id: str, sample_revision: int) -> tuple[str, str, int]:
+        return (
+            _require_identifier(dataset_id, "dataset_id"),
+            _require_identifier(sample_id, "sample_id"),
+            _require_positive_integer(sample_revision, "sample_revision"),
+        )
+
+    @staticmethod
+    def _row_values(manifest: SampleAssetManifest) -> tuple[Any, ...]:
+        def values(entry: Any) -> tuple[Any, ...]:
+            return (
+                entry.availability.value, entry.storage_key, entry.content_type,
+                entry.sha256, entry.size_bytes,
+            )
+
+        return (
+            manifest.dataset_id, manifest.sample_id, manifest.sample_revision,
+            *values(manifest.original_image), *values(manifest.raw_mask),
+            *values(manifest.annotation_text),
+        )
+
+    @staticmethod
+    def _decode(row: Mapping[str, Any]) -> SampleAssetManifest:
+        try:
+            return SampleAssetManifest.model_validate({
+                "dataset_id": row["dataset_id"],
+                "sample_id": row["sample_id"],
+                "sample_revision": row["sample_revision"],
+                "original_image": {
+                    "availability": row["original_image_availability"],
+                    "storage_key": row["original_image_storage_key"],
+                    "content_type": row["original_image_content_type"],
+                    "sha256": row["original_image_sha256"],
+                    "size_bytes": row["original_image_size_bytes"],
+                },
+                "raw_mask": {
+                    "availability": row["raw_mask_availability"],
+                    "storage_key": row["raw_mask_storage_key"],
+                    "content_type": row["raw_mask_content_type"],
+                    "sha256": row["raw_mask_sha256"],
+                    "size_bytes": row["raw_mask_size_bytes"],
+                },
+                "annotation_text": {
+                    "availability": row["annotation_text_availability"],
+                    "storage_key": row["annotation_text_storage_key"],
+                    "content_type": row["annotation_text_content_type"],
+                    "sha256": row["annotation_text_sha256"],
+                    "size_bytes": row["annotation_text_size_bytes"],
+                },
+            })
+        except (KeyError, TypeError, ValueError, ValidationError) as error:
+            raise WorkflowStorageError("A saved sample asset manifest failed validation.") from error
+
+    def save_manifest(self, manifest: SampleAssetManifest) -> SampleAssetManifest:
+        """Insert one manifest, allowing only an identical replay for its key."""
+        if not isinstance(manifest, SampleAssetManifest):
+            raise TypeError("manifest must be a SampleAssetManifest instance.")
+        snapshot = SampleAssetManifest.model_validate(manifest.model_dump(mode="json"))
+        with self._connection(write=True) as connection:
+            connection.execute(
+                """INSERT INTO sample_asset_manifests (
+                       dataset_id, sample_id, sample_revision,
+                       original_image_availability, original_image_storage_key,
+                       original_image_content_type, original_image_sha256,
+                       original_image_size_bytes,
+                       raw_mask_availability, raw_mask_storage_key,
+                       raw_mask_content_type, raw_mask_sha256, raw_mask_size_bytes,
+                       annotation_text_availability, annotation_text_storage_key,
+                       annotation_text_content_type, annotation_text_sha256,
+                       annotation_text_size_bytes
+                   ) VALUES (
+                       %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                       %s, %s, %s, %s, %s
+                   ) ON CONFLICT (dataset_id, sample_id, sample_revision) DO NOTHING""",
+                self._row_values(snapshot),
+            )
+            row = connection.execute(
+                """SELECT * FROM sample_asset_manifests
+                   WHERE dataset_id = %s AND sample_id = %s AND sample_revision = %s""",
+                (snapshot.dataset_id, snapshot.sample_id, snapshot.sample_revision),
+            ).fetchone()
+            if row is None:
+                raise WorkflowStorageError("The sample asset manifest could not be read after registration.")
+            saved = self._decode(row)
+        if saved != snapshot:
+            raise SampleAssetManifestConflictError(
+                snapshot.dataset_id, snapshot.sample_id, snapshot.sample_revision,
+            )
+        return SampleAssetManifest.model_validate(saved.model_dump(mode="json"))
+
+    def get_manifest(self, dataset_id: str, sample_id: str, sample_revision: int) -> SampleAssetManifest:
+        """Retrieve only the manifest for the exact dataset/sample/revision key."""
+        key = self._key(dataset_id, sample_id, sample_revision)
+        with self._connection() as connection:
+            row = connection.execute(
+                """SELECT * FROM sample_asset_manifests
+                   WHERE dataset_id = %s AND sample_id = %s AND sample_revision = %s""",
+                key,
+            ).fetchone()
+            if row is None:
+                raise SampleAssetManifestNotFoundError(*key)
+            return self._decode(row)
+
+    def resolve_asset_path(
+        self, dataset_id: str, sample_id: str, sample_revision: int,
+        asset_kind: AssetKind | str,
+    ) -> Path:
+        """Resolve and verify one private captured file without exposing its root."""
+        manifest = self.get_manifest(dataset_id, sample_id, sample_revision)
+        path, _ = read_manifest_asset_file(manifest, asset_kind, self.asset_settings)
+        return path
+
+    def read_asset_bytes(
+        self, dataset_id: str, sample_id: str, sample_revision: int,
+        asset_kind: AssetKind | str,
+        *, max_bytes: int | None = None,
+    ) -> bytes:
+        """Read and verify exact managed bytes for an immutable manifest entry."""
+        manifest = self.get_manifest(dataset_id, sample_id, sample_revision)
+        _, content = read_manifest_asset_file(
+            manifest, asset_kind, self.asset_settings, max_bytes=max_bytes,
+        )
+        return content
+
+
 class AuditRepository(_WorkflowRepository):
     """Persist audit work items and commit one complete sample at a time."""
 
@@ -1022,11 +1270,34 @@ class AuditRepository(_WorkflowRepository):
         self,
         request: BatchAuditRequest,
         *,
+        sample_manifests: Mapping[str, SampleAssetManifest] | None = None,
         audit_id: str | None = None,
         job_id: str | None = None,
         now: datetime | None = None,
     ) -> tuple[AuditRun, Job]:
         request = self._snapshot_request(request)
+        if request.source_mode is AuditSourceMode.SNAPSHOT:
+            if sample_manifests is None or set(sample_manifests) != set(request.sample_ids):
+                raise ValueError("snapshot audits require one manifest for every sample.")
+            manifests = {}
+            for sample_id in request.sample_ids:
+                manifest = sample_manifests[sample_id]
+                if not isinstance(manifest, SampleAssetManifest):
+                    raise TypeError("sample_manifests must contain SampleAssetManifest instances.")
+                expected_revision = request.sample_revisions.get(sample_id)
+                if (
+                    manifest.dataset_id != request.dataset_id
+                    or manifest.sample_id != sample_id
+                    or expected_revision != manifest.sample_revision
+                ):
+                    raise ValueError("each snapshot manifest must match its audit sample identity.")
+                manifests[sample_id] = SampleAssetManifest.model_validate(
+                    manifest.model_dump(mode="json")
+                )
+        elif sample_manifests is not None:
+            raise ValueError("legacy audits cannot contain sample manifests.")
+        else:
+            manifests = {}
         audit_id = f"audit_{uuid4().hex}" if audit_id is None else _require_identifier(audit_id, "audit_id")
         job_id = f"job_{uuid4().hex}" if job_id is None else _require_identifier(job_id, "job_id")
         timestamp = _timestamp(now)
@@ -1038,6 +1309,7 @@ class AuditRepository(_WorkflowRepository):
             rulebook_id=request.rulebook_id,
             rulebook_version=request.rulebook_version,
             status=JobStatus.QUEUED,
+            source_mode=request.source_mode,
             sample_count=len(request.sample_ids),
             processed_count=0,
             failed_count=0,
@@ -1057,24 +1329,29 @@ class AuditRepository(_WorkflowRepository):
             connection.execute(
                 """INSERT INTO audit_runs
                     (audit_id, job_id, dataset_id, dataset_root, rulebook_id, rulebook_version,
-                     status, request, sample_count, processed_count, failed_count,
+                     status, source_mode, request, sample_count, processed_count, failed_count,
                      incomplete_count, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s, %s)""",
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s, %s)""",
                 (
                     audit.audit_id, audit.job_id, audit.dataset_id, request.dataset_root,
                     audit.rulebook_id, audit.rulebook_version, audit.status.value,
+                    request.source_mode.value,
                     request_document, audit.sample_count, timestamp, timestamp,
                 ),
             )
             with connection.cursor() as cursor:
                 cursor.executemany(
                     """INSERT INTO audit_samples
-                       (audit_id, sample_id, sample_revision, ordinal, status)
-                       VALUES (%s, %s, %s, %s, 'queued')""",
+                       (audit_id, sample_id, sample_revision, ordinal, status, manifest_dataset_id)
+                       VALUES (%s, %s, %s, %s, 'queued', %s)""",
                     [
                         (
                             audit_id, sample_id,
-                            request.sample_revisions.get(sample_id, 1), ordinal,
+                            request.sample_revisions[sample_id]
+                            if request.source_mode is AuditSourceMode.SNAPSHOT
+                            else request.sample_revisions.get(sample_id, 1),
+                            ordinal,
+                            manifests[sample_id].dataset_id if manifests else None,
                         )
                         for ordinal, sample_id in enumerate(request.sample_ids)
                     ],
@@ -1549,6 +1826,12 @@ class AuditRepository(_WorkflowRepository):
                    ORDER BY ordinal ASC FOR UPDATE SKIP LOCKED LIMIT 1""",
                 (audit_id,),
             ).fetchone()
+            audit_row = connection.execute(
+                "SELECT source_mode FROM audit_runs WHERE audit_id = %s", (audit_id,),
+            ).fetchone()
+            if audit_row is None:
+                raise AuditNotFoundError(audit_id)
+            source_mode = AuditSourceMode(audit_row["source_mode"])
             timestamp = _timestamp(now)
             status = self._assert_claim(job_row, claim, now=timestamp)
             if status is JobStatus.CANCELLING:
@@ -1560,6 +1843,8 @@ class AuditRepository(_WorkflowRepository):
                     job_id=claim.job.job_id,
                     sample_id=active["sample_id"],
                     sample_revision=active["sample_revision"],
+                    source_mode=source_mode,
+                    manifest_dataset_id=active["manifest_dataset_id"],
                     worker_id=claim.worker_id,
                     claim_token=claim.claim_token,
                     lease_until=active["lease_until"],
@@ -1595,6 +1880,8 @@ class AuditRepository(_WorkflowRepository):
                 job_id=claim.job.job_id,
                 sample_id=sample["sample_id"],
                 sample_revision=sample["sample_revision"],
+                source_mode=source_mode,
+                manifest_dataset_id=sample["manifest_dataset_id"],
                 worker_id=claim.worker_id,
                 claim_token=claim.claim_token,
                 lease_until=lease_until,
@@ -1849,6 +2136,17 @@ class AuditRepository(_WorkflowRepository):
                FOR UPDATE""",
             (claim.audit_id, claim.sample_id, claim.sample_revision),
         ).fetchone()
+        audit = connection.execute(
+            "SELECT source_mode FROM audit_runs WHERE audit_id = %s", (claim.audit_id,),
+        ).fetchone()
+        if audit is None:
+            raise JobClaimLostError("The worker's audit no longer exists.")
+        if (
+            sample is None
+            or AuditSourceMode(audit["source_mode"]) is not claim.source_mode
+            or sample.get("manifest_dataset_id") != claim.manifest_dataset_id
+        ):
+            raise JobClaimLostError("The sample source identity no longer matches the claim.")
         timestamp = _timestamp(now)
         status = cls._assert_claim_identity(job_row, JobClaim(
             job=_decode_job(job_row), worker_id=claim.worker_id,

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pickle
 import os
+from pathlib import Path
 from typing import Any, Callable
+
+from ..core.config import AssetStorageSettings
+from ..models.asset_manifest import SampleAssetManifest
+from .asset_snapshot import materialize_sample
 
 
 _MESSAGE_CHUNK_SIZE = 64 * 1024
@@ -90,10 +95,22 @@ def run_sample_child(
     connectivity: int,
     audit_id: str,
     sample_revision: int,
+    *,
+    snapshot_manifest: SampleAssetManifest | None = None,
+    asset_settings: AssetStorageSettings | None = None,
 ) -> None:
     """Collect and evaluate one sample without opening the workflow database."""
     _clear_database_environment()
     try:
+        # Preparation belongs inside the supervised child. Storage failures are
+        # fatal worker errors, distinct from errors while reading source data.
+        if snapshot_manifest is not None:
+            if asset_settings is None:
+                raise SampleComputationError("Snapshot storage settings are required.")
+            materialize_sample(
+                snapshot_manifest, asset_settings=asset_settings,
+                target_root=Path(dataset_root),
+            )
         try:
             measurements = collector(dataset_root, sample_id, allowed_labels, connectivity)
         except (OSError, UnicodeError) as error:
