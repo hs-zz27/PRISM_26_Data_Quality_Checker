@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+from fastapi.routing import APIRoute, iter_route_contexts
+
 from backend.api.build_contract import render_artifacts
 from backend.api.common import replace_model_refs
 from backend.api.schemas import build_schemas
@@ -93,8 +95,14 @@ def test_full_generated_implemented_inventory_matches_live_once():
     assert implemented == actual
     identifiers = [op["operationId"] for methods in live["paths"].values() for op in methods.values()]
     assert len(identifiers) == len(set(identifiers)) == 18
-    # OpenAPI dictionaries hide duplicate registrations; inspect APIRoutes too.
-    routes = [route.operation_id for route in create_app().routes if getattr(route, "operation_id", None)]
+    # OpenAPI dictionaries hide duplicate registrations. Traverse included routers
+    # as well as directly registered routes so repeated inclusions remain visible.
+    routes = [
+        context.original_route.operation_id
+        for context in iter_route_contexts(create_app().routes)
+        if isinstance(context.original_route, APIRoute)
+        and context.original_route.include_in_schema
+    ]
     assert len(routes) == len(set(routes)) == 18
     for identifier in OPERATIONS:
         assert routes.count(identifier) == 1
