@@ -66,9 +66,11 @@ https://spec.openapis.org/oas/v3.1.0.html.
 5. Start an audit using a confirmed rulebook ID/version. In the planned HTTP
    contract, null `sample_ids` means all samples and the import boundary will
    resolve annotation revisions. The current Python batch service requires
-   explicit sample IDs and pins caller-supplied revision numbers (default 1);
-   immutable asset loading is not implemented. Select batch size from measured
-   CPU resources. Active feedback-policy integration remains planned.
+   explicit sample IDs. Legacy mode pins caller-supplied revision numbers
+   (default 1); snapshot mode uses an injected authoritative revision resolver
+   and reads immutable captured assets. Dataset import and application-owned
+   revision selection remain planned. Select batch size from measured CPU
+   resources. Active feedback-policy integration remains planned.
 6. Poll the job, list the complete review queue and load sample detail. Omit queue
    filters to include apparently correct cases. Findings include pass outcomes.
 7. Resolve findings and record sample decisions separately. Correct boxes, labels
@@ -228,8 +230,9 @@ HTTP mappings are 409 `VERSION_CONFLICT` for `SampleReviewConflictError`, 409
 `AuditSampleNotFoundError`, 422 `VALIDATION_ERROR` for invalid request fields, 503
 `DEPENDENCY_UNAVAILABLE` for storage/configuration failures and 500 `INTERNAL_ERROR`
 for unexpected failures. The sample revision conflict only means the supplied pin is not stored for that audit/sample. It does
-**not** verify current annotation files: revision storage and immutable asset
-loading remain unimplemented. `needs_correction` saves a decision and does not
+**not** verify current annotation files. Snapshot-backed Python audits now read
+captured immutable assets, while legacy audits still read live files.
+`needs_correction` saves a decision and does not
 edit annotations. Future correction/recheck workflows must create fresh evidence
 and require a new decision on corrected revisions. Current decisions/history can
 be read through `SampleReviewRepository` or the implemented queue/detail/review-history
@@ -288,6 +291,10 @@ Convert edited geometry back to the source convention when submitting it. Raw
 mask PNGs retain integer instance IDs, with 0 as background. Colored mask previews
 are display assets and must never be submitted as raw masks. One pixel holds
 one ID; box overlap does not imply shared mask ownership. URLs pin revisions.
+
+The Python preview service now generates thumbnails and colored mask PNGs from
+verified snapshots for an explicit revision. HTTP asset routes and public links
+remain planned, so current queue/detail responses still return null asset URLs.
 
 For mask corrections, stage the PNG first, then submit its upload ID with the
 complete replacement object list. Add/remove objects by adding/removing entries.

@@ -110,6 +110,60 @@ on each call, so subsequent requests use saved changes. Invalid settings fail
 before an API request. CPU execution remains enforced by this local client.
 Cloud AI is permitted by the user, but cloud provider support is not implemented.
 
+`ASSET_STORAGE_ROOT` optionally selects the private absolute root for immutable
+source-asset snapshots. It defaults to `backend/data/assets`, uses the same
+process-environment-over-`.env` precedence, and is not created while loading
+configuration. The local capture service stores only relative keys, content types,
+sizes and SHA-256 identities in manifests; public API models do not expose local
+paths.
+
+`capture_sample()` in `app/services/asset_snapshot.py` accepts a trusted local
+Penn-Fudan dataset directory and independently copies `PNGImages/<sample>.png`,
+`PedMasks/<sample>_mask.png` and `Annotation/<sample>.txt` as exact bytes. Missing
+or unreadable source files are recorded per asset, while readable malformed bytes
+are retained for later audit validation. A manifest is published only after all
+available copies finish. Filesystem storage and PostgreSQL publication are separate
+operations; an uncertain database commit is not reported as filesystem/database
+atomicity.
+
+Captures of the same dataset/sample/revision serialize publication and cleanup
+with a local filesystem lock, so a failed capture cannot delete another capture's
+published files. Lock files under the private root's `.locks` directory are
+retained to keep waiting processes on the same lock. This local storage backend
+requires POSIX file locking, as provided by macOS and Linux; it is not a
+distributed object-storage implementation. An uncertain manifest commit retains
+its files so a later replay can reconcile the result safely.
+
+`SamplePreviewService` in `app/services/asset_preview.py` renders display-only
+PNGs from verified bytes for an explicit dataset, sample and revision:
+
+```python
+from backend.app.services.asset_preview import SamplePreviewService
+
+previews = SamplePreviewService(manifest_repository)
+thumbnail = previews.render("dataset_1", "sample_1", 2, "thumbnail")
+mask_preview = previews.render("dataset_1", "sample_1", 2, "mask_preview")
+# Each result provides content (PNG bytes), content_type, width and height.
+```
+
+Thumbnails preserve aspect ratio and transparency, fit within 256×256 pixels,
+and never upscale. Mask previews retain the raw mask dimensions, make ID 0
+transparent, and assign distinct, deterministic colors for all 16-bit IDs.
+Palette indices and 16-bit IDs remain distinct inputs; raw mask bytes are never
+converted or overwritten. Colors are display aids, not an encoding from which
+to recover object IDs. Previews do not rotate source coordinates or retain
+source metadata.
+
+Rendering is in memory with a 64 MiB encoded-source limit and a
+16-million-pixel limit. The repository enforces the byte budget before reading,
+checks the opened file's size, and bounds the read to detect later growth.
+Mask coloring uses a fixed lookup table instead of sorting all pixels. PNG
+chunk checksums are verified before decoding. Corrupt PNGs,
+animated PNGs and unsupported mask formats raise `PreviewUnavailableError`;
+missing manifests/assets and integrity failures retain their repository errors.
+There is no fallback to live dataset files. Preview serving routes, caching and
+public asset links are not implemented yet.
+
 For a one-off model selection, use `propose_rules(text, model="installed-model:tag")`.
 To supply an alternate configuration file, pass
 `settings=load_ollama_settings(path)`. To select a different environment file,
@@ -144,10 +198,12 @@ docker compose up -d --wait postgres
 ```
 
 Existing environments need `fastapi==0.143.5` and `uvicorn==0.54.0`, now pinned
-in root `requirements.txt`. This change needs no new database migration; it reads
-the existing schema through migration 006. App imports and startup do not run
-migrations, start workers or contact Ollama. `/docs` and `/openapi.json` describe
-only the implemented routes. This remains a local prototype without authentication.
+in root `requirements.txt`. The current schema includes migrations 007 and 008 for
+sample manifests and snapshot audit associations; they do not backfill existing
+audits. App imports
+and startup do not run migrations, start workers or contact Ollama. `/docs` and
+`/openapi.json` describe only the implemented routes. This remains a local
+prototype without authentication.
 
 Use an audit ID already created by the Python batch service:
 
@@ -340,15 +396,30 @@ remain unchanged, including during audit-result replays. Raw measurement
 `review_status` stays `pending_review`; use `get_sample_review()` for the current
 human decision.
 
-The pin is **not a guarantee of current dataset files**. `BatchAuditRequest`
-currently supplies sample revision numbers (default 1), and workers load assets
-from the dataset path. There is no authoritative annotation revision store or
-immutable asset loader. This guard prevents reviewing the wrong stored audit pin;
-it cannot detect edits to files on disk. `needs_correction` records a decision,
-not an annotation edit. Correction storage, validation and immutable revision
-loading still need implementation; corrected data must receive a new audit and
-explicit review rather than inheriting acceptance. Reviewed-count aggregation and
-export remain separate work.
+Legacy audits still load `dataset_root`, and their sample revision is not a
+guarantee of current dataset files. Snapshot-backed audits use
+`BatchAuditRequest(source_mode="snapshot")`: the service requires an injected
+authoritative revision resolver, captures or reuses the exact manifest for every
+sample before creating the audit, and materializes only those managed bytes for
+collection. A missing or tampered snapshot never falls back to `dataset_root`.
+The parent resolves the manifest from PostgreSQL; the isolated child verifies and
+materializes its bytes before collecting measurements and evaluating rules.
+Snapshot preparation therefore shares the existing timeout, cancellation and
+lease supervision, without opening PostgreSQL in the child. The parent removes
+the temporary sample directory after stopping the child. A cleanup failure is
+logged without replacing an existing processing, cancellation or ownership-loss
+error; cleanup failure after otherwise successful processing remains a storage
+error. Managed-file integrity
+and temporary-storage failures fail the job rather than being recorded as bad
+source samples. Missing or unreadable assets recorded at capture time remain
+source-data evidence for the collector.
+
+The current prototype does not own annotation-head selection; the resolver must
+provide the authoritative revision and trusted source root for each sample.
+`needs_correction` records a decision, not an annotation edit. Correction storage,
+validation and immutable revision publication still need implementation; corrected
+data must receive a new audit and explicit review rather than inheriting acceptance.
+Reviewed-count aggregation and export remain separate work.
 
 ## Confirmed-rule evaluation
 
@@ -390,6 +461,53 @@ failure (when needed), terminal sample state and job progress together.
 collection skips shared label checks while retaining annotation labels and
 geometry measurements. Each `allowed_labels` rule uses its own confirmed label
 list during evaluation, even when the request supplies a shared list.
+
+To start a snapshot-backed audit from Python, provide a resolver that selects the
+authoritative revision and trusted local source root for every sample, plus a
+manifest repository configured with the private asset root:
+
+```python
+from backend.app.models.audit import BatchAuditRequest
+from backend.app.services.batch_audit import BatchAuditService, ResolvedSampleRevision
+from backend.app.storage import AuditRepository, SampleAssetManifestRepository
+
+
+class Resolver:
+    def resolve_samples(self, *, dataset_id, sample_ids, requested_revisions):
+        # Resolve from the dataset/revision authority; do not choose max(manifest).
+        return {
+            sample_id: ResolvedSampleRevision(
+                sample_revision=requested_revisions[sample_id],
+                source_root="/trusted/PennFudanPed",
+            )
+            for sample_id in sample_ids
+        }
+
+
+manifests = SampleAssetManifestRepository()
+audits = AuditRepository()
+service = BatchAuditService(
+    rulebook_repository=rulebooks,
+    audit_repository=audits,
+    sample_revision_resolver=Resolver(),
+    manifest_repository=manifests,
+)
+request = BatchAuditRequest(
+    dataset_id="dataset_1",
+    dataset_root="legacy-path-retained-for-compatibility",
+    rulebook_id="book_1",
+    rulebook_version=1,
+    sample_ids=["sample_1"],
+    sample_revisions={"sample_1": 1},
+    source_mode="snapshot",
+)
+service.start(request, audit_id="audit_snapshot_1", job_id="job_snapshot_1")
+service.run_audit("audit_snapshot_1", worker_id="worker_1")
+```
+
+`rulebooks` in this example is an existing `RulebookRepository` instance. The
+resolver is intentionally explicit because the current prototype has no dataset
+revision-head service. Existing requests without `source_mode` remain legacy.
 
 `app/storage/workflow_repository.py` implements atomic worker claims with
 PostgreSQL row locks, claim tokens and leases. Cancellation is cooperative:
@@ -460,6 +578,53 @@ Apply migration `004_bounded_sample_processing.sql` through the normal initializ
 before using these repositories. Dataset roots are carried as opaque strings;
 this target deliberately does not add path validation or dataset-import
 policy.
+
+## Performance priorities and measurements
+
+The first optimization pass targets repeated CPU work and database round trips
+while retaining complete evidence, human review state and worker safeguards:
+
+1. Mask measurements use OpenCV pixel extraction, reuse the instance bounds
+   within a call, and run connected components only over actual foreground
+   bounds. Pixels outside annotation boxes and disconnected pieces remain
+   included; component boxes are translated back to source coordinates.
+2. Finding persistence uses batches of up to 128 pipelined inserts and one
+   readback per batch. For 1,000 findings this reduces evidence-readback queries
+   from 1,000 to 8. Transaction-held row locks, checks at batch boundaries and
+   the final pre-completion check preserve ownership/deadline handling. A
+   conflict or expired claim rolls back measurements and every inserted batch.
+   Existing machine evidence and reviewer records are never overwritten.
+3. Pairwise geometry validates each annotation box once per call, reducing box
+   validations from `n * (n - 1)` to `n`. All pairs, including invalid-box
+   evidence, are still returned; pair generation itself remains quadratic.
+
+On 19 October 2026, local synthetic timings (2048×1024 images, OpenCV using 10
+threads, median of seven runs with three iterations each) measured:
+
+- Two-object sample collection: 16.41 ms before, 9.46 ms after (1.73× faster).
+- Ten-object sample collection: 50.60 ms before, 16.16 ms after (3.13× faster).
+- Combined measurements for a compact mask instance: 4.15 ms to 0.80 ms (5.16×).
+- Combined measurements for a full-image instance: 10.68 ms to 7.03 ms (1.52×).
+- Box comparisons across 10–100 objects: approximately 2.8–3.6× faster.
+
+These measure synthetic CPU workloads, not real-dataset or complete audit-job
+throughput. Database batching has not been runtime-tested or benchmarked yet.
+Run the timing harness separately from the test suite:
+
+```bash
+.venv/bin/python -B -m backend.benchmarks.benchmark_checks
+```
+
+For before/after timing, pass `--baseline-dir /path/to/earlier/checks`, containing
+the earlier `geometry.py` and `segmentation.py`. The collector comparison keeps
+loading and check orchestration identical while swapping those two kernels.
+No database or model is started, and temporary sample files are removed.
+
+Next profiling priorities are PostgreSQL connection setup and per-sample process
+startup for small samples, review-queue queries for large audits, and model reload
+cost for repeated Ollama extraction. Pooling, worker reuse, parallelism and model
+residency need representative measurements and explicit resource/lifecycle
+handling before changing their current behavior.
 
 ## Draft rulebook extraction
 

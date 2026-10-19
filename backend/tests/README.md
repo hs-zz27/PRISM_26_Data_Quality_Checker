@@ -16,6 +16,18 @@ null measurements and consistent snapshots during a concurrent review change.
 They are authored but left unrun during implementation at the user's request.
 Ollama requests are mocked; these tests do not download or run a model.
 
+Asset preview coverage checks revision selection, verified managed bytes,
+thumbnail dimensions and transparency, palette and 16-bit instance IDs, stable
+colors across all 16-bit IDs, malformed/unsupported PNGs and invalid chunk
+checksums, bounded managed-file reads, and preservation of source files. These
+tests are also left unrun during implementation.
+
+Performance regression coverage compares cropped component geometry with full
+image measurements, retains invalid-box evidence in pairwise comparisons, and
+checks multi-batch finding persistence, replay, conflicts and expiry rollback.
+The separate `backend.benchmarks.benchmark_checks` timing harness measures CPU
+workloads without executing pytest or touching PostgreSQL.
+
 The contract suite compares generated files with their source and checks that
 audit/export fixtures use the confirmed rulebook version. Run tests before
 committing changes.
