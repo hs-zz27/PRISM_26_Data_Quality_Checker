@@ -1,5 +1,15 @@
 # Backend tests
 
+## Audit creation and listing
+
+`test_audit_submission.py` covers strict public inputs, confirmed-book policy,
+manifest-only submission and opt-in isolated PostgreSQL pinning, rollback and
+pagination. `test_audit_submission_api.py` covers HTTP validation, safe errors,
+public payloads and live/generated transport alignment. `test_audit_worker.py`
+covers audit-only dispatch and unresolved-claim handling. Inventory expectations
+now include 27 implemented and 22 planned operations. This coverage is authored
+but has not been run during implementation.
+
 ## Dataset checkpoint regression gate
 
 Phase 4 adds test_dataset_contract.py plus updates to existing API,

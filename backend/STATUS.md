@@ -5,6 +5,8 @@ Captured implementation baseline: `071f3fcf9c16debb95f1308c546bfb3e115204ff` (me
 Dataset Feature 4 Phases 1–4 are applied in this workspace. All five API artifacts
 are regenerated. Syntax and schema generation are verified; tests, migrations,
 HTTP scenarios and import execution were not run during application.
+Audit creation/listing and an explicit audit worker are now implemented. Their
+regression tests are authored and unrun; runtime verification remains pending.
 
 This is the working tracker for implemented features, teammate assignments and
 the next delivery steps. Update it when work is delivered, reviewed, integrated
@@ -30,6 +32,9 @@ latest complete test suite or real-model evaluation has passed.
 - **Audit engine:** confirmed-rule evaluation, evidence-linked findings,
   PostgreSQL batch processing, durable progress/results/failures and job state.
   Existing leases, recovery, cancellation, timeouts and retry safeguards remain.
+- **Audit submission and browsing:** ready catalogue selection, exact confirmed
+  book version, immutable sample pins, queued creation, public pagination and an
+  explicit audit-only worker. No request-time computation or snapshot recapture.
 - **Immutable assets:** snapshot capture, manifests, audit-to-revision pins,
   verified asset reads, thumbnails and mask previews. Application-owned dataset
   revision selection is supplied by the dataset checkpoint; annotation corrections remain unfinished.
@@ -40,24 +45,24 @@ latest complete test suite or real-model evaluation has passed.
   request/response examples, endpoint index and rulebook workflow documentation.
   The complete planned endpoint reference and
   screen-by-screen workflow guide cover the remaining
-  24 operations for frontend mocks. Future job fixtures cover all six states;
+  22 operations for frontend mocks. Future job fixtures cover all six states;
   these contracts do not add runtime routes.
 
-The current feature is **dataset import and browsing**: durable ZIP submission,
-an explicitly started worker, initial immutable revisions and four catalogue
-reads. Manual draft creation and plain-text extraction remain implemented with
-their existing confirmation/review boundaries.
+The current feature is **audit creation and listing**: imported catalogue heads
+and an exact confirmed rulebook version feed the existing batch engine. Dataset
+import and plain-text extraction retain their own explicit workers. Feedback
+execution and correction/recheck workflows remain unfinished.
 
 ## Current HTTP surface
 
-The generated reference has **25 implemented and 24 planned operations**, 49
+The generated reference has **27 implemented and 22 planned operations**, 49
 total. The live OpenAPI inventory and generated artifacts agree. These counts
 describe source HTTP availability, not runtime test coverage or completion
 percentages or equal amounts of implementation work.
 
 - Rulebooks: create, collection read, detail read, version history, review history,
   replace draft, confirm, reject and start a draft revision, plus extraction submission — ten operations.
-- Audits: metadata, sample queue and sample detail — three operations.
+- Audits: creation, listing, metadata, sample queue and sample detail — five operations.
 - Datasets: import submission and four catalogue reads — five operations.
 - Assets: revision-pinned sample asset delivery — one operation.
 - Jobs: status polling and cancellation — two operations.
@@ -146,8 +151,8 @@ After that, the proposed delivery order is:
 1. Apply migration 010 explicitly and obtain developer-run dataset/API/worker and
    PostgreSQL regression results. Dataset sources and contract regeneration are
    complete; no runtime results are claimed.
-2. Audit creation and listing APIs, reusing the existing batch engine and explicit
-   confirmed rulebook/revision pins.
+2. Obtain developer-run audit submission/listing/worker and PostgreSQL regression
+   results. The two APIs and worker are implemented; runtime results are not claimed.
 3. Annotation and mask correction revisions, correction history and rechecks that
    retain old audit evidence and human decisions.
 4. Reviewed dataset exports, download delivery and an inclusion/exclusion manifest.

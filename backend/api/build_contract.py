@@ -46,7 +46,7 @@ def build_contract() -> JsonObject:
     contract: JsonObject = {
         "openapi": "3.1.0",
         "info": {"title": "PRISM Data Quality Checker — API contract", "version": "0.1.0",
-                 "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
+                 "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
         "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Local development server; only implemented operations are callable."}],
         "tags": [{"name": name} for name in ("System", "Rulebooks", "Datasets", "Jobs", "Audits", "Reviews", "Corrections", "Exports", "Feedback")],
         "paths": {}, "components": {"schemas": schemas},
@@ -282,14 +282,23 @@ def build_contract() -> JsonObject:
     add("POST", "/audits", "startAudit", "Audits", "Start an audit against confirmed rules", "AuditStarted",
         {"audit": {**examples["audit"], "status": "queued", "processed_count": 0}, "job": job("audit", "audit", "audit_demo"),
          "parent_audit_id": None, "feedback_policy_id": None}, status=202,
-        body_schema="AuditRequest", body_example=audit_request, backing="Measurement collection, confirmed-rule evaluation and PostgreSQL batch processing exist; dataset import/revision selection and the HTTP route remain planned.",
+        body_schema="AuditRequest", body_example=audit_request, implementation="implemented",
+        backing="AuditSubmissionService, catalogue-owned revision selection and BatchAuditService.start; an explicit audit worker processes the queue.",
         conflict_examples={
             "DATASET_NOT_READY": "Wait for a ready dataset before starting an audit.",
-            "RULEBOOK_NOT_CONFIRMED": "Confirm the selected rulebook version before starting an audit.",
-            "POLICY_NOT_ACTIVE": "Select an active feedback policy or omit it.",
+            "RULEBOOK_NOT_CONFIRMED": "Confirm the selected rulebook version and all its rules before starting an audit.",
         },
-        description="sample_ids null means all samples. Require ready dataset and a confirmed rulebook version; return 409 RULEBOOK_NOT_CONFIRMED otherwise. Snapshot sample revisions and rules. Unsupported rules yield unavailable findings. A non-null feedback policy must be active. Batch size is selected from measured CPU resources, not supplied as a universal fixed size.")
-    add("GET", "/audits", "listAudits", "Audits", "List audit runs", "AuditPage", page([examples["audit"]]), parameters=pagination_parameters())
+        error_examples={
+            404: {"NOT_FOUND": "The requested dataset, sample or rulebook version does not exist."},
+            422: {"VALIDATION_ERROR": "One or more request fields or selected rule parameters are invalid."},
+        },
+        description="Omit sample_ids or send null for every sample in catalogue order; a nonempty unique subset preserves request order. Require a ready imported dataset and a nonempty confirmed rulebook version containing only confirmed rules. Resolve all selected current heads in one database snapshot and durably pin those immutable manifests before returning 202. Dirty sample annotations remain auditable. Processing runs in the explicitly started audit worker, never in the HTTP request. Unsupported rules yield unavailable findings and all findings remain pending human review. feedback_policy_id must be omitted or null until feedback execution is implemented; non-null values return 422. No source paths, model execution settings or client-supplied sample revisions are accepted. Repeated submissions create separate audits; after a lost response inspect the audit list before resubmitting.")
+    add("GET", "/audits", "listAudits", "Audits", "List audit runs", "AuditPage", page([examples["audit"]]),
+        parameters=[pagination_parameters()[0], parameter("offset", "query", {
+            "type": "integer", "minimum": 0, "maximum": 9223372036854775807, "default": 0,
+        }, 0)], implementation="implemented", not_found=False,
+        backing="AuditRepository.list_audits and FastAPI route implemented.",
+        description="Read every persisted lifecycle state, newest created_at first and descending audit_id for ties. limit is 1–100 (default 20); offset is a nonnegative BIGINT (default 0). Count and page use one database snapshot. Empty and past-the-end pages return 200. Exposes only AuditRun summaries, never private paths, request documents, claims or asset keys. Listing does not execute or recover jobs. Offset pages may shift when new audits are added between requests.")
     add("GET", "/audits/{audit_id}", "getAudit", "Audits", "Read persisted audit progress", "AuditRun", examples["audit_run"],
         implementation="implemented",
         backing="AuditRepository.get_audit and FastAPI route implemented.",
@@ -481,7 +490,7 @@ def render_artifacts() -> dict[str, str]:
     extraction_job_scenarios = contract.pop("x-extraction-job-scenarios")
     dataset_import_scenarios = contract.pop("x-dataset-import-scenarios")
     documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
-        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, audit metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,

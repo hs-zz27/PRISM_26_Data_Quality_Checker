@@ -4,6 +4,7 @@ from backend.app.models.dataset import Dataset, DatasetPage, Sample, SamplePage,
 from backend.app.core.dataset_http import DatasetUpload
 from backend.app.models.finding import Finding
 from backend.app.models.audit import AuditRun
+from backend.app.models.audit_submission import AuditPage, AuditRequest, AuditStarted
 from backend.app.models.audit_read import AuditSamplePage, SampleAudit, SampleAuditSummary
 from backend.app.models.job import ApiError, ErrorDetail, Job, Progress, ResultReference
 from backend.app.models.review import (
@@ -29,7 +30,7 @@ def build_schemas() -> JsonObject:
         RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage,
         SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
         AuditSamplePage, SampleAudit, SampleAuditSummary,
-        ErrorDetail, ApiError, Progress, ResultReference, Job, AuditRun,
+        ErrorDetail, ApiError, Progress, ResultReference, Job, AuditRun, AuditPage, AuditRequest, AuditStarted,
         Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted, DatasetUpload,
     ):
         schema = model.model_json_schema()
@@ -72,20 +73,9 @@ def build_schemas() -> JsonObject:
         "source_audit_id": nullable(TEXT), "created_at": TIME,
     })
     schemas["RevisionPage"] = page_schema(ref("AnnotationRevision"))
-    schemas["AuditRequest"] = obj({
-        "dataset_id": TEXT, "rulebook_id": TEXT, "rulebook_version": VERSION,
-        "sample_ids": nullable({**array(TEXT), "minItems": 1, "uniqueItems": True}),
-        "feedback_policy_id": nullable(TEXT),
-    })
-    # Future entry points reuse the implemented audit transport. Relationship
-    # context belongs to the planned start wrapper, not the stored public model.
+    # Planned consumers reuse the implemented audit transport. Relationship
+    # context belongs to AuditStarted, not the stored public model.
     schemas["Audit"] = ref("AuditRun")
-    schemas["AuditPage"] = page_schema(ref("AuditRun"))
-    schemas["AuditStarted"] = obj({
-        "audit": ref("AuditRun"), "job": ref("Job"),
-        "parent_audit_id": {**nullable(TEXT), "default": None},
-        "feedback_policy_id": {**nullable(TEXT), "default": None},
-    }, required=["audit", "job"])
     schemas["CheckEnvelope"] = obj({
         "status": choice("completed", "unavailable"), "reason": nullable(TEXT),
         "detail": nullable(TEXT), "result": nullable({"type": "object"}),

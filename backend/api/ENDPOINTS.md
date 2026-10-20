@@ -4,7 +4,7 @@ Generated from `build_contract.py`. Paths include `/api/v1`.
 
 Use [implemented-openapi.json for callable endpoint schemas and client generation. openapi.json also includes planned designs. examples.json contains synthetic fixtures.
 
-## Implemented (25 operations)
+## Implemented (27 operations)
 
 ### Rulebooks
 
@@ -35,6 +35,8 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 
 ### Audits
 
+- `POST /api/v1/audits` — Start an audit against confirmed rules (`startAudit`; implemented).
+- `GET /api/v1/audits` — List audit runs (`listAudits`; implemented).
 - `GET /api/v1/audits/{audit_id}` — Read persisted audit progress (`getAudit`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples` — Read the complete review queue (`listAuditSamples`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}` — Read sample findings, evidence and measurements (`getAuditSample`; implemented).
@@ -46,7 +48,7 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `PUT /api/v1/audits/{audit_id}/samples/{sample_id}/review` — Record the reviewer's data decision (`reviewSample`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}/reviews` — Read sample decision history (`listSampleReviews`; implemented).
 
-## Planned — unavailable on the running server (24 operations)
+## Planned — unavailable on the running server (22 operations)
 
 ### System
 
@@ -56,8 +58,6 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 
 ### Audits
 
-- `POST /api/v1/audits` — Start an audit against confirmed rules (`startAudit`; planned).
-- `GET /api/v1/audits` — List audit runs (`listAudits`; planned).
 - `GET /api/v1/audits/{audit_id}/findings` — List findings with rule sources and review state (`listAuditFindings`; planned).
 - `POST /api/v1/audits/{audit_id}/rechecks` — Audit corrected sample revisions again (`recheckSamples`; planned).
 

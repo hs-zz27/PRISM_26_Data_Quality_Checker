@@ -2,7 +2,7 @@
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**25 HTTP operations are implemented:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit metadata
+**27 HTTP operations are implemented:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
 and sample reads, revision-pinned assets, job polling/cancellation, and
 finding/sample decisions with history.
 All other operations remain planned. Check `x-implementation-status` in OpenAPI
@@ -37,15 +37,16 @@ when API models or routes change.
   implemented versus planned.
 - RULEBOOKS.md: manual creation, editing, confirmation and history.
 - DATASETS.md: durable ZIP acceptance, explicit worker, dirty-source browsing and generation prerequisites.
+- AUDITS.md: catalogue-backed audit creation, listing and explicit worker commands.
 - dataset_contract.py / dataset_examples.py: live-aligned dataset shapes and model-validated lifecycle snapshots.
-- PLANNED_ENDPOINTS.md: all 24 future operations, with
+- PLANNED_ENDPOINTS.md: all 22 future operations, with
   parameters, request/response examples, proposed errors and referenced schemas.
 - FRONTEND_WORKFLOW.md: screen flows, mock setup, jobs,
   correction/recheck pins and export/feedback interactions.
 - implemented-openapi.json: callable endpoints only,
   with actual FastAPI transport schemas and frontend examples; use for client generation.
 - openapi.json: combined implementation/planning reference; the
-  24 planned operations are not available on the running server.
+  22 planned operations are not available on the running server.
 - examples.json: frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
@@ -102,6 +103,8 @@ Datasets (see DATASETS.md):
 
 Audits, assets and jobs:
 
+- `POST /audits` → 202 `AuditStarted`; strict `AuditRequest` body.
+- `GET /audits` → 200 `AuditPage`; newest audits first, with limit/offset pagination.
 - `GET /audits/{audit_id}` → 200 `AuditRun`.
 - `GET /audits/{audit_id}/samples` → 200 `AuditSamplePage`.
 - `GET /audits/{audit_id}/samples/{sample_id}` → 200 `SampleAudit`.
@@ -124,16 +127,15 @@ Lists support `limit` (1–100, default 20) and nonnegative `offset` (default 0)
 Audit sample lists also accept `tool_status` and `review_status`; omit a filter
 to disable it rather than sending the string `null`.
 
-Manual rulebook creation and dataset import/catalogue browsing are available in the
-applied checkpoint source. Audit creation and audit listing remain planned. Obtain
-existing audit/job IDs from the backend developer, list saved rulebooks, or use
-the fixtures while building the UI. App startup does not create demo resources;
+Manual rulebook creation, dataset import/catalogue browsing and audit creation/listing
+are implemented. Submit a ready dataset and confirmed rulebook version through
+`POST /audits`, then run the explicit audit worker. See AUDITS.md. App startup does not create demo resources;
 fixture IDs do not imply that matching PostgreSQL records exist.
 
 `GET /audits/{audit_id}` uses `AuditRun`: IDs, pinned rulebook version,
 `source_mode`, lifecycle status, sample/processed/failed/incomplete counts and
 timestamps. It does not return `reviewed_count`, `parent_audit_id` or
-`feedback_policy_id`. Planned start/list/recheck contracts reuse this same
+`feedback_policy_id`. Start/list and planned recheck contracts reuse this same
 `AuditRun` shape; optional parent/policy context is on the `AuditStarted` wrapper.
 The planning name `Audit` aliases `AuditRun`. Processing completion does not mean
 human acceptance.
@@ -159,15 +161,13 @@ actions the running backend currently supports.
    scenarios are independent examples rather than successive edits to one sample.
 4. **Implemented in the dataset checkpoints:** upload a dataset ZIP through `POST /datasets`, poll import, then inspect sample
    integrity. The first adapter is `penn_fudan`, not a universal specification.
-5. **Planned HTTP entry point:** start an audit using a confirmed rulebook ID/version. In the planned HTTP
-   contract, null `sample_ids` means all samples and the import boundary will
-   resolve annotation revisions. The current Python batch service requires
-   explicit sample IDs. Legacy mode pins caller-supplied revision numbers
-   (default 1); snapshot mode uses an injected authoritative revision resolver
-   and reads immutable captured assets. Dataset import now owns catalogue heads;
-   wiring that authority into audit HTTP startup remains planned. No deleted staging
-   root is offered as a fallback source. Select batch size from measured CPU
-   resources. Active feedback-policy integration remains planned.
+5. **Implemented:** `POST /audits` starts an audit using a ready dataset and exact
+   confirmed rulebook version. Omitted/null `sample_ids` selects all catalogue
+   samples; a nonempty unique list selects a subset in request order. Heads are
+   resolved in one snapshot and exact manifests are durably pinned. The explicit
+   audit worker processes the queue sequentially using the existing supervisor.
+   Send no private paths or execution settings. Feedback execution remains planned;
+   `feedback_policy_id` must be omitted or null. `GET /audits` lists all audit states.
 6. **Implemented for existing audits/jobs:** poll the job, list the complete review queue and load sample detail. Omit queue
    filters to include apparently correct cases. Findings include pass outcomes.
    Snapshot-backed samples advertise captured asset links when their manifest
@@ -495,8 +495,8 @@ replace a draft, confirm, reject and reopen a final book as a draft. See
 the rulebook guide for exact paths,
 strict requests, states and error codes. Manual creation accepts strict editor
 inputs, preserves exact guideline text and saves a version-1 draft without
-inventing review history. Extraction jobs use an explicit worker; audit-start and feedback-evaluation
-routes remain planned. Authentication is not implemented by this local prototype.
+inventing review history. Extraction and audit jobs use separate explicit workers;
+feedback-evaluation routes remain planned. Authentication is not implemented by this local prototype.
 
 Mutations use request-time repository injection. Review actions append a snapshot
 and real attribution atomically; initial creation adds no review record. Reads

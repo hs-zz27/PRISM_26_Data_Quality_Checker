@@ -3,7 +3,7 @@
   "info": {
     "title": "PRISM Data Quality Checker — API contract",
     "version": "0.1.0",
-    "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
+    "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
   },
   "servers": [
     {
@@ -4049,9 +4049,9 @@
           "Audits"
         ],
         "summary": "Start an audit against confirmed rules",
-        "description": "sample_ids null means all samples. Require ready dataset and a confirmed rulebook version; return 409 RULEBOOK_NOT_CONFIRMED otherwise. Snapshot sample revisions and rules. Unsupported rules yield unavailable findings. A non-null feedback policy must be active. Batch size is selected from measured CPU resources, not supplied as a universal fixed size.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "Measurement collection, confirmed-rule evaluation and PostgreSQL batch processing exist; dataset import/revision selection and the HTTP route remain planned.",
+        "description": "Omit sample_ids or send null for every sample in catalogue order; a nonempty unique subset preserves request order. Require a ready imported dataset and a nonempty confirmed rulebook version containing only confirmed rules. Resolve all selected current heads in one database snapshot and durably pin those immutable manifests before returning 202. Dirty sample annotations remain auditable. Processing runs in the explicitly started audit worker, never in the HTTP request. Unsupported rules yield unavailable findings and all findings remain pending human review. feedback_policy_id must be omitted or null until feedback execution is implemented; non-null values return 422. No source paths, model execution settings or client-supplied sample revisions are accepted. Repeated submissions create separate audits; after a lost response inspect the audit list before resubmitting.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "AuditSubmissionService, catalogue-owned revision selection and BatchAuditService.start; an explicit audit worker processes the queue.",
         "responses": {
           "202": {
             "description": "Job accepted; poll the returned job ID.",
@@ -4097,37 +4097,24 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested audit, sample, or finding does not exist.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested dataset, sample or rulebook version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested dataset, sample or rulebook version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -4153,22 +4140,11 @@
                     }
                   },
                   "RULEBOOK_NOT_CONFIRMED": {
-                    "summary": "Confirm the selected rulebook version before starting an audit.",
+                    "summary": "Confirm the selected rulebook version and all its rules before starting an audit.",
                     "value": {
                       "error": {
                         "code": "RULEBOOK_NOT_CONFIRMED",
-                        "message": "Confirm the selected rulebook version before starting an audit.",
-                        "details": [],
-                        "request_id": "request_demo"
-                      }
-                    }
-                  },
-                  "POLICY_NOT_ACTIVE": {
-                    "summary": "Select an active feedback policy or omit it.",
-                    "value": {
-                      "error": {
-                        "code": "POLICY_NOT_ACTIVE",
-                        "message": "Select an active feedback policy or omit it.",
+                        "message": "Confirm the selected rulebook version and all its rules before starting an audit.",
                         "details": [],
                         "request_id": "request_demo"
                       }
@@ -4185,19 +4161,24 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "One or more request fields are invalid.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "One or more request fields or selected rule parameters are invalid.",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more request fields or selected rule parameters are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4206,7 +4187,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4257,9 +4238,9 @@
           "Audits"
         ],
         "summary": "List audit runs",
-        "description": "List audit runs",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "description": "Read every persisted lifecycle state, newest created_at first and descending audit_id for ties. limit is 1–100 (default 20); offset is a nonnegative BIGINT (default 0). Count and page use one database snapshot. Empty and past-the-end pages return 200. Exposes only AuditRun summaries, never private paths, request documents, claims or asset keys. Listing does not execute or recover jobs. Offset pages may shift when new audits are added between requests.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "AuditRepository.list_audits and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "List audit runs",
@@ -4294,42 +4275,6 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested resource does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -4349,7 +4294,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4358,7 +4303,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4406,6 +4351,7 @@
             "schema": {
               "type": "integer",
               "minimum": 0,
+              "maximum": 9223372036854775807,
               "default": 0
             },
             "example": 0,
@@ -13150,6 +13096,165 @@
         "title": "AuditRun",
         "type": "object"
       },
+      "AuditPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditRun"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total",
+          "next_offset"
+        ],
+        "title": "AuditPage",
+        "type": "object"
+      },
+      "AuditRequest": {
+        "additionalProperties": false,
+        "description": "Select catalogue heads; private paths and execution settings stay server-side.",
+        "properties": {
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "rulebook_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rulebook Id",
+            "type": "string"
+          },
+          "rulebook_version": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Rulebook Version",
+            "type": "integer"
+          },
+          "sample_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 255,
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Omit or send null for all catalogue samples; a subset preserves request order.",
+            "title": "Sample Ids",
+            "uniqueItems": true
+          },
+          "feedback_policy_id": {
+            "default": null,
+            "description": "Feedback policies are not implemented; omit or send null.",
+            "title": "Feedback Policy Id",
+            "type": "null"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "rulebook_id",
+          "rulebook_version"
+        ],
+        "title": "AuditRequest",
+        "type": "object"
+      },
+      "AuditStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "audit": {
+            "$ref": "#/components/schemas/AuditRun"
+          },
+          "job": {
+            "$ref": "#/components/schemas/Job"
+          },
+          "parent_audit_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Audit Id"
+          },
+          "feedback_policy_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Feedback Policy Id"
+          }
+        },
+        "required": [
+          "audit",
+          "job"
+        ],
+        "title": "AuditStarted",
+        "type": "object"
+      },
       "DatasetFormat": {
         "enum": [
           "penn_fudan"
@@ -13865,142 +13970,8 @@
         ],
         "additionalProperties": false
       },
-      "AuditRequest": {
-        "type": "object",
-        "properties": {
-          "dataset_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "rulebook_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "rulebook_version": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "sample_ids": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "minItems": 1,
-                "uniqueItems": true
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "feedback_policy_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "dataset_id",
-          "rulebook_id",
-          "rulebook_version",
-          "sample_ids",
-          "feedback_policy_id"
-        ],
-        "additionalProperties": false
-      },
       "Audit": {
         "$ref": "#/components/schemas/AuditRun"
-      },
-      "AuditPage": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditRun"
-            }
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "offset": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "total": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "next_offset": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "items",
-          "limit",
-          "offset",
-          "total",
-          "next_offset"
-        ],
-        "additionalProperties": false
-      },
-      "AuditStarted": {
-        "type": "object",
-        "properties": {
-          "audit": {
-            "$ref": "#/components/schemas/AuditRun"
-          },
-          "job": {
-            "$ref": "#/components/schemas/Job"
-          },
-          "parent_audit_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "feedback_policy_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          }
-        },
-        "required": [
-          "audit",
-          "job"
-        ],
-        "additionalProperties": false
       },
       "CheckEnvelope": {
         "type": "object",

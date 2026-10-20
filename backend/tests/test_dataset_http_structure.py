@@ -17,20 +17,21 @@ EXPECTED = {
 }
 
 
-def test_exact_five_new_routes_once_and_baseline_20_plus_five_inventory(tmp_path):
+def test_exact_five_dataset_routes_once_in_current_inventory(tmp_path):
     app = create_app(dataset_upload_settings_factory=lambda: http_settings(tmp_path))
     spec = app.openapi()
     actual = {(path, method, operation["operationId"]) for path, methods in spec["paths"].items()
               for method, operation in methods.items()}
     ids = [context.original_route.operation_id for context in iter_route_contexts(app.routes)
            if isinstance(context.original_route, APIRoute) and context.original_route.include_in_schema]
-    assert len(actual) == len(ids) == len(set(ids)) == 25
+    assert len(actual) == len(ids) == len(set(ids)) == 27
     assert EXPECTED <= actual
     assert {row for row in actual if row[2] in {entry[2] for entry in EXPECTED}} == EXPECTED
     for operation_id in ("getSampleAsset", "getJob", "cancelJob", "extractRulebook", "createRulebook",
                          "listAuditSamples", "reviewFinding", "reviewSample"):
         assert ids.count(operation_id) == 1
-    assert ("/api/v1/audits", "post", "startAudit") not in actual
+    assert ("/api/v1/audits", "post", "startAudit") in actual
+    assert ("/api/v1/audits", "get", "listAudits") in actual
 
 
 def test_live_multipart_schema_is_strict_required_and_response_is_real_model(tmp_path):

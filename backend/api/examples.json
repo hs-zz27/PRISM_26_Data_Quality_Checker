@@ -1,5 +1,5 @@
 {
-  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, audit metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
   "base_url": "http://127.0.0.1:8000",
   "operations": [
     {
@@ -1186,8 +1186,8 @@
       "path": "/api/v1/audits",
       "tag": "Audits",
       "summary": "Start an audit against confirmed rules",
-      "implementation": "planned",
-      "backing_service": "Measurement collection, confirmed-rule evaluation and PostgreSQL batch processing exist; dataset import/revision selection and the HTTP route remain planned.",
+      "implementation": "implemented",
+      "backing_service": "AuditSubmissionService, catalogue-owned revision selection and BatchAuditService.start; an explicit audit worker processes the queue.",
       "request": {
         "path_parameters": {},
         "query": {},
@@ -1245,8 +1245,8 @@
       "path": "/api/v1/audits",
       "tag": "Audits",
       "summary": "List audit runs",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "implementation": "implemented",
+      "backing_service": "AuditRepository.list_audits and FastAPI route implemented.",
       "request": {
         "path_parameters": {},
         "query": {

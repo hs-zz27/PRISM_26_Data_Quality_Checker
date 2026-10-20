@@ -75,22 +75,23 @@ while derived previews fail safely. Do not automatically accept/reject samples.
 Use `examples.dataset_import_scenarios` for all six job states, invalid archives,
 partial cancellation, dirty samples and explicit-zero versus malformed annotations.
 See DATASETS.md for worker setup, resource policies, safe errors and generation gates.
-Audit creation, corrections and export below remain planned.
+Audit creation is implemented; corrections and export below remain planned.
 
 ## 4. Start an audit and display processing
 
-**Planned:** `POST /audits` returns `AuditStarted` containing `audit` and `job`.
+**Implemented:** `POST /audits` returns HTTP 202 `AuditStarted` containing `audit` and `job`.
 Submit a ready dataset ID and an explicit confirmed rulebook ID/version.
-The proposed `sample_ids: null` selects all samples; a list selects those samples.
-Keep `feedback_policy_id: null` until an applicable active policy is available.
+Omitted/null `sample_ids` selects all samples; a nonempty unique list selects those
+samples in request order. Keep `feedback_policy_id` omitted or null; non-null
+values are rejected until feedback execution is implemented. Start the explicit
+audit worker documented in AUDITS.md. `GET /audits` lists persisted runs, newest first.
 Do not add a CPU batch-size field or assume the standalone detector is integrated.
 
-**Implemented for existing jobs/audits:** poll `GET /jobs/{job_id}` and read
-`GET /audits/{audit_id}`. Startup creates no demo records: obtain existing IDs
-from the backend developer or use mocks while creation/import routes are planned.
+**Implemented:** poll `GET /jobs/{job_id}` and read `GET /audits/{audit_id}` using
+IDs from the creation response. Startup creates no demo records.
 Audit processing completion does not mean that a reviewer accepted its samples.
 
-The live audit read returns `AuditRun` directly. Planned start/recheck responses
+The live audit read returns `AuditRun` directly. Start and planned recheck responses
 wrap that lifecycle shape as `audit` beside `job`; optional parent/policy context
 belongs to the wrapper. Do not require `reviewed_count`, `parent_audit_id` or
 `feedback_policy_id` on the persisted `AuditRun` response.

@@ -581,10 +581,15 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "/api/v1/rulebooks/{rulebook_id}/confirm",
         "/api/v1/rulebooks/{rulebook_id}/reject",
         "/api/v1/rulebooks/{rulebook_id}/revisions",
+        "/api/v1/audits",
         "/api/v1/audits/{audit_id}",
         "/api/v1/audits/{audit_id}/samples",
         "/api/v1/audits/{audit_id}/samples/{sample_id}",
         "/api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}",
+        "/api/v1/datasets",
+        "/api/v1/datasets/{dataset_id}",
+        "/api/v1/datasets/{dataset_id}/samples",
+        "/api/v1/datasets/{dataset_id}/samples/{sample_id}",
         "/api/v1/findings/{finding_id}/review",
         "/api/v1/findings/{finding_id}/reviews",
         "/api/v1/jobs/{job_id}",
@@ -595,7 +600,8 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
     assert {operation["operationId"] for path in spec["paths"].values() for operation in path.values()} == {
         "extractRulebook", "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
         "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
-        "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "reviewFinding", "listFindingReviews", "getJob", "cancelJob",
+        "startAudit", "listAudits", "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "reviewFinding", "listFindingReviews", "getJob", "cancelJob",
+        "importDataset", "listDatasets", "getDataset", "listDatasetSamples", "getDatasetSample",
         "reviewSample", "listSampleReviews",
     }
     assert client.post("/api/v1/audits/audit_1/samples").status_code == 405

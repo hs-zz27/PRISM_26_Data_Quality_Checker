@@ -22,7 +22,7 @@ def test_planned_reference_covers_every_future_operation_and_no_live_operation()
                 assert "500" in operation["responses"]
             else:
                 assert heading not in guide
-    assert len(planned) == 24
+    assert len(planned) == 22
 
 def test_future_audit_payloads_reuse_the_live_audit_transport():
     schemas = SPEC["components"]["schemas"]

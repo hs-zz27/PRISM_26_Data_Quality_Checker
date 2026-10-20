@@ -12,8 +12,9 @@ Never overwrite newer local work with a snapshot copy.
 Phase 4 source patches promote the five existing declarations, derive public
 schemas from Pydantic, align operations with live FastAPI and add independent
 synthetic lifecycle examples. No sixth route or detector/evaluator change is added.
-The generated inventory is 49 operations: 25 implemented and 24 planned.
-Audit creation/listing, corrections, exports and evaluated feedback remain planned.
+The generated inventory is 49 operations: 27 implemented and 22 planned.
+Audit creation/listing are implemented; see AUDITS.md. Corrections, exports and
+evaluated feedback remain planned.
 The catalogue revision resolver deliberately has no fabricated live source_root;
 wiring it into a future audit-start endpoint is separate work.
 

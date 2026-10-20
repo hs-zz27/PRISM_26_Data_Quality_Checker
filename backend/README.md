@@ -15,8 +15,29 @@ worker, and four catalogue reads. Phases 1–4 are applied and the five API arti
 are regenerated. Tests, migrations and import execution remain unrun.
 See api/DATASETS.md for setup, statuses, nullable counts, revision
 authority, partial evidence, limits and known local-prototype boundaries.
-Ready does not mean clean annotations. Audit creation, corrections and export over
-HTTP remain planned. No detector, matching or evaluator changes belong to this feature.
+Ready does not mean clean annotations. Audit creation and listing now connect the
+catalogue to the existing batch engine. Corrections and export remain planned.
+
+## Create and process audits
+
+Submit a ready dataset and an explicit confirmed rulebook version to
+`POST /api/v1/audits`. It returns HTTP 202 with the queued audit and job. Omit
+`sample_ids` or send null for all samples; a unique nonempty list selects a subset.
+`GET /api/v1/audits` lists public lifecycle summaries, newest first.
+
+Run the explicit worker in a separate terminal:
+
+```bash
+.venv/bin/python -B -m backend.app.workers.audit
+```
+
+Use `--once` to process at most one eligible audit. The worker uses the existing
+supervised batch engine and only claims audit jobs. It shares the configured
+PostgreSQL database and managed asset storage with the API/import worker.
+No new migration is needed beyond the current dataset migration 010.
+
+See [api/AUDITS.md](api/AUDITS.md) for pins, errors, cancellation and frontend
+integration. Tests are authored but have not been run during this implementation.
 
 ## Structure
 
@@ -35,7 +56,7 @@ backend/
   tests/                     Backend tests added as features are implemented
 ```
 
-FastAPI routers expose the implemented audit reads, revision-pinned asset delivery,
+FastAPI routers expose audit creation/listing/reads, revision-pinned asset delivery,
 job status/cancellation, finding/sample review routes and saved-rulebook reads/reviewer actions.
 Read repositories compose stored evidence; services coordinate workflow changes. A
 separate controller layer is not needed.
@@ -233,7 +254,7 @@ and startup do not run migrations, start workers or contact Ollama. `/docs` and
 `/openapi.json` describe only the implemented routes. This remains a local
 prototype without authentication.
 
-Use an audit ID already created by the Python batch service:
+Use an audit ID returned by `POST /api/v1/audits` or the Python batch service:
 
 ```bash
 curl 'http://127.0.0.1:8000/api/v1/audits/AUDIT_ID/samples?limit=20&offset=0'
@@ -310,8 +331,7 @@ when exceeded; preview decoding failures return `422 ASSET_NOT_RENDERABLE`.
 
 See api/README.md for the full contract and frontend fixtures.
 api/ENDPOINTS.md distinguishes these implemented routes from
-remaining planned operations, including audit creation and
-correction/export workflows.
+remaining planned operations, including correction/export workflows.
 
 ## Finding records
 
@@ -469,8 +489,9 @@ human decision.
 
 Legacy audits still load `dataset_root`, and their sample revision is not a
 guarantee of current dataset files. Snapshot-backed audits use
-`BatchAuditRequest(source_mode="snapshot")`: the service requires an injected
-authoritative revision resolver, captures or reuses the exact manifest for every
+`BatchAuditRequest(source_mode="snapshot")`: HTTP submission supplies exact
+catalogue manifests directly. Legacy Python integrations may instead inject an
+authoritative revision resolver that captures or reuses the exact manifest for every
 sample before creating the audit, and materializes only those managed bytes for
 collection. A missing or tampered snapshot never falls back to `dataset_root`.
 The parent resolves the manifest from PostgreSQL; the isolated child verifies and
@@ -485,8 +506,9 @@ and temporary-storage failures fail the job rather than being recorded as bad
 source samples. Missing or unreadable assets recorded at capture time remain
 source-data evidence for the collector.
 
-Before the dataset checkpoint, the prototype did not own annotation-head selection; the resolver must
-provide the authoritative revision and trusted source root for each sample.
+Dataset import now owns annotation-head selection. Audit HTTP submission reads
+those heads directly; legacy Python resolver integrations still provide their
+own authoritative revision and trusted source root for each sample.
 `needs_correction` records a decision, not an annotation edit. Correction storage,
 validation and immutable revision publication still need implementation; corrected
 data must receive a new audit and explicit review rather than inheriting acceptance.
@@ -574,9 +596,10 @@ service.start(request, audit_id="audit_snapshot_1", job_id="job_snapshot_1")
 service.run_audit("audit_snapshot_1", worker_id="worker_1")
 ```
 
-`rulebooks` in this example is an existing `RulebookRepository` instance. The
-resolver is intentionally explicit because the current prototype has no dataset
-revision-head service. Existing requests without `source_mode` remain legacy.
+`rulebooks` in this example is an existing `RulebookRepository` instance. This
+resolver example is for external Python integrations. Imported datasets use the
+catalogue-backed HTTP submission service without a source root. Existing requests
+without `source_mode` remain legacy.
 
 `app/storage/workflow_repository.py` implements atomic worker claims with
 PostgreSQL row locks, claim tokens and leases. Cancellation is cooperative:
