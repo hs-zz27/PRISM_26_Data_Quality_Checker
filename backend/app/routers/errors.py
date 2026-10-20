@@ -10,6 +10,13 @@ from starlette.exceptions import HTTPException
 
 from ..core.config import AssetStorageConfigurationError, DatabaseConfigurationError
 from ..models.audit_read import ErrorResponse
+from ..core.dataset_http import DatasetHttpDependencyError, DatasetRequestError, DatasetUnsupportedMediaError
+from ..core.dataset_import import (
+    ImportAcceptanceError, ImportConfigurationError, ImportOutcomeUnresolved, UploadTooLargeError,
+)
+from ..storage.dataset_repository import (
+    DatasetNotFoundError, DatasetRevisionNotFoundError, DatasetSampleNotFoundError, DatasetStorageError,
+)
 from ..storage.extraction_repository import ExtractionSubmissionError
 from ..models.job import ApiError, ErrorDetail
 from ..services.asset_preview import PreviewUnavailableError
@@ -44,6 +51,26 @@ def _response(status: int, code: str, message: str, *, details: list[ErrorDetail
     return JSONResponse(status_code=status, content=body.model_dump(mode="json"))
 
 def register_error_handlers(app: FastAPI) -> None:
+    async def dataset_not_found(request: Request, error: Exception) -> JSONResponse:
+        return _response(404, "NOT_FOUND", "The requested dataset, sample or exact revision does not exist.")
+
+    async def dataset_request_invalid(request: Request, error: DatasetRequestError) -> JSONResponse:
+        return _response(422, "VALIDATION_ERROR", "One or more dataset request fields are invalid.",
+                         details=[] if error.field is None else [ErrorDetail(
+                             field=error.field, message="The dataset request field is invalid.")])
+
+    async def dataset_upload_large(request: Request, error: UploadTooLargeError) -> JSONResponse:
+        return _response(413, "UPLOAD_TOO_LARGE", "The dataset upload exceeds the configured byte limit.")
+
+    async def dataset_media_invalid(request: Request, error: DatasetUnsupportedMediaError) -> JSONResponse:
+        return _response(415, "UNSUPPORTED_MEDIA_TYPE", "Upload a supported multipart dataset ZIP archive.")
+
+    async def dataset_unavailable(request: Request, error: Exception) -> JSONResponse:
+        # No exception-chain logging: source keys/configuration/connection strings
+        # must not leak. Unknown acceptance commits require operator reconciliation.
+        logger.warning("Dataset storage or durable acceptance unavailable")
+        return _response(503, "DEPENDENCY_UNAVAILABLE", "Dataset storage or durable acceptance is unavailable.")
+
     async def not_found(request: Request, error: Exception) -> JSONResponse:
         return _response(404, "NOT_FOUND", "The requested audit, sample, or finding does not exist.")
 
@@ -177,6 +204,17 @@ def register_error_handlers(app: FastAPI) -> None:
         logger.exception("Unhandled API error", exc_info=error)
         return _response(500, "INTERNAL_ERROR", "The request could not be completed.")
 
+    app.add_exception_handler(DatasetNotFoundError, dataset_not_found)
+    app.add_exception_handler(DatasetSampleNotFoundError, dataset_not_found)
+    app.add_exception_handler(DatasetRevisionNotFoundError, dataset_not_found)
+    app.add_exception_handler(DatasetRequestError, dataset_request_invalid)
+    app.add_exception_handler(UploadTooLargeError, dataset_upload_large)
+    app.add_exception_handler(DatasetUnsupportedMediaError, dataset_media_invalid)
+    app.add_exception_handler(DatasetStorageError, dataset_unavailable)
+    app.add_exception_handler(DatasetHttpDependencyError, dataset_unavailable)
+    app.add_exception_handler(ImportConfigurationError, dataset_unavailable)
+    app.add_exception_handler(ImportAcceptanceError, dataset_unavailable)
+    app.add_exception_handler(ImportOutcomeUnresolved, dataset_unavailable)
     app.add_exception_handler(ExtractionSubmissionError, extraction_unavailable)
     app.add_exception_handler(AuditNotFoundError, not_found)
     app.add_exception_handler(AuditSampleNotFoundError, not_found)
