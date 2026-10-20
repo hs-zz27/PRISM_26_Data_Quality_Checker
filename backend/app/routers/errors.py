@@ -10,6 +10,7 @@ from starlette.exceptions import HTTPException
 
 from ..core.config import AssetStorageConfigurationError, DatabaseConfigurationError
 from ..models.audit_read import ErrorResponse
+from ..storage.extraction_repository import ExtractionSubmissionError
 from ..models.job import ApiError, ErrorDetail
 from ..services.asset_preview import PreviewUnavailableError
 from ..services.review import RulebookContentValidationError, RulebookReviewError
@@ -34,16 +35,13 @@ from ..storage.workflow_repository import (
     WorkflowStorageError,
 )
 
-
 logger = logging.getLogger(__name__)
-
 
 def _response(status: int, code: str, message: str, *, details: list[ErrorDetail] | None = None) -> JSONResponse:
     body = ErrorResponse(error=ApiError(
         code=code, message=message, details=details or [], request_id=uuid4().hex,
     ))
     return JSONResponse(status_code=status, content=body.model_dump(mode="json"))
-
 
 def register_error_handlers(app: FastAPI) -> None:
     async def not_found(request: Request, error: Exception) -> JSONResponse:
@@ -157,6 +155,11 @@ def register_error_handlers(app: FastAPI) -> None:
         logger.exception("Audit storage unavailable", exc_info=error)
         return _response(503, "DEPENDENCY_UNAVAILABLE", "Audit storage is unavailable.")
 
+    async def extraction_unavailable(request: Request, error: ExtractionSubmissionError) -> JSONResponse:
+        # No exception-chain logging: DB/model configuration may include private inputs.
+        logger.warning("Extraction submission unavailable")
+        return _response(503, "DEPENDENCY_UNAVAILABLE", "Extraction could not be durably accepted.")
+
     async def invalid_request(request: Request, error: RequestValidationError) -> JSONResponse:
         return _response(422, "VALIDATION_ERROR", "One or more request fields are invalid.", details=[
             ErrorDetail(field=".".join(str(part) for part in item["loc"]), message=item["msg"])
@@ -174,6 +177,7 @@ def register_error_handlers(app: FastAPI) -> None:
         logger.exception("Unhandled API error", exc_info=error)
         return _response(500, "INTERNAL_ERROR", "The request could not be completed.")
 
+    app.add_exception_handler(ExtractionSubmissionError, extraction_unavailable)
     app.add_exception_handler(AuditNotFoundError, not_found)
     app.add_exception_handler(AuditSampleNotFoundError, not_found)
     app.add_exception_handler(FindingNotFoundError, not_found)

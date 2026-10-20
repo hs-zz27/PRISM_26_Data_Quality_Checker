@@ -573,6 +573,7 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
     client, _ = api
     spec = client.get("/openapi.json").json()
     assert set(spec["paths"]) == {
+        "/api/v1/rulebooks/extractions",
         "/api/v1/rulebooks",
         "/api/v1/rulebooks/{rulebook_id}",
         "/api/v1/rulebooks/{rulebook_id}/versions",
@@ -592,7 +593,7 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "/api/v1/audits/{audit_id}/samples/{sample_id}/reviews",
     }
     assert {operation["operationId"] for path in spec["paths"].values() for operation in path.values()} == {
-        "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
+        "extractRulebook", "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
         "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
         "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "reviewFinding", "listFindingReviews", "getJob", "cancelJob",
         "reviewSample", "listSampleReviews",

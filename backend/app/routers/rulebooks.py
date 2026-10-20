@@ -8,6 +8,11 @@ from ..models.audit_read import ErrorResponse
 from ..models.review import RulebookAction, RulebookReplace, RulebookReviewPage
 from ..models.rule import Rulebook, RulebookPage
 from ..models.rulebook_creation import RulebookCreate
+from ..models.rule_extraction import RuleExtractionRequest
+from ..models.job import Job
+from ..core.config import DatabaseConfigurationError
+from ..services.extraction_jobs import submit_extraction
+from ..storage.extraction_repository import ExtractionRepository, ExtractionSubmissionError
 from ..services.rulebook_creation import create_rulebook as create_rulebook_service
 from ..services.review import (
     confirm_rulebook as confirm_rulebook_service,
@@ -27,6 +32,29 @@ router = APIRouter(prefix="/rulebooks", tags=["Rulebooks"], responses={
 def get_rulebook_repository() -> RulebookRepository:
     """Resolve configuration per request; never connect or migrate on import."""
     return RulebookRepository()
+
+def get_extraction_repository() -> ExtractionRepository:
+    """Resolve per request; construction does not connect, migrate or start a worker."""
+    try:
+        return ExtractionRepository()
+    except DatabaseConfigurationError as error:
+        raise ExtractionSubmissionError("Extraction configuration is unavailable.") from error
+
+ExtractionStore = Annotated[ExtractionRepository, Depends(get_extraction_repository)]
+
+@router.post(
+    "/extractions", response_model=Job, status_code=202, operation_id="extractRulebook",
+    responses={503: {
+        "model": ErrorResponse, "description": "Extraction submission unavailable.",
+        "content": {"application/json": {"examples": {"DEPENDENCY_UNAVAILABLE": {"value": {"error": {
+            "code": "DEPENDENCY_UNAVAILABLE", "message": "Extraction could not be durably accepted.",
+            "details": [], "request_id": "request_demo",
+        }}}}}},
+    }},
+)
+def extract_rulebook_endpoint(request: RuleExtractionRequest, repository: ExtractionStore) -> Job:
+    """Commit a private queued request only; an explicit worker performs extraction."""
+    return submit_extraction(request, repository=repository)
 
 Repository = Annotated[RulebookRepository, Depends(get_rulebook_repository)]
 Identifier = Annotated[str, Path(min_length=1, pattern=r"\S")]

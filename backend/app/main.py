@@ -15,7 +15,7 @@ def create_app() -> FastAPI:
         title="PRISM audit review API", version="0.1.0",
         description=(
             "Audit sample reads, revision-pinned asset delivery, job status and audit-aware cancellation, finding and sample review decisions, "
-            "review history and manual rulebook creation/reads/reviewer actions are implemented. "
+            "review history, durable plain-text extraction submission and manual rulebook creation/reads/reviewer actions are implemented. "
             "Other operations in backend/api remain planned."
         ),
     )
