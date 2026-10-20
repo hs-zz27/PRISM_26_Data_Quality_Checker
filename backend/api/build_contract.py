@@ -19,6 +19,7 @@ from .common import (
 )
 from .fixtures import EXAMPLE_MODEL, SOURCE, TIMESTAMP, build_examples, job, page
 from .schemas import build_schemas
+from .planned_endpoints import render_planned_endpoints
 
 API_DIRECTORY = Path(__file__).resolve().parent
 RULEBOOK_ERROR_EXAMPLES = {
@@ -77,14 +78,18 @@ def build_contract() -> JsonObject:
         )
         responses = {str(status): {"description": success_description,
                                   "content": {media: success_content}}}
-        for error_status, code, message in (
-            (400, "INVALID_REQUEST", "The request could not be processed."),
-            (404, "NOT_FOUND", "The requested resource does not exist."),
-            (409, "VERSION_CONFLICT", "The resource changed; refresh before saving."),
-            (422, "VALIDATION_ERROR", "One or more request fields are invalid."),
-            (503, "DEPENDENCY_UNAVAILABLE", "A required local model or service is unavailable."),
-            (500, "INTERNAL_ERROR", "The request could not be completed."),
-        ):
+        errors = {
+            400: ("INVALID_REQUEST", "The request could not be processed."),
+            404: ("NOT_FOUND", "The requested resource does not exist."),
+            409: ("VERSION_CONFLICT", "The resource changed; refresh before saving."),
+            422: ("VALIDATION_ERROR", "One or more request fields are invalid."),
+            503: ("DEPENDENCY_UNAVAILABLE", "A required local model or service is unavailable."),
+            500: ("INTERNAL_ERROR", "The request could not be completed."),
+        }
+        for extra_status, examples_by_code in (error_examples or {}).items():
+            if extra_status not in errors:
+                errors[extra_status] = next(iter(examples_by_code.items()))
+        for error_status, (code, message) in errors.items():
             if implementation == "implemented":
                 if error_status == 404:
                     message = (
@@ -97,9 +102,7 @@ def build_contract() -> JsonObject:
                     message = "Rulebook storage is unavailable." if path.startswith("/rulebooks") else "Audit storage is unavailable."
             if implementation == "implemented" and error_status == 400:
                 continue
-            if implementation == "implemented" and error_status == 409 and not conflict_examples:
-                continue
-            if implementation == "planned" and error_status == 500:
+            if error_status == 409 and not conflict_examples:
                 continue
             content = {"schema": ref("ErrorResponse")}
             if error_status == 409 and conflict_examples:
@@ -201,9 +204,14 @@ def build_contract() -> JsonObject:
     add("POST", "/datasets", "importDataset", "Datasets", "Upload a dataset archive for local import", "DatasetImportStarted",
         {"dataset": {**examples["dataset"], "status": "importing", "sample_count": None, "object_count": None}, "job": job("dataset_import", "dataset", "dataset_demo")},
         status=202, body_schema="DatasetUpload", body_example={"archive": "<binary dataset ZIP>", "name": "Demo dataset", "format": "penn_fudan"}, multipart=True,
+        error_examples={
+            413: {"UPLOAD_TOO_LARGE": "The dataset archive exceeds the configured upload limit."},
+            415: {"UNSUPPORTED_MEDIA_TYPE": "Upload a supported dataset ZIP archive."},
+        },
         description="Send multipart FormData, not JSON. Penn-Fudan ZIP contains PNGImages/, Annotation/, PedMasks/ under an optional common root. Do not set multipart Content-Type manually; the browser supplies its boundary. Files remain on the local backend. Other dataset adapters are future work.")
     add("GET", "/datasets", "listDatasets", "Datasets", "List imported datasets", "DatasetPage", page([examples["dataset"]]), parameters=pagination_parameters())
-    add("GET", "/datasets/{dataset_id}", "getDataset", "Datasets", "Read dataset import and integrity summary", "Dataset", examples["dataset"])
+    add("GET", "/datasets/{dataset_id}", "getDataset", "Datasets", "Read dataset import and integrity summary", "Dataset", examples["dataset"],
+        description="Read persisted import status: importing, ready, invalid, failed or cancelled. invalid means an inspected archive failed integrity requirements; failed means processing could not finish. Counts may be null before inspection completes. Inspect import_job_id for structured job failure and keep invalid samples visible for review rather than implying successful import.")
     add("GET", "/datasets/{dataset_id}/samples", "listDatasetSamples", "Datasets", "List every dataset sample", "SamplePage", page([examples["sample"]]), parameters=pagination_parameters())
     add("GET", "/datasets/{dataset_id}/samples/{sample_id}", "getDatasetSample", "Datasets", "Read annotations and pinned asset URLs", "Sample", examples["sample"],
         parameters=[parameter("revision", "query", VERSION, 1, description="Omit for latest. Returned asset URLs always pin a revision.")])
@@ -229,18 +237,34 @@ def build_contract() -> JsonObject:
     asset_response["content"]["image/png"] = asset_response["content"].pop("application/zip")
     operations[-1]["response"]["content_type"] = "image/png"
     add("POST", "/datasets/{dataset_id}/samples/{sample_id}/mask-uploads", "uploadCorrectionMask", "Corrections", "Stage a replacement instance-ID mask", "MaskUpload",
-        {"mask_upload_id": "mask_upload_demo", "dataset_id": "dataset_demo", "sample_id": "sample_001", "image_size": [4, 3], "mask_ids": [0, 1, 2], "expires_at": "2026-10-14T11:00:00Z"}, status=201,
-        body_schema="MaskUploadRequest", body_example={"mask": "<binary 2D instance-ID PNG>"}, multipart=True,
-        description="Stage the mask without changing annotations. Submit mask_upload_id with the correction to apply boxes, labels and mask atomically. PNG must preserve integer IDs; RGB visualization PNGs are rejected. Staged uploads expire and must be uploaded again after expiry.")
+        {"mask_upload_id": "mask_upload_demo", "dataset_id": "dataset_demo", "sample_id": "sample_001", "base_revision": 1, "image_size": [4, 3], "mask_ids": [0, 1, 2], "expires_at": "2026-10-14T11:00:00Z"}, status=201,
+        body_schema="MaskUploadRequest", body_example={"mask": "<binary 2D instance-ID PNG>", "expected_revision": 1}, multipart=True,
+        conflict_examples={"STALE_SAMPLE_REVISION": "The sample changed. Refresh before staging the replacement mask."},
+        error_examples={
+            413: {"UPLOAD_TOO_LARGE": "The replacement mask exceeds the configured upload limit."},
+            415: {"UNSUPPORTED_MEDIA_TYPE": "Upload an instance-ID PNG mask."},
+            422: {"VALIDATION_ERROR": "The mask dimensions or instance-ID encoding are invalid."},
+        },
+        description="Stage the mask without changing annotations, bound to the dataset, sample and expected_revision; base_revision echoes that pin. Submit mask_upload_id with the correction to apply boxes, labels and mask atomically. PNG must preserve integer IDs; RGB visualization PNGs are rejected. Staged uploads expire and must be uploaded again after expiry. Numeric upload limits are deployment settings, not universal constants.")
     add("POST", "/datasets/{dataset_id}/samples/{sample_id}/revisions", "correctAnnotations", "Corrections", "Save corrected annotations and optional mask", "AnnotationRevision", examples["revision"], status=201,
         body_schema="CorrectionRequest", body_example={"expected_revision": 1, "reviewer_id": "reviewer_demo", "reason": examples["revision"]["reason"],
             "objects": examples["corrected"], "mask_upload_id": None, "source_audit_id": "audit_demo"},
-        description="objects is the complete replacement list: add/remove entries to add/remove objects. Preserve originals and history. Validate boxes, labels and resulting ID correspondence before committing the revision. Changes make older sample reviews stale; request a recheck before deciding on the corrected revision. Reject stale expected_revision with 409.")
+        conflict_examples={
+            "STALE_SAMPLE_REVISION": "The sample changed. Refresh before saving corrections.",
+            "MASK_UPLOAD_UNAVAILABLE": "The staged mask is expired, consumed or does not belong to this sample revision.",
+        },
+        description="objects is the complete replacement list: add/remove entries to add/remove objects. Preserve originals and history. Validate boxes, labels and resulting ID correspondence before committing the revision. A staged mask must belong to this dataset, sample and expected_revision and may be consumed once. Earlier evidence and reviews remain valid for their original immutable pins; they do not approve the corrected revision. Request a recheck and fresh review for corrected data. Reject stale expected_revision with 409.")
     add("GET", "/datasets/{dataset_id}/samples/{sample_id}/revisions", "listAnnotationRevisions", "Corrections", "Read correction history", "RevisionPage", page([examples["revision"]]), parameters=pagination_parameters())
     audit_request = {"dataset_id": "dataset_demo", "rulebook_id": "rulebook_demo", "rulebook_version": examples["confirmed"]["version"], "sample_ids": None, "feedback_policy_id": None}
     add("POST", "/audits", "startAudit", "Audits", "Start an audit against confirmed rules", "AuditStarted",
-        {"audit": {**examples["audit"], "status": "queued", "processed_count": 0}, "job": job("audit", "audit", "audit_demo")}, status=202,
+        {"audit": {**examples["audit"], "status": "queued", "processed_count": 0}, "job": job("audit", "audit", "audit_demo"),
+         "parent_audit_id": None, "feedback_policy_id": None}, status=202,
         body_schema="AuditRequest", body_example=audit_request, backing="Measurement collection, confirmed-rule evaluation and PostgreSQL batch processing exist; dataset import/revision selection and the HTTP route remain planned.",
+        conflict_examples={
+            "DATASET_NOT_READY": "Wait for a ready dataset before starting an audit.",
+            "RULEBOOK_NOT_CONFIRMED": "Confirm the selected rulebook version before starting an audit.",
+            "POLICY_NOT_ACTIVE": "Select an active feedback policy or omit it.",
+        },
         description="sample_ids null means all samples. Require ready dataset and a confirmed rulebook version; return 409 RULEBOOK_NOT_CONFIRMED otherwise. Snapshot sample revisions and rules. Unsupported rules yield unavailable findings. A non-null feedback policy must be active. Batch size is selected from measured CPU resources, not supplied as a universal fixed size.")
     add("GET", "/audits", "listAudits", "Audits", "List audit runs", "AuditPage", page([examples["audit"]]), parameters=pagination_parameters())
     add("GET", "/audits/{audit_id}", "getAudit", "Audits", "Read persisted audit progress", "AuditRun", examples["audit_run"],
@@ -263,10 +287,14 @@ def build_contract() -> JsonObject:
     add("GET", "/audits/{audit_id}/findings", "listAuditFindings", "Audits", "List findings with rule sources and review state", "FindingPage", page([examples["finding"]]),
         parameters=pagination_parameters() + [parameter("sample_id", "query", TEXT, "sample_001"), parameter("outcome", "query", choice("pass", "fail", "unsure", "unavailable"), "fail")])
     add("POST", "/audits/{audit_id}/rechecks", "recheckSamples", "Audits", "Audit corrected sample revisions again", "AuditStarted",
-        {"audit": {**examples["audit"], "audit_id": "audit_recheck_demo", "parent_audit_id": "audit_demo", "status": "queued", "processed_count": 0, "job_id": "job_recheck_demo"},
-         "job": job("recheck", "audit", "audit_recheck_demo")}, status=202,
-        body_schema="RecheckRequest", body_example={"sample_ids": ["sample_001"], "reviewer_id": "reviewer_demo"},
-        description="Create a new audit linked to the previous run. Pin latest revisions at request time and keep the original rulebook version and feedback policy. Do not overwrite old evidence or inherit final reviewer decisions.")
+        {"audit": {**examples["audit"], "audit_id": "audit_recheck_demo", "status": "queued", "processed_count": 0, "job_id": "job_recheck_demo"},
+         "job": job("recheck", "audit", "audit_recheck_demo"), "parent_audit_id": "audit_demo", "feedback_policy_id": None}, status=202,
+        body_schema="RecheckRequest", body_example={"sample_ids": ["sample_001"], "sample_revisions": {"sample_001": 2}, "reviewer_id": "reviewer_demo"},
+        conflict_examples={
+            "STALE_SAMPLE_REVISION": "A selected sample changed. Refresh the revision selection before rechecking.",
+            "AUDIT_NOT_READY": "The parent audit is not ready for rechecking.",
+        },
+        description="Create a new audit linked to the previous run. sample_revisions keys must exactly match sample_ids and identify their expected current revisions; reject stale pins rather than silently selecting newer data. Keep the original rulebook version and feedback policy. The nested audit uses the same AuditRun schema as getAudit; parent/policy context is in the start wrapper only. Do not overwrite old evidence or inherit final reviewer decisions.")
     add("GET", "/jobs/{job_id}", "getJob", "Jobs", "Poll persisted job progress and completion", "Job", job("audit", "audit", "audit_demo", completed=True),
         implementation="implemented",
         backing="JobRepository.get_job and FastAPI route implemented.",
@@ -320,13 +348,16 @@ def build_contract() -> JsonObject:
     add("POST", "/exports", "startExport", "Exports", "Prepare reviewed output and manifest", "ExportStarted",
         {"export": {**examples["export"], "status": "queued", "included_count": None, "excluded_count": None, "download_url": None, "manifest_url": None}, "job": job("export", "export", "export_demo")},
         status=202, body_schema="ExportRequest", body_example={"audit_id": "audit_recheck_demo", "format": "penn_fudan", "selection": "accepted_only", "include_images": False},
-        description="accepted_only includes explicit accepted decisions. all_reviewed includes accepted and rejected with their decisions in the manifest. pending_review and needs_correction are excluded. Export pinned reviewed revisions, not silently substituted latest data; stale decisions return 409 STALE_SAMPLE_REVISION. Preserve source coordinates and original files.")
+        conflict_examples={"AUDIT_NOT_READY": "Wait until the selected audit can be exported."},
+        description="accepted_only includes explicit accepted decisions. all_reviewed includes accepted and rejected with their decisions in the manifest. pending_review and needs_correction are excluded. Export exactly the immutable revisions reviewed in the selected audit; newer dataset heads do not invalidate those old-pin decisions or silently replace the export contents. Corrected data requires recheck and fresh review. Preserve source coordinates and original files.")
     add("GET", "/exports/{export_id}", "getExport", "Exports", "Read export status and download URLs", "Export", examples["export"])
     add("GET", "/exports/{export_id}/download", "downloadExport", "Exports", "Download corrected dataset archive", "", None, binary=True,
+        conflict_examples={"EXPORT_NOT_READY": "Wait for export preparation to complete before downloading."},
         description="ZIP bytes with annotations, masks and review manifest; images included only when requested. Return 409 EXPORT_NOT_READY until preparation completes.")
     add("GET", "/exports/{export_id}/manifest", "getExportManifest", "Exports", "Read exported and excluded sample decisions", "ExportManifest",
         {"export_id": "export_demo", "audit_id": "audit_recheck_demo", "rulebook_id": "rulebook_demo", "rulebook_version": examples["confirmed"]["version"],
-         "entries": [{"sample_id": "sample_001", "sample_revision": 2, "included": True, "review_decision": "accepted", "reason": None}]})
+         "entries": [{"sample_id": "sample_001", "sample_revision": 2, "included": True, "review_decision": "accepted", "reason": None}]},
+        conflict_examples={"EXPORT_NOT_READY": "Wait for export preparation to complete before reading its manifest."})
     add("GET", "/feedback/examples", "listFeedbackExamples", "Feedback", "List approved reviewer correction examples", "FeedbackExamplePage", page([examples["feedback"]]), parameters=pagination_parameters(),
         description="Examples derive from approved reviews and corrections; storing them is not yet an improvement mechanism. Rejected suggestions are not silently used as correct examples.")
     add("POST", "/feedback/policies", "createFeedbackPolicy", "Feedback", "Define a candidate reviewer-example policy", "FeedbackPolicy", examples["policy"], status=201,
@@ -338,11 +369,13 @@ def build_contract() -> JsonObject:
              "source_audit_ids": ["audit_holdout_reviewed"], "verified_sample_count": 12, "created_at": TIMESTAMP}
     add("POST", "/feedback/ground-truth", "createGroundTruth", "Feedback", "Freeze reviewer-verified evaluation evidence", "GroundTruth", truth, status=201,
         body_schema="GroundTruthCreate", body_example={"dataset_id": "dataset_holdout", "source_audit_ids": ["audit_holdout_reviewed"], "reviewer_id": "reviewer_demo"},
+        conflict_examples={"GROUND_TRUTH_NOT_READY": "Complete the relevant reviewer verification before freezing ground truth."},
         description="Snapshot reviewer-verified original/corrected annotations, accepted/rejected findings and checked no-issue cases, including missed errors identified through corrections. Require complete relevant review evidence; return 409 GROUND_TRUTH_NOT_READY otherwise. Evaluator semantics and storage remain planned.")
     add("GET", "/feedback/ground-truth/{ground_truth_id}", "getGroundTruth", "Feedback", "Read a frozen evaluation snapshot", "GroundTruth", truth)
     add("POST", "/feedback/evaluations", "evaluateFeedbackPolicy", "Feedback", "Compare candidate feedback with a baseline", "FeedbackEvaluationStarted",
         {"evaluation": examples["evaluation"], "job": job("feedback_evaluation", "feedback_evaluation", "evaluation_demo")}, status=202,
         body_schema="FeedbackEvaluationRequest", body_example={"policy_id": "policy_demo", "ground_truth_id": "truth_demo", "ground_truth_version": 1},
+        conflict_examples={"EVALUATION_DATA_OVERLAP": "Use held-out samples that do not overlap the policy examples."},
         description="Evaluate identical held-out samples with and without the candidate policy against frozen reviewer-verified ground truth. Reject overlap with policy example samples (409 EVALUATION_DATA_OVERLAP). A ground-truth revision and comparison evaluator still need implementation. Never treat runtime speed alone as accuracy improvement.")
     metrics = {"precision": 0.8, "recall": 0.8, "f1": 0.8, "true_positives": 8, "false_positives": 2, "false_negatives": 2, "sample_count": 12, "elapsed_seconds": 20.0}
     add("GET", "/feedback/evaluations/{evaluation_id}", "getFeedbackEvaluation", "Feedback", "Read held-out feedback evaluation results", "FeedbackEvaluation",
@@ -353,6 +386,7 @@ def build_contract() -> JsonObject:
     add("POST", "/feedback/policies/{policy_id}/activate", "activateFeedbackPolicy", "Feedback", "Approve an evaluated policy for future audits", "FeedbackPolicy",
         {**examples["policy"], "status": "active", "evaluation_id": "evaluation_demo"},
         body_schema="ActivatePolicyRequest", body_example={"evaluation_id": "evaluation_demo", "reviewer_id": "reviewer_demo"},
+        conflict_examples={"POLICY_NOT_EVALUATED": "Complete a matching evaluation before activating the policy."},
         description="Require a completed matching evaluation and explicit reviewer activation. Does not alter historical audits or override final reviewer control. Return 409 POLICY_NOT_EVALUATED if the evaluation is missing or unfinished.")
 
     contract["x-template-operations"] = operations
@@ -360,6 +394,7 @@ def build_contract() -> JsonObject:
     contract["x-review-scenario-rulebooks"] = examples["review_scenario_rulebooks"]
     contract["x-job-scenarios"] = examples["job_scenarios"]
     contract["x-audit-scenarios"] = examples["audit_scenarios"]
+    contract["x-future-job-scenarios"] = examples["future_job_scenarios"]
     return contract
 
 def build_implemented_contract(reference: JsonObject) -> JsonObject:
@@ -416,11 +451,13 @@ def render_artifacts() -> dict[str, str]:
     scenario_rulebooks = contract.pop("x-review-scenario-rulebooks")
     job_scenarios = contract.pop("x-job-scenarios")
     audit_scenarios = contract.pop("x-audit-scenarios")
+    future_job_scenarios = contract.pop("x-future-job-scenarios")
     documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
         "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Audit metadata, queue/detail, assets, jobs, finding/sample reviews and manual rulebook creation/read/review are implemented. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,
+        "future_job_scenarios": future_job_scenarios,
         "check_catalog": extraction_check_catalog(),
     }}
     artifacts = {
@@ -442,12 +479,13 @@ def render_artifacts() -> dict[str, str]:
                 lines.append(f"- `{operation['method']} {operation['path']}` — {operation['summary']} (`{operation['operation_id']}`; {status}).")
             lines.append("")
     artifacts["ENDPOINTS.md"] = "\n".join(lines)
+    artifacts["PLANNED_ENDPOINTS.md"] = render_planned_endpoints(contract)
     return artifacts
 
 def main() -> None:
     for filename, content in render_artifacts().items():
         (API_DIRECTORY / filename).write_text(content, encoding="utf-8")
-    print("Generated combined and implemented-only OpenAPI, frontend fixtures and the endpoint index.")
+    print("Generated combined and implemented-only OpenAPI, frontend fixtures and live/planned endpoint references.")
 
 if __name__ == "__main__":
     main()

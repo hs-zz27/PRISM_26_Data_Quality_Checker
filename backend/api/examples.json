@@ -1004,7 +1004,8 @@
         "query": {},
         "content_type": "multipart/form-data",
         "body": {
-          "mask": "<binary 2D instance-ID PNG>"
+          "mask": "<binary 2D instance-ID PNG>",
+          "expected_revision": 1
         }
       },
       "response": {
@@ -1014,6 +1015,7 @@
           "mask_upload_id": "mask_upload_demo",
           "dataset_id": "dataset_demo",
           "sample_id": "sample_001",
+          "base_revision": 1,
           "image_size": [
             4,
             3
@@ -1202,17 +1204,18 @@
         "body": {
           "audit": {
             "audit_id": "audit_demo",
-            "parent_audit_id": null,
+            "job_id": "job_audit_demo",
             "dataset_id": "dataset_demo",
             "rulebook_id": "rulebook_demo",
             "rulebook_version": 3,
-            "feedback_policy_id": null,
+            "source_mode": "snapshot",
             "status": "queued",
-            "job_id": "job_audit_demo",
             "sample_count": 1,
             "processed_count": 0,
-            "reviewed_count": 0,
-            "created_at": "2026-10-14T10:00:00Z"
+            "failed_count": 0,
+            "incomplete_count": 0,
+            "created_at": "2026-10-14T10:00:00Z",
+            "updated_at": "2026-10-14T10:00:00Z"
           },
           "job": {
             "job_id": "job_audit_demo",
@@ -1228,7 +1231,9 @@
             "error": null,
             "created_at": "2026-10-14T10:00:00Z",
             "updated_at": "2026-10-14T10:00:00Z"
-          }
+          },
+          "parent_audit_id": null,
+          "feedback_policy_id": null
         }
       }
     },
@@ -1256,17 +1261,18 @@
           "items": [
             {
               "audit_id": "audit_demo",
-              "parent_audit_id": null,
+              "job_id": "job_audit_demo",
               "dataset_id": "dataset_demo",
               "rulebook_id": "rulebook_demo",
               "rulebook_version": 3,
-              "feedback_policy_id": null,
+              "source_mode": "snapshot",
               "status": "completed",
-              "job_id": "job_audit_demo",
               "sample_count": 1,
               "processed_count": 1,
-              "reviewed_count": 0,
-              "created_at": "2026-10-14T10:00:00Z"
+              "failed_count": 0,
+              "incomplete_count": 0,
+              "created_at": "2026-10-14T10:00:00Z",
+              "updated_at": "2026-10-14T10:00:00Z"
             }
           ],
           "limit": 20,
@@ -2027,6 +2033,9 @@
           "sample_ids": [
             "sample_001"
           ],
+          "sample_revisions": {
+            "sample_001": 2
+          },
           "reviewer_id": "reviewer_demo"
         }
       },
@@ -2036,17 +2045,18 @@
         "body": {
           "audit": {
             "audit_id": "audit_recheck_demo",
-            "parent_audit_id": "audit_demo",
+            "job_id": "job_recheck_demo",
             "dataset_id": "dataset_demo",
             "rulebook_id": "rulebook_demo",
             "rulebook_version": 3,
-            "feedback_policy_id": null,
+            "source_mode": "snapshot",
             "status": "queued",
-            "job_id": "job_recheck_demo",
             "sample_count": 1,
             "processed_count": 0,
-            "reviewed_count": 0,
-            "created_at": "2026-10-14T10:00:00Z"
+            "failed_count": 0,
+            "incomplete_count": 0,
+            "created_at": "2026-10-14T10:00:00Z",
+            "updated_at": "2026-10-14T10:00:00Z"
           },
           "job": {
             "job_id": "job_recheck_demo",
@@ -2062,7 +2072,9 @@
             "error": null,
             "created_at": "2026-10-14T10:00:00Z",
             "updated_at": "2026-10-14T10:00:00Z"
-          }
+          },
+          "parent_audit_id": "audit_demo",
+          "feedback_policy_id": null
         }
       }
     },
@@ -5989,6 +6001,518 @@
       "incomplete_count": 0,
       "created_at": "2026-10-14T10:00:00Z",
       "updated_at": "2026-10-14T10:00:00Z"
+    }
+  },
+  "future_job_scenarios": {
+    "rule_extraction": {
+      "queued": {
+        "job_id": "job_rule_extraction_demo",
+        "kind": "rule_extraction",
+        "status": "queued",
+        "progress": {
+          "phase": "queued",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "running": {
+        "job_id": "job_rule_extraction_demo",
+        "kind": "rule_extraction",
+        "status": "running",
+        "progress": {
+          "phase": "running",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelling": {
+        "job_id": "job_rule_extraction_demo",
+        "kind": "rule_extraction",
+        "status": "cancelling",
+        "progress": {
+          "phase": "cancelling",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "completed": {
+        "job_id": "job_rule_extraction_demo",
+        "kind": "rule_extraction",
+        "status": "completed",
+        "progress": {
+          "phase": "completed",
+          "processed": 1,
+          "total": 1,
+          "fraction": 1.0
+        },
+        "result": {
+          "kind": "rulebook",
+          "id": "rulebook_demo",
+          "version": 1,
+          "href": "/api/v1/rulebooks/rulebook_demo?version=1"
+        },
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "failed": {
+        "job_id": "job_rule_extraction_demo",
+        "kind": "rule_extraction",
+        "status": "failed",
+        "progress": {
+          "phase": "failed",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": {
+          "code": "MODEL_UNAVAILABLE",
+          "message": "The requested work could not be completed.",
+          "details": [],
+          "request_id": "request_demo"
+        },
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelled": {
+        "job_id": "job_rule_extraction_demo",
+        "kind": "rule_extraction",
+        "status": "cancelled",
+        "progress": {
+          "phase": "cancelled",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      }
+    },
+    "dataset_import": {
+      "queued": {
+        "job_id": "job_dataset_import_demo",
+        "kind": "dataset_import",
+        "status": "queued",
+        "progress": {
+          "phase": "queued",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "running": {
+        "job_id": "job_dataset_import_demo",
+        "kind": "dataset_import",
+        "status": "running",
+        "progress": {
+          "phase": "running",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelling": {
+        "job_id": "job_dataset_import_demo",
+        "kind": "dataset_import",
+        "status": "cancelling",
+        "progress": {
+          "phase": "cancelling",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "completed": {
+        "job_id": "job_dataset_import_demo",
+        "kind": "dataset_import",
+        "status": "completed",
+        "progress": {
+          "phase": "completed",
+          "processed": 1,
+          "total": 1,
+          "fraction": 1.0
+        },
+        "result": {
+          "kind": "dataset",
+          "id": "dataset_demo",
+          "version": null,
+          "href": "/api/v1/datasets/dataset_demo"
+        },
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "failed": {
+        "job_id": "job_dataset_import_demo",
+        "kind": "dataset_import",
+        "status": "failed",
+        "progress": {
+          "phase": "failed",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": {
+          "code": "DATASET_IMPORT_FAILED",
+          "message": "The requested work could not be completed.",
+          "details": [],
+          "request_id": "request_demo"
+        },
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelled": {
+        "job_id": "job_dataset_import_demo",
+        "kind": "dataset_import",
+        "status": "cancelled",
+        "progress": {
+          "phase": "cancelled",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      }
+    },
+    "recheck": {
+      "queued": {
+        "job_id": "job_recheck_demo",
+        "kind": "recheck",
+        "status": "queued",
+        "progress": {
+          "phase": "queued",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "running": {
+        "job_id": "job_recheck_demo",
+        "kind": "recheck",
+        "status": "running",
+        "progress": {
+          "phase": "running",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelling": {
+        "job_id": "job_recheck_demo",
+        "kind": "recheck",
+        "status": "cancelling",
+        "progress": {
+          "phase": "cancelling",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "completed": {
+        "job_id": "job_recheck_demo",
+        "kind": "recheck",
+        "status": "completed",
+        "progress": {
+          "phase": "completed",
+          "processed": 1,
+          "total": 1,
+          "fraction": 1.0
+        },
+        "result": {
+          "kind": "audit",
+          "id": "audit_recheck_demo",
+          "version": null,
+          "href": "/api/v1/audits/audit_recheck_demo"
+        },
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "failed": {
+        "job_id": "job_recheck_demo",
+        "kind": "recheck",
+        "status": "failed",
+        "progress": {
+          "phase": "failed",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": {
+          "code": "RECHECK_FAILED",
+          "message": "The requested work could not be completed.",
+          "details": [],
+          "request_id": "request_demo"
+        },
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelled": {
+        "job_id": "job_recheck_demo",
+        "kind": "recheck",
+        "status": "cancelled",
+        "progress": {
+          "phase": "cancelled",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      }
+    },
+    "export": {
+      "queued": {
+        "job_id": "job_export_demo",
+        "kind": "export",
+        "status": "queued",
+        "progress": {
+          "phase": "queued",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "running": {
+        "job_id": "job_export_demo",
+        "kind": "export",
+        "status": "running",
+        "progress": {
+          "phase": "running",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelling": {
+        "job_id": "job_export_demo",
+        "kind": "export",
+        "status": "cancelling",
+        "progress": {
+          "phase": "cancelling",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "completed": {
+        "job_id": "job_export_demo",
+        "kind": "export",
+        "status": "completed",
+        "progress": {
+          "phase": "completed",
+          "processed": 1,
+          "total": 1,
+          "fraction": 1.0
+        },
+        "result": {
+          "kind": "export",
+          "id": "export_demo",
+          "version": null,
+          "href": "/api/v1/exports/export_demo"
+        },
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "failed": {
+        "job_id": "job_export_demo",
+        "kind": "export",
+        "status": "failed",
+        "progress": {
+          "phase": "failed",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": {
+          "code": "EXPORT_FAILED",
+          "message": "The requested work could not be completed.",
+          "details": [],
+          "request_id": "request_demo"
+        },
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelled": {
+        "job_id": "job_export_demo",
+        "kind": "export",
+        "status": "cancelled",
+        "progress": {
+          "phase": "cancelled",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      }
+    },
+    "feedback_evaluation": {
+      "queued": {
+        "job_id": "job_feedback_evaluation_demo",
+        "kind": "feedback_evaluation",
+        "status": "queued",
+        "progress": {
+          "phase": "queued",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "running": {
+        "job_id": "job_feedback_evaluation_demo",
+        "kind": "feedback_evaluation",
+        "status": "running",
+        "progress": {
+          "phase": "running",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelling": {
+        "job_id": "job_feedback_evaluation_demo",
+        "kind": "feedback_evaluation",
+        "status": "cancelling",
+        "progress": {
+          "phase": "cancelling",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "completed": {
+        "job_id": "job_feedback_evaluation_demo",
+        "kind": "feedback_evaluation",
+        "status": "completed",
+        "progress": {
+          "phase": "completed",
+          "processed": 1,
+          "total": 1,
+          "fraction": 1.0
+        },
+        "result": {
+          "kind": "feedback_evaluation",
+          "id": "evaluation_demo",
+          "version": null,
+          "href": "/api/v1/feedback/evaluations/evaluation_demo"
+        },
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "failed": {
+        "job_id": "job_feedback_evaluation_demo",
+        "kind": "feedback_evaluation",
+        "status": "failed",
+        "progress": {
+          "phase": "failed",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": {
+          "code": "FEEDBACK_EVALUATION_FAILED",
+          "message": "The requested work could not be completed.",
+          "details": [],
+          "request_id": "request_demo"
+        },
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      },
+      "cancelled": {
+        "job_id": "job_feedback_evaluation_demo",
+        "kind": "feedback_evaluation",
+        "status": "cancelled",
+        "progress": {
+          "phase": "cancelled",
+          "processed": 0,
+          "total": 1,
+          "fraction": 0.0
+        },
+        "result": null,
+        "error": null,
+        "created_at": "2026-10-14T10:00:00Z",
+        "updated_at": "2026-10-14T10:00:00Z"
+      }
     }
   },
   "check_catalog": [

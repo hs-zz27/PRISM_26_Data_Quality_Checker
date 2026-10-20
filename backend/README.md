@@ -5,6 +5,9 @@ client, rulebook extraction and review, batch audits, and finding/sample review 
 by PostgreSQL. The remaining modules contain responsibility notes for later
 implementation.
 
+See [the project tracker](STATUS.md) for completed work, teammate handoffs,
+verification status and the recommended next features.
+
 ## Structure
 
 ```text

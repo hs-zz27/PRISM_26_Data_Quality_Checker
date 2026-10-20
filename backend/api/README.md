@@ -28,6 +28,10 @@ not an SPA route.
 - [ENDPOINTS.md](ENDPOINTS.md): every method, path and operation ID, grouped by
   implemented versus planned.
 - [RULEBOOKS.md](RULEBOOKS.md): manual creation, editing, confirmation and history.
+- [PLANNED_ENDPOINTS.md](PLANNED_ENDPOINTS.md): all 30 future operations, with
+  parameters, request/response examples, proposed errors and referenced schemas.
+- [FRONTEND_WORKFLOW.md](FRONTEND_WORKFLOW.md): screen flows, mock setup, jobs,
+  correction/recheck pins and export/feedback interactions.
 - [implemented-openapi.json](implemented-openapi.json): callable endpoints only,
   with actual FastAPI transport schemas and frontend examples; use for client generation.
 - [openapi.json](openapi.json): combined implementation/planning reference; the
@@ -102,7 +106,8 @@ Lists support `limit` (1–100, default 20) and nonnegative `offset` (default 0)
 Audit sample lists also accept `tool_status` and `review_status`; omit a filter
 to disable it rather than sending the string `null`.
 
-Resource creation/import and audit listing are not HTTP features yet. Obtain
+Manual rulebook creation is available. Dataset import, audit creation and audit listing
+are not HTTP features yet. Obtain
 existing audit/job IDs from the backend developer, list saved rulebooks, or use
 the fixtures while building the UI. App startup does not create demo resources;
 fixture IDs do not imply that matching PostgreSQL records exist.
@@ -110,8 +115,10 @@ fixture IDs do not imply that matching PostgreSQL records exist.
 `GET /audits/{audit_id}` uses `AuditRun`: IDs, pinned rulebook version,
 `source_mode`, lifecycle status, sample/processed/failed/incomplete counts and
 timestamps. It does not return `reviewed_count`, `parent_audit_id` or
-`feedback_policy_id`. The separate planned `Audit` schema is not this endpoint's
-response. Processing completion does not mean human acceptance.
+`feedback_policy_id`. Planned start/list/recheck contracts reuse this same
+`AuditRun` shape; optional parent/policy context is on the `AuditStarted` wrapper.
+The planning name `Audit` aliases `AuditRun`. Processing completion does not mean
+human acceptance.
 
 ## Planned end-to-end workflow
 
@@ -121,8 +128,9 @@ actions the running backend currently supports.
 1. **Planned:** inspect health, capabilities and system status. Liveness is separate from
    model readiness; these endpoints do not start services or download models.
 2. **Planned:** submit plain text through `POST /rulebooks/extractions`, poll the job, then
-   follow `result.href` to its saved draft. Manual rulebook creation is also
-   specified. Other guideline input formats are deferred.
+   follow its version-pinned `result.href` to the saved draft. **Implemented:**
+   manual rulebook creation through `POST /rulebooks`. Other guideline input
+   formats are deferred.
 3. **Implemented for saved rulebooks:** show source sentences, descriptions and parameters. Save reviewed rules with
    `PUT /rulebooks/{rulebook_id}`. The example saves version 2 with confirmed
    individual rules while the book stays draft. Confirm the book separately,
@@ -445,7 +453,10 @@ Their matching confirmed rulebooks are under
 `examples.review_scenario_rulebooks` with the same keys; the uncertain and
 unavailable cases include their additional reviewer-authored rules.
 `examples.job_scenarios` and `examples.audit_scenarios` cover all six lifecycle
-states with model-validated snapshots. `examples.check_catalog` comes from the
+states with model-validated snapshots. `examples.future_job_scenarios` adds six-state
+job mocks for extraction, import, recheck, export and feedback evaluation; these
+job producers are still planned. Completed extraction links pin rulebook version 1.
+`examples.check_catalog` comes from the
 current registry and includes supported check names, meanings, scopes and parameter
 schemas. These are bundled reference data, not a live `/capabilities` endpoint.
 Do not invent default thresholds for vague rules.
@@ -462,11 +473,11 @@ replace a draft, confirm, reject and reopen a final book as a draft. See
 [the rulebook guide](RULEBOOKS.md) for exact paths,
 strict requests, states and error codes. Manual creation accepts strict editor
 inputs, preserves exact guideline text and saves a version-1 draft without
-inventing review history. Extraction-job,
-audit-start, authentication or feedback-evaluation routes are added by this work.
+inventing review history. Extraction-job, audit-start and feedback-evaluation
+routes remain planned. Authentication is not implemented by this local prototype.
 
-Mutations use request-time repository injection and the existing transactional
-review services. They append a snapshot and real attribution atomically; reads
+Mutations use request-time repository injection. Review actions append a snapshot
+and real attribution atomically; initial creation adds no review record. Reads
 never write, run inference or inspect assets. reviewer_id is attribution, not
 verified identity. Conflicts require refreshing and explicit reviewer resubmission.
 An unsupported check can be confirmed for human review without becoming an

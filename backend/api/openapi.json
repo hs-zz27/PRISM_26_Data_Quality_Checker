@@ -102,24 +102,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -149,6 +131,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -292,24 +292,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -339,6 +321,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -418,24 +418,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -465,6 +447,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -883,24 +883,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -930,6 +912,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -2362,24 +2362,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -2411,6 +2393,70 @@
                     "message": "A required local model or service is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The dataset archive exceeds the configured upload limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UPLOAD_TOO_LARGE": {
+                    "summary": "The dataset archive exceeds the configured upload limit.",
+                    "value": {
+                      "error": {
+                        "code": "UPLOAD_TOO_LARGE",
+                        "message": "The dataset archive exceeds the configured upload limit.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Upload a supported dataset ZIP archive.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UNSUPPORTED_MEDIA_TYPE": {
+                    "summary": "Upload a supported dataset ZIP archive.",
+                    "value": {
+                      "error": {
+                        "code": "UNSUPPORTED_MEDIA_TYPE",
+                        "message": "Upload a supported dataset ZIP archive.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -2508,24 +2554,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -2555,6 +2583,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -2599,7 +2645,7 @@
           "Datasets"
         ],
         "summary": "Read dataset import and integrity summary",
-        "description": "Read dataset import and integrity summary",
+        "description": "Read persisted import status: importing, ready, invalid, failed or cancelled. invalid means an inspected archive failed integrity requirements; failed means processing could not finish. Counts may be null before inspection completes. Inspect import_job_id for structured job failure and keep invalid samples visible for review rather than implying successful import.",
         "x-implementation-status": "planned",
         "x-backing-service-status": "planned",
         "responses": {
@@ -2660,24 +2706,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -2707,6 +2735,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -2850,24 +2896,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -2897,6 +2925,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -3057,24 +3103,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -3104,6 +3132,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -3350,7 +3396,7 @@
           "Corrections"
         ],
         "summary": "Stage a replacement instance-ID mask",
-        "description": "Stage the mask without changing annotations. Submit mask_upload_id with the correction to apply boxes, labels and mask atomically. PNG must preserve integer IDs; RGB visualization PNGs are rejected. Staged uploads expire and must be uploaded again after expiry.",
+        "description": "Stage the mask without changing annotations, bound to the dataset, sample and expected_revision; base_revision echoes that pin. Submit mask_upload_id with the correction to apply boxes, labels and mask atomically. PNG must preserve integer IDs; RGB visualization PNGs are rejected. Staged uploads expire and must be uploaded again after expiry. Numeric upload limits are deployment settings, not universal constants.",
         "x-implementation-status": "planned",
         "x-backing-service-status": "planned",
         "responses": {
@@ -3365,6 +3411,7 @@
                   "mask_upload_id": "mask_upload_demo",
                   "dataset_id": "dataset_demo",
                   "sample_id": "sample_001",
+                  "base_revision": 1,
                   "image_size": [
                     4,
                     3
@@ -3416,18 +3463,23 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "STALE_SAMPLE_REVISION": {
+                    "summary": "The sample changed. Refresh before staging the replacement mask.",
+                    "value": {
+                      "error": {
+                        "code": "STALE_SAMPLE_REVISION",
+                        "message": "The sample changed. Refresh before staging the replacement mask.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -3440,12 +3492,17 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "One or more request fields are invalid.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "The mask dimensions or instance-ID encoding are invalid.",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "The mask dimensions or instance-ID encoding are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -3464,6 +3521,70 @@
                     "message": "A required local model or service is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The replacement mask exceeds the configured upload limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UPLOAD_TOO_LARGE": {
+                    "summary": "The replacement mask exceeds the configured upload limit.",
+                    "value": {
+                      "error": {
+                        "code": "UPLOAD_TOO_LARGE",
+                        "message": "The replacement mask exceeds the configured upload limit.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Upload an instance-ID PNG mask.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UNSUPPORTED_MEDIA_TYPE": {
+                    "summary": "Upload an instance-ID PNG mask.",
+                    "value": {
+                      "error": {
+                        "code": "UNSUPPORTED_MEDIA_TYPE",
+                        "message": "Upload an instance-ID PNG mask.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -3504,7 +3625,8 @@
                 "$ref": "#/components/schemas/MaskUploadRequest"
               },
               "example": {
-                "mask": "<binary 2D instance-ID PNG>"
+                "mask": "<binary 2D instance-ID PNG>",
+                "expected_revision": 1
               }
             }
           }
@@ -3518,7 +3640,7 @@
           "Corrections"
         ],
         "summary": "Save corrected annotations and optional mask",
-        "description": "objects is the complete replacement list: add/remove entries to add/remove objects. Preserve originals and history. Validate boxes, labels and resulting ID correspondence before committing the revision. Changes make older sample reviews stale; request a recheck before deciding on the corrected revision. Reject stale expected_revision with 409.",
+        "description": "objects is the complete replacement list: add/remove entries to add/remove objects. Preserve originals and history. Validate boxes, labels and resulting ID correspondence before committing the revision. A staged mask must belong to this dataset, sample and expected_revision and may be consumed once. Earlier evidence and reviews remain valid for their original immutable pins; they do not approve the corrected revision. Request a recheck and fresh review for corrected data. Reject stale expected_revision with 409.",
         "x-implementation-status": "planned",
         "x-backing-service-status": "planned",
         "responses": {
@@ -3602,18 +3724,34 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "STALE_SAMPLE_REVISION": {
+                    "summary": "The sample changed. Refresh before saving corrections.",
+                    "value": {
+                      "error": {
+                        "code": "STALE_SAMPLE_REVISION",
+                        "message": "The sample changed. Refresh before saving corrections.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "MASK_UPLOAD_UNAVAILABLE": {
+                    "summary": "The staged mask is expired, consumed or does not belong to this sample revision.",
+                    "value": {
+                      "error": {
+                        "code": "MASK_UPLOAD_UNAVAILABLE",
+                        "message": "The staged mask is expired, consumed or does not belong to this sample revision.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -3648,6 +3786,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -3819,24 +3975,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -3866,6 +4004,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -3948,17 +4104,18 @@
                 "example": {
                   "audit": {
                     "audit_id": "audit_demo",
-                    "parent_audit_id": null,
+                    "job_id": "job_audit_demo",
                     "dataset_id": "dataset_demo",
                     "rulebook_id": "rulebook_demo",
                     "rulebook_version": 3,
-                    "feedback_policy_id": null,
+                    "source_mode": "snapshot",
                     "status": "queued",
-                    "job_id": "job_audit_demo",
                     "sample_count": 1,
                     "processed_count": 0,
-                    "reviewed_count": 0,
-                    "created_at": "2026-10-14T10:00:00Z"
+                    "failed_count": 0,
+                    "incomplete_count": 0,
+                    "created_at": "2026-10-14T10:00:00Z",
+                    "updated_at": "2026-10-14T10:00:00Z"
                   },
                   "job": {
                     "job_id": "job_audit_demo",
@@ -3974,7 +4131,9 @@
                     "error": null,
                     "created_at": "2026-10-14T10:00:00Z",
                     "updated_at": "2026-10-14T10:00:00Z"
-                  }
+                  },
+                  "parent_audit_id": null,
+                  "feedback_policy_id": null
                 }
               }
             }
@@ -4016,18 +4175,45 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "DATASET_NOT_READY": {
+                    "summary": "Wait for a ready dataset before starting an audit.",
+                    "value": {
+                      "error": {
+                        "code": "DATASET_NOT_READY",
+                        "message": "Wait for a ready dataset before starting an audit.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "RULEBOOK_NOT_CONFIRMED": {
+                    "summary": "Confirm the selected rulebook version before starting an audit.",
+                    "value": {
+                      "error": {
+                        "code": "RULEBOOK_NOT_CONFIRMED",
+                        "message": "Confirm the selected rulebook version before starting an audit.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_NOT_ACTIVE": {
+                    "summary": "Select an active feedback policy or omit it.",
+                    "value": {
+                      "error": {
+                        "code": "POLICY_NOT_ACTIVE",
+                        "message": "Select an active feedback policy or omit it.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -4062,6 +4248,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -4109,17 +4313,18 @@
                   "items": [
                     {
                       "audit_id": "audit_demo",
-                      "parent_audit_id": null,
+                      "job_id": "job_audit_demo",
                       "dataset_id": "dataset_demo",
                       "rulebook_id": "rulebook_demo",
                       "rulebook_version": 3,
-                      "feedback_policy_id": null,
+                      "source_mode": "snapshot",
                       "status": "completed",
-                      "job_id": "job_audit_demo",
                       "sample_count": 1,
                       "processed_count": 1,
-                      "reviewed_count": 0,
-                      "created_at": "2026-10-14T10:00:00Z"
+                      "failed_count": 0,
+                      "incomplete_count": 0,
+                      "created_at": "2026-10-14T10:00:00Z",
+                      "updated_at": "2026-10-14T10:00:00Z"
                     }
                   ],
                   "limit": 20,
@@ -4166,24 +4371,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -4213,6 +4400,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7630,24 +7835,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -7677,6 +7864,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7760,7 +7965,7 @@
           "Audits"
         ],
         "summary": "Audit corrected sample revisions again",
-        "description": "Create a new audit linked to the previous run. Pin latest revisions at request time and keep the original rulebook version and feedback policy. Do not overwrite old evidence or inherit final reviewer decisions.",
+        "description": "Create a new audit linked to the previous run. sample_revisions keys must exactly match sample_ids and identify their expected current revisions; reject stale pins rather than silently selecting newer data. Keep the original rulebook version and feedback policy. The nested audit uses the same AuditRun schema as getAudit; parent/policy context is in the start wrapper only. Do not overwrite old evidence or inherit final reviewer decisions.",
         "x-implementation-status": "planned",
         "x-backing-service-status": "planned",
         "responses": {
@@ -7774,17 +7979,18 @@
                 "example": {
                   "audit": {
                     "audit_id": "audit_recheck_demo",
-                    "parent_audit_id": "audit_demo",
+                    "job_id": "job_recheck_demo",
                     "dataset_id": "dataset_demo",
                     "rulebook_id": "rulebook_demo",
                     "rulebook_version": 3,
-                    "feedback_policy_id": null,
+                    "source_mode": "snapshot",
                     "status": "queued",
-                    "job_id": "job_recheck_demo",
                     "sample_count": 1,
                     "processed_count": 0,
-                    "reviewed_count": 0,
-                    "created_at": "2026-10-14T10:00:00Z"
+                    "failed_count": 0,
+                    "incomplete_count": 0,
+                    "created_at": "2026-10-14T10:00:00Z",
+                    "updated_at": "2026-10-14T10:00:00Z"
                   },
                   "job": {
                     "job_id": "job_recheck_demo",
@@ -7800,7 +8006,9 @@
                     "error": null,
                     "created_at": "2026-10-14T10:00:00Z",
                     "updated_at": "2026-10-14T10:00:00Z"
-                  }
+                  },
+                  "parent_audit_id": "audit_demo",
+                  "feedback_policy_id": null
                 }
               }
             }
@@ -7842,18 +8050,34 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "STALE_SAMPLE_REVISION": {
+                    "summary": "A selected sample changed. Refresh the revision selection before rechecking.",
+                    "value": {
+                      "error": {
+                        "code": "STALE_SAMPLE_REVISION",
+                        "message": "A selected sample changed. Refresh the revision selection before rechecking.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "AUDIT_NOT_READY": {
+                    "summary": "The parent audit is not ready for rechecking.",
+                    "value": {
+                      "error": {
+                        "code": "AUDIT_NOT_READY",
+                        "message": "The parent audit is not ready for rechecking.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -7894,6 +8118,24 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -7921,6 +8163,9 @@
                 "sample_ids": [
                   "sample_001"
                 ],
+                "sample_revisions": {
+                  "sample_001": 2
+                },
                 "reviewer_id": "reviewer_demo"
               }
             }
@@ -8918,7 +9163,7 @@
           "Exports"
         ],
         "summary": "Prepare reviewed output and manifest",
-        "description": "accepted_only includes explicit accepted decisions. all_reviewed includes accepted and rejected with their decisions in the manifest. pending_review and needs_correction are excluded. Export pinned reviewed revisions, not silently substituted latest data; stale decisions return 409 STALE_SAMPLE_REVISION. Preserve source coordinates and original files.",
+        "description": "accepted_only includes explicit accepted decisions. all_reviewed includes accepted and rejected with their decisions in the manifest. pending_review and needs_correction are excluded. Export exactly the immutable revisions reviewed in the selected audit; newer dataset heads do not invalidate those old-pin decisions or silently replace the export contents. Corrected data requires recheck and fresh review. Preserve source coordinates and original files.",
         "x-implementation-status": "planned",
         "x-backing-service-status": "planned",
         "responses": {
@@ -9000,18 +9245,23 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "AUDIT_NOT_READY": {
+                    "summary": "Wait until the selected audit can be exported.",
+                    "value": {
+                      "error": {
+                        "code": "AUDIT_NOT_READY",
+                        "message": "Wait until the selected audit can be exported.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -9046,6 +9296,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -9143,24 +9411,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -9190,6 +9440,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -9273,18 +9541,23 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "EXPORT_NOT_READY": {
+                    "summary": "Wait for export preparation to complete before downloading.",
+                    "value": {
+                      "error": {
+                        "code": "EXPORT_NOT_READY",
+                        "message": "Wait for export preparation to complete before downloading.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -9319,6 +9592,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -9416,18 +9707,23 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "EXPORT_NOT_READY": {
+                    "summary": "Wait for export preparation to complete before reading its manifest.",
+                    "value": {
+                      "error": {
+                        "code": "EXPORT_NOT_READY",
+                        "message": "Wait for export preparation to complete before reading its manifest.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -9462,6 +9758,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -9563,24 +9877,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -9610,6 +9906,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -9717,24 +10031,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -9764,6 +10060,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -9870,24 +10184,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -9917,6 +10213,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -10024,24 +10338,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -10071,6 +10367,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -10163,18 +10477,23 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "GROUND_TRUTH_NOT_READY": {
+                    "summary": "Complete the relevant reviewer verification before freezing ground truth.",
+                    "value": {
+                      "error": {
+                        "code": "GROUND_TRUTH_NOT_READY",
+                        "message": "Complete the relevant reviewer verification before freezing ground truth.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -10209,6 +10528,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -10303,24 +10640,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -10350,6 +10669,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -10461,18 +10798,23 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "EVALUATION_DATA_OVERLAP": {
+                    "summary": "Use held-out samples that do not overlap the policy examples.",
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_DATA_OVERLAP",
+                        "message": "Use held-out samples that do not overlap the policy examples.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -10507,6 +10849,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -10607,24 +10967,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -10654,6 +10996,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -10778,24 +11138,6 @@
               }
             }
           },
-          "409": {
-            "description": "The resource changed; refresh before saving.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "422": {
             "description": "One or more request fields are invalid.",
             "content": {
@@ -10825,6 +11167,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -10920,18 +11280,23 @@
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "POLICY_NOT_EVALUATED": {
+                    "summary": "Complete a matching evaluation before activating the policy.",
+                    "value": {
+                      "error": {
+                        "code": "POLICY_NOT_EVALUATED",
+                        "message": "Complete a matching evaluation before activating the policy.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -10966,6 +11331,24 @@
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
                     "message": "A required local model or service is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -12843,7 +13226,7 @@
             "minLength": 1
           },
           "bbox": {
-            "$ref": "#/components/schemas/BoundingBox"
+            "$ref": "#/components/schemas/CorrectionBoundingBox"
           }
         },
         "required": [
@@ -12852,6 +13235,16 @@
           "bbox"
         ],
         "additionalProperties": false
+      },
+      "CorrectionBoundingBox": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minItems": 4,
+        "maxItems": 4,
+        "description": "[xmin, ymin, xmax, ymax], one-based inclusive positive integers. The server also validates ordering and image bounds."
       },
       "ErrorResponse": {
         "type": "object",
@@ -12870,7 +13263,8 @@
         "properties": {
           "guideline_text": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S"
           }
         },
         "required": [
@@ -12901,7 +13295,8 @@
               "importing",
               "ready",
               "invalid",
-              "failed"
+              "failed",
+              "cancelled"
             ]
           },
           "sample_count": {
@@ -13123,10 +13518,15 @@
           "mask": {
             "type": "string",
             "format": "binary"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [
-          "mask"
+          "mask",
+          "expected_revision"
         ],
         "additionalProperties": false
       },
@@ -13144,6 +13544,10 @@
           "sample_id": {
             "type": "string",
             "minLength": 1
+          },
+          "base_revision": {
+            "type": "integer",
+            "minimum": 1
           },
           "image_size": {
             "$ref": "#/components/schemas/ImageSize"
@@ -13164,6 +13568,7 @@
           "mask_upload_id",
           "dataset_id",
           "sample_id",
+          "base_revision",
           "image_size",
           "mask_ids",
           "expires_at"
@@ -13375,7 +13780,9 @@
                 "items": {
                   "type": "string",
                   "minLength": 1
-                }
+                },
+                "minItems": 1,
+                "uniqueItems": true
               },
               {
                 "type": "null"
@@ -13404,93 +13811,7 @@
         "additionalProperties": false
       },
       "Audit": {
-        "type": "object",
-        "properties": {
-          "audit_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "parent_audit_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "dataset_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "rulebook_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "rulebook_version": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "feedback_policy_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "running",
-              "cancelling",
-              "completed",
-              "failed",
-              "cancelled"
-            ]
-          },
-          "job_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "sample_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "processed_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "reviewed_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "audit_id",
-          "parent_audit_id",
-          "dataset_id",
-          "rulebook_id",
-          "rulebook_version",
-          "feedback_policy_id",
-          "status",
-          "job_id",
-          "sample_count",
-          "processed_count",
-          "reviewed_count",
-          "created_at"
-        ],
-        "additionalProperties": false
+        "$ref": "#/components/schemas/AuditRun"
       },
       "AuditPage": {
         "type": "object",
@@ -13498,7 +13819,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Audit"
+              "$ref": "#/components/schemas/AuditRun"
             }
           },
           "limit": {
@@ -13538,10 +13859,34 @@
         "type": "object",
         "properties": {
           "audit": {
-            "$ref": "#/components/schemas/Audit"
+            "$ref": "#/components/schemas/AuditRun"
           },
           "job": {
             "$ref": "#/components/schemas/Job"
+          },
+          "parent_audit_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "feedback_policy_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -13786,7 +14131,17 @@
               "type": "string",
               "minLength": 1
             },
-            "minItems": 1
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "sample_revisions": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Expected current revisions; keys must exactly match sample_ids. Reject stale revisions rather than auditing a different selection."
           },
           "reviewer_id": {
             "type": "string",
@@ -13795,6 +14150,7 @@
         },
         "required": [
           "sample_ids",
+          "sample_revisions",
           "reviewer_id"
         ],
         "additionalProperties": false

@@ -35,9 +35,34 @@ def job(kind: str, resource_kind: str, resource_id: str, *, completed: bool = Fa
         "status": "completed" if completed else "queued",
         "progress": {"phase": "completed" if completed else "queued", "processed": 1 if completed else 0, "total": 1, "fraction": 1.0 if completed else 0.0},
         "result": {"kind": resource_kind, "id": resource_id, "version": 1 if resource_kind == "rulebook" else None,
-                   "href": f"{BASE_PATH}/{collection}/{resource_id}"} if completed else None,
+                   "href": f"{BASE_PATH}/{collection}/{resource_id}" + ("?version=1" if resource_kind == "rulebook" else "")} if completed else None,
         "error": None, "created_at": TIMESTAMP, "updated_at": TIMESTAMP,
     }
+
+def build_future_job_scenarios() -> JsonObject:
+    """Model-validated lifecycle mocks for the still-planned job producers."""
+    targets = {
+        "rule_extraction": ("rulebook", "rulebook_demo", "MODEL_UNAVAILABLE"),
+        "dataset_import": ("dataset", "dataset_demo", "DATASET_IMPORT_FAILED"),
+        "recheck": ("audit", "audit_recheck_demo", "RECHECK_FAILED"),
+        "export": ("export", "export_demo", "EXPORT_FAILED"),
+        "feedback_evaluation": ("feedback_evaluation", "evaluation_demo", "FEEDBACK_EVALUATION_FAILED"),
+    }
+    scenarios = {}
+    for kind, (resource_kind, resource_id, failure_code) in targets.items():
+        states = {}
+        for status in JobStatus:
+            value = job(kind, resource_kind, resource_id, completed=status is JobStatus.COMPLETED)
+            value["status"] = status.value
+            value["progress"]["phase"] = status.value
+            if status is JobStatus.FAILED:
+                value["error"] = {
+                    "code": failure_code, "message": "The requested work could not be completed.",
+                    "details": [], "request_id": "request_demo",
+                }
+            states[status.value] = Job.model_validate_json(json.dumps(value)).model_dump(mode="json")
+        scenarios[kind] = states
+    return scenarios
 
 def build_lifecycle_scenarios(rulebook_version: int) -> tuple[JsonObject, JsonObject]:
     """Create independent, model-validated job/audit snapshots for frontend states."""
@@ -118,10 +143,6 @@ def build_examples() -> JsonObject:
               "image_size": [4, 3], "integrity_status": "valid", "objects": annotations, "assets": assets}
     dataset = {"dataset_id": "dataset_demo", "name": "Demo dataset", "format": "penn_fudan", "status": "ready",
                "sample_count": 1, "object_count": 2, "import_job_id": "job_dataset_import_demo", "created_at": TIMESTAMP, "issues": []}
-    audit = {"audit_id": "audit_demo", "parent_audit_id": None, "dataset_id": "dataset_demo",
-             "rulebook_id": "rulebook_demo", "rulebook_version": confirmed["version"], "feedback_policy_id": None,
-             "status": "completed", "job_id": "job_audit_demo", "sample_count": 1, "processed_count": 1,
-             "reviewed_count": 0, "created_at": TIMESTAMP}
     audit_timestamp = datetime.fromisoformat(TIMESTAMP)
     audit_run = AuditRun(
         audit_id="audit_demo", job_id="job_audit_demo", dataset_id="dataset_demo",
@@ -130,6 +151,7 @@ def build_examples() -> JsonObject:
         failed_count=0, incomplete_count=0,
         created_at=audit_timestamp, updated_at=audit_timestamp,
     ).model_dump(mode="json")
+    audit = deepcopy(audit_run)
     finding = {
         "finding_id": "finding_demo", "audit_id": "audit_demo", "sample_id": "sample_001", "sample_revision": 1,
         "object_id": 2, "rulebook_id": "rulebook_demo", "rulebook_version": confirmed["version"], "rule_id": "LBL-1",
@@ -220,4 +242,5 @@ def build_examples() -> JsonObject:
         "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios,
         "audit_scenarios": audit_scenarios,
+        "future_job_scenarios": build_future_job_scenarios(),
     }

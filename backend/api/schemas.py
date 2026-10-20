@@ -42,11 +42,16 @@ def build_schemas() -> JsonObject:
     }
     schemas["AnnotationObject"] = obj({"object_id": INTEGER, "label": TEXT, "bbox": ref("BoundingBox")})
     schemas["CorrectionObject"] = obj({"object_id": VERSION, "label": TEXT, "bbox": ref("BoundingBox")})
+    schemas["CorrectionBoundingBox"] = {
+        **array(VERSION), "minItems": 4, "maxItems": 4,
+        "description": "[xmin, ymin, xmax, ymax], one-based inclusive positive integers. The server also validates ordering and image bounds.",
+    }
+    schemas["CorrectionObject"]["properties"]["bbox"] = ref("CorrectionBoundingBox")
     schemas["ErrorResponse"] = obj({"error": ref("ApiError")})
-    schemas["RuleExtractionRequest"] = obj({"guideline_text": TEXT})
+    schemas["RuleExtractionRequest"] = obj({"guideline_text": {**TEXT, "pattern": r"\S"}})
     schemas["Dataset"] = obj({
         "dataset_id": TEXT, "name": TEXT, "format": choice("penn_fudan"),
-        "status": choice("importing", "ready", "invalid", "failed"),
+        "status": choice("importing", "ready", "invalid", "failed", "cancelled"),
         "sample_count": nullable(COUNT), "object_count": nullable(COUNT),
         "import_job_id": TEXT, "created_at": TIME, "issues": array(ref("ErrorDetail")),
     })
@@ -61,10 +66,13 @@ def build_schemas() -> JsonObject:
     schemas["DatasetUpload"] = obj({
         "archive": {"type": "string", "format": "binary"}, "name": TEXT, "format": choice("penn_fudan"),
     })
-    schemas["MaskUploadRequest"] = obj({"mask": {"type": "string", "format": "binary"}})
+    schemas["MaskUploadRequest"] = obj({
+        "mask": {"type": "string", "format": "binary"}, "expected_revision": VERSION,
+    })
     schemas["MaskUpload"] = obj({
         "mask_upload_id": TEXT, "dataset_id": TEXT, "sample_id": TEXT,
-        "image_size": ref("ImageSize"), "mask_ids": array(COUNT), "expires_at": TIME,
+        "base_revision": VERSION, "image_size": ref("ImageSize"),
+        "mask_ids": array(COUNT), "expires_at": TIME,
     })
     schemas["CorrectionRequest"] = obj({
         "expected_revision": VERSION, "reviewer_id": TEXT, "reason": TEXT,
@@ -80,16 +88,18 @@ def build_schemas() -> JsonObject:
     schemas["RevisionPage"] = page_schema(ref("AnnotationRevision"))
     schemas["AuditRequest"] = obj({
         "dataset_id": TEXT, "rulebook_id": TEXT, "rulebook_version": VERSION,
-        "sample_ids": nullable(array(TEXT)), "feedback_policy_id": nullable(TEXT),
+        "sample_ids": nullable({**array(TEXT), "minItems": 1, "uniqueItems": True}),
+        "feedback_policy_id": nullable(TEXT),
     })
-    schemas["Audit"] = obj({
-        "audit_id": TEXT, "parent_audit_id": nullable(TEXT), "dataset_id": TEXT,
-        "rulebook_id": TEXT, "rulebook_version": VERSION, "feedback_policy_id": nullable(TEXT),
-        "status": JOB_STATUS, "job_id": TEXT, "sample_count": COUNT, "processed_count": COUNT,
-        "reviewed_count": COUNT, "created_at": TIME,
-    })
-    schemas["AuditPage"] = page_schema(ref("Audit"))
-    schemas["AuditStarted"] = obj({"audit": ref("Audit"), "job": ref("Job")})
+    # Future entry points reuse the implemented audit transport. Relationship
+    # context belongs to the planned start wrapper, not the stored public model.
+    schemas["Audit"] = ref("AuditRun")
+    schemas["AuditPage"] = page_schema(ref("AuditRun"))
+    schemas["AuditStarted"] = obj({
+        "audit": ref("AuditRun"), "job": ref("Job"),
+        "parent_audit_id": {**nullable(TEXT), "default": None},
+        "feedback_policy_id": {**nullable(TEXT), "default": None},
+    }, required=["audit", "job"])
     schemas["DatasetImportStarted"] = obj({"dataset": ref("Dataset"), "job": ref("Job")})
     schemas["CheckEnvelope"] = obj({
         "status": choice("completed", "unavailable"), "reason": nullable(TEXT),
@@ -109,7 +119,14 @@ def build_schemas() -> JsonObject:
         "objects": array(ref("ObjectMeasurements")),
     })
     schemas["FindingPage"] = page_schema(ref("Finding"))
-    schemas["RecheckRequest"] = obj({"sample_ids": {**array(TEXT), "minItems": 1}, "reviewer_id": TEXT})
+    schemas["RecheckRequest"] = obj({
+        "sample_ids": {**array(TEXT), "minItems": 1, "uniqueItems": True},
+        "sample_revisions": {
+            "type": "object", "minProperties": 1, "additionalProperties": VERSION,
+            "description": "Expected current revisions; keys must exactly match sample_ids. Reject stale revisions rather than auditing a different selection.",
+        },
+        "reviewer_id": TEXT,
+    })
     schemas["ExportRequest"] = obj({
         "audit_id": TEXT, "format": choice("penn_fudan"),
         "selection": choice("accepted_only", "all_reviewed"), "include_images": BOOLEAN,
