@@ -2,7 +2,7 @@
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**18 HTTP operations are implemented:** saved-rulebook read/review, audit metadata
+**19 HTTP operations are implemented:** manual rulebook creation/read/review, audit metadata
 and sample reads, revision-pinned assets, job polling/cancellation, and
 finding/sample decisions with history.
 All other operations remain planned. Check `x-implementation-status` in OpenAPI
@@ -27,11 +27,11 @@ not an SPA route.
 
 - [ENDPOINTS.md](ENDPOINTS.md): every method, path and operation ID, grouped by
   implemented versus planned.
-- [RULEBOOKS.md](RULEBOOKS.md): saved-rulebook editing, confirmation and history.
+- [RULEBOOKS.md](RULEBOOKS.md): manual creation, editing, confirmation and history.
 - [implemented-openapi.json](implemented-openapi.json): callable endpoints only,
   with actual FastAPI transport schemas and frontend examples; use for client generation.
 - [openapi.json](openapi.json): combined implementation/planning reference; the
-  31 planned operations are not available on the running server.
+  30 planned operations are not available on the running server.
 - [examples.json](examples.json): frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
@@ -456,11 +456,13 @@ live clients from `implemented-openapi.json`; mock planned operations separately
 
 ## Implemented rulebook HTTP workflow
 
-All eight saved-rulebook operations are implemented: list latest snapshots,
-read latest/explicit versions, list versions, list attributed reviews, replace
-a draft, confirm, reject and reopen a final book as a draft. See
+Nine rulebook operations are implemented: create a manual draft, list latest
+snapshots, read latest/explicit versions, list versions, list attributed reviews,
+replace a draft, confirm, reject and reopen a final book as a draft. See
 [the rulebook guide](RULEBOOKS.md) for exact paths,
-strict requests, states and error codes. No manual creation, extraction-job,
+strict requests, states and error codes. Manual creation accepts strict editor
+inputs, preserves exact guideline text and saves a version-1 draft without
+inventing review history. Extraction-job,
 audit-start, authentication or feedback-evaluation routes are added by this work.
 
 Mutations use request-time repository injection and the existing transactional
@@ -476,7 +478,14 @@ only its supported conflicts. Invalid replacement IDs/citations use a narrow
 client-error boundary; stored corruption and unrelated validation errors do not.
 No exception internals are returned to clients.
 
+Creation validates duplicate IDs and exact citations, forbids server-owned
+metadata, preserves unsupported/null checks with finite parameters, and never
+returns a success response after storage failure. Generated-ID collisions use
+the existing safe 409 mapping without overwrite or version advancement. Separate
+successful creation requests create separate books; no automatic retry or
+idempotency store is added.
+
 Generated OpenAPI, fixtures and endpoint inventories must come from
 `.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
-Runtime HTTP/PostgreSQL verification remains pending; syntax or generator checks
-do not establish runtime correctness.
+The focused and full backend HTTP/contract tests pass in the pinned environment;
+PostgreSQL integration tests remain opt-in and require `PRISM_TEST_DATABASE_URL`.

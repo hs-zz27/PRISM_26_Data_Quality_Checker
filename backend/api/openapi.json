@@ -3,7 +3,7 @@
   "info": {
     "title": "PRISM Data Quality Checker — API contract",
     "version": "0.1.0",
-    "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review and saved-rulebook read/review operations are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
+    "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, manual rulebook creation and saved-rulebook read/review operations are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
   },
   "servers": [
     {
@@ -482,9 +482,9 @@
           "Rulebooks"
         ],
         "summary": "Create a manually assembled draft",
-        "description": "Server assigns rulebook_id and version 1. The book starts as draft. Reviewer-authored rules use origin reviewer and may have no citation.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "Rule/Rulebook validation and PostgreSQL storage exist; manual creation service and route are planned.",
+        "description": "Manually create a version-1 draft with server-assigned ID, reviewer origin and draft states. Exact guideline text is preserved; non-null citations must match exactly. Rules may be empty or omitted, and guideline_text may be empty. Unknown fields and client attempts to supply server metadata are rejected with safe 422 VALIDATION_ERROR. Unsupported or null checks remain for human review without inferred thresholds. Initial review history is empty; creation does not confirm rules, call a model or start jobs/audits. Separate successful POST requests create separate books, without automatic retries or idempotency. A generated-ID collision returns 409 VERSION_CONFLICT without overwriting or appending a version. Storage/commit failures return safe 503, and unexpected internal validation/response defects remain 500.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "create_rulebook service, RulebookRepository.save_rulebook(expected_version=0) and FastAPI route implemented.",
         "responses": {
           "201": {
             "description": "Create a manually assembled draft",
@@ -517,55 +517,47 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
             }
           },
           "409": {
-            "description": "The resource changed; refresh before saving.",
+            "description": "Conflict; see the error code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "VERSION_CONFLICT",
-                    "message": "The resource changed; refresh before saving.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The rulebook is out of date. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The rulebook is out of date. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -590,7 +582,30 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -598,8 +613,8 @@
                 },
                 "example": {
                   "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -627,9 +642,7 @@
                         "person"
                       ]
                     },
-                    "origin": "reviewer",
-                    "source_sentence": null,
-                    "confirmation_state": "draft"
+                    "source_sentence": null
                   }
                 ]
               }
@@ -1526,7 +1539,7 @@
           "Rulebooks"
         ],
         "summary": "Read rulebook review attribution",
-        "description": "Attributed review actions ordered by ascending version. Each action and snapshot commit together. Extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.",
+        "description": "Attributed review actions ordered by ascending version. Each action and snapshot commit together. Manual creation, extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "RulebookRepository.list_rulebook_reviews and FastAPI route implemented.",
         "responses": {
@@ -11170,6 +11183,87 @@
         "title": "RulebookPage",
         "type": "object"
       },
+      "RulebookCreateRule": {
+        "additionalProperties": false,
+        "description": "Reviewer-authored content without server-owned origin or review state.",
+        "properties": {
+          "rule_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "description": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Description",
+            "type": "string"
+          },
+          "check_name": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Check Name"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Parameters",
+            "type": "object"
+          },
+          "source_sentence": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Sentence"
+          }
+        },
+        "required": [
+          "rule_id",
+          "description"
+        ],
+        "title": "RulebookCreateRule",
+        "type": "object"
+      },
+      "RulebookCreate": {
+        "additionalProperties": false,
+        "description": "Create an editable draft, preserving the exact supplied guideline text.\n\nEmpty text and an empty or omitted rules list are permitted. Non-null\ncitations must be exact substrings, not semantically verified references.\nUnsupported checks remain available for later human review.",
+        "properties": {
+          "guideline_text": {
+            "title": "Guideline Text",
+            "type": "string"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RulebookCreateRule"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "guideline_text"
+        ],
+        "title": "RulebookCreate",
+        "type": "object"
+      },
       "Evidence": {
         "additionalProperties": false,
         "description": "JSON measurements and optional asset links supporting the outcome.\n\nAsset links may be relative API paths. Empty measurements are valid when\nevaluation could not run, such as for an unsupported requirement.",
@@ -12768,25 +12862,6 @@
         },
         "required": [
           "error"
-        ],
-        "additionalProperties": false
-      },
-      "RulebookCreate": {
-        "type": "object",
-        "properties": {
-          "guideline_text": {
-            "type": "string"
-          },
-          "rules": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Rule"
-            }
-          }
-        },
-        "required": [
-          "guideline_text",
-          "rules"
         ],
         "additionalProperties": false
       },

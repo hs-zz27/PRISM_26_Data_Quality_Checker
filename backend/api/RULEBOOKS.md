@@ -2,10 +2,11 @@
 
 Four read endpoints are implemented under `/api/v1/rulebooks`: list latest books,
 read a book (optional `version`), list versions and list real review attribution.
+Manual draft creation is implemented with POST on the collection (201).
 Four review mutations are also implemented: PUT `/{rulebook_id}`, POST
 `/{rulebook_id}/confirm`, POST `/{rulebook_id}/reject` and POST
-`/{rulebook_id}/revisions` (201). Creation and extraction-job HTTP routes remain
-planned. Mutations reuse the existing transactional Python review services.
+`/{rulebook_id}/revisions` (201). Extraction-job HTTP remains planned.
+Review mutations reuse the existing transactional Python review services.
 
 Use `limit` (1–100, default 20) and `offset` (nonnegative, default 0) on lists.
 Omit `version` for the latest snapshot, including drafts and rejected books;
@@ -23,13 +24,36 @@ resolved at request time, not import time.
 
 Use [implemented-openapi.json](implemented-openapi.json) for live client generation
 and [examples.json](examples.json) for request/response fixtures. The combined
-`openapi.json` also includes planned operations. Rulebooks must already exist;
-creation and extraction are not callable through HTTP yet.
+`openapi.json` also includes planned operations. Manual draft creation is
+callable; plain-text extraction is not callable through HTTP yet.
 
 Generated `openapi.json`, `implemented-openapi.json`, `examples.json` and
 `ENDPOINTS.md` must be refreshed
 with `.venv/bin/python -B -m backend.api.build_contract`. They are generated
 outputs, not hand-edited sources. Examples are independent synthetic snapshots.
+
+## Manual draft creation
+
+`POST /api/v1/rulebooks` (`createRulebook`) accepts `RulebookCreate` and returns
+201 with the committed public `Rulebook`. The server assigns a fresh
+`rulebook_<uuid4 hex>` ID, version 1, reviewer origin for every rule and draft
+state for the book and all rules. Creating content does not create review
+history or an attributed edit/confirm/reject action.
+
+`guideline_text` is required but may be empty. `rules` may be omitted or empty;
+null is invalid. Each rule requires nonblank `rule_id` and `description`.
+`check_name` and `source_sentence` default to null, while `parameters` defaults
+to an independent dictionary containing only finite JSON values. Rule IDs must
+be unique and non-null citations must occur exactly in the submitted text.
+Unsupported checks remain reviewable without invented thresholds.
+
+Server-owned metadata, timestamps, review history and unknown fields are
+forbidden in creation requests. Exact whitespace, Unicode and line endings are
+preserved. Invalid fields, duplicate IDs and citation mismatches return safe
+422 `VALIDATION_ERROR` responses without a write. Storage failures return 503;
+generated-ID collisions use the existing 409 `VERSION_CONFLICT` mapping without
+retrying or overwriting. Empty drafts remain editable but cannot be confirmed.
+Separate successful POSTs create separate books.
 
 ## Review sequence and conflict handling
 

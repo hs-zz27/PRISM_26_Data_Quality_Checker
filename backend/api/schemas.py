@@ -10,6 +10,7 @@ from backend.app.models.review import (
     SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
 )
 from backend.app.models.rule import Rulebook, RulebookPage
+from backend.app.models.rulebook_creation import RulebookCreate, RulebookCreateRule
 
 from .common import (
     BOOLEAN, COUNT, FRACTION, INTEGER, JOB_STATUS, SAMPLE_REVIEW_STATUS,
@@ -17,12 +18,11 @@ from .common import (
     obj, page_schema, ref, replace_model_refs,
 )
 
-
 def build_schemas() -> JsonObject:
     """Reuse implemented records; keep proposed transport records explicit."""
     schemas = {}
     for model in (
-        Rulebook, RulebookPage, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
+        Rulebook, RulebookPage, RulebookCreate, RulebookCreateRule, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
         RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage,
         SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
         AuditSamplePage, SampleAudit, SampleAuditSummary,
@@ -43,7 +43,6 @@ def build_schemas() -> JsonObject:
     schemas["AnnotationObject"] = obj({"object_id": INTEGER, "label": TEXT, "bbox": ref("BoundingBox")})
     schemas["CorrectionObject"] = obj({"object_id": VERSION, "label": TEXT, "bbox": ref("BoundingBox")})
     schemas["ErrorResponse"] = obj({"error": ref("ApiError")})
-    schemas["RulebookCreate"] = obj({"guideline_text": {"type": "string"}, "rules": array(ref("Rule"))})
     schemas["RuleExtractionRequest"] = obj({"guideline_text": TEXT})
     schemas["Dataset"] = obj({
         "dataset_id": TEXT, "name": TEXT, "format": choice("penn_fudan"),

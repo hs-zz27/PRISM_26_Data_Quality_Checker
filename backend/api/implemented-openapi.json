@@ -4622,6 +4622,180 @@
         },
         "x-implementation-status": "implemented",
         "x-backing-service-status": "RulebookRepository.list_rulebooks and FastAPI route implemented."
+      },
+      "post": {
+        "tags": [
+          "Rulebooks"
+        ],
+        "summary": "Create a manually assembled draft",
+        "description": "Manually create a version-1 draft with server-assigned ID, reviewer origin and draft states. Exact guideline text is preserved; non-null citations must match exactly. Rules may be empty or omitted, and guideline_text may be empty. Unknown fields and client attempts to supply server metadata are rejected with safe 422 VALIDATION_ERROR. Unsupported or null checks remain for human review without inferred thresholds. Initial review history is empty; creation does not confirm rules, call a model or start jobs/audits. Separate successful POST requests create separate books, without automatic retries or idempotency. A generated-ID collision returns 409 VERSION_CONFLICT without overwriting or appending a version. Storage/commit failures return safe 503, and unexpected internal validation/response defects remain 500.",
+        "operationId": "createRulebook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulebookCreate"
+              },
+              "example": {
+                "guideline_text": "Allowed labels are person.",
+                "rules": [
+                  {
+                    "rule_id": "LBL-1",
+                    "description": "Use an allowed label.",
+                    "check_name": "allowed_labels",
+                    "parameters": {
+                      "allowed_labels": [
+                        "person"
+                      ]
+                    },
+                    "source_sentence": null
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rulebook"
+                },
+                "example": {
+                  "rulebook_id": "rulebook_manual_demo",
+                  "version": 1,
+                  "guideline_text": "Allowed labels are person.",
+                  "rules": [
+                    {
+                      "rule_id": "LBL-1",
+                      "description": "Use an allowed label.",
+                      "check_name": "allowed_labels",
+                      "parameters": {
+                        "allowed_labels": [
+                          "person"
+                        ]
+                      },
+                      "origin": "reviewer",
+                      "source_sentence": null,
+                      "confirmation_state": "draft"
+                    }
+                  ],
+                  "confirmation_state": "draft"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rulebook or version not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rulebook storage unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Rulebook storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Rulebook storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict; see the error code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The rulebook is out of date. Refresh before resubmitting.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The rulebook is out of date. Refresh before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "create_rulebook service, RulebookRepository.save_rulebook(expected_version=0) and FastAPI route implemented."
       }
     },
     "/api/v1/rulebooks/{rulebook_id}": {
@@ -5214,7 +5388,7 @@
           "Rulebooks"
         ],
         "summary": "Read rulebook review attribution",
-        "description": "Attributed review actions ordered by ascending version. Each action and snapshot commit together. Extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.",
+        "description": "Attributed review actions ordered by ascending version. Each action and snapshot commit together. Manual creation, extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.",
         "operationId": "listRulebookReviews",
         "parameters": [
           {
@@ -7054,6 +7228,85 @@
         ],
         "title": "RulebookAction",
         "description": "Identify the reviewed version and the person submitting the action."
+      },
+      "RulebookCreate": {
+        "properties": {
+          "guideline_text": {
+            "type": "string",
+            "title": "Guideline Text"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RulebookCreateRule"
+            },
+            "type": "array",
+            "title": "Rules"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "guideline_text"
+        ],
+        "title": "RulebookCreate",
+        "description": "Create an editable draft, preserving the exact supplied guideline text.\n\nEmpty text and an empty or omitted rules list are permitted. Non-null\ncitations must be exact substrings, not semantically verified references.\nUnsupported checks remain available for later human review."
+      },
+      "RulebookCreateRule": {
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rule Id"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Description"
+          },
+          "check_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check Name"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Parameters"
+          },
+          "source_sentence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Sentence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule_id",
+          "description"
+        ],
+        "title": "RulebookCreateRule",
+        "description": "Reviewer-authored content without server-owned origin or review state."
       },
       "RulebookPage": {
         "properties": {

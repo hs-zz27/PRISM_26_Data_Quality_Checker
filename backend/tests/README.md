@@ -69,7 +69,7 @@ covers all reads, latest versus explicit versions, empty histories, nonblank
 identifiers, pagination, safe errors and thin delegation without side effects.
 `test_rulebook_review_api.py` covers service delegation, strict bodies, state and
 origin policy, unsupported checks, content validation and no-write failures.
-`test_rulebook_contract.py` checks all 18 live operations, eight unique rulebook
+`test_rulebook_contract.py` checks all 19 live operations, nine unique rulebook
 operations, action-specific conflicts, actual model schemas, full schema
 constraints/nullability/required fields, parameter defaults and artifact freshness.
 Only schema titles and nullable explicit-null default metadata may differ between
@@ -82,3 +82,16 @@ versions, pagination and failure paths without writes. Existing repository tests
 remain responsible for locking, concurrency and transactional rollback.
 These tests are authored, not run; do not treat their presence as passing evidence.
 The checkpoint prohibits pytest/PostgreSQL execution until separately authorized.
+
+## Manual rulebook creation regressions
+
+`test_rulebook_creation.py` covers strict creation inputs, exact text/citations,
+finite JSON, mutable-instance revalidation, independent drafts, server-owned
+metadata, repository return identity, collision propagation and no retries.
+`test_rulebook_create_api.py` covers 201 draft responses, dependency overrides,
+safe 422/409/503/500 boundaries, malformed bodies, internal/response validation,
+nonfinite values and unique synchronous collection-route registration.
+`test_rulebook_create_repository.py` reuses the isolated-schema fixtures for
+durable POST/GET/list/version reads, empty creation history, edit/confirm
+v1-to-v2-to-v3, rollback, deterministic ID collisions, empty confirmation and
+rejection/revision interactions.

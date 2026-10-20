@@ -11,9 +11,11 @@ from backend.api.schemas import build_schemas
 from backend.app.main import create_app
 from backend.app.models.review import RulebookAction, RulebookReplace, RulebookReviewPage, RulebookReviewRecord
 from backend.app.models.rule import Rule, Rulebook, RulebookPage
+from backend.app.models.rulebook_creation import RulebookCreate, RulebookCreateRule
 
 API = Path(__file__).resolve().parents[1] / "api"
 OPERATIONS = {
+    "createRulebook": ("/rulebooks", "post", "201", "Rulebook", "RulebookCreate", {"VERSION_CONFLICT"}),
     "listRulebooks": ("/rulebooks", "get", "200", "RulebookPage", None, set()),
     "getRulebook": ("/rulebooks/{rulebook_id}", "get", "200", "Rulebook", None, set()),
     "listRulebookVersions": ("/rulebooks/{rulebook_id}/versions", "get", "200", "RulebookPage", None, set()),
@@ -75,7 +77,7 @@ def assert_same_schema(left, right, left_components, right_components, seen=None
 
 def test_rulebook_models_are_generated_without_handwritten_page_overrides():
     generated = build_schemas()
-    for model in [Rule, Rulebook, RulebookPage, RulebookAction, RulebookReplace,
+    for model in [Rule, Rulebook, RulebookPage, RulebookCreate, RulebookCreateRule, RulebookAction, RulebookReplace,
                   RulebookReviewRecord, RulebookReviewPage]:
         expected = model.model_json_schema()
         expected.pop("$defs", None)
@@ -94,7 +96,7 @@ def test_full_generated_implemented_inventory_matches_live_once():
               for path, methods in live["paths"].items() for method, op in methods.items()}
     assert implemented == actual
     identifiers = [op["operationId"] for methods in live["paths"].values() for op in methods.values()]
-    assert len(identifiers) == len(set(identifiers)) == 18
+    assert len(identifiers) == len(set(identifiers)) == 19
     # OpenAPI dictionaries hide duplicate registrations. Traverse included routers
     # as well as directly registered routes so repeated inclusions remain visible.
     routes = [
@@ -103,10 +105,10 @@ def test_full_generated_implemented_inventory_matches_live_once():
         if isinstance(context.original_route, APIRoute)
         and context.original_route.include_in_schema
     ]
-    assert len(routes) == len(set(routes)) == 18
+    assert len(routes) == len(set(routes)) == 19
     for identifier in OPERATIONS:
         assert routes.count(identifier) == 1
-    assert generated["paths"]["/rulebooks"]["post"]["x-implementation-status"] == "planned"
+    assert generated["paths"]["/rulebooks"]["post"]["x-implementation-status"] == "implemented"
     assert generated["paths"]["/rulebooks/extractions"]["post"]["x-implementation-status"] == "planned"
 
 def test_rulebook_live_generated_operations_match_without_constraint_normalization():

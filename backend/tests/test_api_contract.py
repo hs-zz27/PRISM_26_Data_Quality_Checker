@@ -1,14 +1,17 @@
 """Keep frontend API fixtures valid, complete and consistent with source models."""
 
+from copy import deepcopy
 import json
 from pathlib import Path
 import re
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
+from pydantic import ValidationError
 import pytest
 
 from backend.app.models.rule import Rulebook
+from backend.app.models.rulebook_creation import RulebookCreate
 from backend.app.main import create_app
 from backend.app.models.finding import Finding, FindingReview
 from backend.app.models.review import (
@@ -16,7 +19,6 @@ from backend.app.models.review import (
     SampleReview, SampleReviewPage, SampleReviewRequest,
 )
 from backend.api.build_contract import render_artifacts
-
 
 API_ROOT = Path(__file__).resolve().parents[1] / "api"
 SPEC = json.loads((API_ROOT / "openapi.json").read_text())
@@ -27,32 +29,31 @@ OPERATIONS = [
     for method, operation in methods.items()
 ]
 
-
 def validate(schema, value):
     document = {"components": SPEC["components"], "allOf": [schema]}
     Draft202012Validator(document, format_checker=FormatChecker()).validate(value)
-
 
 def media_examples(media):
     if "example" in media:
         return [media["example"]]
     return [example["value"] for example in media.get("examples", {}).values()]
 
-
 def test_routes_distinguish_implemented_handlers_from_planned_operations():
     assert SPEC["openapi"] == "3.1.0"
     identifiers = [operation["operationId"] for _, _, operation in OPERATIONS]
     assert len(identifiers) == len(set(identifiers)) == 49
     implemented = {
-        "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
+        "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
         "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
         "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "getJob", "cancelJob",
         "reviewFinding", "listFindingReviews", "reviewSample", "listSampleReviews",
     }
+    assert len(implemented) == 19
+    assert sum(op["x-implementation-status"] == "implemented" for _, _, op in OPERATIONS) == 19
+    assert sum(op["x-implementation-status"] == "planned" for _, _, op in OPERATIONS) == 30
     for _, _, operation in OPERATIONS:
         expected = "implemented" if operation["operationId"] in implemented else "planned"
         assert operation["x-implementation-status"] == expected
-
 
 def test_asset_contract_matches_revision_pinned_png_delivery():
     operation = SPEC["paths"]["/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}"]["get"]
@@ -79,7 +80,6 @@ def test_asset_contract_matches_revision_pinned_png_delivery():
     } == {"VALIDATION_ERROR", "ASSET_NOT_RENDERABLE", "ASSET_TOO_LARGE"}
     assert "never falls back to the latest revision" in parameters["revision"]["description"]
     assert "corrupt or unsupported sources" in operation["description"]
-
 
 def test_job_contract_matches_public_polling_and_audit_aware_cancellation():
     job_schema = SPEC["components"]["schemas"]["Job"]
@@ -112,7 +112,6 @@ def test_job_contract_matches_public_polling_and_audit_aware_cancellation():
     assert "running audit" in cancellation["description"]
     assert "reviewer decisions" in cancellation["description"]
 
-
 def _normalize_job_schema(value: Any) -> Any:
     """Ignore metadata/reference/default representation differences only."""
     if isinstance(value, dict):
@@ -130,7 +129,6 @@ def _normalize_job_schema(value: Any) -> Any:
     if isinstance(value, float) and value.is_integer():
         return int(value)
     return value
-
 
 def test_generated_job_schemas_match_live_openapi_constraints():
     live = create_app().openapi()["components"]["schemas"]
@@ -151,7 +149,6 @@ def test_generated_job_schemas_match_live_openapi_constraints():
     assert generated["Job"]["properties"]["result"]["default"] is None
     assert generated["Job"]["properties"]["error"]["default"] is None
 
-
 @pytest.mark.parametrize("path,method,operation", OPERATIONS, ids=[op["operationId"] for _, _, op in OPERATIONS])
 def test_operation_schemas_examples_and_path_parameters(path, method, operation):
     declared = [p for p in operation.get("parameters", []) if p["in"] == "path"]
@@ -169,7 +166,6 @@ def test_operation_schemas_examples_and_path_parameters(path, method, operation)
     for media in operation.get("requestBody", {}).get("content", {}).values():
         validate(media["schema"], media["example"])
 
-
 def test_local_schema_references_are_resolvable():
     def visit(value):
         if isinstance(value, dict):
@@ -183,7 +179,6 @@ def test_local_schema_references_are_resolvable():
             for child in value:
                 visit(child)
     visit(SPEC)
-
 
 def test_frontend_fixtures_match_declared_operations_and_payloads():
     fixture_ids = {fixture["operation_id"] for fixture in EXAMPLES["operations"]}
@@ -201,7 +196,6 @@ def test_frontend_fixtures_match_declared_operations_and_payloads():
             request_media = operation["requestBody"]["content"][fixture["request"]["content_type"]]
             assert fixture["request"]["body"] == request_media["example"]
 
-
 def test_rulebook_responses_validate_with_existing_python_records():
     for _, _, operation in OPERATIONS:
         for response in operation["responses"].values():
@@ -209,7 +203,6 @@ def test_rulebook_responses_validate_with_existing_python_records():
             if media.get("schema", {}).get("$ref") == "#/components/schemas/Rulebook":
                 for example in media_examples(media):
                     Rulebook.model_validate_json(json.dumps(example))
-
 
 def test_rulebook_review_templates_match_service_requests_and_version_semantics():
     for fixture in EXAMPLES["operations"]:
@@ -225,7 +218,6 @@ def test_rulebook_review_templates_match_service_requests_and_version_semantics(
             continue
         assert fixture["response"]["body"]["version"] == request.expected_version + 1
 
-
 def test_finding_review_template_matches_service_request_and_revision():
     fixture = next(item for item in EXAMPLES["operations"] if item["operation_id"] == "reviewFinding")
     request = FindingReviewRequest.model_validate_json(json.dumps(fixture["request"]["body"]))
@@ -236,7 +228,6 @@ def test_finding_review_template_matches_service_request_and_revision():
     assert response.reviewer_id == request.reviewer_id
     assert response.comment == request.comment
     assert response.updated_at is not None
-
 
 def test_finding_review_history_template_uses_attributed_records_and_pagination():
     operations = {item["operation_id"]: item for item in EXAMPLES["operations"]}
@@ -255,7 +246,6 @@ def test_finding_review_history_template_uses_attributed_records_and_pagination(
     assert {item["name"] for item in parameters} == {"finding_id", "limit", "offset"}
     assert all(item["required"] for item in parameters if item["in"] == "path")
 
-
 def test_review_routes_document_live_error_statuses():
     review_operations = {
         "reviewFinding", "listFindingReviews", "reviewSample", "listSampleReviews",
@@ -265,7 +255,6 @@ def test_review_routes_document_live_error_statuses():
         if operation["operationId"] in review_operations:
             conflicts = set() if operation["operationId"] == "listFindingReviews" else {"409"}
             assert set(operation["responses"]) == expected | conflicts
-
 
 def test_review_conflict_examples_match_the_errors_each_operation_can_return():
     expected_codes = {
@@ -280,7 +269,6 @@ def test_review_conflict_examples_match_the_errors_each_operation_can_return():
         media = operation["responses"]["409"]["content"]["application/json"]
         codes = {example["error"]["code"] for example in media_examples(media)}
         assert codes == expected_codes[operation_id]
-
 
 def test_finding_examples_validate_with_the_python_record():
     validated = 0
@@ -301,7 +289,6 @@ def test_finding_examples_validate_with_the_python_record():
     for sample in EXAMPLES["review_scenarios"].values():
         for finding in sample["findings"]:
             Finding.model_validate_json(json.dumps(finding))
-
 
 def test_sample_review_templates_use_distinct_sample_and_review_revisions():
     operations = {item["operation_id"]: item for item in EXAMPLES["operations"]}
@@ -327,7 +314,6 @@ def test_sample_review_templates_use_distinct_sample_and_review_revisions():
         assert current.sample_revision == state["summary"]["sample_revision"]
         assert current.revision == 0 and current.reviewer_id is None
 
-
 @pytest.mark.parametrize("state", ["flagged", "no_issue", "unsure", "unavailable"])
 def test_review_scenarios_preserve_human_control_and_rule_references(state):
     sample = EXAMPLES["review_scenarios"][state]
@@ -346,7 +332,6 @@ def test_review_scenarios_preserve_human_control_and_rule_references(state):
         assert finding["rule_id"] in rules
         assert finding["source_sentence"] == rules[finding["rule_id"]].source_sentence
 
-
 def test_example_measurements_keep_actual_service_semantics():
     report = EXAMPLES["review_scenarios"]["flagged"]["measurements"]
     assert report["status"] == "completed" and report["review_status"] == "pending_review"
@@ -356,7 +341,6 @@ def test_example_measurements_keep_actual_service_semantics():
         assert row["checks"]["mask_components"]["result"]["component_count"] == 1
         assert row["checks"]["mask_outside_box"]["result"]["outside_fraction"] == 0
         assert row["checks"]["mask_box_fill"]["result"]["fill_fraction"] == 1
-
 
 def test_legacy_example_retains_evidence_with_no_asset_links():
     legacy = EXAMPLES["review_scenarios"]["legacy"]
@@ -368,7 +352,6 @@ def test_legacy_example_retains_evidence_with_no_asset_links():
     assert legacy["findings"] == snapshot["findings"]
     assert legacy["review"] == snapshot["review"]
 
-
 def test_completed_job_result_link_points_to_a_declared_resource():
     response = SPEC["paths"]["/jobs/{job_id}"]["get"]["responses"]["200"]["content"]["application/json"]["example"]
     assert response["status"] == "completed"
@@ -377,7 +360,6 @@ def test_completed_job_result_link_points_to_a_declared_resource():
     assert href == "/audits/" + response["result"]["id"]
     assert "get" in SPEC["paths"][pattern]
 
-
 def test_corrected_export_pins_the_rechecked_revision():
     response = SPEC["paths"]["/exports/{export_id}/manifest"]["get"]["responses"]["200"]["content"]["application/json"]["example"]
     assert response["audit_id"] == "audit_recheck_demo"
@@ -385,13 +367,11 @@ def test_corrected_export_pins_the_rechecked_revision():
     assert response["entries"][0]["sample_revision"] == 2
     assert response["entries"][0]["review_decision"] == "accepted"
 
-
 def test_generated_artifacts_match_the_current_builder():
     for filename, expected in render_artifacts().items():
         assert (API_ROOT / filename).read_text(encoding="utf-8") == expected, (
             f"Regenerate {filename} with python -m backend.api.build_contract"
         )
-
 
 def test_audits_and_exports_use_the_version_returned_by_confirmation():
     operations = {fixture["operation_id"]: fixture for fixture in EXAMPLES["operations"]}
@@ -409,3 +389,54 @@ def test_audits_and_exports_use_the_version_returned_by_confirmation():
     assert history[1] == reviewed and history[2] == confirmed
     for finding in EXAMPLES["review_scenarios"]["flagged"]["findings"]:
         assert finding["rulebook_version"] == confirmed["version"]
+
+def test_creation_fixture_uses_strict_inputs_and_public_draft_response():
+    fixtures = [item for item in EXAMPLES["operations"] if item["operation_id"] == "createRulebook"]
+    assert len(fixtures) == 1
+    fixture = fixtures[0]
+    assert fixture["implementation"] == "implemented" and fixture["response"]["status"] == 201
+    request = RulebookCreate.model_validate_json(json.dumps(fixture["request"]["body"]))
+    response = Rulebook.model_validate_json(json.dumps(fixture["response"]["body"]))
+    assert response.guideline_text == request.guideline_text and response.version == 1
+    assert response.confirmation_state == "draft"
+    assert [rule.model_dump(exclude={"origin", "confirmation_state"}) for rule in response.rules] == [
+        rule.model_dump() for rule in request.rules
+    ]
+    assert all(rule.origin == "reviewer" and rule.confirmation_state == "draft" for rule in response.rules)
+    assert set(fixture["request"]["body"]) == {"guideline_text", "rules"}
+    for rule in fixture["request"]["body"]["rules"]:
+        assert set(rule) == {"rule_id", "description", "check_name", "parameters", "source_sentence"}
+
+@pytest.mark.parametrize("field,value", [("origin", "reviewer"), ("confirmation_state", "draft")])
+def test_creation_example_cannot_regress_to_persisted_rule_fields(field, value):
+    fixture = next(item for item in EXAMPLES["operations"] if item["operation_id"] == "createRulebook")
+    body = deepcopy(fixture["request"]["body"])
+    assert body["rules"]  # The documented nonempty example must exercise input rules.
+    assert field not in body["rules"][0]
+    body["rules"][0][field] = value
+    with pytest.raises(ValidationError):
+        RulebookCreate.model_validate_json(json.dumps(body))
+
+def test_creation_schema_has_real_input_constraints_and_default_null_semantics():
+    schemas = SPEC["components"]["schemas"]
+    book, rule = schemas["RulebookCreate"], schemas["RulebookCreateRule"]
+    assert book["additionalProperties"] is rule["additionalProperties"] is False
+    assert book["required"] == ["guideline_text"]
+    assert rule["required"] == ["rule_id", "description"]
+    assert book["properties"]["rules"]["items"] == {"$ref": "#/components/schemas/RulebookCreateRule"}
+    for field in ("check_name", "source_sentence"):
+        schema = rule["properties"][field]
+        assert schema["default"] is None and {"type": "null"} in schema["anyOf"]
+        text_schema = next(item for item in schema["anyOf"] if item.get("type") == "string")
+        assert text_schema["minLength"] == 1 and text_schema["pattern"] == r"\S"
+    for field in ("rule_id", "description"):
+        assert rule["properties"][field]["minLength"] == 1
+        assert rule["properties"][field]["pattern"] == r"\S"
+    assert "origin" not in rule["properties"] and "confirmation_state" not in rule["properties"]
+
+def test_openapi_server_prefix_conventions_are_preserved():
+    implemented = json.loads((API_ROOT / "implemented-openapi.json").read_text())
+    assert SPEC["servers"][0]["url"] == "http://127.0.0.1:8000/api/v1"
+    assert implemented["servers"][0]["url"] == "http://127.0.0.1:8000"
+    assert "/rulebooks" in SPEC["paths"] and "/api/v1/rulebooks" not in SPEC["paths"]
+    assert "/api/v1/rulebooks" in implemented["paths"] and "/rulebooks" not in implemented["paths"]

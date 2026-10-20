@@ -1,4 +1,4 @@
-"""HTTP reads and reviewer actions for already-saved rulebooks."""
+"""HTTP manual draft creation, reads and reviewer actions for rulebooks."""
 
 from typing import Annotated
 
@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, Path, Query
 from ..models.audit_read import ErrorResponse
 from ..models.review import RulebookAction, RulebookReplace, RulebookReviewPage
 from ..models.rule import Rulebook, RulebookPage
+from ..models.rulebook_creation import RulebookCreate
+from ..services.rulebook_creation import create_rulebook as create_rulebook_service
 from ..services.review import (
     confirm_rulebook as confirm_rulebook_service,
     reject_rulebook as reject_rulebook_service,
@@ -82,6 +84,14 @@ def _conflicts(*codes: str) -> dict:
             }}} for code in codes
         }}},
     }}
+
+@router.post(
+    "", response_model=Rulebook, status_code=201, operation_id="createRulebook",
+    responses=_conflicts("VERSION_CONFLICT"),
+)
+def create_rulebook_endpoint(request: RulebookCreate, repository: Repository) -> Rulebook:
+    """Persist a manual version-1 draft; separate successful requests create separate books."""
+    return create_rulebook_service(request, repository=repository)
 
 @router.put(
     "/{rulebook_id}", response_model=Rulebook, operation_id="replaceDraftRulebook",

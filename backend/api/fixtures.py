@@ -11,21 +11,19 @@ import numpy as np
 from PIL import Image
 
 from backend.app.models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin
+from backend.app.models.rulebook_creation import RulebookCreate, RulebookCreateRule
 from backend.app.models.audit import AuditRun
 from backend.app.models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
 from backend.app.services.audit import audit_sample
 
 from .common import BASE_PATH, JsonObject
 
-
 TIMESTAMP = "2026-10-14T10:00:00Z"
 SOURCE = "Allowed labels are person."
 EXAMPLE_MODEL = "example-local-model:latest"
 
-
 def page(items: list[Any]) -> JsonObject:
     return {"items": items, "limit": 20, "offset": 0, "total": len(items), "next_offset": None}
-
 
 def job(kind: str, resource_kind: str, resource_id: str, *, completed: bool = False) -> JsonObject:
     collection = {
@@ -40,7 +38,6 @@ def job(kind: str, resource_kind: str, resource_id: str, *, completed: bool = Fa
                    "href": f"{BASE_PATH}/{collection}/{resource_id}"} if completed else None,
         "error": None, "created_at": TIMESTAMP, "updated_at": TIMESTAMP,
     }
-
 
 def build_lifecycle_scenarios(rulebook_version: int) -> tuple[JsonObject, JsonObject]:
     """Create independent, model-validated job/audit snapshots for frontend states."""
@@ -68,7 +65,6 @@ def build_lifecycle_scenarios(rulebook_version: int) -> tuple[JsonObject, JsonOb
         ).model_dump(mode="json")
     return jobs, audits
 
-
 def build_examples() -> JsonObject:
     """Produce synthetic examples, including measurements from the actual service."""
     draft_rule = Rule(rule_id="LBL-1", description="Use an allowed label.", check_name="allowed_labels",
@@ -79,6 +75,14 @@ def build_examples() -> JsonObject:
     })
     manual_draft = Rulebook(
         rulebook_id="rulebook_manual_demo", guideline_text=SOURCE, rules=[manual_rule],
+    ).model_dump(mode="json")
+    manual_create = RulebookCreate(
+        guideline_text=SOURCE,
+        rules=[RulebookCreateRule(
+            rule_id=manual_rule.rule_id, description=manual_rule.description,
+            check_name=manual_rule.check_name, parameters=manual_rule.parameters,
+            source_sentence=manual_rule.source_sentence,
+        )],
     ).model_dump(mode="json")
     confirmed_rule = Rule(**{**draft_rule.model_dump(), "confirmation_state": ConfirmationState.CONFIRMED})
     reviewed = Rulebook(
@@ -203,7 +207,7 @@ def build_examples() -> JsonObject:
                   "baseline": None, "candidate": None, "error": None}
     job_scenarios, audit_scenarios = build_lifecycle_scenarios(confirmed["version"])
     return {
-        "draft": draft, "manual_draft": manual_draft, "reviewed": reviewed, "confirmed": confirmed,
+        "draft": draft, "manual_create": manual_create, "manual_draft": manual_draft, "reviewed": reviewed, "confirmed": confirmed,
         "sample": sample, "dataset": dataset,
         "audit": audit, "audit_run": audit_run, "finding": finding, "passing": passing, "summary": summary,
         "detail": detail, "sample_review": sample_review, "corrected": corrected,

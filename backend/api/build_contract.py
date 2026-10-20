@@ -20,7 +20,6 @@ from .common import (
 from .fixtures import EXAMPLE_MODEL, SOURCE, TIMESTAMP, build_examples, job, page
 from .schemas import build_schemas
 
-
 API_DIRECTORY = Path(__file__).resolve().parent
 RULEBOOK_ERROR_EXAMPLES = {
     404: {"NOT_FOUND": "The requested rulebook or version does not exist."},
@@ -32,15 +31,12 @@ def parameter(name: str, location: str, schema: JsonObject, example: Any, *, req
     return {"name": name, "in": location, "required": required or location == "path", "schema": schema,
             "example": example, "description": description}
 
-
 def pagination_parameters() -> list[JsonObject]:
     return [parameter("limit", "query", {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, 20),
             parameter("offset", "query", {"type": "integer", "minimum": 0, "default": 0}, 0)]
 
-
 def error_example(code: str, message: str) -> JsonObject:
     return {"error": {"code": code, "message": message, "details": [], "request_id": "request_demo"}}
-
 
 def build_contract() -> JsonObject:
     examples = build_examples()
@@ -48,7 +44,7 @@ def build_contract() -> JsonObject:
     contract: JsonObject = {
         "openapi": "3.1.0",
         "info": {"title": "PRISM Data Quality Checker — API contract", "version": "0.1.0",
-                 "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review and saved-rulebook read/review operations are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
+                 "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, manual rulebook creation and saved-rulebook read/review operations are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
         "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Local development server; only implemented operations are callable."}],
         "tags": [{"name": name} for name in ("System", "Rulebooks", "Datasets", "Jobs", "Audits", "Reviews", "Corrections", "Exports", "Feedback")],
         "paths": {}, "components": {"schemas": schemas},
@@ -159,9 +155,11 @@ def build_contract() -> JsonObject:
          "detector": {"weights_cached": True, "integration_ready": False}, "execution_device": "cpu"},
         description="Read-only readiness. Does not start services, download models or change configuration.")
     add("POST", "/rulebooks", "createRulebook", "Rulebooks", "Create a manually assembled draft", "Rulebook", examples["manual_draft"], status=201,
-        body_schema="RulebookCreate", body_example={"guideline_text": SOURCE, "rules": examples["manual_draft"]["rules"]},
-        backing="Rule/Rulebook validation and PostgreSQL storage exist; manual creation service and route are planned.",
-        description="Server assigns rulebook_id and version 1. The book starts as draft. Reviewer-authored rules use origin reviewer and may have no citation.")
+        body_schema="RulebookCreate", body_example=examples["manual_create"],
+        implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES,
+        conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting."},
+        backing="create_rulebook service, RulebookRepository.save_rulebook(expected_version=0) and FastAPI route implemented.",
+        description="Manually create a version-1 draft with server-assigned ID, reviewer origin and draft states. Exact guideline text is preserved; non-null citations must match exactly. Rules may be empty or omitted, and guideline_text may be empty. Unknown fields and client attempts to supply server metadata are rejected with safe 422 VALIDATION_ERROR. Unsupported or null checks remain for human review without inferred thresholds. Initial review history is empty; creation does not confirm rules, call a model or start jobs/audits. Separate successful POST requests create separate books, without automatic retries or idempotency. A generated-ID collision returns 409 VERSION_CONFLICT without overwriting or appending a version. Storage/commit failures return safe 503, and unexpected internal validation/response defects remain 500.")
     add("POST", "/rulebooks/extractions", "extractRulebook", "Rulebooks", "Propose draft rules from plain text", "Job", job("rule_extraction", "rulebook", "rulebook_demo"), status=202,
         body_schema="RuleExtractionRequest", body_example={"guideline_text": SOURCE}, backing="extract_and_save_rulebook coordinates extraction and PostgreSQL storage; jobs and route are planned.",
         description="Poll GET /jobs/{job_id}. On completion, result.href points to the saved draft rulebook. Failure is stored in job.error, including MODEL_UNAVAILABLE or INVALID_RULE_PROPOSALS.")
@@ -179,7 +177,7 @@ def build_contract() -> JsonObject:
             {"rulebook_id": "rulebook_demo", "version": 3, "reviewer_id": "reviewer_demo", "action": "confirm", "created_at": TIMESTAMP},
         ]),
         parameters=pagination_parameters(), implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, backing="RulebookRepository.list_rulebook_reviews and FastAPI route implemented.",
-        description="Attributed review actions ordered by ascending version. Each action and snapshot commit together. Extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.")
+        description="Attributed review actions ordered by ascending version. Each action and snapshot commit together. Manual creation, extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.")
     add("PUT", "/rulebooks/{rulebook_id}", "replaceDraftRulebook", "Rulebooks", "Save a reviewed draft", "Rulebook", examples["reviewed"],
         body_schema="RulebookReplace", body_example={"expected_version": 1, "reviewer_id": "reviewer_demo", "guideline_text": SOURCE, "rules": examples["confirmed"]["rules"]},
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state."},
@@ -364,7 +362,6 @@ def build_contract() -> JsonObject:
     contract["x-audit-scenarios"] = examples["audit_scenarios"]
     return contract
 
-
 def build_implemented_contract(reference: JsonObject) -> JsonObject:
     """Use live FastAPI schemas for callable endpoints and retain frontend examples."""
     implemented = create_app().openapi()
@@ -411,7 +408,6 @@ def build_implemented_contract(reference: JsonObject) -> JsonObject:
     )
     return implemented
 
-
 def render_artifacts() -> dict[str, str]:
     """Render all generated files without writing them, for reproducible updates."""
     contract = build_contract()
@@ -421,7 +417,7 @@ def render_artifacts() -> dict[str, str]:
     job_scenarios = contract.pop("x-job-scenarios")
     audit_scenarios = contract.pop("x-audit-scenarios")
     documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
-        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Audit metadata, queue/detail, assets, jobs, finding/sample reviews and saved-rulebook read/review are implemented. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Audit metadata, queue/detail, assets, jobs, finding/sample reviews and manual rulebook creation/read/review are implemented. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,
@@ -448,12 +444,10 @@ def render_artifacts() -> dict[str, str]:
     artifacts["ENDPOINTS.md"] = "\n".join(lines)
     return artifacts
 
-
 def main() -> None:
     for filename, content in render_artifacts().items():
         (API_DIRECTORY / filename).write_text(content, encoding="utf-8")
     print("Generated combined and implemented-only OpenAPI, frontend fixtures and the endpoint index.")
-
 
 if __name__ == "__main__":
     main()

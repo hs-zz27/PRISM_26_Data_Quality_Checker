@@ -41,7 +41,6 @@ from backend.app.storage.workflow_repository import (
     WorkflowStorageError,
 )
 
-
 @pytest.fixture
 def api():
     app = create_app()
@@ -58,7 +57,6 @@ def api():
     with TestClient(app, raise_server_exceptions=False) as client:
         yield client, repository
 
-
 @pytest.fixture
 def detail():
     return SampleAudit.model_validate({
@@ -73,7 +71,6 @@ def detail():
         "review": {"audit_id": "audit_1", "sample_id": "sample_1", "sample_revision": 2},
     })
 
-
 def _audit_run(status: JobStatus = JobStatus.COMPLETED) -> AuditRun:
     return AuditRun(
         audit_id="audit_1", job_id="job_1", dataset_id="dataset_1",
@@ -82,7 +79,6 @@ def _audit_run(status: JobStatus = JobStatus.COMPLETED) -> AuditRun:
         created_at=datetime(2026, 10, 18, tzinfo=UTC),
         updated_at=datetime(2026, 10, 18, 1, tzinfo=UTC),
     )
-
 
 @pytest.mark.parametrize("status", list(JobStatus))
 def test_get_audit_returns_public_persisted_lifecycle_state(api, status):
@@ -101,7 +97,6 @@ def test_get_audit_returns_public_persisted_lifecycle_state(api, status):
     repository.get_audit.assert_called_once_with("audit_1")
     assert repository.method_calls == [call.get_audit("audit_1")]
 
-
 @pytest.mark.parametrize("error,status,code", [
     (AuditNotFoundError("private-audit"), 404, "NOT_FOUND"),
     (WorkflowStorageError("private SQL and claim token"), 503, "DEPENDENCY_UNAVAILABLE"),
@@ -117,13 +112,11 @@ def test_get_audit_errors_use_safe_existing_envelopes(api, error, status, code):
     assert str(error) not in response.text
     assert_contract("ErrorResponse", response.json())
 
-
 def assert_contract(name, payload):
     spec = json.loads((Path(__file__).parents[1] / "api/openapi.json").read_text())
     Draft202012Validator({
         "components": spec["components"], "$ref": f"#/components/schemas/{name}",
     }).validate(payload)
-
 
 def test_list_defaults_and_detail_preserve_nulls_and_match_contract(api, detail):
     client, repository = api
@@ -147,7 +140,6 @@ def test_list_defaults_and_detail_preserve_nulls_and_match_contract(api, detail)
     assert "pass_count" not in data["summary"]["finding_counts"]
     assert_contract("SampleAudit", data)
 
-
 def test_list_forwards_filters_and_pagination(api):
     client, repository = api
     repository.list_samples.return_value = AuditSamplePage(
@@ -160,7 +152,6 @@ def test_list_forwards_filters_and_pagination(api):
     repository.list_samples.assert_called_once_with(
         "audit_1", limit=5, offset=10, tool_status="flagged", review_status="accepted",
     )
-
 
 @pytest.mark.parametrize("query", [
     "limit=0", "limit=101", "limit=abc", "offset=-1", "offset=1.5",
@@ -175,7 +166,6 @@ def test_invalid_queries_do_not_read_storage(api, query):
     assert_contract("ErrorResponse", response.json())
     repository.list_samples.assert_not_called()
 
-
 def _finding_review_payload(**changes):
     payload = {
         "expected_review_version": 0,
@@ -185,7 +175,6 @@ def _finding_review_payload(**changes):
     }
     payload.update(changes)
     return payload
-
 
 def test_finding_review_write_reaches_service_and_returns_saved_review(api, monkeypatch):
     client, repository = api
@@ -215,7 +204,6 @@ def test_finding_review_write_reaches_service_and_returns_saved_review(api, monk
     )
     assert service.call_args.kwargs["repository"] is repository.finding_repository
 
-
 def test_invalid_finding_review_body_returns_422_without_saving(api, monkeypatch):
     client, repository = api
     service = Mock()
@@ -233,7 +221,6 @@ def test_invalid_finding_review_body_returns_422_without_saving(api, monkeypatch
     service.assert_not_called()
     repository.finding_repository.save_finding_review.assert_not_called()
 
-
 def test_missing_finding_review_target_returns_404(api):
     client, repository = api
     error = FindingNotFoundError("private-finding")
@@ -247,7 +234,6 @@ def test_missing_finding_review_target_returns_404(api):
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "NOT_FOUND"
     assert str(error) not in response.text
-
 
 def test_stale_finding_review_version_returns_409(api):
     client, repository = api
@@ -263,7 +249,6 @@ def test_stale_finding_review_version_returns_409(api):
     assert response.json()["error"]["code"] == "VERSION_CONFLICT"
     assert "refresh" in response.json()["error"]["message"].lower()
     assert str(error) not in response.text
-
 
 def test_finding_review_history_forwards_pagination_and_preserves_order(api):
     client, repository = api
@@ -296,7 +281,6 @@ def test_finding_review_history_forwards_pagination_and_preserves_order(api):
         "finding_1", limit=2, offset=2,
     )
 
-
 def test_finding_review_history_supports_empty_history(api):
     client, repository = api
     repository.finding_repository.list_finding_reviews.return_value = FindingReviewPage(
@@ -313,7 +297,6 @@ def test_finding_review_history_supports_empty_history(api):
         "finding_1", limit=20, offset=0,
     )
 
-
 @pytest.mark.parametrize("query", [
     "limit=0", "limit=101", "limit=abc", "offset=-1", "offset=1.5",
 ])
@@ -326,7 +309,6 @@ def test_invalid_finding_review_history_queries_do_not_read_storage(api, query):
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     repository.finding_repository.list_finding_reviews.assert_not_called()
 
-
 def test_missing_finding_review_history_returns_404(api):
     client, repository = api
     error = FindingNotFoundError("private-finding")
@@ -338,7 +320,6 @@ def test_missing_finding_review_history_returns_404(api):
     assert response.json()["error"]["code"] == "NOT_FOUND"
     assert str(error) not in response.text
 
-
 def _sample_review_payload(**changes):
     payload = {
         "expected_sample_revision": 7,
@@ -349,7 +330,6 @@ def _sample_review_payload(**changes):
     }
     payload.update(changes)
     return payload
-
 
 def test_sample_review_write_reaches_service_with_distinct_versions_and_returns_result(
     api, monkeypatch,
@@ -385,7 +365,6 @@ def test_sample_review_write_reaches_service_with_distinct_versions_and_returns_
     assert request.expected_review_version == 3
     assert service.call_args.kwargs["repository"] is repository.sample_review_repository
 
-
 def test_invalid_sample_review_body_returns_422_without_saving(api, monkeypatch):
     client, repository = api
     service = Mock()
@@ -402,7 +381,6 @@ def test_invalid_sample_review_body_returns_422_without_saving(api, monkeypatch)
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     service.assert_not_called()
     repository.sample_review_repository.save_sample_review.assert_not_called()
-
 
 def test_sample_review_history_forwards_exact_scope_and_pagination(api):
     client, repository = api
@@ -435,7 +413,6 @@ def test_sample_review_history_forwards_exact_scope_and_pagination(api):
         "audit_1", "sample_1", 7, limit=2, offset=2,
     )
 
-
 def test_sample_review_history_requires_a_valid_sample_revision(api):
     client, repository = api
 
@@ -447,7 +424,6 @@ def test_sample_review_history_requires_a_valid_sample_revision(api):
         assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
     repository.sample_review_repository.list_sample_reviews.assert_not_called()
-
 
 @pytest.mark.parametrize("query", [
     "limit=0", "limit=101", "limit=abc", "offset=-1", "offset=1.5",
@@ -463,7 +439,6 @@ def test_sample_review_history_rejects_invalid_pagination(api, query):
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     repository.sample_review_repository.list_sample_reviews.assert_not_called()
 
-
 def test_missing_sample_review_history_returns_404(api):
     client, repository = api
     error = AuditSampleNotFoundError("private-audit", "private-sample")
@@ -477,7 +452,6 @@ def test_missing_sample_review_history_returns_404(api):
     assert response.json()["error"]["code"] == "NOT_FOUND"
     assert str(error) not in response.text
 
-
 def test_stale_sample_review_history_revision_returns_409(api):
     client, repository = api
     error = SampleRevisionConflictError("private-audit", "private-sample", 7, [1, 2])
@@ -490,7 +464,6 @@ def test_stale_sample_review_history_revision_returns_409(api):
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "STALE_SAMPLE_REVISION"
     assert str(error) not in response.text
-
 
 @pytest.mark.parametrize("error", [
     AuditSampleNotFoundError("private-audit", "private-sample"),
@@ -517,7 +490,6 @@ def test_sample_review_storage_errors_use_existing_http_mappings(api, error):
     assert response.json()["error"]["code"] == expected[1]
     assert str(error) not in response.text
 
-
 @pytest.mark.parametrize("error,status,code", [
     (AuditNotFoundError("private-id"), 404, "NOT_FOUND"),
     (AuditSampleNotFoundError("private-id", "private-sample"), 404, "NOT_FOUND"),
@@ -536,7 +508,6 @@ def test_read_errors_have_safe_consistent_payloads(api, error, status, code):
     assert str(error) not in response.text
     assert_contract("ErrorResponse", body)
 
-
 def test_finding_not_found_uses_shared_safe_not_found_mapping(api):
     client, repository = api
     error = FindingNotFoundError("private-finding")
@@ -552,7 +523,6 @@ def test_finding_not_found_uses_shared_safe_not_found_mapping(api):
     assert str(error) not in response.text
     assert_contract("ErrorResponse", body)
 
-
 def test_finding_review_conflict_maps_to_safe_refreshable_version_conflict(api):
     client, repository = api
     error = FindingReviewConflictError("private-finding", 2, 3)
@@ -567,7 +537,6 @@ def test_finding_review_conflict_maps_to_safe_refreshable_version_conflict(api):
     assert "resubmit" in body["error"]["message"].lower()
     assert body["error"]["request_id"]
     assert str(error) not in response.text
-
 
 @pytest.mark.parametrize("error,code,message", [
     (
@@ -600,7 +569,6 @@ def test_sample_review_errors_map_to_safe_conflict_payloads(api, error, code, me
     assert str(error) not in response.text
     assert_contract("ErrorResponse", body)
 
-
 def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
     client, _ = api
     spec = client.get("/openapi.json").json()
@@ -624,7 +592,7 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "/api/v1/audits/{audit_id}/samples/{sample_id}/reviews",
     }
     assert {operation["operationId"] for path in spec["paths"].values() for operation in path.values()} == {
-        "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
+        "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
         "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
         "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "reviewFinding", "listFindingReviews", "getJob", "cancelJob",
         "reviewSample", "listSampleReviews",

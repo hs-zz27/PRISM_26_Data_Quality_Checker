@@ -1,5 +1,5 @@
 {
-  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Audit metadata, queue/detail, assets, jobs, finding/sample reviews and saved-rulebook read/review are implemented. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Audit metadata, queue/detail, assets, jobs, finding/sample reviews and manual rulebook creation/read/review are implemented. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
   "base_url": "http://127.0.0.1:8000",
   "operations": [
     {
@@ -157,8 +157,8 @@
       "path": "/api/v1/rulebooks",
       "tag": "Rulebooks",
       "summary": "Create a manually assembled draft",
-      "implementation": "planned",
-      "backing_service": "Rule/Rulebook validation and PostgreSQL storage exist; manual creation service and route are planned.",
+      "implementation": "implemented",
+      "backing_service": "create_rulebook service, RulebookRepository.save_rulebook(expected_version=0) and FastAPI route implemented.",
       "request": {
         "path_parameters": {},
         "query": {},
@@ -175,9 +175,7 @@
                   "person"
                 ]
               },
-              "origin": "reviewer",
-              "source_sentence": null,
-              "confirmation_state": "draft"
+              "source_sentence": null
             }
           ]
         }

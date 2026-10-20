@@ -941,11 +941,13 @@ the tests instead of being silently skipped.
 
 ## Rulebook HTTP read and review
 
-All eight saved-rulebook operations are implemented: list latest snapshots,
-read latest/explicit versions, list versions, list attributed reviews, replace
-a draft, confirm, reject and reopen a final book as a draft. See
+Nine rulebook operations are implemented: create a manual draft, list latest
+snapshots, read latest/explicit versions, list versions, list attributed reviews,
+replace a draft, confirm, reject and reopen a final book as a draft. See
 [the API rulebook guide](api/RULEBOOKS.md) for exact paths,
-strict requests, states and error codes. No manual creation, extraction-job,
+strict requests, states and error codes. Manual creation uses strict editor
+inputs, preserves exact guideline text, and saves a version-1 draft without
+inventing review history. Extraction-job,
 audit-start, authentication or feedback-evaluation routes are added by this work.
 
 Mutations use request-time repository injection and the existing transactional
@@ -963,5 +965,5 @@ No exception internals are returned to clients.
 
 Generated OpenAPI, fixtures and endpoint inventories must come from
 `.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
-Runtime HTTP/PostgreSQL verification remains pending; syntax or generator checks
-do not establish runtime correctness.
+The full backend suite passes without a configured database; PostgreSQL
+integration tests remain opt-in and require `PRISM_TEST_DATABASE_URL`.
