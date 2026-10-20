@@ -50,6 +50,10 @@ class BatchAuditError(ValueError):
     """The batch request cannot be safely started."""
 
 
+class RulebookNotConfirmedError(BatchAuditError):
+    """The requested book must contain confirmed rules before it can run."""
+
+
 logger = logging.getLogger(__name__)
 StorageResult = TypeVar("StorageResult")
 
@@ -144,9 +148,9 @@ def _snapshot_confirmed_rulebook(rulebook: Rulebook) -> Rulebook:
         raise TypeError("rulebook must be a Rulebook instance.")
     snapshot = Rulebook.model_validate(rulebook.model_dump())
     if snapshot.confirmation_state is not ConfirmationState.CONFIRMED or not snapshot.rules:
-        raise BatchAuditError("A batch audit requires a nonempty confirmed rulebook.")
+        raise RulebookNotConfirmedError("A batch audit requires a nonempty confirmed rulebook.")
     if any(rule.confirmation_state is not ConfirmationState.CONFIRMED for rule in snapshot.rules):
-        raise BatchAuditError("A batch audit requires only confirmed rules.")
+        raise RulebookNotConfirmedError("A batch audit requires only confirmed rules.")
     for rule in snapshot.rules:
         validate_check_parameters(rule.check_name, rule.parameters)
     return snapshot
@@ -241,7 +245,22 @@ class BatchAuditService:
 
     def _prepare_snapshot_request(
         self, request: BatchAuditRequest,
+        sample_manifests: Mapping[str, SampleAssetManifest] | None = None,
     ) -> tuple[BatchAuditRequest, dict[str, SampleAssetManifest]]:
+        if sample_manifests is not None:
+            if (request.source_mode is not AuditSourceMode.SNAPSHOT
+                    or set(sample_manifests) != set(request.sample_ids)
+                    or set(request.sample_revisions) != set(request.sample_ids)):
+                raise BatchAuditError("Catalogue audits require an exact manifest and revision for every sample.")
+            # Imported revisions already own immutable bytes. Never try to
+            # recapture them from a legacy root or discarded upload scratch.
+            return request, {
+                sample_id: self._snapshot_manifest_identity(
+                    sample_manifests[sample_id], dataset_id=request.dataset_id,
+                    sample_id=sample_id, sample_revision=request.sample_revisions[sample_id],
+                )
+                for sample_id in request.sample_ids
+            }
         if request.source_mode is AuditSourceMode.LEGACY:
             return request, {}
         if self.sample_revision_resolver is None or self.manifest_repository is None:
@@ -304,10 +323,11 @@ class BatchAuditService:
         audit_id: str | None = None,
         job_id: str | None = None,
         now: datetime | None = None,
+        sample_manifests: Mapping[str, SampleAssetManifest] | None = None,
     ) -> tuple[AuditRun, Job]:
         """Validate and pin all inputs before creating the queued job."""
         resolved, _ = self._resolve_request(request)
-        resolved, manifests = self._prepare_snapshot_request(resolved)
+        resolved, manifests = self._prepare_snapshot_request(resolved, sample_manifests)
         if resolved.source_mode is AuditSourceMode.SNAPSHOT:
             return self.audit_repository.start_audit(
                 resolved,

@@ -30,6 +30,7 @@ from ..core.config import (
 )
 from ..models.asset_manifest import AssetAvailability, AssetKind, SampleAssetManifest
 from ..models.audit import AuditFailure, AuditRun, AuditSampleClaim, AuditSourceMode, BatchAuditRequest
+from ..models.audit_submission import AuditPage
 from ..models.finding import Finding, FindingResolution, FindingReview
 from ..models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
 from ..models.review import (
@@ -459,19 +460,24 @@ class JobRepository(_WorkflowRepository):
         worker_id: str,
         lease_seconds: int = 60,
         now: datetime | None = None,
+        kind: JobKind | None = None,
     ) -> JobClaim | None:
-        """Atomically claim the oldest queued or expired running job."""
+        """Claim the oldest eligible job, optionally restricted to one kind."""
         worker_id = _require_identifier(worker_id, "worker_id")
         lease_seconds = _require_positive_integer(lease_seconds, "lease_seconds")
+        if kind is not None and not isinstance(kind, JobKind):
+            raise TypeError("kind must be a JobKind or None.")
+        kind_value = None if kind is None else kind.value
         with self._connection(write=True) as connection:
             cutoff = _timestamp(now)
             row = connection.execute(
                 """SELECT * FROM jobs
                    WHERE kind NOT IN (%s, %s) AND (status = 'queued'
                       OR (status = 'running' AND lease_until <= %s))
+                     AND (%s::text IS NULL OR kind = %s)
                    ORDER BY created_at ASC, job_id ASC
                    FOR UPDATE SKIP LOCKED LIMIT 1""",
-                ("rule_extraction", "dataset_import", cutoff),
+                ("rule_extraction", "dataset_import", cutoff, kind_value, kind_value),
             ).fetchone()
             if row is None:
                 return None
@@ -1350,6 +1356,27 @@ class AuditRepository(_WorkflowRepository):
             if row is None:
                 raise AuditNotFoundError(audit_id)
             return _decode_audit(row)
+
+    def list_audits(self, *, limit: int = 20, offset: int = 0) -> AuditPage:
+        """Page public summaries in a consistent snapshot, newest first."""
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer between 1 and 100.")
+        if type(offset) is not int or not 0 <= offset <= 9_223_372_036_854_775_807:
+            raise ValueError("offset must be a supported nonnegative integer.")
+        with self._connection() as connection:
+            total = connection.execute("SELECT count(*) AS total FROM audit_runs").fetchone()["total"]
+            rows = connection.execute(
+                """SELECT audit_id, job_id, dataset_id, rulebook_id, rulebook_version,
+                          source_mode, status, sample_count, processed_count, failed_count,
+                          incomplete_count, created_at, updated_at
+                   FROM audit_runs ORDER BY created_at DESC, audit_id COLLATE "C" DESC
+                   LIMIT %s OFFSET %s""", (limit, offset),
+            ).fetchall()
+            items = [_decode_audit(row) for row in rows]
+        return AuditPage(
+            items=items, limit=limit, offset=offset, total=total,
+            next_offset=offset + len(items) if offset + len(items) < total else None,
+        )
 
     def get_request(self, audit_id: str) -> BatchAuditRequest:
         audit_id = _require_identifier(audit_id, "audit_id")

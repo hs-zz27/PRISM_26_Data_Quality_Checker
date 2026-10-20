@@ -16,7 +16,7 @@ from psycopg.types.json import Jsonb
 from ..core.config import DatabaseSettings, load_database_settings
 from ..models.asset_manifest import SampleAssetManifest
 from ..models.audit_read import AssetReference, SampleAssets
-from ..models.dataset import Dataset, DatasetPage, Sample, SamplePage
+from ..models.dataset import Dataset, DatasetPage, DatasetStatus, Sample, SamplePage
 from ..models.dataset_import import (
     CatalogueRevision, ImportClaim, ImportRequest, SamplePublication,
 )
@@ -41,6 +41,10 @@ class DatasetNotFoundError(LookupError):
     def __init__(self, dataset_id: str) -> None:
         self.dataset_id = dataset_id
         super().__init__("The requested dataset does not exist.")
+
+
+class DatasetNotReadyError(RuntimeError):
+    """Only a completed, usable catalogue can be submitted for an audit."""
 
 
 class DatasetSampleNotFoundError(LookupError):
@@ -255,6 +259,65 @@ class DatasetRepository:
             saved = self._get_publication(connection, dataset_id, sample_id, revision)
             return CatalogueRevision(dataset_id=dataset_id, sample_id=sample_id,
                                      revision=saved.sample.revision, manifest=saved.manifest)
+
+    def resolve_audit_samples(
+        self, dataset_id: str, sample_ids: list[str] | None = None,
+    ) -> dict[str, CatalogueRevision]:
+        """Read ready state and selected heads from one consistent DB snapshot.
+
+        Load only immutable manifest metadata, not annotation objects or files.
+        A subset keeps caller order; all samples keep their catalogue order.
+        """
+        _identifier(dataset_id, "dataset_id")
+        if sample_ids is not None:
+            if not isinstance(sample_ids, list) or not sample_ids:
+                raise ValueError("sample_ids must be a nonempty list or None.")
+            sample_ids = [_identifier(value, "sample_id") for value in sample_ids]
+            if len(sample_ids) != len(set(sample_ids)):
+                raise ValueError("sample_ids must be unique.")
+        with self._connection() as connection:
+            dataset = self._dataset(connection, dataset_id)
+            if dataset.status is not DatasetStatus.READY:
+                raise DatasetNotReadyError("The dataset is not ready for auditing.")
+            parameters = [dataset_id]
+            selection = ""
+            if sample_ids is not None:
+                selection = " AND s.sample_id = ANY(%s)"
+                parameters.append(sample_ids)
+            rows = connection.execute(
+                """SELECT s.sample_id, h.sample_revision, r.manifest_document,
+                          to_jsonb(m) AS registered_manifest
+                   FROM dataset_samples s
+                   LEFT JOIN dataset_sample_heads h USING (dataset_id, sample_id)
+                   LEFT JOIN dataset_sample_revisions r ON r.dataset_id=s.dataset_id
+                       AND r.sample_id=s.sample_id AND r.sample_revision=h.sample_revision
+                   LEFT JOIN sample_asset_manifests m ON m.dataset_id=r.dataset_id
+                       AND m.sample_id=r.sample_id AND m.sample_revision=r.sample_revision
+                   WHERE s.dataset_id=%s""" + selection +
+                ' ORDER BY s.ordinal, s.sample_id COLLATE "C"', parameters,
+            ).fetchall()
+            if sample_ids is None and len(rows) != dataset.sample_count:
+                raise DatasetStorageError("The ready catalogue has an inconsistent sample count.")
+            if sample_ids is not None:
+                missing = set(sample_ids) - {row["sample_id"] for row in rows}
+                if missing:
+                    raise DatasetSampleNotFoundError(dataset_id, sorted(missing)[0])
+            pins = {}
+            for row in rows:
+                try:
+                    manifest = SampleAssetManifestRepository._decode(row["registered_manifest"])
+                    saved = _decode(SampleAssetManifest, row["manifest_document"])
+                    if manifest != saved or (
+                        manifest.dataset_id, manifest.sample_id, manifest.sample_revision
+                    ) != (dataset_id, row["sample_id"], row["sample_revision"]):
+                        raise ValueError("Catalogue manifest identity mismatch.")
+                    pins[row["sample_id"]] = CatalogueRevision(
+                        dataset_id=dataset_id, sample_id=row["sample_id"],
+                        revision=row["sample_revision"], manifest=manifest,
+                    )
+                except (KeyError, TypeError, ValueError, WorkflowStorageError) as error:
+                    raise DatasetStorageError("A selected catalogue head failed validation.") from error
+        return pins if sample_ids is None else {sample_id: pins[sample_id] for sample_id in sample_ids}
 
     @staticmethod
     def _lock_import(connection, claim: ImportClaim):
