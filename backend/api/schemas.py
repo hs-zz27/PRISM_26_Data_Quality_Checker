@@ -1,5 +1,7 @@
 """Resource schemas, reusing implemented Python models where available."""
 
+from backend.app.models.dataset import Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted
+from backend.app.core.dataset_http import DatasetUpload
 from backend.app.models.finding import Finding
 from backend.app.models.audit import AuditRun
 from backend.app.models.audit_read import AuditSamplePage, SampleAudit, SampleAuditSummary
@@ -28,6 +30,7 @@ def build_schemas() -> JsonObject:
         SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
         AuditSamplePage, SampleAudit, SampleAuditSummary,
         ErrorDetail, ApiError, Progress, ResultReference, Job, AuditRun,
+        Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted, DatasetUpload,
     ):
         schema = model.model_json_schema()
         schemas.update({name: replace_model_refs(definition)
@@ -49,23 +52,6 @@ def build_schemas() -> JsonObject:
     }
     schemas["CorrectionObject"]["properties"]["bbox"] = ref("CorrectionBoundingBox")
     schemas["ErrorResponse"] = obj({"error": ref("ApiError")})
-    schemas["Dataset"] = obj({
-        "dataset_id": TEXT, "name": TEXT, "format": choice("penn_fudan"),
-        "status": choice("importing", "ready", "invalid", "failed", "cancelled"),
-        "sample_count": nullable(COUNT), "object_count": nullable(COUNT),
-        "import_job_id": TEXT, "created_at": TIME, "issues": array(ref("ErrorDetail")),
-    })
-    schemas["DatasetPage"] = page_schema(ref("Dataset"))
-    schemas["Sample"] = obj({
-        "sample_id": TEXT, "dataset_id": TEXT, "revision": VERSION,
-        "image_size": nullable(ref("ImageSize")),
-        "integrity_status": choice("valid", "invalid", "unavailable"),
-        "objects": array(ref("AnnotationObject")), "assets": ref("SampleAssets"),
-    })
-    schemas["SamplePage"] = page_schema(ref("Sample"))
-    schemas["DatasetUpload"] = obj({
-        "archive": {"type": "string", "format": "binary"}, "name": TEXT, "format": choice("penn_fudan"),
-    })
     schemas["MaskUploadRequest"] = obj({
         "mask": {"type": "string", "format": "binary"}, "expected_revision": VERSION,
     })
@@ -100,7 +86,6 @@ def build_schemas() -> JsonObject:
         "parent_audit_id": {**nullable(TEXT), "default": None},
         "feedback_policy_id": {**nullable(TEXT), "default": None},
     }, required=["audit", "job"])
-    schemas["DatasetImportStarted"] = obj({"dataset": ref("Dataset"), "job": ref("Job")})
     schemas["CheckEnvelope"] = obj({
         "status": choice("completed", "unavailable"), "reason": nullable(TEXT),
         "detail": nullable(TEXT), "result": nullable({"type": "object"}),

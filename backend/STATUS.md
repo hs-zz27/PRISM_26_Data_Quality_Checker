@@ -1,7 +1,10 @@
 # Backend progress and team handoffs
 
-Last updated: 20 October 2026 (Asia/Kolkata).
-Source snapshot: `c2ba410` — Implement manual rulebook creation workflow.
+Last updated: 21 October 2026 (Asia/Kolkata).
+Captured implementation baseline: `071f3fcf9c16debb95f1308c546bfb3e115204ff` (merged CPU detection).
+Dataset Feature 4 Phases 1–4 are applied in this workspace. All five API artifacts
+are regenerated. Syntax and schema generation are verified; tests, migrations,
+HTTP scenarios and import execution were not run during application.
 
 This is the working tracker for implemented features, teammate assignments and
 the next delivery steps. Update it when work is delivered, reviewed, integrated
@@ -15,6 +18,9 @@ latest complete test suite or real-model evaluation has passed.
 - **Dataset and measurement foundation:** Penn-Fudan loading, annotation and
   metadata parsing, label checks, box validity/overlap, mask IDs/dimensions,
   mask-to-box measurements and component measurements.
+- **Dataset import and browsing:** streamed ZIP acceptance, explicit bounded
+  import worker, immutable initial revisions, catalogue-owned heads, partial and
+  damaged sample browsing, import-aware job cancellation and five HTTP operations.
 - **Guideline extraction service:** configurable local Ollama client,
   registry-aware check/parameter instructions, citation-linked draft rules and
   persistence. The checkpoint adds durable extraction HTTP submission and an explicit supervised worker; runtime verification remains pending.
@@ -26,7 +32,7 @@ latest complete test suite or real-model evaluation has passed.
   Existing leases, recovery, cancellation, timeouts and retry safeguards remain.
 - **Immutable assets:** snapshot capture, manifests, audit-to-revision pins,
   verified asset reads, thumbnails and mask previews. Application-owned dataset
-  revision selection and annotation corrections remain unfinished.
+  revision selection is supplied by the dataset checkpoint; annotation corrections remain unfinished.
 - **Human review:** audit metadata and sample queue/detail reads, finding
   decisions/history, and separate sample decisions/history. Apparently correct,
   flagged, uncertain and unavailable evidence remain reviewable.
@@ -34,24 +40,25 @@ latest complete test suite or real-model evaluation has passed.
   request/response examples, endpoint index and rulebook workflow documentation.
   The complete planned endpoint reference and
   screen-by-screen workflow guide cover the remaining
-  29 operations for frontend mocks. Future job fixtures cover all six states;
+  24 operations for frontend mocks. Future job fixtures cover all six states;
   these contracts do not add runtime routes.
 
-The preceding implementation is **manual draft rulebook creation**:
-`POST /api/v1/rulebooks`. All four creation phases are present in the checkout:
-strict models/service, HTTP/error handling, authored PostgreSQL coverage, and
-updated contracts/docs. The server assigns a fresh ID, version 1, reviewer origin
-and draft states. Creation does not confirm rules or fabricate review history.
+The current feature is **dataset import and browsing**: durable ZIP submission,
+an explicitly started worker, initial immutable revisions and four catalogue
+reads. Manual draft creation and plain-text extraction remain implemented with
+their existing confirmation/review boundaries.
 
 ## Current HTTP surface
 
-There are **20 source-implemented operations and 29 planned operations** in the combined
-49-operation reference. These counts describe HTTP availability, not completion
+The generated reference has **25 implemented and 24 planned operations**, 49
+total. The live OpenAPI inventory and generated artifacts agree. These counts
+describe source HTTP availability, not runtime test coverage or completion
 percentages or equal amounts of implementation work.
 
 - Rulebooks: create, collection read, detail read, version history, review history,
   replace draft, confirm, reject and start a draft revision, plus extraction submission — ten operations.
 - Audits: metadata, sample queue and sample detail — three operations.
+- Datasets: import submission and four catalogue reads — five operations.
 - Assets: revision-pinned sample asset delivery — one operation.
 - Jobs: status polling and cancellation — two operations.
 - Reviews: finding write/history and sample write/history — four operations.
@@ -69,11 +76,9 @@ planned routes cannot be called yet.
 weights, with typed detections in original-image coordinates and clear failure
 behavior. The user reported that this teammate is building it.
 
-**Integration status:** completion and delivery have not been verified here.
-`app/inference/person_detector.py` remains a placeholder in this checkout; that
-does not establish the status of her separate branch or clone. No person-detector
-implementation or audit integration should be marked complete until delivered
-and reviewed.
+**Captured integration status:** PR #1 CPU person detection is merged at the captured
+baseline. Older placeholder progress text is stale. This dataset handoff does not
+modify, rerun or independently validate detector/matching behavior.
 
 **Follow-up prompt prepared:** standalone detection-to-annotation matching.
 The full prompt was provided in this chat for the user to share. Whether it has
@@ -125,21 +130,22 @@ Do not record a suggested task as assigned without confirmation of its owner.
 ## What to build next
 
 **Immediate verification:** obtain the latest full-suite result, including the
-opt-in isolated PostgreSQL tests, for manual creation and resolve any failures.
+opt-in isolated PostgreSQL tests, for dataset import and the shared workflow.
 Do not run tests automatically; the user controls execution.
 
-**Current checkpoint: plain-text rulebook extraction over HTTP.**
+**Earlier checkpoint: plain-text rulebook extraction over HTTP.**
 Source implementation now covers strict submission, a private durable ledger,
 one-attempt supervised extraction, atomic version-1 draft/job publication and
 existing polling/cancellation/review APIs. The worker is explicit and independent
 of audit/detector work. See the extraction guide.
-Integration against the real checkout, five-artifact regeneration and all runtime
-verification are pending; do not treat syntax review as passing test evidence.
+Its source is integrated and the API artifacts are current. Runtime verification
+remains separate; do not treat syntax or schema generation as passing test evidence.
 
 After that, the proposed delivery order is:
 
-1. Dataset import and dataset/sample read APIs, including authoritative revision
-   selection and managed snapshot capture.
+1. Apply migration 010 explicitly and obtain developer-run dataset/API/worker and
+   PostgreSQL regression results. Dataset sources and contract regeneration are
+   complete; no runtime results are claimed.
 2. Audit creation and listing APIs, reusing the existing batch engine and explicit
    confirmed rulebook/revision pins.
 3. Annotation and mask correction revisions, correction history and rechecks that

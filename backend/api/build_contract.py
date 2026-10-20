@@ -19,6 +19,7 @@ from .common import (
 )
 from .fixtures import EXAMPLE_MODEL, SOURCE, TIMESTAMP, build_examples, job, page
 from .schemas import build_schemas
+from .dataset_contract import align_dataset_contract
 from .planned_endpoints import render_planned_endpoints
 
 API_DIRECTORY = Path(__file__).resolve().parent
@@ -45,7 +46,7 @@ def build_contract() -> JsonObject:
     contract: JsonObject = {
         "openapi": "3.1.0",
         "info": {"title": "PRISM Data Quality Checker — API contract", "version": "0.1.0",
-                 "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
+                 "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
         "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Local development server; only implemented operations are callable."}],
         "tags": [{"name": name} for name in ("System", "Rulebooks", "Datasets", "Jobs", "Audits", "Reviews", "Corrections", "Exports", "Feedback")],
         "paths": {}, "components": {"schemas": schemas},
@@ -58,7 +59,8 @@ def build_contract() -> JsonObject:
             description: str = "", backing: str = "planned", multipart: bool = False,
             binary: bool = False, implementation: str = "planned",
             conflict_examples: dict[str, str] | None = None,
-            error_examples: dict[int, dict[str, str]] | None = None) -> None:
+            error_examples: dict[int, dict[str, str]] | None = None,
+            not_found: bool = True) -> None:
         params = list(parameters or [])
         values = {"rulebook_id": "rulebook_demo", "dataset_id": "dataset_demo", "sample_id": "sample_001",
                   "audit_id": "audit_demo", "job_id": "job_audit_demo", "finding_id": "finding_demo",
@@ -100,7 +102,7 @@ def build_contract() -> JsonObject:
                     )
                 elif error_status == 503:
                     message = "Rulebook storage is unavailable." if path.startswith("/rulebooks") else "Audit storage is unavailable."
-            if implementation == "implemented" and error_status == 400:
+            if (implementation == "implemented" and error_status == 400) or (error_status == 404 and not not_found):
                 continue
             if error_status == 409 and not conflict_examples:
                 continue
@@ -133,6 +135,10 @@ def build_contract() -> JsonObject:
             request_media = "multipart/form-data" if multipart else "application/json"
             operation["requestBody"] = {"required": True, "content": {request_media: {
                 "schema": ref(body_schema), "example": deepcopy(body_example)}}}
+        if method.lower() in contract["paths"].get(path, {}):
+            raise ValueError("Duplicate contract method/path.")
+        if any(entry["operation_id"] == operation_id for entry in operations):
+            raise ValueError("Duplicate contract operation ID.")
         contract["paths"].setdefault(path, {})[method.lower()] = operation
         operations.append({"operation_id": operation_id, "method": method.upper(), "path": BASE_PATH + path,
                            "tag": tag, "summary": summary, "implementation": implementation,
@@ -203,20 +209,35 @@ def build_contract() -> JsonObject:
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state."},
         backing="revise_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         description="Require the latest confirmed or rejected book. Keep its snapshot immutable; append expected_version + 1 as a draft and reset every included rule to draft. Draft books are already editable. Invalid state transitions return 409 INVALID_RULEBOOK_STATE; stale expected_version returns 409 VERSION_CONFLICT.")
-    add("POST", "/datasets", "importDataset", "Datasets", "Upload a dataset archive for local import", "DatasetImportStarted",
-        {"dataset": {**examples["dataset"], "status": "importing", "sample_count": None, "object_count": None}, "job": job("dataset_import", "dataset", "dataset_demo")},
-        status=202, body_schema="DatasetUpload", body_example={"archive": "<binary dataset ZIP>", "name": "Demo dataset", "format": "penn_fudan"}, multipart=True,
+    dataset_errors = {
+        404: {"NOT_FOUND": "The requested dataset, sample or revision does not exist."},
+        503: {"DEPENDENCY_UNAVAILABLE": "Dataset storage or durable acceptance is unavailable."},
+    }
+    add("POST", "/datasets", "importDataset", "Datasets", "Queue a durable dataset ZIP import", "DatasetImportStarted",
+        examples["dataset_import_scenarios"]["started"],
+        status=202, body_schema="DatasetUpload", body_example={"archive": "<binary dataset ZIP>", "name": "Synthetic dirty-source dataset", "format": "penn_fudan"}, multipart=True,
+        implementation="implemented", not_found=False,
+        backing="Durable upload service and managed single-attempt import worker; worker is explicitly started.",
         error_examples={
-            413: {"UPLOAD_TOO_LARGE": "The dataset archive exceeds the configured upload limit."},
-            415: {"UNSUPPORTED_MEDIA_TYPE": "Upload a supported dataset ZIP archive."},
+            413: {"UPLOAD_TOO_LARGE": "The dataset upload exceeds the configured limit."},
+            415: {"UNSUPPORTED_MEDIA_TYPE": "Upload a supported multipart dataset ZIP archive."},
+            503: dataset_errors[503],
         },
-        description="Send multipart FormData, not JSON. Penn-Fudan ZIP contains PNGImages/, Annotation/, PedMasks/ under an optional common root. Do not set multipart Content-Type manually; the browser supplies its boundary. Files remain on the local backend. Other dataset adapters are future work.")
-    add("GET", "/datasets", "listDatasets", "Datasets", "List imported datasets", "DatasetPage", page([examples["dataset"]]), parameters=pagination_parameters())
-    add("GET", "/datasets/{dataset_id}", "getDataset", "Datasets", "Read dataset import and integrity summary", "Dataset", examples["dataset"],
-        description="Read persisted import status: importing, ready, invalid, failed or cancelled. invalid means an inspected archive failed integrity requirements; failed means processing could not finish. Counts may be null before inspection completes. Inspect import_job_id for structured job failure and keep invalid samples visible for review rather than implying successful import.")
-    add("GET", "/datasets/{dataset_id}/samples", "listDatasetSamples", "Datasets", "List every dataset sample", "SamplePage", page([examples["sample"]]), parameters=pagination_parameters())
-    add("GET", "/datasets/{dataset_id}/samples/{sample_id}", "getDatasetSample", "Datasets", "Read annotations and pinned asset URLs", "Sample", examples["sample"],
-        parameters=[parameter("revision", "query", VERSION, 1, description="Omit for latest. Returned asset URLs always pin a revision.")])
+        description="Send exactly archive, name and format=penn_fudan using multipart FormData, not JSON. Let the browser set its boundary. 202 acknowledges closed durable staging plus committed dataset/job/request, not import completion. Poll the shared job route. ZIP layout/CRC/identity failures after acceptance belong to dataset/job state, not an HTTP validation response. Unknown commit outcome is unresolved, never a fabricated 202 or an automatic replay.")
+    add("GET", "/datasets", "listDatasets", "Datasets", "List persisted datasets", "DatasetPage", page([examples["dataset"]]),
+        parameters=pagination_parameters(), implementation="implemented", not_found=False, error_examples=dataset_errors,
+        backing="DatasetRepository metadata reads; no decoding, capture or workflow transitions.")
+    add("GET", "/datasets/{dataset_id}", "getDataset", "Datasets", "Read persisted import status", "Dataset", examples["dataset"],
+        implementation="implemented", error_examples=dataset_errors, backing="DatasetRepository metadata read.",
+        description="Ready means coherent imported catalogue, not clean annotations or a review verdict. Invalid means unusable archive/layout/identity structure; failed means processing could not finish. Counts may be null. Existing published samples remain browsable after failure/cancellation without making the dataset ready.")
+    add("GET", "/datasets/{dataset_id}/samples", "listDatasetSamples", "Datasets", "Browse published sample heads", "SamplePage", page([examples["sample"]]),
+        parameters=pagination_parameters(), implementation="implemented", error_examples=dataset_errors,
+        backing="DatasetRepository page-bounded snapshot reads, including damaged evidence.",
+        description="A missing dataset is 404; an existing dataset with no published samples returns an empty page, in any dataset state. Stable ordering and total describe the same selection. No source files are decoded or recaptured.")
+    add("GET", "/datasets/{dataset_id}/samples/{sample_id}", "getDatasetSample", "Datasets", "Read exact catalogue sample evidence", "Sample", examples["sample"],
+        implementation="implemented", error_examples=dataset_errors, backing="Catalogue-owned current head or exact historical revision.",
+        parameters=[parameter("revision", "query", VERSION, 1, description="Omit for the explicit catalogue current head, never MAX(manifest revision). Returned asset URLs always pin the selected revision.")],
+        description="Missing dataset, sample or exact revision is 404. Missing/corrupt pinned manifest fails closed as a storage error; never recapture from mutable files or a deleted staging directory. Sample issues explain basic integrity, not rulebook or reviewer decisions. Source order, duplicate/negative IDs and invalid boxes remain source evidence.")
     asset = parameter("asset_kind", "path", choice("image", "mask", "mask_preview", "thumbnail"), "image",
                       description="One of image, mask, mask_preview or thumbnail.")
     add("GET", "/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}", "getSampleAsset", "Datasets", "Download a revision-pinned image or mask asset", "", None, binary=True,
@@ -391,12 +412,14 @@ def build_contract() -> JsonObject:
         conflict_examples={"POLICY_NOT_EVALUATED": "Complete a matching evaluation before activating the policy."},
         description="Require a completed matching evaluation and explicit reviewer activation. Does not alter historical audits or override final reviewer control. Return 409 POLICY_NOT_EVALUATED if the evaluation is missing or unfinished.")
 
+    align_dataset_contract(contract, create_app().openapi())
     contract["x-template-operations"] = operations
     contract["x-review-scenarios"] = examples["review_scenarios"]
     contract["x-review-scenario-rulebooks"] = examples["review_scenario_rulebooks"]
     contract["x-job-scenarios"] = examples["job_scenarios"]
     contract["x-audit-scenarios"] = examples["audit_scenarios"]
     contract["x-extraction-job-scenarios"] = examples["extraction_job_scenarios"]
+    contract["x-dataset-import-scenarios"] = examples["dataset_import_scenarios"]
     contract["x-future-job-scenarios"] = examples["future_job_scenarios"]
     return contract
 
@@ -456,11 +479,13 @@ def render_artifacts() -> dict[str, str]:
     audit_scenarios = contract.pop("x-audit-scenarios")
     future_job_scenarios = contract.pop("x-future-job-scenarios")
     extraction_job_scenarios = contract.pop("x-extraction-job-scenarios")
+    dataset_import_scenarios = contract.pop("x-dataset-import-scenarios")
     documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
-        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Audit metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, audit metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,
+        "dataset_import_scenarios": dataset_import_scenarios,
         "future_job_scenarios": future_job_scenarios,
         "extraction_job_scenarios": extraction_job_scenarios,
         "check_catalog": extraction_check_catalog(),

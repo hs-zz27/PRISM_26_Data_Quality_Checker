@@ -2,7 +2,7 @@
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**20 HTTP operations are implemented in the checkpoint source:** extraction submission, manual rulebook creation/read/review, audit metadata
+**25 HTTP operations are implemented:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit metadata
 and sample reads, revision-pinned assets, job polling/cancellation, and
 finding/sample decisions with history.
 All other operations remain planned. Check `x-implementation-status` in OpenAPI
@@ -23,26 +23,36 @@ in `/api/v1` and paths without that prefix. Apply the prefix exactly once.
 Resolve asset URLs and `result.href` against the backend origin or its proxy,
 not an SPA route.
 
+## Dataset import verification status
+
+Phases 1–4 are applied, including the corrected Phase 2 producer cleanup. All
+five API artifacts were generated in this checkout on 21 October 2026. Tests,
+migrations and import execution remain unrun. See DATASETS.md for setup, worker
+commands and the remaining verification steps. Regenerate the artifacts together
+when API models or routes change.
+
 ## Files
 
 - ENDPOINTS.md: every method, path and operation ID, grouped by
   implemented versus planned.
 - RULEBOOKS.md: manual creation, editing, confirmation and history.
-- PLANNED_ENDPOINTS.md: all 29 future operations, with
+- DATASETS.md: durable ZIP acceptance, explicit worker, dirty-source browsing and generation prerequisites.
+- dataset_contract.py / dataset_examples.py: live-aligned dataset shapes and model-validated lifecycle snapshots.
+- PLANNED_ENDPOINTS.md: all 24 future operations, with
   parameters, request/response examples, proposed errors and referenced schemas.
 - FRONTEND_WORKFLOW.md: screen flows, mock setup, jobs,
   correction/recheck pins and export/feedback interactions.
 - implemented-openapi.json: callable endpoints only,
   with actual FastAPI transport schemas and frontend examples; use for client generation.
 - openapi.json: combined implementation/planning reference; the
-  29 planned operations are not available on the running server.
+  24 planned operations are not available on the running server.
 - examples.json: frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
   null asset links.
 - build_contract.py: endpoint definitions and artifact generation.
-- schemas.py: transport schemas, reusing implemented rulebook,
-  finding and review models.
+- schemas.py: transport schemas, reusing implemented dataset/sample, rulebook,
+  finding and review models; correction-only constraints stay separate.
 - fixtures.py: synthetic workflows and measurement examples from
   `audit_sample()` on a tiny dataset. System status uses a fixed example model name
   so generation does not depend on local Ollama settings.
@@ -82,6 +92,14 @@ Saved rulebooks (see the detailed guide):
 - `POST /rulebooks/{rulebook_id}/reject` → 200 `Rulebook`; `RulebookAction` body.
 - `POST /rulebooks/{rulebook_id}/revisions` → 201 `Rulebook`; `RulebookAction` body.
 
+Datasets (see DATASETS.md):
+
+- `POST /datasets` → 202 `DatasetImportStarted`; multipart archive/name/format.
+- `GET /datasets` → 200 `DatasetPage`.
+- `GET /datasets/{dataset_id}` → 200 `Dataset`.
+- `GET /datasets/{dataset_id}/samples` → 200 `SamplePage`.
+- `GET /datasets/{dataset_id}/samples/{sample_id}?revision=N` → 200 `Sample`; omit revision for catalogue current head.
+
 Audits, assets and jobs:
 
 - `GET /audits/{audit_id}` → 200 `AuditRun`.
@@ -106,8 +124,8 @@ Lists support `limit` (1–100, default 20) and nonnegative `offset` (default 0)
 Audit sample lists also accept `tool_status` and `review_status`; omit a filter
 to disable it rather than sending the string `null`.
 
-Manual rulebook creation is available. Dataset import, audit creation and audit listing
-are not HTTP features yet. Obtain
+Manual rulebook creation and dataset import/catalogue browsing are available in the
+applied checkpoint source. Audit creation and audit listing remain planned. Obtain
 existing audit/job IDs from the backend developer, list saved rulebooks, or use
 the fixtures while building the UI. App startup does not create demo resources;
 fixture IDs do not imply that matching PostgreSQL records exist.
@@ -139,15 +157,16 @@ actions the running backend currently supports.
    The main audit, finding and export fixtures all reference confirmed version 3.
    Rejection is an alternative branch from the original draft; the review-state
    scenarios are independent examples rather than successive edits to one sample.
-4. **Planned:** upload a dataset ZIP through `POST /datasets`, poll import, then inspect sample
+4. **Implemented in the dataset checkpoints:** upload a dataset ZIP through `POST /datasets`, poll import, then inspect sample
    integrity. The first adapter is `penn_fudan`, not a universal specification.
 5. **Planned HTTP entry point:** start an audit using a confirmed rulebook ID/version. In the planned HTTP
    contract, null `sample_ids` means all samples and the import boundary will
    resolve annotation revisions. The current Python batch service requires
    explicit sample IDs. Legacy mode pins caller-supplied revision numbers
    (default 1); snapshot mode uses an injected authoritative revision resolver
-   and reads immutable captured assets. Dataset import and application-owned
-   revision selection remain planned. Select batch size from measured CPU
+   and reads immutable captured assets. Dataset import now owns catalogue heads;
+   wiring that authority into audit HTTP startup remains planned. No deleted staging
+   root is offered as a fallback source. Select batch size from measured CPU
    resources. Active feedback-policy integration remains planned.
 6. **Implemented for existing audits/jobs:** poll the job, list the complete review queue and load sample detail. Omit queue
    filters to include apparently correct cases. Findings include pass outcomes.
@@ -168,8 +187,10 @@ audit queue/detail reads, revision-pinned asset delivery, job status/cancellatio
 and finding/sample review routes plus rulebook reads/reviewer actions are implemented. Python
 measurements, rule records, Ollama integration, rulebook, finding and sample review
 services, confirmed-rule evaluation, durable PostgreSQL jobs/audits/findings and
-PostgreSQL version/review storage also exist. Other HTTP routes, dataset import,
-model checks, correction/export and evaluated feedback services remain planned.
+PostgreSQL version/review storage also exist. Dataset import/catalogue checkpoint
+source is described in DATASETS.md. Other HTTP routes, correction/export and
+evaluated feedback services remain planned; detector status follows the merged
+source rather than older placeholder notes.
 
 ## Requests, responses and jobs
 
@@ -453,8 +474,8 @@ Their matching confirmed rulebooks are under
 `examples.review_scenario_rulebooks` with the same keys; the uncertain and
 unavailable cases include their additional reviewer-authored rules.
 `examples.job_scenarios` and `examples.audit_scenarios` cover all six lifecycle
-states with model-validated snapshots. `examples.future_job_scenarios` adds six-state
-job mocks for import, recheck, export and feedback evaluation; these
+states with model-validated snapshots. `examples.dataset_import_scenarios` adds delivered import states and dirty-source examples. `examples.future_job_scenarios` adds six-state
+job mocks for recheck, export and feedback evaluation; these
 job producers are still planned. Delivered extraction mocks are in
 `examples.extraction_job_scenarios.states` and `.failures`. Completed extraction links pin rulebook version 1.
 `examples.check_catalog` comes from the

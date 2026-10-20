@@ -22,7 +22,7 @@ def test_planned_reference_covers_every_future_operation_and_no_live_operation()
                 assert "500" in operation["responses"]
             else:
                 assert heading not in guide
-    assert len(planned) == 29
+    assert len(planned) == 24
 
 def test_future_audit_payloads_reuse_the_live_audit_transport():
     schemas = SPEC["components"]["schemas"]
@@ -70,7 +70,8 @@ def test_future_conflicts_expose_the_domain_codes_needed_by_frontend_flows():
 
 def test_future_job_mocks_cover_six_states_and_pin_extraction_results():
     scenarios = EXAMPLES["future_job_scenarios"]
-    assert set(scenarios) == {"dataset_import", "recheck", "export", "feedback_evaluation"}
+    assert set(scenarios) == {"recheck", "export", "feedback_evaluation"}
+    assert "dataset_import_scenarios" in EXAMPLES
     for kind, states in scenarios.items():
         assert set(states) == {status.value for status in JobStatus}
         for state, document in states.items():

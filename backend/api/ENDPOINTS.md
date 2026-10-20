@@ -4,7 +4,7 @@ Generated from `build_contract.py`. Paths include `/api/v1`.
 
 Use [implemented-openapi.json for callable endpoint schemas and client generation. openapi.json also includes planned designs. examples.json contains synthetic fixtures.
 
-## Implemented (20 operations)
+## Implemented (25 operations)
 
 ### Rulebooks
 
@@ -21,6 +21,11 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 
 ### Datasets
 
+- `POST /api/v1/datasets` — Queue a durable dataset ZIP import (`importDataset`; implemented).
+- `GET /api/v1/datasets` — List persisted datasets (`listDatasets`; implemented).
+- `GET /api/v1/datasets/{dataset_id}` — Read persisted import status (`getDataset`; implemented).
+- `GET /api/v1/datasets/{dataset_id}/samples` — Browse published sample heads (`listDatasetSamples`; implemented).
+- `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}` — Read exact catalogue sample evidence (`getDatasetSample`; implemented).
 - `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}` — Download a revision-pinned image or mask asset (`getSampleAsset`; implemented).
 
 ### Jobs
@@ -41,21 +46,13 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `PUT /api/v1/audits/{audit_id}/samples/{sample_id}/review` — Record the reviewer's data decision (`reviewSample`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}/reviews` — Read sample decision history (`listSampleReviews`; implemented).
 
-## Planned — unavailable on the running server (29 operations)
+## Planned — unavailable on the running server (24 operations)
 
 ### System
 
 - `GET /api/v1/health` — Check HTTP server liveness (`getHealth`; planned).
 - `GET /api/v1/capabilities` — List supported and planned checks (`getCapabilities`; planned).
 - `GET /api/v1/system/status` — Inspect local model readiness (`getSystemStatus`; planned).
-
-### Datasets
-
-- `POST /api/v1/datasets` — Upload a dataset archive for local import (`importDataset`; planned).
-- `GET /api/v1/datasets` — List imported datasets (`listDatasets`; planned).
-- `GET /api/v1/datasets/{dataset_id}` — Read dataset import and integrity summary (`getDataset`; planned).
-- `GET /api/v1/datasets/{dataset_id}/samples` — List every dataset sample (`listDatasetSamples`; planned).
-- `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}` — Read annotations and pinned asset URLs (`getDatasetSample`; planned).
 
 ### Audits
 

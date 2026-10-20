@@ -15,6 +15,9 @@ from backend.app.models.rulebook_creation import RulebookCreate, RulebookCreateR
 from backend.app.models.audit import AuditRun
 from backend.app.models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
 from backend.app.services.audit import audit_sample
+from backend.app.models.dataset import Dataset, Sample
+
+from .dataset_examples import build_dataset_import_scenarios, validated
 
 from .common import BASE_PATH, JsonObject
 
@@ -42,7 +45,6 @@ def job(kind: str, resource_kind: str, resource_id: str, *, completed: bool = Fa
 def build_future_job_scenarios() -> JsonObject:
     """Model-validated lifecycle mocks for the still-planned job producers."""
     targets = {
-        "dataset_import": ("dataset", "dataset_demo", "DATASET_IMPORT_FAILED"),
         "recheck": ("audit", "audit_recheck_demo", "RECHECK_FAILED"),
         "export": ("export", "export_demo", "EXPORT_FAILED"),
         "feedback_evaluation": ("feedback_evaluation", "evaluation_demo", "FEEDBACK_EVALUATION_FAILED"),
@@ -158,9 +160,11 @@ def build_examples() -> JsonObject:
                       "content_type": "image/png", "revision": 1}
               for kind in ("image", "mask", "mask_preview", "thumbnail")}
     sample = {"sample_id": "sample_001", "dataset_id": "dataset_demo", "revision": 1,
-              "image_size": [4, 3], "integrity_status": "valid", "objects": annotations, "assets": assets}
+              "image_size": [4, 3], "integrity_status": "valid", "objects": annotations, "assets": assets, "issues": []}
     dataset = {"dataset_id": "dataset_demo", "name": "Demo dataset", "format": "penn_fudan", "status": "ready",
                "sample_count": 1, "object_count": 2, "import_job_id": "job_dataset_import_demo", "created_at": TIMESTAMP, "issues": []}
+    sample = validated(Sample, sample)
+    dataset = validated(Dataset, dataset)
     audit_timestamp = datetime.fromisoformat(TIMESTAMP)
     audit_run = AuditRun(
         audit_id="audit_demo", job_id="job_audit_demo", dataset_id="dataset_demo",
@@ -260,6 +264,7 @@ def build_examples() -> JsonObject:
         "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios,
         "audit_scenarios": audit_scenarios,
+        "dataset_import_scenarios": build_dataset_import_scenarios(),
         "future_job_scenarios": build_future_job_scenarios(),
         "extraction_job_scenarios": build_extraction_job_scenarios(),
     }

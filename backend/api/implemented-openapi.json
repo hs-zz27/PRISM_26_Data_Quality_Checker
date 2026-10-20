@@ -194,6 +194,7 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Tool Status"
             },
             "example": "flagged",
@@ -212,6 +213,7 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Review Status"
             },
             "example": "pending_review",
@@ -3464,6 +3466,893 @@
         "x-backing-service-status": "SampleAssetService, SamplePreviewService, SampleAssetManifestRepository and FastAPI route implemented."
       }
     },
+    "/api/v1/datasets": {
+      "post": {
+        "tags": [
+          "Datasets"
+        ],
+        "summary": "Queue a durable dataset ZIP import",
+        "description": "Send exactly archive, name and format=penn_fudan using multipart FormData, not JSON. Let the browser set its boundary. 202 acknowledges closed durable staging plus committed dataset/job/request, not import completion. Poll the shared job route. ZIP layout/CRC/identity failures after acceptance belong to dataset/job state, not an HTTP validation response. Unknown commit outcome is unresolved, never a fabricated 202 or an automatic replay.",
+        "operationId": "importDataset",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetImportStarted"
+                },
+                "example": {
+                  "dataset": {
+                    "dataset_id": "dataset_import_demo",
+                    "name": "Synthetic dirty-source dataset",
+                    "format": "penn_fudan",
+                    "status": "importing",
+                    "sample_count": null,
+                    "object_count": null,
+                    "import_job_id": "job_dataset_import_demo",
+                    "created_at": "2026-10-20T10:00:00Z",
+                    "issues": []
+                  },
+                  "job": {
+                    "job_id": "job_dataset_import_demo",
+                    "kind": "dataset_import",
+                    "status": "queued",
+                    "progress": {
+                      "phase": "queued",
+                      "processed": 0,
+                      "total": null,
+                      "fraction": null
+                    },
+                    "result": null,
+                    "error": null,
+                    "created_at": "2026-10-20T10:00:00Z",
+                    "updated_at": "2026-10-20T10:00:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid dataset request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected dataset error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dataset storage or durable acceptance unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Dataset storage or durable acceptance is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Dataset storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload byte budget exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UPLOAD_TOO_LARGE": {
+                    "summary": "The dataset upload exceeds the configured limit.",
+                    "value": {
+                      "error": {
+                        "code": "UPLOAD_TOO_LARGE",
+                        "message": "The dataset upload exceeds the configured limit.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported upload representation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UNSUPPORTED_MEDIA_TYPE": {
+                    "summary": "Upload a supported multipart dataset ZIP archive.",
+                    "value": {
+                      "error": {
+                        "code": "UNSUPPORTED_MEDIA_TYPE",
+                        "message": "Upload a supported multipart dataset ZIP archive.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "Actual parsed multipart inputs; file is a handle, never a bytes blob.",
+                "properties": {
+                  "archive": {
+                    "contentMediaType": "application/octet-stream",
+                    "title": "Archive",
+                    "type": "string"
+                  },
+                  "name": {
+                    "maxLength": 255,
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "title": "Name",
+                    "type": "string"
+                  },
+                  "format": {
+                    "const": "penn_fudan",
+                    "title": "Format",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "archive",
+                  "name",
+                  "format"
+                ],
+                "title": "DatasetUpload",
+                "type": "object"
+              },
+              "example": {
+                "archive": "<binary dataset ZIP>",
+                "name": "Synthetic dirty-source dataset",
+                "format": "penn_fudan"
+              }
+            }
+          }
+        },
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Durable upload service and managed single-attempt import worker; worker is explicitly started."
+      },
+      "get": {
+        "tags": [
+          "Datasets"
+        ],
+        "summary": "List persisted datasets",
+        "operationId": "listDatasets",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            },
+            "example": 20,
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            },
+            "example": 0,
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "dataset_id": "dataset_demo",
+                      "name": "Demo dataset",
+                      "format": "penn_fudan",
+                      "status": "ready",
+                      "sample_count": 1,
+                      "object_count": 2,
+                      "import_job_id": "job_dataset_import_demo",
+                      "created_at": "2026-10-14T10:00:00Z",
+                      "issues": []
+                    }
+                  ],
+                  "limit": 20,
+                  "offset": 0,
+                  "total": 1,
+                  "next_offset": null
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid dataset request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected dataset error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dataset storage or durable acceptance unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Dataset storage or durable acceptance is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Dataset storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "List persisted datasets",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "DatasetRepository metadata reads; no decoding, capture or workflow transitions."
+      }
+    },
+    "/api/v1/datasets/{dataset_id}": {
+      "get": {
+        "tags": [
+          "Datasets"
+        ],
+        "summary": "Read persisted import status",
+        "operationId": "getDataset",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Dataset Id"
+            },
+            "example": "dataset_demo",
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dataset"
+                },
+                "example": {
+                  "dataset_id": "dataset_demo",
+                  "name": "Demo dataset",
+                  "format": "penn_fudan",
+                  "status": "ready",
+                  "sample_count": 1,
+                  "object_count": 2,
+                  "import_job_id": "job_dataset_import_demo",
+                  "created_at": "2026-10-14T10:00:00Z",
+                  "issues": []
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid dataset request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected dataset error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dataset storage or durable acceptance unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Dataset storage or durable acceptance is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Dataset storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset, sample or exact revision not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested dataset, sample or revision does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested dataset, sample or revision does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Ready means coherent imported catalogue, not clean annotations or a review verdict. Invalid means unusable archive/layout/identity structure; failed means processing could not finish. Counts may be null. Existing published samples remain browsable after failure/cancellation without making the dataset ready.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "DatasetRepository metadata read."
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/samples": {
+      "get": {
+        "tags": [
+          "Datasets"
+        ],
+        "summary": "Browse published sample heads",
+        "operationId": "listDatasetSamples",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Dataset Id"
+            },
+            "example": "dataset_demo",
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            },
+            "example": 20,
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            },
+            "example": 0,
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamplePage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "sample_id": "sample_001",
+                      "dataset_id": "dataset_demo",
+                      "revision": 1,
+                      "image_size": [
+                        4,
+                        3
+                      ],
+                      "integrity_status": "valid",
+                      "objects": [
+                        {
+                          "object_id": 1,
+                          "label": "person",
+                          "bbox": [
+                            1,
+                            1,
+                            2,
+                            2
+                          ]
+                        },
+                        {
+                          "object_id": 2,
+                          "label": "vehicle",
+                          "bbox": [
+                            4,
+                            3,
+                            4,
+                            3
+                          ]
+                        }
+                      ],
+                      "assets": {
+                        "image": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "mask_preview": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        },
+                        "thumbnail": {
+                          "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+                          "content_type": "image/png",
+                          "revision": 1
+                        }
+                      },
+                      "issues": []
+                    }
+                  ],
+                  "limit": 20,
+                  "offset": 0,
+                  "total": 1,
+                  "next_offset": null
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid dataset request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected dataset error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dataset storage or durable acceptance unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Dataset storage or durable acceptance is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Dataset storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset, sample or exact revision not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested dataset, sample or revision does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested dataset, sample or revision does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "A missing dataset is 404; an existing dataset with no published samples returns an empty page, in any dataset state. Stable ordering and total describe the same selection. No source files are decoded or recaptured.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "DatasetRepository page-bounded snapshot reads, including damaged evidence."
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/samples/{sample_id}": {
+      "get": {
+        "tags": [
+          "Datasets"
+        ],
+        "summary": "Read exact catalogue sample evidence",
+        "operationId": "getDatasetSample",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Dataset Id"
+            },
+            "example": "dataset_demo",
+            "description": ""
+          },
+          {
+            "name": "sample_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Sample Id"
+            },
+            "example": "sample_001",
+            "description": ""
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2147483647,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Revision"
+            },
+            "example": 1,
+            "description": "Omit for the explicit catalogue current head, never MAX(manifest revision). Returned asset URLs always pin the selected revision."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                },
+                "example": {
+                  "sample_id": "sample_001",
+                  "dataset_id": "dataset_demo",
+                  "revision": 1,
+                  "image_size": [
+                    4,
+                    3
+                  ],
+                  "integrity_status": "valid",
+                  "objects": [
+                    {
+                      "object_id": 1,
+                      "label": "person",
+                      "bbox": [
+                        1,
+                        1,
+                        2,
+                        2
+                      ]
+                    },
+                    {
+                      "object_id": 2,
+                      "label": "vehicle",
+                      "bbox": [
+                        4,
+                        3,
+                        4,
+                        3
+                      ]
+                    }
+                  ],
+                  "assets": {
+                    "image": {
+                      "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/image?revision=1",
+                      "content_type": "image/png",
+                      "revision": 1
+                    },
+                    "mask": {
+                      "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask?revision=1",
+                      "content_type": "image/png",
+                      "revision": 1
+                    },
+                    "mask_preview": {
+                      "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/mask_preview?revision=1",
+                      "content_type": "image/png",
+                      "revision": 1
+                    },
+                    "thumbnail": {
+                      "url": "/api/v1/datasets/dataset_demo/samples/sample_001/assets/thumbnail?revision=1",
+                      "content_type": "image/png",
+                      "revision": 1
+                    }
+                  },
+                  "issues": []
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid dataset request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected dataset error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dataset storage or durable acceptance unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Dataset storage or durable acceptance is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Dataset storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset, sample or exact revision not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested dataset, sample or revision does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested dataset, sample or revision does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Missing dataset, sample or exact revision is 404. Missing/corrupt pinned manifest fails closed as a storage error; never recapture from mutable files or a deleted staging directory. Sample issues explain basic integrity, not rulebook or reviewer decisions. Source order, duplicate/negative IDs and invalid boxes remain source evidence.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Catalogue-owned current head or exact historical revision."
+      }
+    },
     "/api/v1/findings/{finding_id}/reviews": {
       "get": {
         "tags": [
@@ -4469,6 +5358,7 @@
         "description": "Durably accept exact nonblank plain text without inline inference or a placeholder book. HTTP 202 does not establish worker readiness. Start the extraction worker separately. Poll GET /jobs/{job_id}; every state, including failed, remains HTTP 200. One processing attempt only; stale attempts fail without replay. Completion publishes one version-1 extracted/draft rulebook, empty review history and a result.href pinned with ?version=1. Existing cancellation route is supported; cancelled jobs publish no output. Errors are safe job.error codes, not retrospective submission errors. See EXTRACTIONS.md for error mapping, finite deadlines and operator workflow.",
         "operationId": "extractRulebook",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -4478,8 +5368,7 @@
                 "guideline_text": "Allowed labels are person."
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "202": {
@@ -4968,6 +5857,7 @@
                   "type": "null"
                 }
               ],
+              "default": null,
               "title": "Version"
             },
             "example": 3,
@@ -6271,123 +7161,123 @@
   "components": {
     "schemas": {
       "ApiError": {
+        "additionalProperties": false,
+        "description": "Structured, secret-free error information retained on failed jobs.",
         "properties": {
           "code": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Code"
+            "title": "Code",
+            "type": "string"
           },
           "message": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Message"
+            "title": "Message",
+            "type": "string"
           },
           "details": {
             "items": {
               "$ref": "#/components/schemas/ErrorDetail"
             },
-            "type": "array",
-            "title": "Details"
+            "title": "Details",
+            "type": "array"
           },
           "request_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Request Id"
+            "title": "Request Id",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "code",
           "message",
           "request_id"
         ],
         "title": "ApiError",
-        "description": "Structured, secret-free error information retained on failed jobs."
+        "type": "object"
       },
       "AssetReference": {
+        "additionalProperties": false,
         "properties": {
           "url": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Url"
+            "title": "Url",
+            "type": "string"
           },
           "content_type": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Content Type"
+            "title": "Content Type",
+            "type": "string"
           },
           "revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Revision"
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "url",
           "content_type",
           "revision"
         ],
-        "title": "AssetReference"
+        "title": "AssetReference",
+        "type": "object"
       },
       "AuditFailure": {
+        "additionalProperties": false,
+        "description": "A sample-level technical failure retained for later review/recovery.",
         "properties": {
           "failure_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Failure Id"
+            "title": "Failure Id",
+            "type": "string"
           },
           "audit_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Audit Id"
+            "title": "Audit Id",
+            "type": "string"
           },
           "sample_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Sample Id"
+            "title": "Sample Id",
+            "type": "string"
           },
           "sample_revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Sample Revision"
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
           },
           "stage": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Stage"
+            "title": "Stage",
+            "type": "string"
           },
           "reason": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Reason"
+            "title": "Reason",
+            "type": "string"
           },
           "detail": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Detail"
+            "title": "Detail",
+            "type": "string"
           },
           "created_at": {
-            "type": "string",
             "format": "date-time",
-            "title": "Created At"
+            "title": "Created At",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "failure_id",
           "audit_id",
@@ -6399,38 +7289,40 @@
           "created_at"
         ],
         "title": "AuditFailure",
-        "description": "A sample-level technical failure retained for later review/recovery."
+        "type": "object"
       },
       "AuditRun": {
+        "additionalProperties": false,
+        "description": "Read model for a durable audit and its job-backed progress.",
         "properties": {
           "audit_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Audit Id"
+            "title": "Audit Id",
+            "type": "string"
           },
           "job_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Job Id"
+            "title": "Job Id",
+            "type": "string"
           },
           "dataset_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Dataset Id"
+            "title": "Dataset Id",
+            "type": "string"
           },
           "rulebook_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Rulebook Id"
+            "title": "Rulebook Id",
+            "type": "string"
           },
           "rulebook_version": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Rulebook Version"
+            "minimum": 1,
+            "title": "Rulebook Version",
+            "type": "integer"
           },
           "source_mode": {
             "$ref": "#/components/schemas/AuditSourceMode",
@@ -6440,39 +7332,37 @@
             "$ref": "#/components/schemas/JobStatus"
           },
           "sample_count": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Sample Count"
+            "minimum": 0,
+            "title": "Sample Count",
+            "type": "integer"
           },
           "processed_count": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Processed Count"
+            "minimum": 0,
+            "title": "Processed Count",
+            "type": "integer"
           },
           "failed_count": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Failed Count"
+            "minimum": 0,
+            "title": "Failed Count",
+            "type": "integer"
           },
           "incomplete_count": {
-            "type": "integer",
-            "minimum": 0.0,
+            "default": 0,
+            "minimum": 0,
             "title": "Incomplete Count",
-            "default": 0
+            "type": "integer"
           },
           "created_at": {
-            "type": "string",
             "format": "date-time",
-            "title": "Created At"
+            "title": "Created At",
+            "type": "string"
           },
           "updated_at": {
-            "type": "string",
             "format": "date-time",
-            "title": "Updated At"
+            "title": "Updated At",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "audit_id",
           "job_id",
@@ -6487,38 +7377,39 @@
           "updated_at"
         ],
         "title": "AuditRun",
-        "description": "Read model for a durable audit and its job-backed progress."
+        "type": "object"
       },
       "AuditSamplePage": {
+        "additionalProperties": false,
         "properties": {
           "items": {
             "items": {
               "$ref": "#/components/schemas/SampleAuditSummary"
             },
-            "type": "array",
-            "title": "Items"
+            "title": "Items",
+            "type": "array"
           },
           "limit": {
-            "type": "integer",
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Limit"
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
           },
           "offset": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Offset"
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "total": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Total"
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
           },
           "next_offset": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 0.0
+                "minimum": 0,
+                "type": "integer"
               },
               {
                 "type": "null"
@@ -6527,8 +7418,6 @@
             "title": "Next Offset"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "items",
           "limit",
@@ -6536,28 +7425,200 @@
           "total",
           "next_offset"
         ],
-        "title": "AuditSamplePage"
+        "title": "AuditSamplePage",
+        "type": "object"
       },
       "AuditSourceMode": {
-        "type": "string",
+        "description": "Whether an audit reads mutable legacy files or an immutable snapshot.",
         "enum": [
           "legacy",
           "snapshot"
         ],
         "title": "AuditSourceMode",
-        "description": "Whether an audit reads mutable legacy files or an immutable snapshot."
+        "type": "string"
       },
       "ConfirmationState": {
-        "type": "string",
+        "description": "Reviewer confirmation state for a rule or rulebook.",
         "enum": [
           "draft",
           "confirmed",
           "rejected"
         ],
         "title": "ConfirmationState",
-        "description": "Reviewer confirmation state for a rule or rulebook."
+        "type": "string"
+      },
+      "Dataset": {
+        "additionalProperties": false,
+        "properties": {
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Name",
+            "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DatasetFormat"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DatasetStatus"
+          },
+          "sample_count": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Count"
+          },
+          "object_count": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Count"
+          },
+          "import_job_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Import Job Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "maxItems": 256,
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "name",
+          "format",
+          "status",
+          "sample_count",
+          "object_count",
+          "import_job_id",
+          "created_at"
+        ],
+        "title": "Dataset",
+        "type": "object"
+      },
+      "DatasetFormat": {
+        "enum": [
+          "penn_fudan"
+        ],
+        "title": "DatasetFormat",
+        "type": "string"
+      },
+      "DatasetImportStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "dataset": {
+            "$ref": "#/components/schemas/Dataset"
+          },
+          "job": {
+            "$ref": "#/components/schemas/Job"
+          }
+        },
+        "required": [
+          "dataset",
+          "job"
+        ],
+        "title": "DatasetImportStarted",
+        "type": "object"
+      },
+      "DatasetPage": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Dataset"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "limit",
+          "offset",
+          "total",
+          "next_offset",
+          "items"
+        ],
+        "title": "DatasetPage",
+        "type": "object"
+      },
+      "DatasetStatus": {
+        "enum": [
+          "importing",
+          "ready",
+          "invalid",
+          "failed",
+          "cancelled"
+        ],
+        "title": "DatasetStatus",
+        "type": "string"
       },
       "ErrorDetail": {
+        "additionalProperties": false,
         "properties": {
           "field": {
             "anyOf": [
@@ -6568,113 +7629,118 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Field"
           },
           "message": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Message"
+            "title": "Message",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "message"
         ],
-        "title": "ErrorDetail"
+        "title": "ErrorDetail",
+        "type": "object"
       },
       "ErrorResponse": {
+        "additionalProperties": false,
         "properties": {
           "error": {
             "$ref": "#/components/schemas/ApiError"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "error"
         ],
-        "title": "ErrorResponse"
+        "title": "ErrorResponse",
+        "type": "object"
       },
       "Evidence": {
+        "additionalProperties": false,
+        "description": "JSON measurements and optional asset links supporting the outcome.\n\nAsset links may be relative API paths. Empty measurements are valid when\nevaluation could not run, such as for an unsupported requirement.",
         "properties": {
           "image_url": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Image Url"
           },
           "mask_preview_url": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Mask Preview Url"
           },
           "crop_url": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Crop Url"
           },
           "measurements": {
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
             },
-            "type": "object",
-            "title": "Measurements"
+            "title": "Measurements",
+            "type": "object"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "title": "Evidence",
-        "description": "JSON measurements and optional asset links supporting the outcome.\n\nAsset links may be relative API paths. Empty measurements are valid when\nevaluation could not run, such as for an unsupported requirement."
+        "type": "object"
       },
       "Finding": {
+        "additionalProperties": false,
+        "description": "One rule's outcome against a pinned sample revision and rulebook version.\n\nRule content is copied into the finding so evidence remains understandable\nafter later edits. object_id is absent for sample-wide findings and may be\nnonpositive when reporting invalid source annotation IDs. The evaluator\nowns rulebook confirmation, source matching and reason selection. Extracted\nfindings require a source sentence; reviewer-authored findings may omit it.",
         "properties": {
           "finding_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Finding Id"
+            "title": "Finding Id",
+            "type": "string"
           },
           "audit_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Audit Id"
+            "title": "Audit Id",
+            "type": "string"
           },
           "sample_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Sample Id"
+            "title": "Sample Id",
+            "type": "string"
           },
           "sample_revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Sample Revision"
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
           },
           "object_id": {
             "anyOf": [
@@ -6685,42 +7751,44 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Object Id"
           },
           "rulebook_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Rulebook Id"
+            "title": "Rulebook Id",
+            "type": "string"
           },
           "rulebook_version": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Rulebook Version"
+            "minimum": 1,
+            "title": "Rulebook Version",
+            "type": "integer"
           },
           "rule_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Rule Id"
+            "title": "Rule Id",
+            "type": "string"
           },
           "description": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Description"
+            "title": "Description",
+            "type": "string"
           },
           "check_name": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Check Name"
           },
           "outcome": {
@@ -6729,22 +7797,23 @@
           "reason": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Reason"
           },
           "parameters": {
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
             },
-            "type": "object",
-            "title": "Parameters"
+            "title": "Parameters",
+            "type": "object"
           },
           "origin": {
             "$ref": "#/components/schemas/RuleOrigin"
@@ -6752,14 +7821,15 @@
           "source_sentence": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Source Sentence"
           },
           "evidence": {
@@ -6769,8 +7839,6 @@
             "$ref": "#/components/schemas/FindingReview"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "finding_id",
           "audit_id",
@@ -6784,43 +7852,43 @@
           "origin"
         ],
         "title": "Finding",
-        "description": "One rule's outcome against a pinned sample revision and rulebook version.\n\nRule content is copied into the finding so evidence remains understandable\nafter later edits. object_id is absent for sample-wide findings and may be\nnonpositive when reporting invalid source annotation IDs. The evaluator\nowns rulebook confirmation, source matching and reason selection. Extracted\nfindings require a source sentence; reviewer-authored findings may omit it."
+        "type": "object"
       },
       "FindingCounts": {
+        "additionalProperties": false,
         "properties": {
           "pass": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Pass"
+            "minimum": 0,
+            "title": "Pass",
+            "type": "integer"
           },
           "fail": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Fail"
+            "minimum": 0,
+            "title": "Fail",
+            "type": "integer"
           },
           "unsure": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Unsure"
+            "minimum": 0,
+            "title": "Unsure",
+            "type": "integer"
           },
           "unavailable": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Unavailable"
+            "minimum": 0,
+            "title": "Unavailable",
+            "type": "integer"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "pass",
           "fail",
           "unsure",
           "unavailable"
         ],
-        "title": "FindingCounts"
+        "title": "FindingCounts",
+        "type": "object"
       },
       "FindingOutcome": {
-        "type": "string",
+        "description": "The tool's conclusion, independent of the reviewer's final decision.",
         "enum": [
           "pass",
           "fail",
@@ -6828,10 +7896,10 @@
           "unavailable"
         ],
         "title": "FindingOutcome",
-        "description": "The tool's conclusion, independent of the reviewer's final decision."
+        "type": "string"
       },
       "FindingResolution": {
-        "type": "string",
+        "description": "Accepting a finding confirms its conclusion, not acceptance of the sample.",
         "enum": [
           "pending",
           "accepted",
@@ -6839,15 +7907,17 @@
           "unsure"
         ],
         "title": "FindingResolution",
-        "description": "Accepting a finding confirms its conclusion, not acceptance of the sample."
+        "type": "string"
       },
       "FindingReview": {
+        "additionalProperties": false,
+        "description": "Review state with attribution required for non-pending resolutions.\n\nRecorded decisions require a positive revision, reviewer and timestamp.\nReview services own decision transitions; machine evidence stays unchanged.",
         "properties": {
           "revision": {
-            "type": "integer",
-            "minimum": 0.0,
+            "default": 0,
+            "minimum": 0,
             "title": "Revision",
-            "default": 0
+            "type": "integer"
           },
           "resolution": {
             "$ref": "#/components/schemas/FindingResolution",
@@ -6856,14 +7926,15 @@
           "reviewer_id": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Reviewer Id"
           },
           "comment": {
@@ -6875,114 +7946,115 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Comment"
           },
           "updated_at": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "date-time"
+                "format": "date-time",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Updated At"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "title": "FindingReview",
-        "description": "Review state with attribution required for non-pending resolutions.\n\nRecorded decisions require a positive revision, reviewer and timestamp.\nReview services own decision transitions; machine evidence stays unchanged."
+        "type": "object"
       },
       "FindingReviewPage": {
+        "additionalProperties": false,
         "properties": {
           "items": {
             "items": {
               "$ref": "#/components/schemas/FindingReviewRecord"
             },
-            "type": "array",
-            "title": "Items"
+            "title": "Items",
+            "type": "array"
           },
           "limit": {
-            "type": "integer",
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Limit"
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
           },
           "offset": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Offset"
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "total": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Total"
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
           },
           "next_offset": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 0.0
+                "minimum": 0,
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Next Offset"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "items",
           "limit",
           "offset",
           "total"
         ],
-        "title": "FindingReviewPage"
+        "title": "FindingReviewPage",
+        "type": "object"
       },
       "FindingReviewRecord": {
+        "additionalProperties": false,
+        "description": "One attributed decision in a finding's append-only review history.",
         "properties": {
           "revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Revision"
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
           },
           "resolution": {
-            "type": "string",
             "enum": [
               "accepted",
               "rejected",
               "unsure"
             ],
-            "title": "Resolution"
+            "title": "Resolution",
+            "type": "string"
           },
           "reviewer_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Reviewer Id"
+            "title": "Reviewer Id",
+            "type": "string"
           },
           "comment": {
-            "type": "string",
-            "title": "Comment"
+            "title": "Comment",
+            "type": "string"
           },
           "updated_at": {
-            "type": "string",
             "format": "date-time",
-            "title": "Updated At"
+            "title": "Updated At",
+            "type": "string"
           },
           "finding_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Finding Id"
+            "title": "Finding Id",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "revision",
           "resolution",
@@ -6992,38 +8064,38 @@
           "finding_id"
         ],
         "title": "FindingReviewRecord",
-        "description": "One attributed decision in a finding's append-only review history."
+        "type": "object"
       },
       "FindingReviewRequest": {
+        "additionalProperties": false,
+        "description": "Resolve a finding at the review revision the caller last inspected.",
         "properties": {
           "expected_review_version": {
-            "type": "integer",
-            "minimum": 0.0,
+            "description": "Last-read finding review version.",
+            "minimum": 0,
             "title": "Expected Review Version",
-            "description": "Last-read finding review version."
+            "type": "integer"
           },
           "resolution": {
-            "type": "string",
             "enum": [
               "accepted",
               "rejected",
               "unsure"
             ],
-            "title": "Resolution"
+            "title": "Resolution",
+            "type": "string"
           },
           "reviewer_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Reviewer Id"
+            "title": "Reviewer Id",
+            "type": "string"
           },
           "comment": {
-            "type": "string",
-            "title": "Comment"
+            "title": "Comment",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "expected_review_version",
           "resolution",
@@ -7031,15 +8103,67 @@
           "comment"
         ],
         "title": "FindingReviewRequest",
-        "description": "Resolve a finding at the review revision the caller last inspected."
+        "type": "object"
+      },
+      "ImportedAnnotationObject": {
+        "additionalProperties": false,
+        "description": "Keep order, duplicate/negative IDs and invalid boxes for later auditing.",
+        "properties": {
+          "object_id": {
+            "title": "Object Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "bbox": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Bbox",
+            "type": "array"
+          }
+        },
+        "required": [
+          "object_id",
+          "label",
+          "bbox"
+        ],
+        "title": "ImportedAnnotationObject",
+        "type": "object"
+      },
+      "IntegrityStatus": {
+        "enum": [
+          "valid",
+          "invalid",
+          "unavailable"
+        ],
+        "title": "IntegrityStatus",
+        "type": "string"
       },
       "Job": {
+        "additionalProperties": false,
+        "description": "The public job resource; worker lease fields stay private in storage.",
         "properties": {
           "job_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Job Id"
+            "title": "Job Id",
+            "type": "string"
           },
           "kind": {
             "$ref": "#/components/schemas/JobKind"
@@ -7058,7 +8182,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "error": {
             "anyOf": [
@@ -7068,21 +8193,20 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "created_at": {
-            "type": "string",
             "format": "date-time",
-            "title": "Created At"
+            "title": "Created At",
+            "type": "string"
           },
           "updated_at": {
-            "type": "string",
             "format": "date-time",
-            "title": "Updated At"
+            "title": "Updated At",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "job_id",
           "kind",
@@ -7092,10 +8216,10 @@
           "updated_at"
         ],
         "title": "Job",
-        "description": "The public job resource; worker lease fields stay private in storage."
+        "type": "object"
       },
       "JobKind": {
-        "type": "string",
+        "description": "Kinds reserved by the public API contract.",
         "enum": [
           "rule_extraction",
           "dataset_import",
@@ -7105,10 +8229,10 @@
           "feedback_evaluation"
         ],
         "title": "JobKind",
-        "description": "Kinds reserved by the public API contract."
+        "type": "string"
       },
       "JobStatus": {
-        "type": "string",
+        "description": "Persisted lifecycle states for asynchronous work.",
         "enum": [
           "queued",
           "running",
@@ -7118,59 +8242,61 @@
           "cancelled"
         ],
         "title": "JobStatus",
-        "description": "Persisted lifecycle states for asynchronous work."
+        "type": "string"
       },
       "JsonValue": {},
       "Progress": {
+        "additionalProperties": false,
+        "description": "Safe-boundary progress; unknown work is represented by null values.",
         "properties": {
           "phase": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Phase"
+            "title": "Phase",
+            "type": "string"
           },
           "processed": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Processed"
+            "minimum": 0,
+            "title": "Processed",
+            "type": "integer"
           },
           "total": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 0.0
+                "minimum": 0,
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Total"
           },
           "fraction": {
             "anyOf": [
               {
-                "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Fraction"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "phase",
           "processed"
         ],
         "title": "Progress",
-        "description": "Safe-boundary progress; unknown work is represented by null values."
+        "type": "object"
       },
       "PublicAssetKind": {
-        "type": "string",
+        "description": "Asset names exposed by the revision-pinned HTTP asset endpoint.",
         "enum": [
           "image",
           "mask",
@@ -7178,12 +8304,12 @@
           "thumbnail"
         ],
         "title": "PublicAssetKind",
-        "description": "Asset names exposed by the revision-pinned HTTP asset endpoint."
+        "type": "string"
       },
       "ResultReference": {
+        "additionalProperties": false,
         "properties": {
           "kind": {
-            "type": "string",
             "enum": [
               "rulebook",
               "dataset",
@@ -7191,75 +8317,79 @@
               "export",
               "feedback_evaluation"
             ],
-            "title": "Kind"
+            "title": "Kind",
+            "type": "string"
           },
           "id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Id"
+            "title": "Id",
+            "type": "string"
           },
           "version": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 1.0
+                "minimum": 1,
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Version"
           },
           "href": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Href"
+            "title": "Href",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "kind",
           "id",
           "href"
         ],
-        "title": "ResultReference"
+        "title": "ResultReference",
+        "type": "object"
       },
       "Rule": {
+        "additionalProperties": false,
+        "description": "A proposed or reviewer-confirmed requirement, separate from its check.\n\nParameters contain JSON-compatible values, such as allowed labels or\nthresholds. An unknown or absent check name is permitted so unsupported\nrequirements can be retained. Extracted rules require an exact citation;\nreviewer-authored rules may have no source sentence.",
         "properties": {
           "rule_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Rule Id"
+            "title": "Rule Id",
+            "type": "string"
           },
           "description": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Description"
+            "title": "Description",
+            "type": "string"
           },
           "check_name": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Check Name"
           },
           "parameters": {
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
             },
-            "type": "object",
-            "title": "Parameters"
+            "title": "Parameters",
+            "type": "object"
           },
           "origin": {
             "$ref": "#/components/schemas/RuleOrigin"
@@ -7267,14 +8397,15 @@
           "source_sentence": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Source Sentence"
           },
           "confirmation_state": {
@@ -7282,223 +8413,224 @@
             "default": "draft"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "rule_id",
           "description",
           "origin"
         ],
         "title": "Rule",
-        "description": "A proposed or reviewer-confirmed requirement, separate from its check.\n\nParameters contain JSON-compatible values, such as allowed labels or\nthresholds. An unknown or absent check name is permitted so unsupported\nrequirements can be retained. Extracted rules require an exact citation;\nreviewer-authored rules may have no source sentence."
+        "type": "object"
       },
       "RuleExtractionRequest": {
+        "additionalProperties": false,
+        "description": "Validate nonblankness without altering whitespace or Unicode.",
         "properties": {
           "guideline_text": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Guideline Text"
+            "title": "Guideline Text",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "guideline_text"
         ],
         "title": "RuleExtractionRequest",
-        "description": "Validate nonblankness without altering whitespace or Unicode."
+        "type": "object"
       },
       "RuleOrigin": {
-        "type": "string",
+        "description": "Whether a rule was extracted from text or authored by a reviewer.",
         "enum": [
           "extracted",
           "reviewer"
         ],
         "title": "RuleOrigin",
-        "description": "Whether a rule was extracted from text or authored by a reviewer."
+        "type": "string"
       },
       "Rulebook": {
+        "additionalProperties": false,
+        "description": "Group rules with their original plain text guidelines and a version.\n\nCitation matching is exact and does not alter the supplied text. A\nconfirmed rulebook contains at least one rule, all confirmed. Rules\nrejected during review can remain in a draft or an earlier saved version.\nConfirmation fields record state; the review service manages reviewer\nactions and appends attributed revisions without changing older versions.",
         "properties": {
           "rulebook_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Rulebook Id"
+            "title": "Rulebook Id",
+            "type": "string"
           },
           "version": {
-            "type": "integer",
-            "minimum": 1.0,
+            "default": 1,
+            "minimum": 1,
             "title": "Version",
-            "default": 1
+            "type": "integer"
           },
           "guideline_text": {
-            "type": "string",
-            "title": "Guideline Text"
+            "title": "Guideline Text",
+            "type": "string"
           },
           "rules": {
             "items": {
               "$ref": "#/components/schemas/Rule"
             },
-            "type": "array",
-            "title": "Rules"
+            "title": "Rules",
+            "type": "array"
           },
           "confirmation_state": {
             "$ref": "#/components/schemas/ConfirmationState",
             "default": "draft"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "rulebook_id",
           "guideline_text"
         ],
         "title": "Rulebook",
-        "description": "Group rules with their original plain text guidelines and a version.\n\nCitation matching is exact and does not alter the supplied text. A\nconfirmed rulebook contains at least one rule, all confirmed. Rules\nrejected during review can remain in a draft or an earlier saved version.\nConfirmation fields record state; the review service manages reviewer\nactions and appends attributed revisions without changing older versions."
+        "type": "object"
       },
       "RulebookAction": {
+        "additionalProperties": false,
+        "description": "Identify the reviewed version and the person submitting the action.",
         "properties": {
           "expected_version": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Expected Version"
+            "minimum": 1,
+            "title": "Expected Version",
+            "type": "integer"
           },
           "reviewer_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Reviewer Id"
+            "title": "Reviewer Id",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "expected_version",
           "reviewer_id"
         ],
         "title": "RulebookAction",
-        "description": "Identify the reviewed version and the person submitting the action."
+        "type": "object"
       },
       "RulebookCreate": {
+        "additionalProperties": false,
+        "description": "Create an editable draft, preserving the exact supplied guideline text.\n\nEmpty text and an empty or omitted rules list are permitted. Non-null\ncitations must be exact substrings, not semantically verified references.\nUnsupported checks remain available for later human review.",
         "properties": {
           "guideline_text": {
-            "type": "string",
-            "title": "Guideline Text"
+            "title": "Guideline Text",
+            "type": "string"
           },
           "rules": {
             "items": {
               "$ref": "#/components/schemas/RulebookCreateRule"
             },
-            "type": "array",
-            "title": "Rules"
+            "title": "Rules",
+            "type": "array"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "guideline_text"
         ],
         "title": "RulebookCreate",
-        "description": "Create an editable draft, preserving the exact supplied guideline text.\n\nEmpty text and an empty or omitted rules list are permitted. Non-null\ncitations must be exact substrings, not semantically verified references.\nUnsupported checks remain available for later human review."
+        "type": "object"
       },
       "RulebookCreateRule": {
+        "additionalProperties": false,
+        "description": "Reviewer-authored content without server-owned origin or review state.",
         "properties": {
           "rule_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Rule Id"
+            "title": "Rule Id",
+            "type": "string"
           },
           "description": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Description"
+            "title": "Description",
+            "type": "string"
           },
           "check_name": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Check Name"
           },
           "parameters": {
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
             },
-            "type": "object",
-            "title": "Parameters"
+            "title": "Parameters",
+            "type": "object"
           },
           "source_sentence": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Source Sentence"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "rule_id",
           "description"
         ],
         "title": "RulebookCreateRule",
-        "description": "Reviewer-authored content without server-owned origin or review state."
+        "type": "object"
       },
       "RulebookPage": {
+        "additionalProperties": false,
+        "description": "A page of latest rulebooks or one rulebook's saved version history.",
         "properties": {
           "items": {
             "items": {
               "$ref": "#/components/schemas/Rulebook"
             },
-            "type": "array",
-            "title": "Items"
+            "title": "Items",
+            "type": "array"
           },
           "limit": {
-            "type": "integer",
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Limit"
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
           },
           "offset": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Offset"
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "total": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Total"
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
           },
           "next_offset": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 0.0
+                "minimum": 0,
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Next Offset"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "items",
           "limit",
@@ -7506,35 +8638,35 @@
           "total"
         ],
         "title": "RulebookPage",
-        "description": "A page of latest rulebooks or one rulebook's saved version history."
+        "type": "object"
       },
       "RulebookReplace": {
+        "additionalProperties": false,
+        "description": "Replace the complete draft contents, including individual rule decisions.\n\nOmitted rules are removed. New IDs must use reviewer origin; retained IDs\npreserve their origin. Confirmation states are explicit reviewer decisions.",
         "properties": {
           "expected_version": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Expected Version"
+            "minimum": 1,
+            "title": "Expected Version",
+            "type": "integer"
           },
           "reviewer_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Reviewer Id"
+            "title": "Reviewer Id",
+            "type": "string"
           },
           "guideline_text": {
-            "type": "string",
-            "title": "Guideline Text"
+            "title": "Guideline Text",
+            "type": "string"
           },
           "rules": {
             "items": {
               "$ref": "#/components/schemas/Rule"
             },
-            "type": "array",
-            "title": "Rules"
+            "title": "Rules",
+            "type": "array"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "expected_version",
           "reviewer_id",
@@ -7542,96 +8674,97 @@
           "rules"
         ],
         "title": "RulebookReplace",
-        "description": "Replace the complete draft contents, including individual rule decisions.\n\nOmitted rules are removed. New IDs must use reviewer origin; retained IDs\npreserve their origin. Confirmation states are explicit reviewer decisions."
+        "type": "object"
       },
       "RulebookReviewAction": {
-        "type": "string",
         "enum": [
           "edit",
           "confirm",
           "reject",
           "revise"
         ],
-        "title": "RulebookReviewAction"
+        "title": "RulebookReviewAction",
+        "type": "string"
       },
       "RulebookReviewPage": {
+        "additionalProperties": false,
         "properties": {
           "items": {
             "items": {
               "$ref": "#/components/schemas/RulebookReviewRecord"
             },
-            "type": "array",
-            "title": "Items"
+            "title": "Items",
+            "type": "array"
           },
           "limit": {
-            "type": "integer",
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Limit"
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
           },
           "offset": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Offset"
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "total": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Total"
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
           },
           "next_offset": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 0.0
+                "minimum": 0,
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Next Offset"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "items",
           "limit",
           "offset",
           "total"
         ],
-        "title": "RulebookReviewPage"
+        "title": "RulebookReviewPage",
+        "type": "object"
       },
       "RulebookReviewRecord": {
+        "additionalProperties": false,
+        "description": "Attribution for one new snapshot, assigned by the backend.",
         "properties": {
           "rulebook_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Rulebook Id"
+            "title": "Rulebook Id",
+            "type": "string"
           },
           "version": {
-            "type": "integer",
-            "minimum": 2.0,
-            "title": "Version"
+            "minimum": 2,
+            "title": "Version",
+            "type": "integer"
           },
           "reviewer_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Reviewer Id"
+            "title": "Reviewer Id",
+            "type": "string"
           },
           "action": {
             "$ref": "#/components/schemas/RulebookReviewAction"
           },
           "created_at": {
-            "type": "string",
             "format": "date-time",
-            "title": "Created At"
+            "title": "Created At",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "rulebook_id",
           "version",
@@ -7639,9 +8772,93 @@
           "action"
         ],
         "title": "RulebookReviewRecord",
-        "description": "Attribution for one new snapshot, assigned by the backend."
+        "type": "object"
+      },
+      "Sample": {
+        "additionalProperties": false,
+        "properties": {
+          "sample_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "image_size": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "maximum": 2147483647,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "maximum": 2147483647,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Size"
+          },
+          "integrity_status": {
+            "$ref": "#/components/schemas/IntegrityStatus"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ImportedAnnotationObject"
+            },
+            "maxItems": 10000,
+            "title": "Objects",
+            "type": "array"
+          },
+          "assets": {
+            "$ref": "#/components/schemas/SampleAssets"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "maxItems": 256,
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sample_id",
+          "dataset_id",
+          "revision",
+          "image_size",
+          "integrity_status",
+          "objects"
+        ],
+        "title": "Sample",
+        "type": "object"
       },
       "SampleAssets": {
+        "additionalProperties": false,
+        "description": "Links advertise captured source availability for the audited revision.",
         "properties": {
           "image": {
             "anyOf": [
@@ -7651,7 +8868,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "mask": {
             "anyOf": [
@@ -7661,7 +8879,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "mask_preview": {
             "anyOf": [
@@ -7671,7 +8890,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "thumbnail": {
             "anyOf": [
@@ -7681,27 +8901,27 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "title": "SampleAssets",
-        "description": "Links advertise captured source availability for the audited revision."
+        "type": "object"
       },
       "SampleAudit": {
+        "additionalProperties": false,
         "properties": {
           "audit_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Audit Id"
+            "title": "Audit Id",
+            "type": "string"
           },
           "dataset_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Dataset Id"
+            "title": "Dataset Id",
+            "type": "string"
           },
           "summary": {
             "$ref": "#/components/schemas/SampleAuditSummary"
@@ -7727,22 +8947,20 @@
             "items": {
               "$ref": "#/components/schemas/Finding"
             },
-            "type": "array",
-            "title": "Findings"
+            "title": "Findings",
+            "type": "array"
           },
           "failures": {
             "items": {
               "$ref": "#/components/schemas/AuditFailure"
             },
-            "type": "array",
-            "title": "Failures"
+            "title": "Failures",
+            "type": "array"
           },
           "review": {
             "$ref": "#/components/schemas/SampleReview"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "audit_id",
           "dataset_id",
@@ -7752,23 +8970,24 @@
           "failures",
           "review"
         ],
-        "title": "SampleAudit"
+        "title": "SampleAudit",
+        "type": "object"
       },
       "SampleAuditSummary": {
+        "additionalProperties": false,
         "properties": {
           "sample_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Sample Id"
+            "title": "Sample Id",
+            "type": "string"
           },
           "sample_revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Sample Revision"
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
           },
           "processing_status": {
-            "type": "string",
             "enum": [
               "queued",
               "running",
@@ -7776,11 +8995,12 @@
               "failed",
               "cancelled"
             ],
-            "title": "Processing Status"
+            "title": "Processing Status",
+            "type": "string"
           },
           "incomplete": {
-            "type": "boolean",
-            "title": "Incomplete"
+            "title": "Incomplete",
+            "type": "boolean"
           },
           "tool_status": {
             "$ref": "#/components/schemas/ToolStatus"
@@ -7794,19 +9014,18 @@
           "thumbnail_url": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Thumbnail Url"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "sample_id",
           "sample_revision",
@@ -7816,33 +9035,88 @@
           "review_status",
           "finding_counts"
         ],
-        "title": "SampleAuditSummary"
+        "title": "SampleAuditSummary",
+        "type": "object"
+      },
+      "SamplePage": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Sample"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "limit",
+          "offset",
+          "total",
+          "next_offset",
+          "items"
+        ],
+        "title": "SamplePage",
+        "type": "object"
       },
       "SampleReview": {
+        "additionalProperties": false,
+        "description": "Current decision for one audited sample revision, initially pending.",
         "properties": {
           "audit_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Audit Id"
+            "title": "Audit Id",
+            "type": "string"
           },
           "sample_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Sample Id"
+            "title": "Sample Id",
+            "type": "string"
           },
           "sample_revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Sample Revision"
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
           },
           "revision": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Revision",
+            "default": 0,
             "description": "Review revision, not annotation revision.",
-            "default": 0
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
           },
           "decision": {
             "$ref": "#/components/schemas/SampleReviewDecision",
@@ -7851,14 +9125,15 @@
           "reviewer_id": {
             "anyOf": [
               {
-                "type": "string",
                 "minLength": 1,
-                "pattern": "\\S"
+                "pattern": "\\S",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Reviewer Id"
           },
           "comment": {
@@ -7870,33 +9145,33 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Comment"
           },
           "updated_at": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "date-time"
+                "format": "date-time",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Updated At"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "audit_id",
           "sample_id",
           "sample_revision"
         ],
         "title": "SampleReview",
-        "description": "Current decision for one audited sample revision, initially pending."
+        "type": "object"
       },
       "SampleReviewDecision": {
-        "type": "string",
+        "description": "The reviewer's data-use decision, independent of machine findings.",
         "enum": [
           "pending_review",
           "accepted",
@@ -7904,102 +9179,103 @@
           "needs_correction"
         ],
         "title": "SampleReviewDecision",
-        "description": "The reviewer's data-use decision, independent of machine findings."
+        "type": "string"
       },
       "SampleReviewPage": {
+        "additionalProperties": false,
         "properties": {
           "items": {
             "items": {
               "$ref": "#/components/schemas/SampleReviewRecord"
             },
-            "type": "array",
-            "title": "Items"
+            "title": "Items",
+            "type": "array"
           },
           "limit": {
-            "type": "integer",
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Limit"
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
           },
           "offset": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Offset"
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "total": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Total"
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
           },
           "next_offset": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 0.0
+                "minimum": 0,
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Next Offset"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "items",
           "limit",
           "offset",
           "total"
         ],
-        "title": "SampleReviewPage"
+        "title": "SampleReviewPage",
+        "type": "object"
       },
       "SampleReviewRecord": {
+        "additionalProperties": false,
+        "description": "An attributed decision, including explicit reopening to pending review.",
         "properties": {
           "audit_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Audit Id"
+            "title": "Audit Id",
+            "type": "string"
           },
           "sample_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Sample Id"
+            "title": "Sample Id",
+            "type": "string"
           },
           "sample_revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Sample Revision"
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
           },
           "revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Revision"
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
           },
           "decision": {
             "$ref": "#/components/schemas/SampleReviewDecision",
             "default": "pending_review"
           },
           "reviewer_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Reviewer Id"
+            "title": "Reviewer Id",
+            "type": "string"
           },
           "comment": {
-            "type": "string",
-            "title": "Comment"
+            "title": "Comment",
+            "type": "string"
           },
           "updated_at": {
-            "type": "string",
             "format": "date-time",
-            "title": "Updated At"
+            "title": "Updated At",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "audit_id",
           "sample_id",
@@ -8010,38 +9286,38 @@
           "updated_at"
         ],
         "title": "SampleReviewRecord",
-        "description": "An attributed decision, including explicit reopening to pending review."
+        "type": "object"
       },
       "SampleReviewRequest": {
+        "additionalProperties": false,
+        "description": "Decide on an explicit audit sample pin at the last-read review revision.",
         "properties": {
           "expected_sample_revision": {
-            "type": "integer",
-            "minimum": 1.0,
+            "description": "Stored audit sample revision, not a live asset freshness check.",
+            "minimum": 1,
             "title": "Expected Sample Revision",
-            "description": "Stored audit sample revision, not a live asset freshness check."
+            "type": "integer"
           },
           "expected_review_version": {
-            "type": "integer",
-            "minimum": 0.0,
+            "description": "Last-read sample review version.",
+            "minimum": 0,
             "title": "Expected Review Version",
-            "description": "Last-read sample review version."
+            "type": "integer"
           },
           "decision": {
             "$ref": "#/components/schemas/SampleReviewDecision"
           },
           "reviewer_id": {
-            "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "title": "Reviewer Id"
+            "title": "Reviewer Id",
+            "type": "string"
           },
           "comment": {
-            "type": "string",
-            "title": "Comment"
+            "title": "Comment",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "expected_sample_revision",
           "expected_review_version",
@@ -8050,10 +9326,9 @@
           "comment"
         ],
         "title": "SampleReviewRequest",
-        "description": "Decide on an explicit audit sample pin at the last-read review revision."
+        "type": "object"
       },
       "ToolStatus": {
-        "type": "string",
         "enum": [
           "pending",
           "flagged",
@@ -8061,7 +9336,8 @@
           "no_issue",
           "unavailable"
         ],
-        "title": "ToolStatus"
+        "title": "ToolStatus",
+        "type": "string"
       }
     }
   },

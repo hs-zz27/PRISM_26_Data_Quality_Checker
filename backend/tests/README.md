@@ -1,5 +1,17 @@
 # Backend tests
 
+## Dataset checkpoint regression gate
+
+Phase 4 adds test_dataset_contract.py plus updates to existing API,
+rulebook-inventory and planned-contract tests. Phases 1–4, including the corrected
+Phase 2 cleanup test, are applied and all five contract artifacts are regenerated.
+test_openapi_schema_values.py covers exact integer bounds, nullable defaults,
+route metadata and schema caching for the pinned framework adapter. These
+checks were authored but not collected or run during application. PostgreSQL
+integration groups retain their existing isolated opt-in fixtures. DATASETS.md
+in ../api documents prerequisites and operator-only commands. Do not interpret
+syntax compilation or source-hash verification as a runtime test pass.
+
 Run the backend suite from the project root:
 
 ```bash

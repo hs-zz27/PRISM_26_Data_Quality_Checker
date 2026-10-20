@@ -55,20 +55,27 @@ later edits begin through `/revisions`. Show version and review-attribution hist
 
 ## 3. Import and select dataset samples
 
-**Planned:** upload through `POST /datasets`; the 202 response contains both
-`dataset` and `job`. Poll the job, then load `GET /datasets/{dataset_id}`.
-Use `GET /datasets` for selection, `/datasets/{dataset_id}/samples` for browsing,
-and `/datasets/{dataset_id}/samples/{sample_id}` for a sample/revision view.
+**Implemented in the applied dataset checkpoint source:** POST `/datasets`
+accepts exactly multipart `archive`, nonblank `name`, and `format=penn_fudan`.
+Its acknowledged 202 contains a persisted importing dataset plus queued job with
+unknown total/fraction. Do not set the browser multipart boundary yourself or send
+the synthetic binary marker. Start the explicit import worker separately.
 
-Send a ZIP file part plus the contract's text fields as multipart `FormData`.
-Do not send JSON, base64 or the fixture's `<binary dataset ZIP>` placeholder.
-Let the browser set multipart `Content-Type` and its boundary. The proposed first
-adapter is Penn-Fudan; do not advertise arbitrary archive formats.
+Poll `/jobs/{job_id}`; cancellation reuses POST `/jobs/{job_id}/cancel`.
+Browse `/datasets`, `/datasets/{dataset_id}`, and its `/samples` collection/detail.
+Existing empty/partial catalogues remain browsable during import and after failure
+or cancellation. Lists select published current heads; omit detail `revision` to
+select that explicit head, or supply a positive exact revision. All returned asset
+links pin the selected revision. Never select current via manifest maximum.
 
-Distinguish importing, ready, invalid, failed and cancelled datasets. Show sample integrity
-issues without pretending that malformed source annotations are corrected.
-The planned sample read allows latest-revision discovery when revision is omitted;
-asset downloads always require an explicit revision pin.
+Ready is not clean data. Display `issues`, null object counts, unavailable dimensions,
+and missing links without hiding samples. Empty objects only mean zero objects when
+annotation evidence establishes that fact. Corrupt readable bytes can have raw links
+while derived previews fail safely. Do not automatically accept/reject samples.
+Use `examples.dataset_import_scenarios` for all six job states, invalid archives,
+partial cancellation, dirty samples and explicit-zero versus malformed annotations.
+See DATASETS.md for worker setup, resource policies, safe errors and generation gates.
+Audit creation, corrections and export below remain planned.
 
 ## 4. Start an audit and display processing
 

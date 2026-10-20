@@ -8,6 +8,16 @@ implementation.
 See the project tracker for completed work, teammate handoffs,
 verification status and the recommended next features.
 
+## Dataset import checkpoint
+
+Feature 4 adds durable Penn-Fudan ZIP acceptance, an explicit single-attempt
+worker, and four catalogue reads. Phases 1–4 are applied and the five API artifacts
+are regenerated. Tests, migrations and import execution remain unrun.
+See api/DATASETS.md for setup, statuses, nullable counts, revision
+authority, partial evidence, limits and known local-prototype boundaries.
+Ready does not mean clean annotations. Audit creation, corrections and export over
+HTTP remain planned. No detector, matching or evaluator changes belong to this feature.
+
 ## Structure
 
 ```text
@@ -300,7 +310,7 @@ when exceeded; preview decoding failures return `422 ASSET_NOT_RENDERABLE`.
 
 See api/README.md for the full contract and frontend fixtures.
 api/ENDPOINTS.md distinguishes these implemented routes from
-remaining planned operations, including audit creation, dataset import and
+remaining planned operations, including audit creation and
 correction/export workflows.
 
 ## Finding records
@@ -475,7 +485,7 @@ and temporary-storage failures fail the job rather than being recorded as bad
 source samples. Missing or unreadable assets recorded at capture time remain
 source-data evidence for the collector.
 
-The current prototype does not own annotation-head selection; the resolver must
+Before the dataset checkpoint, the prototype did not own annotation-head selection; the resolver must
 provide the authoritative revision and trusted source root for each sample.
 `needs_correction` records a decision, not an annotation edit. Correction storage,
 validation and immutable revision publication still need implementation; corrected

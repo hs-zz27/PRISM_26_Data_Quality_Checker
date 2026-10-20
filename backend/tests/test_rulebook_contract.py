@@ -98,7 +98,7 @@ def test_full_generated_implemented_inventory_matches_live_once():
               for path, methods in live["paths"].items() for method, op in methods.items()}
     assert implemented == actual
     identifiers = [op["operationId"] for methods in live["paths"].values() for op in methods.values()]
-    assert len(identifiers) == len(set(identifiers)) == 20
+    assert len(identifiers) == len(set(identifiers)) == 25
     # OpenAPI dictionaries hide duplicate registrations. Traverse included routers
     # as well as directly registered routes so repeated inclusions remain visible.
     routes = [
@@ -107,7 +107,7 @@ def test_full_generated_implemented_inventory_matches_live_once():
         if isinstance(context.original_route, APIRoute)
         and context.original_route.include_in_schema
     ]
-    assert len(routes) == len(set(routes)) == 20
+    assert len(routes) == len(set(routes)) == 25
     for identifier in OPERATIONS:
         assert routes.count(identifier) == 1
     assert generated["paths"]["/rulebooks"]["post"]["x-implementation-status"] == "implemented"

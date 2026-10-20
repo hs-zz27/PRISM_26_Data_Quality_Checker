@@ -1,5 +1,5 @@
 {
-  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Audit metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, audit metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
   "base_url": "http://127.0.0.1:8000",
   "operations": [
     {
@@ -679,16 +679,16 @@
       "method": "POST",
       "path": "/api/v1/datasets",
       "tag": "Datasets",
-      "summary": "Upload a dataset archive for local import",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Queue a durable dataset ZIP import",
+      "implementation": "implemented",
+      "backing_service": "Durable upload service and managed single-attempt import worker; worker is explicitly started.",
       "request": {
         "path_parameters": {},
         "query": {},
         "content_type": "multipart/form-data",
         "body": {
           "archive": "<binary dataset ZIP>",
-          "name": "Demo dataset",
+          "name": "Synthetic dirty-source dataset",
           "format": "penn_fudan"
         }
       },
@@ -697,14 +697,14 @@
         "content_type": "application/json",
         "body": {
           "dataset": {
-            "dataset_id": "dataset_demo",
-            "name": "Demo dataset",
+            "dataset_id": "dataset_import_demo",
+            "name": "Synthetic dirty-source dataset",
             "format": "penn_fudan",
             "status": "importing",
             "sample_count": null,
             "object_count": null,
             "import_job_id": "job_dataset_import_demo",
-            "created_at": "2026-10-14T10:00:00Z",
+            "created_at": "2026-10-20T10:00:00Z",
             "issues": []
           },
           "job": {
@@ -714,13 +714,13 @@
             "progress": {
               "phase": "queued",
               "processed": 0,
-              "total": 1,
-              "fraction": 0.0
+              "total": null,
+              "fraction": null
             },
             "result": null,
             "error": null,
-            "created_at": "2026-10-14T10:00:00Z",
-            "updated_at": "2026-10-14T10:00:00Z"
+            "created_at": "2026-10-20T10:00:00Z",
+            "updated_at": "2026-10-20T10:00:00Z"
           }
         }
       }
@@ -730,9 +730,9 @@
       "method": "GET",
       "path": "/api/v1/datasets",
       "tag": "Datasets",
-      "summary": "List imported datasets",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "List persisted datasets",
+      "implementation": "implemented",
+      "backing_service": "DatasetRepository metadata reads; no decoding, capture or workflow transitions.",
       "request": {
         "path_parameters": {},
         "query": {
@@ -771,9 +771,9 @@
       "method": "GET",
       "path": "/api/v1/datasets/{dataset_id}",
       "tag": "Datasets",
-      "summary": "Read dataset import and integrity summary",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Read persisted import status",
+      "implementation": "implemented",
+      "backing_service": "DatasetRepository metadata read.",
       "request": {
         "path_parameters": {
           "dataset_id": "dataset_demo"
@@ -803,9 +803,9 @@
       "method": "GET",
       "path": "/api/v1/datasets/{dataset_id}/samples",
       "tag": "Datasets",
-      "summary": "List every dataset sample",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Browse published sample heads",
+      "implementation": "implemented",
+      "backing_service": "DatasetRepository page-bounded snapshot reads, including damaged evidence.",
       "request": {
         "path_parameters": {
           "dataset_id": "dataset_demo"
@@ -874,7 +874,8 @@
                   "content_type": "image/png",
                   "revision": 1
                 }
-              }
+              },
+              "issues": []
             }
           ],
           "limit": 20,
@@ -889,9 +890,9 @@
       "method": "GET",
       "path": "/api/v1/datasets/{dataset_id}/samples/{sample_id}",
       "tag": "Datasets",
-      "summary": "Read annotations and pinned asset URLs",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Read exact catalogue sample evidence",
+      "implementation": "implemented",
+      "backing_service": "Catalogue-owned current head or exact historical revision.",
       "request": {
         "path_parameters": {
           "dataset_id": "dataset_demo",
@@ -958,7 +959,8 @@
               "content_type": "image/png",
               "revision": 1
             }
-          }
+          },
+          "issues": []
         }
       }
     },
@@ -6003,109 +6005,826 @@
       "updated_at": "2026-10-14T10:00:00Z"
     }
   },
-  "future_job_scenarios": {
-    "dataset_import": {
-      "queued": {
+  "dataset_import_scenarios": {
+    "notice": "Independent synthetic snapshots, not importer outputs. Ready does not mean clean data. Failed/cancelled imports retain only revisions already published; progress is not readiness.",
+    "started": {
+      "dataset": {
+        "dataset_id": "dataset_import_demo",
+        "name": "Synthetic dirty-source dataset",
+        "format": "penn_fudan",
+        "status": "importing",
+        "sample_count": null,
+        "object_count": null,
+        "import_job_id": "job_dataset_import_demo",
+        "created_at": "2026-10-20T10:00:00Z",
+        "issues": []
+      },
+      "job": {
         "job_id": "job_dataset_import_demo",
         "kind": "dataset_import",
         "status": "queued",
         "progress": {
           "phase": "queued",
           "processed": 0,
-          "total": 1,
-          "fraction": 0.0
+          "total": null,
+          "fraction": null
         },
         "result": null,
         "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+        "created_at": "2026-10-20T10:00:00Z",
+        "updated_at": "2026-10-20T10:00:00Z"
+      }
+    },
+    "states": {
+      "queued": {
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "importing",
+          "sample_count": null,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": []
+        },
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "queued",
+          "progress": {
+            "phase": "queued",
+            "processed": 0,
+            "total": null,
+            "fraction": null
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
       },
       "running": {
-        "job_id": "job_dataset_import_demo",
-        "kind": "dataset_import",
-        "status": "running",
-        "progress": {
-          "phase": "running",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "importing",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": []
         },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "running",
+          "progress": {
+            "phase": "importing",
+            "processed": 1,
+            "total": 6,
+            "fraction": 0.16666666666666666
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
       },
       "cancelling": {
-        "job_id": "job_dataset_import_demo",
-        "kind": "dataset_import",
-        "status": "cancelling",
-        "progress": {
-          "phase": "cancelling",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "importing",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": []
         },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "cancelling",
+          "progress": {
+            "phase": "importing",
+            "processed": 1,
+            "total": 6,
+            "fraction": 0.16666666666666666
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
       },
       "completed": {
-        "job_id": "job_dataset_import_demo",
-        "kind": "dataset_import",
-        "status": "completed",
-        "progress": {
-          "phase": "completed",
-          "processed": 1,
-          "total": 1,
-          "fraction": 1.0
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "ready",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": []
         },
-        "result": {
-          "kind": "dataset",
-          "id": "dataset_demo",
-          "version": null,
-          "href": "/api/v1/datasets/dataset_demo"
-        },
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "completed",
+          "progress": {
+            "phase": "completed",
+            "processed": 6,
+            "total": 6,
+            "fraction": 1.0
+          },
+          "result": {
+            "kind": "dataset",
+            "id": "dataset_import_demo",
+            "version": null,
+            "href": "/api/v1/datasets/dataset_import_demo"
+          },
+          "error": null,
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
       },
       "failed": {
-        "job_id": "job_dataset_import_demo",
-        "kind": "dataset_import",
-        "status": "failed",
-        "progress": {
-          "phase": "failed",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "failed",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": [
+            {
+              "field": null,
+              "message": "The import could not be completed."
+            }
+          ]
         },
-        "result": null,
-        "error": {
-          "code": "DATASET_IMPORT_FAILED",
-          "message": "The requested work could not be completed.",
-          "details": [],
-          "request_id": "request_demo"
-        },
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "failed",
+          "progress": {
+            "phase": "failed",
+            "processed": 1,
+            "total": 6,
+            "fraction": 0.16666666666666666
+          },
+          "result": null,
+          "error": {
+            "code": "IMPORT_FAILED",
+            "message": "The import could not be completed.",
+            "details": [],
+            "request_id": "job_dataset_import_demo"
+          },
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
       },
       "cancelled": {
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "cancelled",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": []
+        },
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "cancelled",
+          "progress": {
+            "phase": "cancelled",
+            "processed": 1,
+            "total": 6,
+            "fraction": 0.16666666666666666
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
+      }
+    },
+    "samples": {
+      "zero_object": {
+        "sample_id": "zero_object",
+        "dataset_id": "dataset_import_demo",
+        "revision": 1,
+        "image_size": [
+          4,
+          3
+        ],
+        "integrity_status": "valid",
+        "objects": [],
+        "assets": {
+          "image": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/zero_object/assets/image?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "mask": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/zero_object/assets/mask?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "mask_preview": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/zero_object/assets/mask_preview?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "thumbnail": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/zero_object/assets/thumbnail?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          }
+        },
+        "issues": []
+      },
+      "annotation_only": {
+        "sample_id": "annotation_only",
+        "dataset_id": "dataset_import_demo",
+        "revision": 1,
+        "image_size": null,
+        "integrity_status": "invalid",
+        "objects": [
+          {
+            "object_id": 1,
+            "label": "person",
+            "bbox": [
+              1,
+              1,
+              2,
+              2
+            ]
+          }
+        ],
+        "assets": {
+          "image": null,
+          "mask": null,
+          "mask_preview": null,
+          "thumbnail": null
+        },
+        "issues": [
+          {
+            "field": "image",
+            "message": "The source image is missing."
+          },
+          {
+            "field": "mask",
+            "message": "The source mask is missing."
+          }
+        ]
+      },
+      "missing_mask": {
+        "sample_id": "missing_mask",
+        "dataset_id": "dataset_import_demo",
+        "revision": 1,
+        "image_size": [
+          4,
+          3
+        ],
+        "integrity_status": "invalid",
+        "objects": [
+          {
+            "object_id": 1,
+            "label": "person",
+            "bbox": [
+              1,
+              1,
+              2,
+              2
+            ]
+          }
+        ],
+        "assets": {
+          "image": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/missing_mask/assets/image?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "mask": null,
+          "mask_preview": null,
+          "thumbnail": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/missing_mask/assets/thumbnail?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          }
+        },
+        "issues": [
+          {
+            "field": "mask",
+            "message": "The source mask is missing."
+          }
+        ]
+      },
+      "corrupt_image": {
+        "sample_id": "corrupt_image",
+        "dataset_id": "dataset_import_demo",
+        "revision": 1,
+        "image_size": null,
+        "integrity_status": "invalid",
+        "objects": [
+          {
+            "object_id": 1,
+            "label": "person",
+            "bbox": [
+              1,
+              1,
+              2,
+              2
+            ]
+          }
+        ],
+        "assets": {
+          "image": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/corrupt_image/assets/image?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "mask": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/corrupt_image/assets/mask?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "mask_preview": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/corrupt_image/assets/mask_preview?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "thumbnail": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/corrupt_image/assets/thumbnail?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          }
+        },
+        "issues": [
+          {
+            "field": "image",
+            "message": "The source image could not be decoded safely."
+          }
+        ]
+      },
+      "malformed_annotation": {
+        "sample_id": "malformed_annotation",
+        "dataset_id": "dataset_import_demo",
+        "revision": 1,
+        "image_size": [
+          4,
+          3
+        ],
+        "integrity_status": "invalid",
+        "objects": [],
+        "assets": {
+          "image": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/malformed_annotation/assets/image?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "mask": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/malformed_annotation/assets/mask?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "mask_preview": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/malformed_annotation/assets/mask_preview?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "thumbnail": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/malformed_annotation/assets/thumbnail?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          }
+        },
+        "issues": [
+          {
+            "field": "annotation",
+            "message": "The source annotation could not be parsed completely."
+          }
+        ]
+      },
+      "invalid_objects": {
+        "sample_id": "invalid_objects",
+        "dataset_id": "dataset_import_demo",
+        "revision": 1,
+        "image_size": [
+          4,
+          3
+        ],
+        "integrity_status": "invalid",
+        "objects": [
+          {
+            "object_id": 0,
+            "label": "person",
+            "bbox": [
+              -3,
+              4,
+              1,
+              -2
+            ]
+          },
+          {
+            "object_id": 0,
+            "label": "person",
+            "bbox": [
+              4,
+              3,
+              1,
+              1
+            ]
+          }
+        ],
+        "assets": {
+          "image": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/invalid_objects/assets/image?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "mask": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/invalid_objects/assets/mask?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "mask_preview": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/invalid_objects/assets/mask_preview?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          },
+          "thumbnail": {
+            "url": "/api/v1/datasets/dataset_import_demo/samples/invalid_objects/assets/thumbnail?revision=1",
+            "content_type": "image/png",
+            "revision": 1
+          }
+        },
+        "issues": [
+          {
+            "field": "annotation.objects",
+            "message": "Source annotation objects contain invalid values or duplicate identities."
+          }
+        ]
+      }
+    },
+    "invalid": {
+      "INVALID_ARCHIVE": {
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "invalid",
+          "sample_count": null,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": [
+            {
+              "field": "archive",
+              "message": "The archive is not a usable supported ZIP archive."
+            }
+          ]
+        },
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "failed",
+          "progress": {
+            "phase": "failed",
+            "processed": 0,
+            "total": null,
+            "fraction": null
+          },
+          "result": null,
+          "error": {
+            "code": "INVALID_ARCHIVE",
+            "message": "The archive is not a usable supported ZIP archive.",
+            "details": [],
+            "request_id": "job_dataset_import_demo"
+          },
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
+      },
+      "INVALID_LAYOUT": {
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "invalid",
+          "sample_count": null,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": [
+            {
+              "field": "layout",
+              "message": "The archive has no unambiguous recognizable sample layout."
+            }
+          ]
+        },
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "failed",
+          "progress": {
+            "phase": "failed",
+            "processed": 0,
+            "total": null,
+            "fraction": null
+          },
+          "result": null,
+          "error": {
+            "code": "INVALID_LAYOUT",
+            "message": "The archive has no unambiguous recognizable sample layout.",
+            "details": [],
+            "request_id": "job_dataset_import_demo"
+          },
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
+      }
+    },
+    "failures": {
+      "IMPORT_RESOURCE_LIMIT": {
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "failed",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": [
+            {
+              "field": null,
+              "message": "The import exceeded a configured resource limit."
+            }
+          ]
+        },
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "failed",
+          "progress": {
+            "phase": "failed",
+            "processed": 1,
+            "total": 6,
+            "fraction": 0.16666666666666666
+          },
+          "result": null,
+          "error": {
+            "code": "IMPORT_RESOURCE_LIMIT",
+            "message": "The import exceeded a configured resource limit.",
+            "details": [],
+            "request_id": "job_dataset_import_demo"
+          },
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
+      },
+      "IMPORT_STORAGE_FAILED": {
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "failed",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": [
+            {
+              "field": null,
+              "message": "The import could not be completed."
+            }
+          ]
+        },
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "failed",
+          "progress": {
+            "phase": "failed",
+            "processed": 1,
+            "total": 6,
+            "fraction": 0.16666666666666666
+          },
+          "result": null,
+          "error": {
+            "code": "IMPORT_STORAGE_FAILED",
+            "message": "Private import storage could not be used.",
+            "details": [],
+            "request_id": "job_dataset_import_demo"
+          },
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
+      },
+      "IMPORT_TIMEOUT": {
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "failed",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": [
+            {
+              "field": null,
+              "message": "The import could not be completed."
+            }
+          ]
+        },
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "failed",
+          "progress": {
+            "phase": "failed",
+            "processed": 1,
+            "total": 6,
+            "fraction": 0.16666666666666666
+          },
+          "result": null,
+          "error": {
+            "code": "IMPORT_TIMEOUT",
+            "message": "The import exceeded its processing time limit.",
+            "details": [],
+            "request_id": "job_dataset_import_demo"
+          },
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
+      },
+      "IMPORT_INTERRUPTED": {
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "failed",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": [
+            {
+              "field": null,
+              "message": "The import could not be completed."
+            }
+          ]
+        },
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "failed",
+          "progress": {
+            "phase": "failed",
+            "processed": 1,
+            "total": 6,
+            "fraction": 0.16666666666666666
+          },
+          "result": null,
+          "error": {
+            "code": "IMPORT_INTERRUPTED",
+            "message": "Import processing was interrupted; submit a new archive to try again.",
+            "details": [],
+            "request_id": "job_dataset_import_demo"
+          },
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
+      },
+      "IMPORT_FAILED": {
+        "dataset": {
+          "dataset_id": "dataset_import_demo",
+          "name": "Synthetic dirty-source dataset",
+          "format": "penn_fudan",
+          "status": "failed",
+          "sample_count": 6,
+          "object_count": null,
+          "import_job_id": "job_dataset_import_demo",
+          "created_at": "2026-10-20T10:00:00Z",
+          "issues": [
+            {
+              "field": null,
+              "message": "The import could not be completed."
+            }
+          ]
+        },
+        "job": {
+          "job_id": "job_dataset_import_demo",
+          "kind": "dataset_import",
+          "status": "failed",
+          "progress": {
+            "phase": "failed",
+            "processed": 1,
+            "total": 6,
+            "fraction": 0.16666666666666666
+          },
+          "result": null,
+          "error": {
+            "code": "IMPORT_FAILED",
+            "message": "The import could not be completed.",
+            "details": [],
+            "request_id": "job_dataset_import_demo"
+          },
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T10:00:00Z"
+        }
+      }
+    },
+    "queued_cancelled": {
+      "dataset": {
+        "dataset_id": "dataset_import_demo",
+        "name": "Synthetic dirty-source dataset",
+        "format": "penn_fudan",
+        "status": "cancelled",
+        "sample_count": null,
+        "object_count": null,
+        "import_job_id": "job_dataset_import_demo",
+        "created_at": "2026-10-20T10:00:00Z",
+        "issues": []
+      },
+      "job": {
         "job_id": "job_dataset_import_demo",
         "kind": "dataset_import",
         "status": "cancelled",
         "progress": {
           "phase": "cancelled",
           "processed": 0,
-          "total": 1,
-          "fraction": 0.0
+          "total": null,
+          "fraction": null
         },
         "result": null,
         "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+        "created_at": "2026-10-20T10:00:00Z",
+        "updated_at": "2026-10-20T10:00:00Z"
       }
     },
+    "annotation_evidence": {
+      "notice": "Illustrative source text only, not part of the Sample transport or an executed parser check.",
+      "zero_object": {
+        "text": "Image size (X x Y x C) : 4 x 3 x 3\nObjects with ground truth : 0 {}\n# Top left pixel co-ordinates : (1, 1)\n",
+        "annotation_object_count": 0
+      },
+      "malformed_annotation": {
+        "text": "not a recognized annotation\n",
+        "annotation_object_count": null
+      }
+    },
+    "partial_sample": {
+      "sample_id": "annotation_only",
+      "dataset_id": "dataset_import_demo",
+      "revision": 1,
+      "image_size": null,
+      "integrity_status": "invalid",
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "person",
+          "bbox": [
+            1,
+            1,
+            2,
+            2
+          ]
+        }
+      ],
+      "assets": {
+        "image": null,
+        "mask": null,
+        "mask_preview": null,
+        "thumbnail": null
+      },
+      "issues": [
+        {
+          "field": "image",
+          "message": "The source image is missing."
+        },
+        {
+          "field": "mask",
+          "message": "The source mask is missing."
+        }
+      ]
+    }
+  },
+  "future_job_scenarios": {
     "recheck": {
       "queued": {
         "job_id": "job_recheck_demo",
