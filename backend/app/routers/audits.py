@@ -1,22 +1,27 @@
-"""Read endpoints for the human audit review queue."""
+"""Audit submission, persisted summaries and the human review queue."""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query
 
 from ..models.audit import AuditRun
+from ..models.audit_submission import AuditPage, AuditRequest, AuditStarted
 from ..models.audit_read import AuditSamplePage, ErrorResponse, SampleAudit, ToolStatus
 from ..models.review import SampleReviewDecision
+from ..services.audit_submission import AuditSubmissionService
+from ..services.batch_audit import BatchAuditService
 from ..storage.audit_read_repository import AuditReadRepository
+from ..storage.dataset_repository import DatasetRepository
+from ..storage.repository import RulebookRepository
 from ..storage.workflow_repository import AuditRepository
 
 
 router = APIRouter(prefix="/audits", tags=["Audits"], responses={
-    404: {"model": ErrorResponse, "description": "Audit or sample not found."},
     422: {"model": ErrorResponse, "description": "Invalid request fields."},
     500: {"model": ErrorResponse, "description": "Unexpected server error."},
     503: {"model": ErrorResponse, "description": "Audit storage unavailable."},
 })
+NOT_FOUND = {404: {"model": ErrorResponse, "description": "The requested resource does not exist."}}
 
 
 def get_audit_read_repository() -> AuditReadRepository:
@@ -25,8 +30,20 @@ def get_audit_read_repository() -> AuditReadRepository:
 
 
 def get_audit_repository() -> AuditRepository:
-    """Resolve audit storage only when an audit overview is requested."""
+    """Resolve audit storage at request time."""
     return AuditRepository()
+
+
+def get_audit_submission_service(
+    repository: Annotated[AuditRepository, Depends(get_audit_repository)],
+) -> AuditSubmissionService:
+    return AuditSubmissionService(
+        catalogue=DatasetRepository(settings=repository.settings),
+        batch=BatchAuditService(
+            rulebook_repository=RulebookRepository(settings=repository.settings),
+            audit_repository=repository,
+        ),
+    )
 
 
 Repository = Annotated[AuditReadRepository, Depends(get_audit_read_repository)]
@@ -34,13 +51,35 @@ AuditRepositoryDependency = Annotated[AuditRepository, Depends(get_audit_reposit
 Identifier = Annotated[str, Path(min_length=1, pattern=r"\S")]
 
 
-@router.get("/{audit_id}", response_model=AuditRun, operation_id="getAudit")
+@router.post(
+    "", response_model=AuditStarted, status_code=202, operation_id="startAudit",
+    responses={**NOT_FOUND, 409: {"model": ErrorResponse, "description": "Dataset or rulebook is not ready."}},
+)
+def start_audit(
+    request: AuditRequest,
+    service: Annotated[AuditSubmissionService, Depends(get_audit_submission_service)],
+) -> AuditStarted:
+    """Queue a snapshot audit; processing runs in the explicit audit worker."""
+    return service.start(request)
+
+
+@router.get("", response_model=AuditPage, operation_id="listAudits")
+def list_audits(
+    repository: AuditRepositoryDependency,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0, le=9_223_372_036_854_775_807)] = 0,
+) -> AuditPage:
+    """Read all audit states, newest first, without running or recovering jobs."""
+    return repository.list_audits(limit=limit, offset=offset)
+
+
+@router.get("/{audit_id}", response_model=AuditRun, operation_id="getAudit", responses=NOT_FOUND)
 def get_audit(audit_id: Identifier, repository: AuditRepositoryDependency) -> AuditRun:
     """Read persisted audit progress without changing workflow or review state."""
     return repository.get_audit(audit_id)
 
 
-@router.get("/{audit_id}/samples", response_model=AuditSamplePage, operation_id="listAuditSamples")
+@router.get("/{audit_id}/samples", response_model=AuditSamplePage, operation_id="listAuditSamples", responses=NOT_FOUND)
 def list_audit_samples(
     audit_id: Identifier,
     repository: Repository,
@@ -55,7 +94,7 @@ def list_audit_samples(
     )
 
 
-@router.get("/{audit_id}/samples/{sample_id}", response_model=SampleAudit, operation_id="getAuditSample")
+@router.get("/{audit_id}/samples/{sample_id}", response_model=SampleAudit, operation_id="getAuditSample", responses=NOT_FOUND)
 def get_audit_sample(
     audit_id: Identifier, sample_id: Identifier, repository: Repository,
 ) -> SampleAudit:

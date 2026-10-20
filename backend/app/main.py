@@ -17,7 +17,7 @@ def create_app(*, dataset_upload_settings_factory=None) -> FastAPI:
     app = FastAPI(
         title="PRISM audit review API", version="0.1.0",
         description=(
-            "Audit sample reads, revision-pinned asset delivery, job status and audit-aware cancellation, finding and sample review decisions, "
+            "Audit creation, listing and sample reads, revision-pinned asset delivery, job status and audit-aware cancellation, finding and sample review decisions, "
             "review history, durable plain-text extraction submission and manual rulebook creation/reads/reviewer actions are implemented. "
             "Dataset upload acceptance and catalogue reads are implemented; the import worker is explicit. "
             "Other operations in backend/api remain planned."

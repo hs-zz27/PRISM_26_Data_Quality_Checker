@@ -8,18 +8,20 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
-from ..core.config import AssetStorageConfigurationError, DatabaseConfigurationError
+from ..core.config import AssetStorageConfigurationError, AuditConfigurationError, DatabaseConfigurationError
 from ..models.audit_read import ErrorResponse
 from ..core.dataset_http import DatasetHttpDependencyError, DatasetRequestError, DatasetUnsupportedMediaError
 from ..core.dataset_import import (
     ImportAcceptanceError, ImportConfigurationError, ImportOutcomeUnresolved, UploadTooLargeError,
 )
 from ..storage.dataset_repository import (
-    DatasetNotFoundError, DatasetRevisionNotFoundError, DatasetSampleNotFoundError, DatasetStorageError,
+    DatasetNotFoundError, DatasetNotReadyError, DatasetRevisionNotFoundError, DatasetSampleNotFoundError, DatasetStorageError,
 )
 from ..storage.extraction_repository import ExtractionSubmissionError
 from ..models.job import ApiError, ErrorDetail
 from ..services.asset_preview import PreviewUnavailableError
+from ..services.audit_submission import AuditRuleParametersError
+from ..services.batch_audit import RulebookNotConfirmedError
 from ..services.review import RulebookContentValidationError, RulebookReviewError
 from ..storage.repository import (
     RulebookNotFoundError,
@@ -51,6 +53,15 @@ def _response(status: int, code: str, message: str, *, details: list[ErrorDetail
     return JSONResponse(status_code=status, content=body.model_dump(mode="json"))
 
 def register_error_handlers(app: FastAPI) -> None:
+    async def dataset_not_ready(request: Request, error: DatasetNotReadyError) -> JSONResponse:
+        return _response(409, "DATASET_NOT_READY", "Wait for a ready dataset before starting an audit.")
+
+    async def rulebook_not_confirmed(request: Request, error: RulebookNotConfirmedError) -> JSONResponse:
+        return _response(409, "RULEBOOK_NOT_CONFIRMED", "Confirm the selected rulebook version and all its rules before starting an audit.")
+
+    async def audit_parameters_invalid(request: Request, error: AuditRuleParametersError) -> JSONResponse:
+        return _response(422, "VALIDATION_ERROR", "The selected rulebook contains invalid check parameters. Revise and confirm the rulebook before auditing.")
+
     async def dataset_not_found(request: Request, error: Exception) -> JSONResponse:
         return _response(404, "NOT_FOUND", "The requested dataset, sample or exact revision does not exist.")
 
@@ -204,6 +215,9 @@ def register_error_handlers(app: FastAPI) -> None:
         logger.exception("Unhandled API error", exc_info=error)
         return _response(500, "INTERNAL_ERROR", "The request could not be completed.")
 
+    app.add_exception_handler(DatasetNotReadyError, dataset_not_ready)
+    app.add_exception_handler(RulebookNotConfirmedError, rulebook_not_confirmed)
+    app.add_exception_handler(AuditRuleParametersError, audit_parameters_invalid)
     app.add_exception_handler(DatasetNotFoundError, dataset_not_found)
     app.add_exception_handler(DatasetSampleNotFoundError, dataset_not_found)
     app.add_exception_handler(DatasetRevisionNotFoundError, dataset_not_found)
@@ -237,6 +251,7 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(WorkflowStorageError, unavailable)
     app.add_exception_handler(DatabaseConfigurationError, unavailable)
     app.add_exception_handler(AssetStorageConfigurationError, unavailable)
+    app.add_exception_handler(AuditConfigurationError, unavailable)
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.add_exception_handler(HTTPException, http_error)
     app.add_exception_handler(Exception, unexpected_error)
