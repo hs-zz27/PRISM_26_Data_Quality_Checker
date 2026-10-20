@@ -31,9 +31,11 @@ from backend.app.storage.repository import (
     RulebookVersionConflictError,
 )
 
-
 SOURCE = "Allowed labels are person and véhicule."
 
+def migration_versions():
+    return sorted(int(path.name[:3]) for path in
+                  database.MIGRATIONS_DIRECTORY.glob("[0-9][0-9][0-9]_*.sql"))
 
 def make_book(rulebook_id="rulebook_demo", version=1, state=ConfirmationState.DRAFT):
     rule = Rule(
@@ -45,7 +47,6 @@ def make_book(rulebook_id="rulebook_demo", version=1, state=ConfirmationState.DR
         rulebook_id=rulebook_id, version=version, guideline_text=f"\n  {SOURCE}\n",
         rules=[rule], confirmation_state=state,
     )
-
 
 @pytest.fixture
 def empty_database_settings():
@@ -66,17 +67,14 @@ def empty_database_settings():
                 sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema))
             )
 
-
 @pytest.fixture
 def database_settings(empty_database_settings):
     initialize_database(empty_database_settings)
     return empty_database_settings
 
-
 @pytest.fixture
 def store(database_settings):
     return RulebookRepository(settings=database_settings)
-
 
 @pytest.fixture
 def unconnected_store(monkeypatch):
@@ -87,11 +85,9 @@ def unconnected_store(monkeypatch):
     settings = DatabaseSettings(conninfo=SecretStr("host=127.0.0.1 dbname=unconnected"))
     return RulebookRepository(settings=settings)
 
-
 def edit_database(store, statement, parameters=()):
     with database_connection(store.settings) as connection:
         connection.execute(statement, parameters)
-
 
 def test_rulebook_round_trip_survives_new_repository_instance(store):
     original = make_book()
@@ -103,7 +99,6 @@ def test_rulebook_round_trip_survives_new_repository_instance(store):
     assert loaded.rules[0].origin is RuleOrigin.EXTRACTED
     assert loaded.confirmation_state is ConfirmationState.DRAFT
     assert loaded.rules[0].parameters["context"]["optional"] is None
-
 
 @pytest.mark.parametrize("proposal_kind", ["supported", "unsupported", "empty"])
 def test_extraction_workflow_commits_reviewable_drafts(store, monkeypatch, proposal_kind):
@@ -142,13 +137,11 @@ def test_extraction_workflow_commits_reviewable_drafts(store, monkeypatch, propo
     assert all(rule.origin is RuleOrigin.EXTRACTED for rule in loaded.rules)
     assert all(rule.confirmation_state is ConfirmationState.DRAFT for rule in loaded.rules)
 
-
 def test_schema_initialization_is_idempotent_and_preserves_records(store):
     original = store.save_rulebook(make_book())
     initialize_database(store.settings)
     initialize_database(store.settings)
     assert store.get_rulebook(original.rulebook_id) == original
-
 
 def test_concurrent_schema_initialization_creates_one_migration_history(empty_database_settings):
     barrier = Barrier(2)
@@ -163,14 +156,10 @@ def test_concurrent_schema_initialization_creates_one_migration_history(empty_da
     with database_connection(empty_database_settings, readonly=True) as connection:
         assert connection.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall() == [
-            {"version": 1}, {"version": 2}, {"version": 3}, {"version": 4}, {"version": 5}, {"version": 6},
-            {"version": 7}, {"version": 8},
-        ]
+        ).fetchall() == [{"version": version} for version in migration_versions()]
         assert connection.execute(
             "SELECT COUNT(*) AS total FROM rulebook_versions"
         ).fetchone() == {"total": 0}
-
 
 @pytest.mark.parametrize("versions", [(2,), (1, 3), (1, 2, 4)])
 def test_incompatible_or_future_migration_history_is_refused(store, versions):
@@ -189,17 +178,18 @@ def test_incompatible_or_future_migration_history_is_refused(store, versions):
         ).fetchall() == [{"version": version} for version in versions]
     assert store.get_rulebook(original.rulebook_id) == original
 
-
 def test_failed_migration_batch_rolls_back_ddl_and_history(store, tmp_path, monkeypatch):
     original = store.save_rulebook(make_book())
+    original_versions = migration_versions()
+    next_version = max(original_versions) + 1
     migrations = tmp_path / "migrations"
     migrations.mkdir()
     for source in database.MIGRATIONS_DIRECTORY.glob("[0-9][0-9][0-9]_*.sql"):
         (migrations / source.name).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
-    (migrations / "009_probe.sql").write_text(
+    (migrations / f"{next_version:03d}_probe.sql").write_text(
         "CREATE TABLE migration_probe (probe_id INTEGER);", encoding="utf-8",
     )
-    failing_migration = migrations / "010_failure.sql"
+    failing_migration = migrations / f"{next_version + 1:03d}_failure.sql"
     failing_migration.write_text(
         "CREATE TABLE second_migration_probe (probe_id INTEGER);\n"
         "SELECT 'invalid integer'::INTEGER;", encoding="utf-8",
@@ -212,10 +202,7 @@ def test_failed_migration_batch_rolls_back_ddl_and_history(store, tmp_path, monk
     with database_connection(store.settings, readonly=True) as connection:
         assert connection.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall() == [
-            {"version": 1}, {"version": 2}, {"version": 3}, {"version": 4}, {"version": 5}, {"version": 6},
-            {"version": 7}, {"version": 8},
-        ]
+        ).fetchall() == [{"version": version} for version in original_versions]
         assert connection.execute(
             "SELECT to_regclass('migration_probe') AS first, "
             "to_regclass('second_migration_probe') AS second"
@@ -229,14 +216,10 @@ def test_failed_migration_batch_rolls_back_ddl_and_history(store, tmp_path, monk
     with database_connection(store.settings, readonly=True) as connection:
         assert connection.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall() == [
-            {"version": 1}, {"version": 2}, {"version": 3},
-            {"version": 4}, {"version": 5}, {"version": 6}, {"version": 7}, {"version": 8}, {"version": 9}, {"version": 10},
-        ]
+        ).fetchall() == [{"version": version} for version in original_versions + [next_version, next_version + 1]]
         assert connection.execute("SELECT COUNT(*) AS total FROM migration_probe").fetchone() == {"total": 0}
         assert connection.execute("SELECT COUNT(*) AS total FROM second_migration_probe").fetchone() == {"total": 0}
     assert store.get_rulebook(original.rulebook_id) == original
-
 
 def test_old_versions_are_preserved_and_latest_includes_new_drafts(store):
     first = make_book(state=ConfirmationState.CONFIRMED)
@@ -248,7 +231,6 @@ def test_old_versions_are_preserved_and_latest_includes_new_drafts(store):
     assert store.get_rulebook(first.rulebook_id) == second
     assert store.get_rulebook(first.rulebook_id).confirmation_state is ConfirmationState.DRAFT
 
-
 def test_duplicate_save_cannot_overwrite_a_snapshot(store):
     first = make_book()
     store.save_rulebook(first)
@@ -259,13 +241,11 @@ def test_duplicate_save_cannot_overwrite_a_snapshot(store):
     assert caught.value.expected_version == 0 and caught.value.actual_version == 1
     assert store.get_rulebook(first.rulebook_id) == first
 
-
 @pytest.mark.parametrize("version,expected", [(2, 0), (3, 1)])
 def test_versions_cannot_skip_numbers(store, version, expected):
     with pytest.raises(ValueError, match="expected_version"):
         store.save_rulebook(make_book(version=version), expected_version=expected)
     assert store.list_rulebooks().total == 0
-
 
 @pytest.mark.parametrize("version", [None, 1, 9])
 def test_missing_rulebooks_and_versions_are_explicit(store, version):
@@ -275,7 +255,6 @@ def test_missing_rulebooks_and_versions_are_explicit(store, version):
     store.save_rulebook(make_book())
     with pytest.raises(RulebookNotFoundError):
         store.get_rulebook("rulebook_demo", version=9)
-
 
 def test_saved_data_does_not_share_mutable_objects(store):
     original = make_book()
@@ -287,7 +266,6 @@ def test_saved_data_does_not_share_mutable_objects(store):
     assert loaded.rules[0].parameters["context"]["optional"] is None
     loaded.rules.clear()
     assert len(store.get_rulebook(original.rulebook_id).rules) == 1
-
 
 @pytest.mark.parametrize("mutation", ["missing_citation", "duplicate_id", "unconfirmed_rule"])
 def test_mutated_models_are_revalidated_before_saving(store, mutation):
@@ -302,14 +280,12 @@ def test_mutated_models_are_revalidated_before_saving(store, mutation):
         store.save_rulebook(book)
     assert store.list_rulebooks().total == 0
 
-
 @pytest.mark.parametrize("number", [float("nan"), float("inf"), float("-inf")])
 def test_mutated_nonfinite_parameters_are_rejected_before_connecting(unconnected_store, number):
     book = make_book()
     book.rules[0].parameters["nested"] = [{"threshold": number}]
     with pytest.raises(ValidationError, match="must be finite"):
         unconnected_store.save_rulebook(book)
-
 
 def test_latest_version_listing_is_paginated_and_stable(store):
     for rulebook_id in ("c", "a", "b"):
@@ -324,11 +300,9 @@ def test_latest_version_listing_is_paginated_and_stable(store):
     assert empty.items == [] and empty.total == 3 and empty.next_offset is None
     assert first.model_dump(mode="json")["items"][0]["version"] == 2
 
-
 def test_empty_listing_has_no_next_page(store):
     page = store.list_rulebooks()
     assert page.items == [] and page.total == 0 and page.next_offset is None
-
 
 def test_quoted_ids_are_bound_as_values_not_sql(store):
     book = make_book("quoted'; DROP TABLE rulebook_versions; --")
@@ -336,13 +310,11 @@ def test_quoted_ids_are_bound_as_values_not_sql(store):
     assert store.get_rulebook(book.rulebook_id) == book
     assert store.list_rulebooks().total == 1
 
-
 def test_unsupported_requirements_are_not_discarded(store):
     book = make_book()
     book.rules[0].check_name = None
     store.save_rulebook(book)
     assert store.get_rulebook(book.rulebook_id).rules[0].check_name is None
-
 
 @pytest.mark.parametrize("expected_version", [0, 1])
 def test_two_writers_cannot_both_save_the_same_version(store, expected_version):
@@ -369,7 +341,6 @@ def test_two_writers_cannot_both_save_the_same_version(store, expected_version):
     if expected_version:
         assert store.get_rulebook("rulebook_demo", version=1) == make_book()
 
-
 @pytest.mark.parametrize("document", [{}, {"rulebook_id": "rulebook_demo", "version": "invalid"}])
 def test_invalid_stored_documents_report_storage_failure(store, document):
     store.save_rulebook(make_book())
@@ -379,13 +350,11 @@ def test_invalid_stored_documents_report_storage_failure(store, document):
     with pytest.raises(RulebookStorageError):
         store.list_rulebooks()
 
-
 def test_document_metadata_mismatch_is_detected(store):
     store.save_rulebook(make_book())
     edit_database(store, "UPDATE rulebook_versions SET confirmation_state = %s", ("rejected",))
     with pytest.raises(RulebookStorageError, match="metadata"):
         store.get_rulebook("rulebook_demo")
-
 
 def test_failed_insert_rolls_back_and_does_not_advance_version(store):
     store.save_rulebook(make_book())
@@ -407,28 +376,23 @@ def test_failed_insert_rolls_back_and_does_not_advance_version(store):
     store.save_rulebook(make_book(version=2), expected_version=1)
     assert store.get_rulebook("rulebook_demo").version == 2
 
-
 @pytest.mark.parametrize("options", [{"limit": 0}, {"limit": 101}, {"limit": True}, {"offset": -1}, {"offset": 1.5}])
 def test_invalid_pagination(unconnected_store, options):
     with pytest.raises(ValueError):
         unconnected_store.list_rulebooks(**options)
-
 
 @pytest.mark.parametrize("version", [0, -1, True, 1.5])
 def test_invalid_read_versions(unconnected_store, version):
     with pytest.raises(ValueError):
         unconnected_store.get_rulebook("rulebook_demo", version)
 
-
 @pytest.mark.parametrize("expected", [-1, True, 1.5])
 def test_invalid_expected_versions(unconnected_store, expected):
     with pytest.raises(ValueError):
         unconnected_store.save_rulebook(make_book(), expected_version=expected)
 
-
 def test_repository_construction_does_not_connect_or_create_tables(unconnected_store):
     assert unconnected_store.settings.conninfo.get_secret_value() == "host=127.0.0.1 dbname=unconnected"
-
 
 def test_read_connections_are_read_only_and_use_a_repeatable_snapshot(store):
     store.save_rulebook(make_book())
@@ -440,7 +404,6 @@ def test_read_connections_are_read_only_and_use_a_repeatable_snapshot(store):
         after = reader.execute("SELECT COUNT(*) AS total FROM rulebook_versions").fetchone()
         assert before == after == {"total": 1}
     assert store.list_rulebooks().total == 2
-
 
 def test_review_migration_upgrades_existing_books_without_fabricating_history(
     empty_database_settings, tmp_path, monkeypatch,
@@ -460,7 +423,6 @@ def test_review_migration_upgrades_existing_books_without_fabricating_history(
     initialize_database(empty_database_settings)
     assert repository.get_rulebook(original.rulebook_id) == original
     assert repository.list_rulebook_reviews(original.rulebook_id).items == []
-
 
 def test_review_lifecycle_preserves_versions_decisions_and_attribution(store):
     original = store.save_rulebook(make_book())
@@ -508,7 +470,6 @@ def test_review_lifecycle_preserves_versions_decisions_and_attribution(store):
     assert all(record.created_at.utcoffset().total_seconds() == 0 for record in records.items)
     assert records.total == 6 and records.next_offset is None
 
-
 def test_version_and_review_history_pages_are_scoped_and_ordered(store):
     original = store.save_rulebook(make_book("book'; --"))
     store.save_rulebook(make_book("other"))
@@ -528,12 +489,10 @@ def test_version_and_review_history_pages_are_scoped_and_ordered(store):
         assert page.items == [] and page.next_offset is None and page.total > 0
     assert store.list_rulebook_reviews("other").total == 0
 
-
 @pytest.mark.parametrize("method", ["list_rulebook_versions", "list_rulebook_reviews"])
 def test_missing_history_is_explicit(store, method):
     with pytest.raises(RulebookNotFoundError):
         getattr(store, method)("missing")
-
 
 def test_competing_review_actions_cannot_both_commit(store, monkeypatch):
     original = make_book()
@@ -576,7 +535,6 @@ def test_competing_review_actions_cannot_both_commit(store, monkeypatch):
     expected_action = "confirm" if saved[0].confirmation_state is ConfirmationState.CONFIRMED else "edit"
     assert history.items[0].action.value == history.items[0].reviewer_id == expected_action
 
-
 @pytest.mark.parametrize("failure", ["snapshot", "history", "commit"])
 def test_review_failures_roll_back_both_snapshot_and_history(store, failure):
     original = store.save_rulebook(make_book())
@@ -603,7 +561,6 @@ def test_review_failures_roll_back_both_snapshot_and_history(store, failure):
     assert store.list_rulebook_versions(original.rulebook_id).total == 1
     assert store.list_rulebook_reviews(original.rulebook_id).total == 0
 
-
 @pytest.mark.parametrize("options", [
     {"expected_version": 0}, {"expected_version": True}, {"reviewer_id": " "}, {"action": "unknown"},
 ])
@@ -612,7 +569,6 @@ def test_invalid_review_metadata_is_rejected_before_connecting(unconnected_store
     arguments.update(options)
     with pytest.raises(ValueError):
         unconnected_store.save_rulebook_review(make_book(version=2), **arguments)
-
 
 @pytest.mark.parametrize("method", ["list_rulebook_versions", "list_rulebook_reviews"])
 @pytest.mark.parametrize("options", [{"limit": True}, {"limit": 101}, {"offset": -1}])

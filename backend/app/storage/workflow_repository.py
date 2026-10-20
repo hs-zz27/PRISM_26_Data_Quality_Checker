@@ -43,13 +43,10 @@ from .database import (
     is_retryable_database_error,
 )
 
-
 _FINDING_WRITE_BATCH_SIZE = 128
-
 
 class WorkflowStorageError(RuntimeError):
     """The workflow database is unavailable or contains invalid records."""
-
 
 class RetryableWorkflowStorageError(WorkflowStorageError):
     """A recognized transient database failure that may be retried."""
@@ -58,24 +55,20 @@ class RetryableWorkflowStorageError(WorkflowStorageError):
         self.commit_outcome_unknown = commit_outcome_unknown
         super().__init__(message)
 
-
 class JobNotFoundError(LookupError):
     def __init__(self, job_id: str) -> None:
         self.job_id = job_id
         super().__init__(f"Job {job_id!r} was not found.")
-
 
 class AuditNotFoundError(LookupError):
     def __init__(self, audit_id: str) -> None:
         self.audit_id = audit_id
         super().__init__(f"Audit {audit_id!r} was not found.")
 
-
 class FindingNotFoundError(LookupError):
     def __init__(self, finding_id: str) -> None:
         self.finding_id = finding_id
         super().__init__(f"Finding {finding_id!r} was not found.")
-
 
 class FindingReviewConflictError(RuntimeError):
     """A reviewer submitted a decision against an outdated review revision."""
@@ -89,13 +82,11 @@ class FindingReviewConflictError(RuntimeError):
             f"but found {actual_revision}."
         )
 
-
 class AuditSampleNotFoundError(LookupError):
     def __init__(self, audit_id: str, sample_id: str) -> None:
         self.audit_id = audit_id
         self.sample_id = sample_id
         super().__init__(f"Sample {sample_id!r} was not found in audit {audit_id!r}.")
-
 
 class SampleRevisionConflictError(RuntimeError):
     """The requested sample revision is not a stored pin in this audit."""
@@ -112,7 +103,6 @@ class SampleRevisionConflictError(RuntimeError):
             f"Sample {sample_id!r} in audit {audit_id!r}: sample revision "
             f"{expected_sample_revision} is not stored; available pins: {self.available_sample_revisions}."
         )
-
 
 class SampleReviewConflictError(RuntimeError):
     """A newer reviewer decision exists for the same audited sample pin."""
@@ -131,7 +121,6 @@ class SampleReviewConflictError(RuntimeError):
             f"expected review revision {expected_review_version}, but found {actual_revision}."
         )
 
-
 class SampleReviewStateError(RuntimeError):
     """The sample has not reached a processing state eligible for review."""
 
@@ -145,7 +134,6 @@ class SampleReviewStateError(RuntimeError):
             f"is {status}; only completed or failed samples can be reviewed."
         )
 
-
 class SampleAssetManifestNotFoundError(LookupError):
     """No source manifest exists for the exact dataset sample revision."""
 
@@ -158,7 +146,6 @@ class SampleAssetManifestNotFoundError(LookupError):
             f"in dataset {dataset_id!r} were not found."
         )
 
-
 class SampleAssetManifestConflictError(RuntimeError):
     """A source manifest key already contains different immutable metadata."""
 
@@ -170,7 +157,6 @@ class SampleAssetManifestConflictError(RuntimeError):
             f"Source assets for sample {sample_id!r} revision {sample_revision} "
             f"in dataset {dataset_id!r} already have a different manifest."
         )
-
 
 class AssetUnavailableError(LookupError):
     """The requested source asset was recorded as unavailable."""
@@ -189,14 +175,11 @@ class AssetUnavailableError(LookupError):
             f"{sample_revision} is {availability}."
         )
 
-
 class AssetIntegrityError(WorkflowStorageError):
     """A captured source asset no longer matches its immutable manifest."""
 
-
 class AssetReadLimitError(RuntimeError):
     """An asset exceeds the caller's in-memory read budget."""
-
 
 class JobAlreadyFinishedError(RuntimeError):
     """A cancellation request targeted a terminal job."""
@@ -206,23 +189,18 @@ class JobAlreadyFinishedError(RuntimeError):
         self.status = status
         super().__init__(f"Job {job_id!r} is already {status.value}.")
 
-
 class JobClaimLostError(RuntimeError):
     """The worker lease was replaced or the job was cancelled/recovered."""
-
 
 class SampleProcessingTimeoutError(RuntimeError):
     """A sample exceeded its persisted hard processing deadline."""
 
-
 class JobCancellationError(RuntimeError):
     """A worker attempted to finalize work after cancellation won the race."""
-
 
 _TIMEOUT_STAGE = "sample_processing"
 _TIMEOUT_REASON = "processing_timeout"
 _TIMEOUT_DETAIL = "The sample exceeded its processing time limit."
-
 
 @dataclass(frozen=True)
 class JobClaim:
@@ -235,25 +213,21 @@ class JobClaim:
     resource_kind: str | None = None
     resource_id: str | None = None
 
-
 def _require_identifier(value: object, name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be a non-empty string.")
     return value
-
 
 def _require_positive_integer(value: object, name: str) -> int:
     if type(value) is not int or value < 1:
         raise ValueError(f"{name} must be a positive integer.")
     return value
 
-
 def _timestamp(value: datetime | None = None) -> datetime:
     result = datetime.now(UTC) if value is None else value
     if result.tzinfo is None or result.utcoffset() is None:
         raise ValueError("timestamps must be timezone-aware.")
     return result.astimezone(UTC)
-
 
 def _json_safe(value: Any) -> Any:
     if isinstance(value, Mapping):
@@ -277,7 +251,6 @@ def _json_safe(value: Any) -> Any:
         return value.isoformat()
     raise ValueError(f"Value {type(value).__name__} cannot be stored as JSON.")
 
-
 def _json_document(value: Any) -> dict[str, Any]:
     document = _json_safe(value)
     if not isinstance(document, dict):
@@ -287,7 +260,6 @@ def _json_document(value: Any) -> dict[str, Any]:
     except (TypeError, ValueError) as error:
         raise ValueError("Stored workflow documents must contain finite JSON values.") from error
     return document
-
 
 def _validate_measurement_document(document: Mapping[str, Any], sample_id: str) -> dict[str, Any]:
     """Enforce the minimum identity/review contract at the storage boundary."""
@@ -300,7 +272,6 @@ def _validate_measurement_document(document: Mapping[str, Any], sample_id: str) 
         raise ValueError("measurement evidence has an invalid processing status.")
     return normalized
 
-
 def _job_row_values(job: Job) -> tuple[Any, ...]:
     return (
         job.job_id,
@@ -312,7 +283,6 @@ def _job_row_values(job: Job) -> tuple[Any, ...]:
         job.created_at,
         job.updated_at,
     )
-
 
 def _decode_job(row: Mapping[str, Any]) -> Job:
     try:
@@ -328,7 +298,6 @@ def _decode_job(row: Mapping[str, Any]) -> Job:
         })
     except (KeyError, ValidationError, TypeError) as error:
         raise WorkflowStorageError("A saved job failed validation.") from error
-
 
 def _decode_audit(row: Mapping[str, Any]) -> AuditRun:
     try:
@@ -350,12 +319,10 @@ def _decode_audit(row: Mapping[str, Any]) -> AuditRun:
     except (KeyError, ValidationError, TypeError) as error:
         raise WorkflowStorageError("A saved audit failed validation.") from error
 
-
 def _result_reference(audit_id: str) -> ResultReference:
     return ResultReference(
         kind="audit", id=audit_id, version=None, href=f"/api/v1/audits/{audit_id}"
     )
-
 
 class _WorkflowRepository:
     def __init__(self, *, settings: DatabaseSettings | None = None) -> None:
@@ -382,6 +349,10 @@ class _WorkflowRepository:
                 ) from error
             raise WorkflowStorageError("Cannot read or write the workflow database.") from error
 
+def _reject_managed_extraction(row) -> None:
+    """Check the locked row, not caller-supplied claim fields, before mutation."""
+    if row is not None and row["kind"] == "rule_extraction":
+        raise ValueError("Use ExtractionRepository for managed extraction execution.")
 
 class JobRepository(_WorkflowRepository):
     """Persist jobs and perform lease-protected state transitions."""
@@ -396,6 +367,8 @@ class JobRepository(_WorkflowRepository):
         if not isinstance(job, Job):
             raise TypeError("job must be a Job instance.")
         snapshot = Job.model_validate(job.model_dump())
+        if snapshot.kind is JobKind.RULE_EXTRACTION:
+            raise ValueError("Use ExtractionRepository to enqueue managed extraction jobs.")
         if snapshot.status is not JobStatus.QUEUED:
             raise ValueError("new jobs must start in queued state.")
         if resource_kind is not None:
@@ -445,6 +418,7 @@ class JobRepository(_WorkflowRepository):
             row = connection.execute(
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (job_id,)
             ).fetchone()
+            _reject_managed_extraction(row)
             if row is None:
                 raise JobNotFoundError(job_id)
             timestamp = _timestamp(now)
@@ -489,11 +463,11 @@ class JobRepository(_WorkflowRepository):
             cutoff = _timestamp(now)
             row = connection.execute(
                 """SELECT * FROM jobs
-                   WHERE status = 'queued'
-                      OR (status = 'running' AND lease_until <= %s)
+                   WHERE kind <> %s AND (status = 'queued'
+                      OR (status = 'running' AND lease_until <= %s))
                    ORDER BY created_at ASC, job_id ASC
                    FOR UPDATE SKIP LOCKED LIMIT 1""",
-                (cutoff,),
+                ("rule_extraction", cutoff),
             ).fetchone()
             if row is None:
                 return None
@@ -530,6 +504,7 @@ class JobRepository(_WorkflowRepository):
             row = connection.execute(
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (claim.job.job_id,),
             ).fetchone()
+            _reject_managed_extraction(row)
             if row is None or row["claim_token"] != claim.claim_token:
                 raise JobClaimLostError("The worker no longer owns this job claim.")
             timestamp = _timestamp(now)
@@ -573,6 +548,7 @@ class JobRepository(_WorkflowRepository):
             row = connection.execute(
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (claim.job.job_id,)
             ).fetchone()
+            _reject_managed_extraction(row)
             timestamp = _timestamp(now)
             if row is None or row["claim_token"] != claim.claim_token:
                 raise JobClaimLostError("The worker no longer owns this job claim.")
@@ -609,6 +585,7 @@ class JobRepository(_WorkflowRepository):
             row = connection.execute(
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (claim.job.job_id,),
             ).fetchone()
+            _reject_managed_extraction(row)
             if row is None or row["claim_token"] != claim.claim_token:
                 raise JobClaimLostError("The worker no longer owns this job claim.")
             timestamp = _timestamp(now)
@@ -652,6 +629,7 @@ class JobRepository(_WorkflowRepository):
             row = connection.execute(
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (claim.job.job_id,)
             ).fetchone()
+            _reject_managed_extraction(row)
             timestamp = _timestamp(now)
             if row is None or row["claim_token"] != claim.claim_token:
                 raise JobClaimLostError("The worker no longer owns this job claim.")
@@ -678,6 +656,7 @@ class JobRepository(_WorkflowRepository):
             row = connection.execute(
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (claim.job.job_id,)
             ).fetchone()
+            _reject_managed_extraction(row)
             timestamp = _timestamp(now)
             if row is None or row["claim_token"] != claim.claim_token:
                 raise JobClaimLostError("The worker no longer owns this job claim.")
@@ -705,10 +684,10 @@ class JobRepository(_WorkflowRepository):
             cutoff = _timestamp(now)
             rows = connection.execute(
                 """SELECT * FROM jobs
-                   WHERE (status = 'running' AND lease_until <= %s)
-                      OR (status = 'cancelling' AND lease_until <= %s)
+                   WHERE kind <> %s AND ((status = 'running' AND lease_until <= %s)
+                      OR (status = 'cancelling' AND lease_until <= %s))
                    FOR UPDATE SKIP LOCKED""",
-                (cutoff, cutoff),
+                ("rule_extraction", cutoff, cutoff),
             ).fetchall()
             timestamp = _timestamp(now)
             for row in rows:
@@ -725,7 +704,6 @@ class JobRepository(_WorkflowRepository):
                 assert updated is not None
                 recovered.append(_decode_job(updated))
         return recovered
-
 
 def _decode_finding(row: Mapping[str, Any]) -> Finding:
     """Read the original machine snapshot, including its initial review state."""
@@ -748,7 +726,6 @@ def _decode_finding(row: Mapping[str, Any]) -> Finding:
         raise WorkflowStorageError("A saved finding document disagrees with its metadata.")
     return finding
 
-
 _FINDINGS_WITH_REVIEWS = """
     SELECT findings.*,
            latest.revision AS current_review_revision,
@@ -764,7 +741,6 @@ _FINDINGS_WITH_REVIEWS = """
     ) AS latest ON TRUE
 """
 
-
 def _decode_reviewed_finding(row: Mapping[str, Any]) -> Finding:
     finding = _decode_finding(row)
     if row["current_review_revision"] is not None:
@@ -779,7 +755,6 @@ def _decode_reviewed_finding(row: Mapping[str, Any]) -> Finding:
         except ValidationError as error:
             raise WorkflowStorageError("A saved finding review failed validation.") from error
     return finding
-
 
 class FindingRepository(_WorkflowRepository):
     """Store machine snapshots separately from append-only reviewer decisions."""
@@ -952,7 +927,6 @@ class FindingRepository(_WorkflowRepository):
             items=items, limit=limit, offset=offset, total=total, next_offset=next_offset,
         )
 
-
 class SampleReviewRepository(_WorkflowRepository):
     """Review explicit audit sample pins without rewriting processing evidence."""
 
@@ -1065,7 +1039,6 @@ class SampleReviewRepository(_WorkflowRepository):
             items=items, limit=limit, offset=offset, total=total, next_offset=next_offset,
         )
 
-
 def read_manifest_asset_file(
     manifest: SampleAssetManifest,
     asset_kind: AssetKind | str,
@@ -1115,7 +1088,6 @@ def read_manifest_asset_file(
     if len(content) != entry.size_bytes or sha256(content).hexdigest() != entry.sha256:
         raise AssetIntegrityError("The stored sample asset does not match its manifest.")
     return candidate, content
-
 
 class SampleAssetManifestRepository(_WorkflowRepository):
     """Register and resolve immutable source metadata for exact sample revisions."""
@@ -1253,7 +1225,6 @@ class SampleAssetManifestRepository(_WorkflowRepository):
             manifest, asset_kind, self.asset_settings, max_bytes=max_bytes,
         )
         return content
-
 
 class AuditRepository(_WorkflowRepository):
     """Persist audit work items and commit one complete sample at a time."""

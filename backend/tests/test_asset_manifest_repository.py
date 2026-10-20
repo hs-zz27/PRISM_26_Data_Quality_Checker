@@ -13,6 +13,7 @@ import pytest
 
 from backend.app.core.config import AssetStorageSettings, DatabaseSettings
 from backend.app.models.asset_manifest import AssetAvailability, AssetManifestEntry, SampleAssetManifest
+from backend.app.storage import database
 from backend.app.storage.database import database_connection, initialize_database
 from backend.app.storage.workflow_repository import (
     AssetIntegrityError,
@@ -124,8 +125,12 @@ def test_unavailable_and_changed_files_do_not_look_like_valid_assets(database_se
 
 
 def test_manifest_migration_does_not_backfill_old_records(database_settings):
+    expected_history = [
+        {"version": int(path.name[:3])}
+        for path in sorted(database.MIGRATIONS_DIRECTORY.glob("[0-9][0-9][0-9]_*.sql"))
+    ]
     with database_connection(database_settings, readonly=True) as connection:
         assert connection.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall()[-1] == {"version": 8}
+        ).fetchall() == expected_history
         assert connection.execute("SELECT COUNT(*) AS total FROM sample_asset_manifests").fetchone() == {"total": 0}
