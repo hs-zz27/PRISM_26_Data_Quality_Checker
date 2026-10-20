@@ -353,6 +353,8 @@ def _reject_managed_extraction(row) -> None:
     """Check the locked row, not caller-supplied claim fields, before mutation."""
     if row is not None and row["kind"] == "rule_extraction":
         raise ValueError("Use ExtractionRepository for managed extraction execution.")
+    if row is not None and row["kind"] == "dataset_import":
+        raise ValueError("Use DatasetImportRepository for managed import execution.")
 
 class JobRepository(_WorkflowRepository):
     """Persist jobs and perform lease-protected state transitions."""
@@ -369,6 +371,8 @@ class JobRepository(_WorkflowRepository):
         snapshot = Job.model_validate(job.model_dump())
         if snapshot.kind is JobKind.RULE_EXTRACTION:
             raise ValueError("Use ExtractionRepository to enqueue managed extraction jobs.")
+        if snapshot.kind is JobKind.DATASET_IMPORT:
+            raise ValueError("Use DatasetImportRepository to enqueue managed import jobs.")
         if snapshot.status is not JobStatus.QUEUED:
             raise ValueError("new jobs must start in queued state.")
         if resource_kind is not None:
@@ -463,11 +467,11 @@ class JobRepository(_WorkflowRepository):
             cutoff = _timestamp(now)
             row = connection.execute(
                 """SELECT * FROM jobs
-                   WHERE kind <> %s AND (status = 'queued'
+                   WHERE kind NOT IN (%s, %s) AND (status = 'queued'
                       OR (status = 'running' AND lease_until <= %s))
                    ORDER BY created_at ASC, job_id ASC
                    FOR UPDATE SKIP LOCKED LIMIT 1""",
-                ("rule_extraction", cutoff),
+                ("rule_extraction", "dataset_import", cutoff),
             ).fetchone()
             if row is None:
                 return None
@@ -529,6 +533,11 @@ class JobRepository(_WorkflowRepository):
             ).fetchone()
             if row is None:
                 raise JobNotFoundError(job_id)
+            if row["kind"] == "dataset_import":
+                # Local import avoids a module cycle. Reuse THIS transaction/job lock;
+                # never open a second transaction while holding the same job row.
+                from .dataset_import_repository import DatasetImportRepository
+                return DatasetImportRepository(settings=self.settings)._cancel_locked(connection, row)
             timestamp = _timestamp(now)
             status = JobStatus(row["status"])
             if status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
@@ -684,10 +693,10 @@ class JobRepository(_WorkflowRepository):
             cutoff = _timestamp(now)
             rows = connection.execute(
                 """SELECT * FROM jobs
-                   WHERE kind <> %s AND ((status = 'running' AND lease_until <= %s)
+                   WHERE kind NOT IN (%s, %s) AND ((status = 'running' AND lease_until <= %s)
                       OR (status = 'cancelling' AND lease_until <= %s))
                    FOR UPDATE SKIP LOCKED""",
-                ("rule_extraction", cutoff, cutoff),
+                ("rule_extraction", "dataset_import", cutoff, cutoff),
             ).fetchall()
             timestamp = _timestamp(now)
             for row in rows:
@@ -2764,10 +2773,13 @@ class AuditRepository(_WorkflowRepository):
         job_id = _require_identifier(job_id, "job_id")
         with self._connection() as connection:
             row = connection.execute(
-                "SELECT resource_kind, resource_id FROM jobs WHERE job_id = %s", (job_id,)
+                "SELECT kind, resource_kind, resource_id FROM jobs WHERE job_id = %s", (job_id,)
             ).fetchone()
         if row is None:
             raise JobNotFoundError(job_id)
+        if row["kind"] == "dataset_import":
+            # The generic boundary rechecks the stored kind under its job-row lock.
+            return self.jobs.request_cancellation(job_id)
         if row["resource_kind"] == "audit" and row["resource_id"] is not None:
             return self.request_cancellation(row["resource_id"], now=now)
         return self.jobs.request_cancellation(job_id, now=now)
