@@ -5,7 +5,7 @@ read a book (optional `version`), list versions and list real review attribution
 Manual draft creation is implemented with POST on the collection (201).
 Four review mutations are also implemented: PUT `/{rulebook_id}`, POST
 `/{rulebook_id}/confirm`, POST `/{rulebook_id}/reject` and POST
-`/{rulebook_id}/revisions` (201). Extraction-job HTTP remains planned.
+`/{rulebook_id}/revisions` (201). POST `/extractions` durably accepts a plain-text extraction Job (202); run the explicit worker separately. See EXTRACTIONS.md.
 Review mutations reuse the existing transactional Python review services.
 
 Use `limit` (1–100, default 20) and `offset` (nonnegative, default 0) on lists.
@@ -22,13 +22,13 @@ start jobs, repair data, inspect dataset assets or perform model inference.
 No GET declares mutation-only 409 responses. Dependency configuration is
 resolved at request time, not import time.
 
-Use [implemented-openapi.json](implemented-openapi.json) for live client generation
-and [examples.json](examples.json) for request/response fixtures. The combined
+Use implemented-openapi.json for live client generation
+and examples.json for request/response fixtures. The combined
 `openapi.json` also includes planned operations. Manual draft creation is
-callable; plain-text extraction is not callable through HTTP yet.
+callable; plain-text extraction submission is also implemented in the checkpoint source.
 
 Generated `openapi.json`, `implemented-openapi.json`, `examples.json` and
-`ENDPOINTS.md` must be refreshed
+`ENDPOINTS.md` and `PLANNED_ENDPOINTS.md` must be refreshed
 with `.venv/bin/python -B -m backend.api.build_contract`. They are generated
 outputs, not hand-edited sources. Examples are independent synthetic snapshots.
 

@@ -2,11 +2,11 @@
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**19 HTTP operations are implemented:** manual rulebook creation/read/review, audit metadata
+**20 HTTP operations are implemented in the checkpoint source:** extraction submission, manual rulebook creation/read/review, audit metadata
 and sample reads, revision-pinned assets, job polling/cancellation, and
 finding/sample decisions with history.
 All other operations remain planned. Check `x-implementation-status` in OpenAPI
-and `implementation` in each fixture. [Server setup](../README.md#audit-review-api)
+and `implementation` in each fixture. Server setup
 includes the launch command. The running server's `/docs` and `/openapi.json`
 include only real routes; this folder also documents the remaining planned workflow.
 
@@ -15,7 +15,7 @@ Keep the base URL configurable in the frontend.
 For a frontend served on another port, use its development server's proxy for
 `/api/v1`; cross-origin access is not enabled by default.
 
-Use [implemented-openapi.json](implemented-openapi.json) to generate a client
+Use implemented-openapi.json to generate a client
 for the running backend. Its server URL is `http://127.0.0.1:8000` and paths
 already include `/api/v1`. The combined `openapi.json` uses a server URL ending
 in `/api/v1` and paths without that prefix. Apply the prefix exactly once.
@@ -25,28 +25,28 @@ not an SPA route.
 
 ## Files
 
-- [ENDPOINTS.md](ENDPOINTS.md): every method, path and operation ID, grouped by
+- ENDPOINTS.md: every method, path and operation ID, grouped by
   implemented versus planned.
-- [RULEBOOKS.md](RULEBOOKS.md): manual creation, editing, confirmation and history.
-- [PLANNED_ENDPOINTS.md](PLANNED_ENDPOINTS.md): all 30 future operations, with
+- RULEBOOKS.md: manual creation, editing, confirmation and history.
+- PLANNED_ENDPOINTS.md: all 29 future operations, with
   parameters, request/response examples, proposed errors and referenced schemas.
-- [FRONTEND_WORKFLOW.md](FRONTEND_WORKFLOW.md): screen flows, mock setup, jobs,
+- FRONTEND_WORKFLOW.md: screen flows, mock setup, jobs,
   correction/recheck pins and export/feedback interactions.
-- [implemented-openapi.json](implemented-openapi.json): callable endpoints only,
+- implemented-openapi.json: callable endpoints only,
   with actual FastAPI transport schemas and frontend examples; use for client generation.
-- [openapi.json](openapi.json): combined implementation/planning reference; the
-  30 planned operations are not available on the running server.
-- [examples.json](examples.json): frontend fixtures with path parameters, query
+- openapi.json: combined implementation/planning reference; the
+  29 planned operations are not available on the running server.
+- examples.json: frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
   null asset links.
-- [build_contract.py](build_contract.py): endpoint definitions and artifact generation.
-- [schemas.py](schemas.py): transport schemas, reusing implemented rulebook,
+- build_contract.py: endpoint definitions and artifact generation.
+- schemas.py: transport schemas, reusing implemented rulebook,
   finding and review models.
-- [fixtures.py](fixtures.py): synthetic workflows and measurement examples from
+- fixtures.py: synthetic workflows and measurement examples from
   `audit_sample()` on a tiny dataset. System status uses a fixed example model name
   so generation does not depend on local Ollama settings.
-- [common.py](common.py): shared schema vocabulary and small constructors.
+- common.py: shared schema vocabulary and small constructors.
 
 Run from the project root:
 
@@ -71,7 +71,7 @@ https://spec.openapis.org/oas/v3.1.0.html.
 
 Paths below are relative to `/api/v1`. GET requests have no body.
 
-Saved rulebooks (see [the detailed guide](RULEBOOKS.md)):
+Saved rulebooks (see the detailed guide):
 
 - `GET /rulebooks` → 200 `RulebookPage`.
 - `GET /rulebooks/{rulebook_id}?version=N` → 200 `Rulebook`; omit version for latest.
@@ -127,7 +127,7 @@ actions the running backend currently supports.
 
 1. **Planned:** inspect health, capabilities and system status. Liveness is separate from
    model readiness; these endpoints do not start services or download models.
-2. **Planned:** submit plain text through `POST /rulebooks/extractions`, poll the job, then
+2. **Implemented:** submit plain text through `POST /rulebooks/extractions`, poll the job, then
    follow its version-pinned `result.href` to the saved draft. **Implemented:**
    manual rulebook creation through `POST /rulebooks`. Other guideline input
    formats are deferred.
@@ -217,8 +217,8 @@ Errors share this envelope:
 
 Use codes for handling and messages/details for display. Validation locations
 are dotted, such as `body.expected_version` or `query.limit`. Model extraction
-codes such as `MODEL_UNAVAILABLE`, `REQUEST_TIMEOUT` and `INVALID_RULE_PROPOSALS`
-belong to the planned extraction HTTP workflow. Validation uses 422, missing records
+codes such as `MODEL_UNAVAILABLE`, `MODEL_REQUEST_TIMEOUT` and `INVALID_RULE_PROPOSALS`
+are persisted asynchronously in accepted extraction jobs; see EXTRACTIONS.md. Validation uses 422, missing records
 404, stale revisions and invalid workflow transitions 409. Domain-specific
 conflict codes are described on their operations; generic error examples show
 the shared envelope rather than every possible domain failure.
@@ -264,7 +264,7 @@ Each successful review action creates version `expected_version + 1` and commits
 the snapshot and reviewer record atomically. The backend assigns the record's
 timestamp. Failures preserve both histories. Existing databases must apply
 `002_rulebook_reviews.sql` through the migration runner described in
-[the backend setup](../README.md#rulebook-review).
+the backend setup.
 
 The implemented HTTP mapping is 409 `VERSION_CONFLICT` for stale versions,
 409 `INVALID_RULEBOOK_STATE` for invalid transitions and 409 `RULEBOOK_NOT_READY`
@@ -298,7 +298,7 @@ and preserves every earlier decision. The HTTP mapping is 409
 fields, 503 `DEPENDENCY_UNAVAILABLE` for storage/configuration failures and 500
 `INTERNAL_ERROR` for unexpected failures. Reload after a conflict before
 resubmitting. Finding repository reads include the latest review.
-See [finding review setup](../README.md#finding-review) for the migration and usage.
+See finding review setup for the migration and usage.
 
 The sample-review Python service, PostgreSQL history storage and FastAPI routes are
 implemented. `PUT /audits/{audit_id}/samples/{sample_id}/review` uses
@@ -334,7 +334,7 @@ edit annotations. Future correction/recheck workflows must create fresh evidence
 and require a new decision on corrected revisions. Current decisions/history can
 be read through `SampleReviewRepository` or the implemented queue/detail/review-history
 GET routes. Reviewed-count aggregation remains planned.
-See [sample review setup](../README.md#sample-review).
+See sample review setup.
 
 The implemented queue supports `limit` (1–100, default 20), `offset` (default 0),
 and optional `tool_status`/`review_status` filters. Results retain original audit
@@ -454,8 +454,9 @@ Their matching confirmed rulebooks are under
 unavailable cases include their additional reviewer-authored rules.
 `examples.job_scenarios` and `examples.audit_scenarios` cover all six lifecycle
 states with model-validated snapshots. `examples.future_job_scenarios` adds six-state
-job mocks for extraction, import, recheck, export and feedback evaluation; these
-job producers are still planned. Completed extraction links pin rulebook version 1.
+job mocks for import, recheck, export and feedback evaluation; these
+job producers are still planned. Delivered extraction mocks are in
+`examples.extraction_job_scenarios.states` and `.failures`. Completed extraction links pin rulebook version 1.
 `examples.check_catalog` comes from the
 current registry and includes supported check names, meanings, scopes and parameter
 schemas. These are bundled reference data, not a live `/capabilities` endpoint.
@@ -467,13 +468,13 @@ live clients from `implemented-openapi.json`; mock planned operations separately
 
 ## Implemented rulebook HTTP workflow
 
-Nine rulebook operations are implemented: create a manual draft, list latest
+Ten rulebook operations are implemented: queue plain-text extraction, create a manual draft, list latest
 snapshots, read latest/explicit versions, list versions, list attributed reviews,
 replace a draft, confirm, reject and reopen a final book as a draft. See
-[the rulebook guide](RULEBOOKS.md) for exact paths,
+the rulebook guide for exact paths,
 strict requests, states and error codes. Manual creation accepts strict editor
 inputs, preserves exact guideline text and saves a version-1 draft without
-inventing review history. Extraction-job, audit-start and feedback-evaluation
+inventing review history. Extraction jobs use an explicit worker; audit-start and feedback-evaluation
 routes remain planned. Authentication is not implemented by this local prototype.
 
 Mutations use request-time repository injection. Review actions append a snapshot
@@ -500,3 +501,7 @@ Generated OpenAPI, fixtures and endpoint inventories must come from
 `.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
 The focused and full backend HTTP/contract tests pass in the pinned environment;
 PostgreSQL integration tests remain opt-in and require `PRISM_TEST_DATABASE_URL`.
+
+## Durable plain-text extraction
+
+See EXTRACTIONS.md for the complete submission, worker, polling, cancellation, review and error workflow. The checkpoint source requires migration 009, explicit worker startup, regeneration of all five artifacts and operator-controlled runtime verification in the complete checkout. 202 does not imply model/worker readiness. No private ledger/claim fields are added to Job.

@@ -5,13 +5,13 @@ marked **implemented**. Planned operations describe the intended interface; thei
 routes and services are unavailable until backend implementation is delivered.
 Keep those calls behind your mock transport so the UI can progress independently.
 
-- [ENDPOINTS.md](ENDPOINTS.md): status of every operation.
-- [PLANNED_ENDPOINTS.md](PLANNED_ENDPOINTS.md): future requests, responses and examples.
-- [implemented-openapi.json](implemented-openapi.json): generate the live client here.
-- [openapi.json](openapi.json): complete implemented/planned schema reference.
-- [examples.json](examples.json): synthetic requests, resources and review scenarios.
-- [RULEBOOKS.md](RULEBOOKS.md): current manual creation and versioned review behavior.
-- [README.md](README.md): setup, errors, coordinates and asset details.
+- ENDPOINTS.md: status of every operation.
+- PLANNED_ENDPOINTS.md: future requests, responses and examples.
+- implemented-openapi.json: generate the live client here.
+- openapi.json: complete implemented/planned schema reference.
+- examples.json: synthetic requests, resources and review scenarios.
+- RULEBOOKS.md: current manual creation and versioned review behavior.
+- README.md: setup, errors, coordinates and asset details.
 
 The live-only spec includes `/api/v1` in paths. The combined spec includes it in
 the server URL instead. Add that prefix once. Keep the backend origin configurable;
@@ -34,10 +34,10 @@ do not infer runtime model readiness from synthetic fixtures.
 ## 2. Create and review a rulebook
 
 **Implemented manual path:** `POST /rulebooks` creates a draft, then use the
-saved-rulebook reads and review actions documented in [RULEBOOKS.md](RULEBOOKS.md).
+saved-rulebook reads and review actions documented in RULEBOOKS.md.
 
-**Planned extraction path:** submit plain text through `POST /rulebooks/extractions`.
-Its proposed 202 response is a `Job`, not the rulebook. Poll `GET /jobs/{job_id}`;
+**Implemented extraction submission path:** submit plain text through `POST /rulebooks/extractions`.
+Its committed 202 response is a `Job`, not the rulebook; a separately started worker is required. Poll `GET /jobs/{job_id}`;
 on completion, follow a non-null `result.href` to the saved draft.
 Model failures belong in the job's structured error after work was accepted.
 
@@ -105,7 +105,7 @@ and uses the existing audit-aware dispatch. A queued audit can already be
 cancelled in that response; a running audit enters cancelling. Continue polling
 until terminal. Terminal cancellation conflicts use 409 `JOB_ALREADY_FINISHED`.
 Completed evidence and decisions remain available. Do not assume cancellation
-support for future extraction/import/export/evaluation job kinds merely because
+support for future import/export/evaluation job kinds merely because
 their proposed responses use the same public Job schema.
 
 ## 6. Review queue, evidence and decisions
@@ -208,3 +208,7 @@ decide whether to reapply it. Do not automatically retry mutations or overwrite
 newer decisions. Draft creation is not idempotent; duplicate successful requests
 create separate books. Treat planned contracts as reviewable designs and coordinate
 changes as each feature becomes callable.
+
+## Extraction execution and fixtures
+
+See EXTRACTIONS.md for the explicit worker, one-attempt/deadline policy, safe errors and cancellation limits. Extraction cancellation is implemented through the existing job route. Completion pins version 1; later review does not change that pin. Use `examples.extraction_job_scenarios.states` and `.failures`; other producer mocks remain under `examples.future_job_scenarios`. Do not infer worker/model readiness from 202 or synthetic fixtures.

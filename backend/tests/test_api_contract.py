@@ -43,14 +43,14 @@ def test_routes_distinguish_implemented_handlers_from_planned_operations():
     identifiers = [operation["operationId"] for _, _, operation in OPERATIONS]
     assert len(identifiers) == len(set(identifiers)) == 49
     implemented = {
-        "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
+        "extractRulebook", "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
         "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
         "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "getJob", "cancelJob",
         "reviewFinding", "listFindingReviews", "reviewSample", "listSampleReviews",
     }
-    assert len(implemented) == 19
-    assert sum(op["x-implementation-status"] == "implemented" for _, _, op in OPERATIONS) == 19
-    assert sum(op["x-implementation-status"] == "planned" for _, _, op in OPERATIONS) == 30
+    assert len(implemented) == 20
+    assert sum(op["x-implementation-status"] == "implemented" for _, _, op in OPERATIONS) == 20
+    assert sum(op["x-implementation-status"] == "planned" for _, _, op in OPERATIONS) == 29
     for _, _, operation in OPERATIONS:
         expected = "implemented" if operation["operationId"] in implemented else "planned"
         assert operation["x-implementation-status"] == expected

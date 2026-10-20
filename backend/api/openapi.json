@@ -3,7 +3,7 @@
   "info": {
     "title": "PRISM Data Quality Checker — API contract",
     "version": "0.1.0",
-    "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, manual rulebook creation and saved-rulebook read/review operations are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
+    "description": "Combined implementation and planning reference. Audit metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
   },
   "servers": [
     {
@@ -818,9 +818,9 @@
           "Rulebooks"
         ],
         "summary": "Propose draft rules from plain text",
-        "description": "Poll GET /jobs/{job_id}. On completion, result.href points to the saved draft rulebook. Failure is stored in job.error, including MODEL_UNAVAILABLE or INVALID_RULE_PROPOSALS.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "extract_and_save_rulebook coordinates extraction and PostgreSQL storage; jobs and route are planned.",
+        "description": "Durably accept exact nonblank plain text without inline inference or a placeholder book. HTTP 202 does not establish worker readiness. Start the extraction worker separately. Poll GET /jobs/{job_id}; every state, including failed, remains HTTP 200. One processing attempt only; stale attempts fail without replay. Completion publishes one version-1 extracted/draft rulebook, empty review history and a result.href pinned with ?version=1. Existing cancellation route is supported; cancelled jobs publish no output. Errors are safe job.error codes, not retrospective submission errors. See EXTRACTIONS.md for error mapping, finite deadlines and operator workflow.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "ExtractionRepository atomically enqueues private inputs; explicitly started supervised extraction worker atomically publishes draft and completed job.",
         "responses": {
           "202": {
             "description": "Job accepted; poll the returned job ID.",
@@ -847,37 +847,24 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested rulebook or version does not exist.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -902,18 +889,23 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Rulebook storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
-                    "details": [],
-                    "request_id": "request_demo"
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Extraction could not be durably accepted.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Extraction could not be durably accepted.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
                   }
                 }
               }
@@ -11390,6 +11382,23 @@
   },
   "components": {
     "schemas": {
+      "RuleExtractionRequest": {
+        "additionalProperties": false,
+        "description": "Validate nonblankness without altering whitespace or Unicode.",
+        "properties": {
+          "guideline_text": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Guideline Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "guideline_text"
+        ],
+        "title": "RuleExtractionRequest",
+        "type": "object"
+      },
       "ConfirmationState": {
         "description": "Reviewer confirmation state for a rule or rulebook.",
         "enum": [
@@ -13255,20 +13264,6 @@
         },
         "required": [
           "error"
-        ],
-        "additionalProperties": false
-      },
-      "RuleExtractionRequest": {
-        "type": "object",
-        "properties": {
-          "guideline_text": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "\\S"
-          }
-        },
-        "required": [
-          "guideline_text"
         ],
         "additionalProperties": false
       },

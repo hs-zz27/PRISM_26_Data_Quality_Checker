@@ -2,13 +2,14 @@
 
 Generated from `build_contract.py`. Paths include `/api/v1`.
 
-Use [implemented-openapi.json](implemented-openapi.json) for callable endpoint schemas and client generation. [openapi.json](openapi.json) also includes planned designs. [examples.json](examples.json) contains synthetic fixtures.
+Use [implemented-openapi.json for callable endpoint schemas and client generation. openapi.json also includes planned designs. examples.json contains synthetic fixtures.
 
-## Implemented (19 operations)
+## Implemented (20 operations)
 
 ### Rulebooks
 
 - `POST /api/v1/rulebooks` — Create a manually assembled draft (`createRulebook`; implemented).
+- `POST /api/v1/rulebooks/extractions` — Propose draft rules from plain text (`extractRulebook`; implemented).
 - `GET /api/v1/rulebooks` — List latest rulebook versions (`listRulebooks`; implemented).
 - `GET /api/v1/rulebooks/{rulebook_id}` — Read a rulebook version (`getRulebook`; implemented).
 - `GET /api/v1/rulebooks/{rulebook_id}/versions` — Read rulebook version history (`listRulebookVersions`; implemented).
@@ -40,17 +41,13 @@ Use [implemented-openapi.json](implemented-openapi.json) for callable endpoint s
 - `PUT /api/v1/audits/{audit_id}/samples/{sample_id}/review` — Record the reviewer's data decision (`reviewSample`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}/reviews` — Read sample decision history (`listSampleReviews`; implemented).
 
-## Planned — unavailable on the running server (30 operations)
+## Planned — unavailable on the running server (29 operations)
 
 ### System
 
 - `GET /api/v1/health` — Check HTTP server liveness (`getHealth`; planned).
 - `GET /api/v1/capabilities` — List supported and planned checks (`getCapabilities`; planned).
 - `GET /api/v1/system/status` — Inspect local model readiness (`getSystemStatus`; planned).
-
-### Rulebooks
-
-- `POST /api/v1/rulebooks/extractions` — Propose draft rules from plain text (`extractRulebook`; planned).
 
 ### Datasets
 

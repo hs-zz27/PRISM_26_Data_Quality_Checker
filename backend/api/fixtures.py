@@ -42,7 +42,6 @@ def job(kind: str, resource_kind: str, resource_id: str, *, completed: bool = Fa
 def build_future_job_scenarios() -> JsonObject:
     """Model-validated lifecycle mocks for the still-planned job producers."""
     targets = {
-        "rule_extraction": ("rulebook", "rulebook_demo", "MODEL_UNAVAILABLE"),
         "dataset_import": ("dataset", "dataset_demo", "DATASET_IMPORT_FAILED"),
         "recheck": ("audit", "audit_recheck_demo", "RECHECK_FAILED"),
         "export": ("export", "export_demo", "EXPORT_FAILED"),
@@ -63,6 +62,25 @@ def build_future_job_scenarios() -> JsonObject:
             states[status.value] = Job.model_validate_json(json.dumps(value)).model_dump(mode="json")
         scenarios[kind] = states
     return scenarios
+
+def build_extraction_job_scenarios() -> JsonObject:
+    """Delivered extraction lifecycle plus every supported safe execution failure."""
+    from backend.app.storage.extraction_repository import ERROR_MESSAGES
+    states = {}
+    for status in JobStatus:
+        value = job("rule_extraction", "rulebook", "rulebook_demo", completed=status is JobStatus.COMPLETED)
+        value["status"] = status.value
+        value["progress"]["phase"] = status.value
+        if status is JobStatus.FAILED:
+            value["error"] = {"code": "MODEL_UNAVAILABLE", "message": ERROR_MESSAGES["MODEL_UNAVAILABLE"],
+                              "details": [], "request_id": "request_demo"}
+        states[status.value] = Job.model_validate_json(json.dumps(value)).model_dump(mode="json")
+    failures = {}
+    for code, message in ERROR_MESSAGES.items():
+        value = deepcopy(states["failed"])
+        value["error"] = {"code": code, "message": message, "details": [], "request_id": "request_demo"}
+        failures[code] = Job.model_validate_json(json.dumps(value)).model_dump(mode="json")
+    return {"states": states, "failures": failures}
 
 def build_lifecycle_scenarios(rulebook_version: int) -> tuple[JsonObject, JsonObject]:
     """Create independent, model-validated job/audit snapshots for frontend states."""
@@ -243,4 +261,5 @@ def build_examples() -> JsonObject:
         "job_scenarios": job_scenarios,
         "audit_scenarios": audit_scenarios,
         "future_job_scenarios": build_future_job_scenarios(),
+        "extraction_job_scenarios": build_extraction_job_scenarios(),
     }

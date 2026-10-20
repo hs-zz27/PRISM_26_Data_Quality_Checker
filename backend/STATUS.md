@@ -17,7 +17,7 @@ latest complete test suite or real-model evaluation has passed.
   mask-to-box measurements and component measurements.
 - **Guideline extraction service:** configurable local Ollama client,
   registry-aware check/parameter instructions, citation-linked draft rules and
-  persistence. Its extraction HTTP endpoint is still planned.
+  persistence. The checkpoint adds durable extraction HTTP submission and an explicit supervised worker; runtime verification remains pending.
 - **Rulebook workflow:** manual draft creation, saved-book reads/listing, version
   history, full draft replacement, confirmation, rejection, new draft revisions
   and attributed review history.
@@ -32,12 +32,12 @@ latest complete test suite or real-model evaluation has passed.
   flagged, uncertain and unavailable evidence remain reviewable.
 - **Frontend handoff:** generated combined and implemented-only OpenAPI,
   request/response examples, endpoint index and rulebook workflow documentation.
-  [The complete planned endpoint reference](api/PLANNED_ENDPOINTS.md) and
-  [screen-by-screen workflow guide](api/FRONTEND_WORKFLOW.md) cover the remaining
-  30 operations for frontend mocks. Future job fixtures cover all six states;
+  The complete planned endpoint reference and
+  screen-by-screen workflow guide cover the remaining
+  29 operations for frontend mocks. Future job fixtures cover all six states;
   these contracts do not add runtime routes.
 
-The latest completed implementation is **manual draft rulebook creation**:
+The preceding implementation is **manual draft rulebook creation**:
 `POST /api/v1/rulebooks`. All four creation phases are present in the checkout:
 strict models/service, HTTP/error handling, authored PostgreSQL coverage, and
 updated contracts/docs. The server assigns a fresh ID, version 1, reviewer origin
@@ -45,20 +45,20 @@ and draft states. Creation does not confirm rules or fabricate review history.
 
 ## Current HTTP surface
 
-There are **19 implemented operations and 30 planned operations** in the combined
+There are **20 source-implemented operations and 29 planned operations** in the combined
 49-operation reference. These counts describe HTTP availability, not completion
 percentages or equal amounts of implementation work.
 
 - Rulebooks: create, collection read, detail read, version history, review history,
-  replace draft, confirm, reject and start a draft revision — nine operations.
+  replace draft, confirm, reject and start a draft revision, plus extraction submission — ten operations.
 - Audits: metadata, sample queue and sample detail — three operations.
 - Assets: revision-pinned sample asset delivery — one operation.
 - Jobs: status polling and cancellation — two operations.
 - Reviews: finding write/history and sample write/history — four operations.
 
-Use [the endpoint index](api/ENDPOINTS.md) for the exact inventory and
-[implemented-openapi.json](api/implemented-openapi.json) for live client
-generation. [The combined contract](api/openapi.json) includes future designs;
+Use the endpoint index for the exact inventory and
+implemented-openapi.json for live client
+generation. The combined contract includes future designs;
 planned routes cannot be called yet.
 
 ## What has been assigned or prepared for teammates
@@ -128,14 +128,13 @@ Do not record a suggested task as assigned without confirmation of its owner.
 opt-in isolated PostgreSQL tests, for manual creation and resolve any failures.
 Do not run tests automatically; the user controls execution.
 
-**Recommended next main feature: plain-text rulebook extraction over HTTP.**
-Implement the currently planned `POST /api/v1/rulebooks/extractions` workflow,
-connecting the existing extraction/persistence service to the existing durable
-job and polling conventions. Preserve reviewer confirmation, safe model/storage
-errors and valid result links. Scope the worker execution/cancellation behavior
-explicitly; current audit workers must not be assumed to execute extraction jobs.
-Do not add a new queue or reliability framework merely to expose the feature.
-This is a recommendation, not authorization to start coding it.
+**Current checkpoint: plain-text rulebook extraction over HTTP.**
+Source implementation now covers strict submission, a private durable ledger,
+one-attempt supervised extraction, atomic version-1 draft/job publication and
+existing polling/cancellation/review APIs. The worker is explicit and independent
+of audit/detector work. See the extraction guide.
+Integration against the real checkout, five-artifact regeneration and all runtime
+verification are pending; do not treat syntax review as passing test evidence.
 
 After that, the proposed delivery order is:
 
@@ -164,4 +163,8 @@ readiness routes when needed for frontend integration.
 - Respect the user's current instruction not to run tests automatically. Author
   coverage and report honestly which checks were actually performed.
 - No commits or pushes are authorized by updating this tracker. Every push requires
-  the specific approval defined in [AGENTS.md](../AGENTS.md).
+  the specific approval defined in AGENTS.md.
+
+## CDIF Feature 3 checkpoint verification
+
+The source-only checkpoint was prepared from the supplied hash-verified snapshot. No live repository, service/model readiness, migration execution, pytest, HTTP scenario or inference was verified. Three static review passes are documented in the Notion checkpoint. The real checkout and teammate changes take precedence when integrating. No production-readiness or zero-defect guarantee is made.

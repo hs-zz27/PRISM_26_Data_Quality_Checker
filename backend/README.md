@@ -5,7 +5,7 @@ client, rulebook extraction and review, batch audits, and finding/sample review 
 by PostgreSQL. The remaining modules contain responsibility notes for later
 implementation.
 
-See [the project tracker](STATUS.md) for completed work, teammate handoffs,
+See the project tracker for completed work, teammate handoffs,
 verification status and the recommended next features.
 
 ## Structure
@@ -298,8 +298,8 @@ their integer IDs; colored mask previews are display-only PNGs. All four asset
 kinds enforce the 64 MiB source-byte limit and return `422 ASSET_TOO_LARGE`
 when exceeded; preview decoding failures return `422 ASSET_NOT_RENDERABLE`.
 
-See [api/README.md](api/README.md) for the full contract and frontend fixtures.
-[api/ENDPOINTS.md](api/ENDPOINTS.md) distinguishes these implemented routes from
+See api/README.md for the full contract and frontend fixtures.
+api/ENDPOINTS.md distinguishes these implemented routes from
 remaining planned operations, including audit creation, dataset import and
 correction/export workflows.
 
@@ -532,7 +532,6 @@ from backend.app.models.audit import BatchAuditRequest
 from backend.app.services.batch_audit import BatchAuditService, ResolvedSampleRevision
 from backend.app.storage import AuditRepository, SampleAssetManifestRepository
 
-
 class Resolver:
     def resolve_samples(self, *, dataset_id, sample_ids, requested_revisions):
         # Resolve from the dataset/revision authority; do not choose max(manifest).
@@ -543,7 +542,6 @@ class Resolver:
             )
             for sample_id in sample_ids
         }
-
 
 manifests = SampleAssetManifestRepository()
 audits = AuditRepository()
@@ -756,7 +754,7 @@ Compose uses the official `postgres:18-bookworm` image and exposes the database
 only at `127.0.0.1:55432`. Set `POSTGRES_PORT` in `.env` to choose a different
 host port. The `postgres_data` named volume preserves records across container
 restarts and recreation. For PostgreSQL 18, it mounts at `/var/lib/postgresql`,
-following the [official image's volume layout](https://hub.docker.com/_/postgres).
+following the official image's volume layout.
 The first start needs internet access to download the image; an installed image
 and local database can run offline afterwards.
 
@@ -924,8 +922,8 @@ Both lists are ordered by ascending version and expose `items`, `limit`, `offset
 `RulebookNotFoundError`. An existing book can have an empty review history:
 extraction and earlier low-level saves do not gain invented reviewer records.
 Saved-rulebook HTTP reads and reviewer actions now reuse these Python services
-and repository operations. Rulebook extraction-job HTTP wiring remains planned.
-See [the rulebook HTTP guide](api/RULEBOOKS.md). Audit jobs are documented above.
+and repository operations. Rulebook extraction-job HTTP submission is implemented in the checkpoint source, with an explicit extraction worker. See the extraction guide.
+See the rulebook HTTP guide. Audit jobs are documented above.
 
 ## Database tests
 
@@ -947,7 +945,7 @@ the tests instead of being silently skipped.
 Nine rulebook operations are implemented: create a manual draft, list latest
 snapshots, read latest/explicit versions, list versions, list attributed reviews,
 replace a draft, confirm, reject and reopen a final book as a draft. See
-[the API rulebook guide](api/RULEBOOKS.md) for exact paths,
+the API rulebook guide for exact paths,
 strict requests, states and error codes. Manual creation uses strict editor
 inputs, preserves exact guideline text, and saves a version-1 draft without
 inventing review history. Extraction-job,
@@ -970,3 +968,7 @@ Generated OpenAPI, fixtures and endpoint inventories must come from
 `.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
 The full backend suite passes without a configured database; PostgreSQL
 integration tests remain opt-in and require `PRISM_TEST_DATABASE_URL`.
+
+## Durable guideline extraction jobs
+
+The extraction guide documents migration 009, separate HTTP/worker processes, `--once`/loop mode, saved model settings, finite execution policy, one-attempt stale recovery, atomic draft/job publication and the external Ollama cancellation limitation. The original synchronous extraction APIs remain compatible. This source-only checkpoint has not run runtime tests or regenerated artifacts; integrate and verify it in the complete checkout before deployment.

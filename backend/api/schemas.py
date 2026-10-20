@@ -11,6 +11,7 @@ from backend.app.models.review import (
 )
 from backend.app.models.rule import Rulebook, RulebookPage
 from backend.app.models.rulebook_creation import RulebookCreate, RulebookCreateRule
+from backend.app.models.rule_extraction import RuleExtractionRequest
 
 from .common import (
     BOOLEAN, COUNT, FRACTION, INTEGER, JOB_STATUS, SAMPLE_REVIEW_STATUS,
@@ -22,7 +23,7 @@ def build_schemas() -> JsonObject:
     """Reuse implemented records; keep proposed transport records explicit."""
     schemas = {}
     for model in (
-        Rulebook, RulebookPage, RulebookCreate, RulebookCreateRule, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
+        RuleExtractionRequest, Rulebook, RulebookPage, RulebookCreate, RulebookCreateRule, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
         RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage,
         SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
         AuditSamplePage, SampleAudit, SampleAuditSummary,
@@ -48,7 +49,6 @@ def build_schemas() -> JsonObject:
     }
     schemas["CorrectionObject"]["properties"]["bbox"] = ref("CorrectionBoundingBox")
     schemas["ErrorResponse"] = obj({"error": ref("ApiError")})
-    schemas["RuleExtractionRequest"] = obj({"guideline_text": {**TEXT, "pattern": r"\S"}})
     schemas["Dataset"] = obj({
         "dataset_id": TEXT, "name": TEXT, "format": choice("penn_fudan"),
         "status": choice("importing", "ready", "invalid", "failed", "cancelled"),
