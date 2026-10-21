@@ -371,6 +371,8 @@ def _evaluate_sample_rule(
     report: Mapping[str, Any],
     parameters: Mapping[str, Any],
 ) -> list[tuple[FindingOutcome, str | None, int | None, str, Mapping[str, Any]]]:
+    if rule.check_name == "annotation_guideline":
+        return [(FindingOutcome.UNAVAILABLE,"model_execution_unavailable",None,"sample",{})]
     envelope = _envelope(report["checks"].get(rule.check_name))
     if rule.check_name == "box_overlaps":
         if envelope is None:

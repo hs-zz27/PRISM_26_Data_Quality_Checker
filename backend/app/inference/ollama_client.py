@@ -135,6 +135,7 @@ def propose_rules(
         "conversion to pixel or count parameters. For example, 'At most 5% of the mask may "
         "be outside the box' maps to mask_outside_box with max_outside_fraction 0.05 only "
         "when that requirement is actually stated. "
+        "Use annotation_guideline only for explicit image/annotation semantic requirements expressible in a still image; it is never a fallback for unmapped rules. Keep exact numeric requirements on their deterministic checks. Temporal, external or unstated criteria stay unsupported. "
         "Return an empty rules list if no annotation requirements are stated. "
         "Do not include origin or confirmation_state; the application assigns those fields. "
         "Authoritative supported-check catalog (scope is informational and is not output): "

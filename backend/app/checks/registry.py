@@ -103,6 +103,10 @@ class CheckDefinition:
 
 
 CHECK_REGISTRY: dict[str, CheckDefinition] = {
+    "annotation_guideline": CheckDefinition(
+        "annotation_guideline", "sample", EmptyParameters,
+        "Model-assisted judgment of one explicit visual annotation guideline against an image and parsed annotations. Not a fallback for numeric checks, motion, unseen facts or unsupported evidence.",
+    ),
     "allowed_labels": CheckDefinition(
         "allowed_labels", "object", AllowedLabelsParameters,
         "Each annotation label must be one of the explicitly configured allowed labels.",
