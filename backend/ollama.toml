@@ -3,6 +3,6 @@
 [ollama]
 model = "qwen3-vl:4b-instruct"
 host = "http://127.0.0.1:11434"
-timeout_seconds = 120.0
-context_length = 8192
+timeout_seconds = 600.0
+context_length = 16384
 max_output_tokens = 4096
