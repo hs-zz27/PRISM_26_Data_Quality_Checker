@@ -240,14 +240,11 @@ def build_examples() -> JsonObject:
     export = {"export_id": "export_demo", "audit_id": "audit_recheck_demo", "job_id": "job_export_demo", "status": "completed",
               "format": "penn_fudan", "selection": "accepted_only", "include_images": False, "included_count": 1, "excluded_count": 0,
               "download_url": f"{BASE_PATH}/exports/export_demo/download", "manifest_url": f"{BASE_PATH}/exports/export_demo/manifest", "created_at": TIMESTAMP}
-    feedback = {"example_id": "feedback_demo", "source_audit_id": "audit_posture_demo", "dataset_id": "dataset_feedback", "sample_id": "sample_feedback_001",
-                "original_revision": 1, "corrected_revision": 2, "rule_id": "LBL-2", "reviewer_id": "reviewer_demo",
-                "approved": True, "description": "Reviewer corrected a separate posture example from walking to standing."}
-    policy = {"policy_id": "policy_demo", "name": "Reviewed examples", "strategy": "reviewer_examples", "status": "draft",
-              "example_ids": ["feedback_demo"], "target_check_names": ["person_posture"], "evaluation_id": None}
-    evaluation = {"evaluation_id": "evaluation_demo", "policy_id": "policy_demo", "job_id": "job_feedback_evaluation_demo",
-                  "status": "queued", "evaluation_dataset_id": "dataset_holdout", "ground_truth_id": "truth_demo", "ground_truth_version": 1,
-                  "baseline": None, "candidate": None, "error": None}
+    from .feedback_examples import feedback_examples
+    feedback_values=feedback_examples()['responses']
+    feedback=feedback_values['listFeedbackExamples']['items'][0]
+    policy=feedback_values['getFeedbackPolicy']
+    evaluation=feedback_values['getFeedbackEvaluation']
     job_scenarios, audit_scenarios = build_lifecycle_scenarios(confirmed["version"])
     return {
         "draft": draft, "manual_create": manual_create, "manual_draft": manual_draft, "reviewed": reviewed, "confirmed": confirmed,

@@ -2,6 +2,10 @@
 
 from backend.app.models.correction import (CorrectionObject, MaskUploadRequest, MaskUpload, CorrectionRequest, AnnotationRevision, RevisionPage, RecheckRequest)
 
+from backend.app.models.feedback import (CaseView,FeedbackExamplePage,FeedbackPolicyCreate,FeedbackPolicy,FeedbackPolicyPage,
+    GroundTruthCreate,GroundTruth,FeedbackEvaluationCreate,FeedbackEvaluation,FeedbackEvaluationStarted,
+    FeedbackEvaluationPage,FeedbackPolicyActivate)
+
 from backend.app.models.dataset import Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted
 from backend.app.core.dataset_http import DatasetUpload
 from backend.app.models.finding import Finding
@@ -39,6 +43,8 @@ def build_schemas() -> JsonObject:
         Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted, DatasetUpload,
         ExportRequest, Export, ExportStarted, ExportPage, ExportManifestEntry, ExportManifest,
         CorrectionObject, MaskUploadRequest, MaskUpload, CorrectionRequest, AnnotationRevision, RevisionPage, RecheckRequest,
+        CaseView,FeedbackExamplePage,FeedbackPolicyCreate,FeedbackPolicy,FeedbackPolicyPage,GroundTruthCreate,GroundTruth,
+        FeedbackEvaluationCreate,FeedbackEvaluation,FeedbackEvaluationStarted,FeedbackEvaluationPage,FeedbackPolicyActivate,
     ):
         schema = model.model_json_schema()
         schemas.update({name: replace_model_refs(definition)
@@ -75,47 +81,6 @@ def build_schemas() -> JsonObject:
         "objects": array(ref("ObjectMeasurements")),
     })
     schemas["FindingPage"] = page_schema(ref("Finding"))
-    schemas["FeedbackExample"] = obj({
-        "example_id": TEXT, "source_audit_id": TEXT, "dataset_id": TEXT, "sample_id": TEXT,
-        "original_revision": VERSION, "corrected_revision": VERSION, "rule_id": TEXT,
-        "reviewer_id": TEXT, "approved": BOOLEAN, "description": TEXT,
-    })
-    schemas["FeedbackExamplePage"] = page_schema(ref("FeedbackExample"))
-    schemas["FeedbackPolicyCreate"] = obj({
-        "name": TEXT, "strategy": {"const": "reviewer_examples"},
-        "example_ids": {**array(TEXT), "minItems": 1, "uniqueItems": True},
-        "target_check_names": {**array(TEXT), "minItems": 1},
-    })
-    schemas["FeedbackPolicy"] = obj({
-        "policy_id": TEXT, "name": TEXT, "strategy": {"const": "reviewer_examples"},
-        "status": choice("draft", "active", "retired"), "example_ids": array(TEXT),
-        "target_check_names": array(TEXT), "evaluation_id": nullable(TEXT),
-    })
-    schemas["FeedbackPolicyPage"] = page_schema(ref("FeedbackPolicy"))
-    schemas["GroundTruthCreate"] = obj({
-        "dataset_id": TEXT, "source_audit_ids": {**array(TEXT), "minItems": 1}, "reviewer_id": TEXT,
-    })
-    schemas["GroundTruth"] = obj({
-        "ground_truth_id": TEXT, "dataset_id": TEXT, "version": VERSION,
-        "source_audit_ids": array(TEXT), "verified_sample_count": COUNT, "created_at": TIME,
-    })
-    schemas["FeedbackEvaluationRequest"] = obj({
-        "policy_id": TEXT, "ground_truth_id": TEXT, "ground_truth_version": VERSION,
-    })
-    schemas["EvaluationMetrics"] = obj({
-        "precision": nullable(FRACTION), "recall": nullable(FRACTION), "f1": nullable(FRACTION),
-        "true_positives": COUNT, "false_positives": COUNT, "false_negatives": COUNT,
-        "sample_count": COUNT, "elapsed_seconds": {"type": "number", "minimum": 0},
-    })
-    schemas["FeedbackEvaluation"] = obj({
-        "evaluation_id": TEXT, "policy_id": TEXT, "job_id": TEXT, "status": JOB_STATUS,
-        "evaluation_dataset_id": TEXT, "ground_truth_id": TEXT, "ground_truth_version": VERSION,
-        "baseline": nullable(ref("EvaluationMetrics")), "candidate": nullable(ref("EvaluationMetrics")),
-        "error": nullable(ref("ApiError")),
-    })
-    schemas["FeedbackEvaluationStarted"] = obj({"evaluation": ref("FeedbackEvaluation"), "job": ref("Job")})
-    schemas["FeedbackEvaluationPage"] = page_schema(ref("FeedbackEvaluation"))
-    schemas["ActivatePolicyRequest"] = obj({"evaluation_id": TEXT, "reviewer_id": TEXT})
     schemas["Health"] = obj({"status": {"const": "ok"}, "api_version": {"const": "v1"}})
     schemas["Capabilities"] = obj({
         "dataset_formats": array(TEXT), "guideline_input_formats": array(TEXT),

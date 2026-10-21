@@ -4,6 +4,9 @@ Run from the project root with python -m backend.api.build_contract.
 Schema generation imports the app without serving requests or connecting to storage.
 """
 
+from .feedback_contract import align_feedback_contract,feedback_job_scenarios
+from .feedback_examples import feedback_examples
+
 from .correction_contract import align_correction_contract, recheck_job_scenarios
 
 from copy import deepcopy
@@ -295,7 +298,7 @@ def build_contract() -> JsonObject:
             404: {"NOT_FOUND": "The requested dataset, sample or rulebook version does not exist."},
             422: {"VALIDATION_ERROR": "One or more request fields or selected rule parameters are invalid."},
         },
-        description="Omit sample_ids or send null for every sample in catalogue order; a nonempty unique subset preserves request order. Require a ready imported dataset and a nonempty confirmed rulebook version containing only confirmed rules. Resolve all selected current heads in one database snapshot and durably pin those immutable manifests before returning 202. Dirty sample annotations remain auditable. Processing runs in the explicitly started audit worker, never in the HTTP request. Unsupported rules yield unavailable findings and all findings remain pending human review. feedback_policy_id must be omitted or null until feedback execution is implemented; non-null values return 422. No source paths, model execution settings or client-supplied sample revisions are accepted. Repeated submissions create separate audits; after a lost response inspect the audit list before resubmitting.")
+        description="Omit sample_ids or send null for every sample in catalogue order; a nonempty unique subset preserves request order. Require a ready imported dataset and a nonempty confirmed rulebook version containing only confirmed rules. Resolve all selected current heads in one database snapshot and durably pin those immutable manifests before returning 202. Dirty sample annotations remain auditable. Processing runs in the explicitly started audit worker, never in the HTTP request. Unsupported rules yield unavailable findings and all findings remain pending human review. feedback_policy_id optionally selects an active compatible frozen policy; null uses baseline context. No source paths, model execution settings or client-supplied sample revisions are accepted. Repeated submissions create separate audits; after a lost response inspect the audit list before resubmitting.")
     add("GET", "/audits", "listAudits", "Audits", "List audit runs", "AuditPage", page([examples["audit"]]),
         parameters=[pagination_parameters()[0], parameter("offset", "query", {
             "type": "integer", "minimum": 0, "maximum": 9223372036854775807, "default": 0,
@@ -371,7 +374,7 @@ def build_contract() -> JsonObject:
             "INVALID_SAMPLE_REVIEW_STATE": "The sample is not currently eligible for review.",
         },
         backing="review_sample service, PostgreSQL sample review history and FastAPI route implemented.",
-        description="Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: snapshot-backed audits use immutable captured assets; legacy audits use live files. Application-owned revision selection and correction workflows remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.")
+        description="Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: snapshot-backed audits use immutable captured assets; legacy audits use live files. Application-owned immutable correction revisions and linked rechecks remain separate from review decisions. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.")
     add("GET", "/audits/{audit_id}/samples/{sample_id}/reviews", "listSampleReviews", "Reviews", "Read sample decision history", "SampleReviewPage", page([reviewed]),
         parameters=pagination_parameters() + [parameter("sample_revision", "query", VERSION, 1, required=True,
             description="Exact stored audit sample revision; history never merges other pins or audits.")],
@@ -393,40 +396,29 @@ def build_contract() -> JsonObject:
         {"export_id": "export_demo", "audit_id": "audit_recheck_demo", "rulebook_id": "rulebook_demo", "rulebook_version": examples["confirmed"]["version"],
          "entries": [{"sample_id": "sample_001", "sample_revision": 2, "included": True, "review_decision": "accepted", "reason": None}]},
         conflict_examples={"EXPORT_NOT_READY": "Wait for export preparation to complete before reading its manifest."})
-    add("GET", "/feedback/examples", "listFeedbackExamples", "Feedback", "List approved reviewer correction examples", "FeedbackExamplePage", page([examples["feedback"]]), parameters=pagination_parameters(),
-        description="Examples derive from approved reviews and corrections; storing them is not yet an improvement mechanism. Rejected suggestions are not silently used as correct examples.")
-    add("POST", "/feedback/policies", "createFeedbackPolicy", "Feedback", "Define a candidate reviewer-example policy", "FeedbackPolicy", examples["policy"], status=201,
-        body_schema="FeedbackPolicyCreate", body_example={"name": "Reviewed examples", "strategy": "reviewer_examples", "example_ids": ["feedback_demo"], "target_check_names": ["person_posture"]},
-        description="Planned improvement strategy: retrieve approved correction examples as context for supported model checks. Does not train or download a model. Policy starts as draft; applicability must be checked by the backend.")
-    add("GET", "/feedback/policies", "listFeedbackPolicies", "Feedback", "List available feedback policies", "FeedbackPolicyPage", page([examples["policy"]]), parameters=pagination_parameters())
-    add("GET", "/feedback/policies/{policy_id}", "getFeedbackPolicy", "Feedback", "Read a feedback policy", "FeedbackPolicy", examples["policy"])
-    truth = {"ground_truth_id": "truth_demo", "dataset_id": "dataset_holdout", "version": 1,
-             "source_audit_ids": ["audit_holdout_reviewed"], "verified_sample_count": 12, "created_at": TIMESTAMP}
-    add("POST", "/feedback/ground-truth", "createGroundTruth", "Feedback", "Freeze reviewer-verified evaluation evidence", "GroundTruth", truth, status=201,
-        body_schema="GroundTruthCreate", body_example={"dataset_id": "dataset_holdout", "source_audit_ids": ["audit_holdout_reviewed"], "reviewer_id": "reviewer_demo"},
-        conflict_examples={"GROUND_TRUTH_NOT_READY": "Complete the relevant reviewer verification before freezing ground truth."},
-        description="Snapshot reviewer-verified original/corrected annotations, accepted/rejected findings and checked no-issue cases, including missed errors identified through corrections. Require complete relevant review evidence; return 409 GROUND_TRUTH_NOT_READY otherwise. Evaluator semantics and storage remain planned.")
-    add("GET", "/feedback/ground-truth/{ground_truth_id}", "getGroundTruth", "Feedback", "Read a frozen evaluation snapshot", "GroundTruth", truth)
-    add("POST", "/feedback/evaluations", "evaluateFeedbackPolicy", "Feedback", "Compare candidate feedback with a baseline", "FeedbackEvaluationStarted",
-        {"evaluation": examples["evaluation"], "job": job("feedback_evaluation", "feedback_evaluation", "evaluation_demo")}, status=202,
-        body_schema="FeedbackEvaluationRequest", body_example={"policy_id": "policy_demo", "ground_truth_id": "truth_demo", "ground_truth_version": 1},
-        conflict_examples={"EVALUATION_DATA_OVERLAP": "Use held-out samples that do not overlap the policy examples."},
-        description="Evaluate identical held-out samples with and without the candidate policy against frozen reviewer-verified ground truth. Reject overlap with policy example samples (409 EVALUATION_DATA_OVERLAP). A ground-truth revision and comparison evaluator still need implementation. Never treat runtime speed alone as accuracy improvement.")
-    metrics = {"precision": 0.8, "recall": 0.8, "f1": 0.8, "true_positives": 8, "false_positives": 2, "false_negatives": 2, "sample_count": 12, "elapsed_seconds": 20.0}
-    add("GET", "/feedback/evaluations/{evaluation_id}", "getFeedbackEvaluation", "Feedback", "Read held-out feedback evaluation results", "FeedbackEvaluation",
-        {**examples["evaluation"], "status": "completed", "baseline": metrics,
-         "candidate": {**metrics, "precision": 0.9, "recall": 0.9, "f1": 0.9, "true_positives": 9, "false_positives": 1, "false_negatives": 1, "elapsed_seconds": 22.0}},
-        description="Synthetic numbers illustrate the shape only. Metrics remain null until measured. Undefined precision/recall denominators produce null, not invented perfect scores.")
-    add("GET", "/feedback/evaluations", "listFeedbackEvaluations", "Feedback", "List feedback evaluation jobs", "FeedbackEvaluationPage", page([examples["evaluation"]]), parameters=pagination_parameters())
-    add("POST", "/feedback/policies/{policy_id}/activate", "activateFeedbackPolicy", "Feedback", "Approve an evaluated policy for future audits", "FeedbackPolicy",
-        {**examples["policy"], "status": "active", "evaluation_id": "evaluation_demo"},
-        body_schema="ActivatePolicyRequest", body_example={"evaluation_id": "evaluation_demo", "reviewer_id": "reviewer_demo"},
-        conflict_examples={"POLICY_NOT_EVALUATED": "Complete a matching evaluation before activating the policy."},
-        description="Require a completed matching evaluation and explicit reviewer activation. Does not alter historical audits or override final reviewer control. Return 409 POLICY_NOT_EVALUATED if the evaluation is missing or unfinished.")
+    feedback=feedback_examples()
+    for path,method,identifier,schema,request_schema,summary in (
+        ('/feedback/examples','GET','listFeedbackExamples','FeedbackExamplePage',None,'List approved binary model examples'),
+        ('/feedback/policies','POST','createFeedbackPolicy','FeedbackPolicy','FeedbackPolicyCreate','Freeze selected approved examples'),
+        ('/feedback/policies','GET','listFeedbackPolicies','FeedbackPolicyPage',None,'List candidate policies'),
+        ('/feedback/policies/{policy_id}','GET','getFeedbackPolicy','FeedbackPolicy',None,'Read a frozen policy'),
+        ('/feedback/ground-truth','POST','createGroundTruth','GroundTruth','GroundTruthCreate','Freeze explicit rule-level adjudications'),
+        ('/feedback/ground-truth/{ground_truth_id}','GET','getGroundTruth','GroundTruth',None,'Read immutable truth'),
+        ('/feedback/evaluations','POST','evaluateFeedbackPolicy','FeedbackEvaluationStarted','FeedbackEvaluationCreate','Queue a held-out comparison'),
+        ('/feedback/evaluations/{evaluation_id}','GET','getFeedbackEvaluation','FeedbackEvaluation',None,'Read comparison results'),
+        ('/feedback/evaluations','GET','listFeedbackEvaluations','FeedbackEvaluationPage',None,'List comparisons'),
+        ('/feedback/policies/{policy_id}/activate','POST','activateFeedbackPolicy','FeedbackPolicy','FeedbackPolicyActivate','Record explicit reviewer activation'),
+    ):
+        add(method,path,identifier,'Feedback',summary,schema,feedback['responses'][identifier],
+            status=202 if identifier=='evaluateFeedbackPolicy' else 201 if identifier in {'createFeedbackPolicy','createGroundTruth'} else 200,
+            body_schema=request_schema,body_example=feedback['requests'].get(identifier),
+            parameters=pagination_parameters() if identifier.startswith('list') else None)
 
     align_dataset_contract(contract, create_app().openapi())
     align_export_contract(contract, create_app().openapi(), operations)
     align_correction_contract(contract, create_app().openapi(), operations)
+    align_feedback_contract(contract, create_app().openapi(), operations)
+    contract["x-feedback-job-scenarios"] = feedback_job_scenarios()
     contract["x-recheck-job-scenarios"] = recheck_job_scenarios()
     contract["x-template-operations"] = operations
     contract["x-review-scenarios"] = examples["review_scenarios"]
@@ -436,7 +428,7 @@ def build_contract() -> JsonObject:
     contract["x-extraction-job-scenarios"] = examples["extraction_job_scenarios"]
     contract["x-dataset-import-scenarios"] = examples["dataset_import_scenarios"]
     contract["x-future-job-scenarios"] = {kind: states for kind, states in examples["future_job_scenarios"].items()
-                                            if kind not in {"export", "recheck"}}
+                                            if kind not in {"export", "recheck", "feedback_evaluation"}}
     return contract
 
 def build_implemented_contract(reference: JsonObject) -> JsonObject:
@@ -498,14 +490,16 @@ def render_artifacts() -> dict[str, str]:
     dataset_import_scenarios = contract.pop("x-dataset-import-scenarios")
     export_scenarios = contract.pop("x-export-scenarios")
     recheck_job_scenarios = contract.pop("x-recheck-job-scenarios")
+    feedback_job_states = contract.pop("x-feedback-job-scenarios")
     documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
-        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+        "notice": "Synthetic frontend fixtures, not stored resources, measured model accuracy or a stateful server. Feedback policies, adjudicated truth, comparisons and explicit activation are implemented in source. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,
         "dataset_import_scenarios": dataset_import_scenarios,
         "export_scenarios": export_scenarios,
         "recheck_job_scenarios": recheck_job_scenarios,
+        "feedback_job_scenarios": feedback_job_states,
         "future_job_scenarios": future_job_scenarios,
         "extraction_job_scenarios": extraction_job_scenarios,
         "check_catalog": extraction_check_catalog(),
