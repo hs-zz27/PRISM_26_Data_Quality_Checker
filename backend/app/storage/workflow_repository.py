@@ -356,6 +356,8 @@ def _reject_managed_extraction(row) -> None:
         raise ValueError("Use ExtractionRepository for managed extraction execution.")
     if row is not None and row["kind"] == "dataset_import":
         raise ValueError("Use DatasetImportRepository for managed import execution.")
+    if row is not None and row["kind"] == "export":
+        raise ValueError("Use ExportRepository for managed export execution.")
 
 class JobRepository(_WorkflowRepository):
     """Persist jobs and perform lease-protected state transitions."""
@@ -374,6 +376,8 @@ class JobRepository(_WorkflowRepository):
             raise ValueError("Use ExtractionRepository to enqueue managed extraction jobs.")
         if snapshot.kind is JobKind.DATASET_IMPORT:
             raise ValueError("Use DatasetImportRepository to enqueue managed import jobs.")
+        if snapshot.kind is JobKind.EXPORT:
+            raise ValueError("Use ExportRepository to enqueue managed export jobs.")
         if snapshot.status is not JobStatus.QUEUED:
             raise ValueError("new jobs must start in queued state.")
         if resource_kind is not None:
@@ -472,12 +476,12 @@ class JobRepository(_WorkflowRepository):
             cutoff = _timestamp(now)
             row = connection.execute(
                 """SELECT * FROM jobs
-                   WHERE kind NOT IN (%s, %s) AND (status = 'queued'
+                   WHERE kind NOT IN (%s, %s, %s) AND (status = 'queued'
                       OR (status = 'running' AND lease_until <= %s))
                      AND (%s::text IS NULL OR kind = %s)
                    ORDER BY created_at ASC, job_id ASC
                    FOR UPDATE SKIP LOCKED LIMIT 1""",
-                ("rule_extraction", "dataset_import", cutoff, kind_value, kind_value),
+                ("rule_extraction", "dataset_import", "export", cutoff, kind_value, kind_value),
             ).fetchone()
             if row is None:
                 return None
@@ -539,6 +543,10 @@ class JobRepository(_WorkflowRepository):
             ).fetchone()
             if row is None:
                 raise JobNotFoundError(job_id)
+            if row["kind"] == "export":
+                # Reuse this transaction and locked job row; never nest a connection.
+                from .export_repository import ExportRepository
+                return ExportRepository(settings=self.settings)._cancel_locked(connection, row)
             if row["kind"] == "dataset_import":
                 # Local import avoids a module cycle. Reuse THIS transaction/job lock;
                 # never open a second transaction while holding the same job row.
@@ -699,10 +707,10 @@ class JobRepository(_WorkflowRepository):
             cutoff = _timestamp(now)
             rows = connection.execute(
                 """SELECT * FROM jobs
-                   WHERE kind NOT IN (%s, %s) AND ((status = 'running' AND lease_until <= %s)
+                   WHERE kind NOT IN (%s, %s, %s) AND ((status = 'running' AND lease_until <= %s)
                       OR (status = 'cancelling' AND lease_until <= %s))
                    FOR UPDATE SKIP LOCKED""",
-                ("rule_extraction", "dataset_import", cutoff, cutoff),
+                ("rule_extraction", "dataset_import", "export", cutoff, cutoff),
             ).fetchall()
             timestamp = _timestamp(now)
             for row in rows:
@@ -2804,7 +2812,7 @@ class AuditRepository(_WorkflowRepository):
             ).fetchone()
         if row is None:
             raise JobNotFoundError(job_id)
-        if row["kind"] == "dataset_import":
+        if row["kind"] in {"dataset_import", "export"}:
             # The generic boundary rechecks the stored kind under its job-row lock.
             return self.jobs.request_cancellation(job_id)
         if row["resource_kind"] == "audit" and row["resource_id"] is not None:
