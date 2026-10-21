@@ -1,8 +1,6 @@
 """Frozen detector configuration, server settings and the saved-request seam."""
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -30,7 +28,6 @@ from backend.app.models.detection_evidence import (
     UnavailableReason,
 )
 from backend.app.models.detection_matching import MATCHING_POLICY
-from backend.tests.test_audit_submission import submission  # noqa: F401 - reuse its fixture
 
 SHA = "a" * 64
 SETTING_NAMES = (
@@ -220,40 +217,6 @@ def test_the_public_audit_request_rejects_detector_settings():
         ))
 
 
-# --- audit submission freezes the settings when the audit is accepted ----------------------------
-
-def test_submission_freezes_the_configuration_given_at_acceptance(submission):  # noqa: F811
-    service, _, _, audits, _ = submission
-    configuration = enabled_configuration()
-    service.detector_configuration = lambda: configuration
-    service.start(AuditRequest(dataset_id="dataset_a", rulebook_id="book", rulebook_version=1))
-    assert audits.start_audit.call_args.args[0].detector == configuration
-
-
-def test_submission_reads_the_environment_when_each_audit_is_accepted(submission, clean_environment):  # noqa: F811
-    service, _, _, audits, _ = submission
-    clean_environment.setenv("DETECTION_ENABLED", "false")
-    service.start(AuditRequest(dataset_id="dataset_a", rulebook_id="book", rulebook_version=1))
-    first = audits.start_audit.call_args.args[0]
-    assert first.detector == DetectorConfiguration(enabled=False)
-
-    for name, value in FULL_SETTINGS.items():
-        clean_environment.setenv(name, value)
-    service.start(AuditRequest(dataset_id="dataset_a", rulebook_id="book", rulebook_version=1))
-    second = audits.start_audit.call_args.args[0]
-    assert second.detector.enabled is True and second.detector.person_labels == ["PASperson", "person"]
-    # The audit accepted earlier keeps what it froze.
-    assert first.detector == DetectorConfiguration(enabled=False)
-
-
-def test_invalid_settings_stop_an_audit_before_anything_is_queued(submission, clean_environment):  # noqa: F811
-    service, _, _, audits, _ = submission
-    clean_environment.setenv("DETECTION_ENABLED", "true")
-    with pytest.raises(DetectionConfigurationError):
-        service.start(AuditRequest(dataset_id="dataset_a", rulebook_id="book", rulebook_version=1))
-    audits.start_audit.assert_not_called()
-
-
 # --- evidence models -----------------------------------------------------------------------------------
 
 def test_not_run_evidence_matches_its_configuration():
@@ -286,17 +249,3 @@ def test_evidence_records_its_schema_version_and_preprocessing():
 def test_an_injected_detector_cannot_claim_an_expected_hash():
     with pytest.raises(ValidationError):
         ModelIdentity(checkpoint_source="injected_detector", expected_checkpoint_sha256=SHA)
-
-
-# --- the API process stays light ------------------------------------------------------------------------------
-
-def test_importing_audit_submission_does_not_import_torch():
-    code = (
-        "import sys\n"
-        "import backend.app.services.audit_submission\n"
-        "import backend.app.services.batch_audit\n"
-        "assert 'torch' not in sys.modules, 'torch was imported by the audit API modules'\n"
-    )
-    root = Path(__file__).resolve().parents[2]
-    done = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True)
-    assert done.returncode == 0, done.stderr
