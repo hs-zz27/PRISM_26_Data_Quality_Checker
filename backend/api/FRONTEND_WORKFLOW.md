@@ -1,5 +1,12 @@
 # Frontend workflow and mock guide
 
+> Current feedback source proposal: ten feedback operations plus real bounded
+> `annotation_guideline` inference are supplied. Proposed inventory: 46 implemented,
+> 4 planned, 50 total. This handoff did not run tests, migrations, workers, inference
+> or API contract generation. Regenerate all five artifacts together before using
+> them for this feature; earlier generation/test statements below refer to the
+> captured pre-feedback work. See [FEEDBACK.md](FEEDBACK.md).
+
 Build screens against the contracts below, using live calls only for operations
 marked **implemented**. Planned operations describe the intended interface; their
 routes and services are unavailable until backend implementation is delivered.
@@ -86,8 +93,8 @@ application and real worker/database/download verification remain pending.
 **Implemented:** `POST /audits` returns HTTP 202 `AuditStarted` containing `audit` and `job`.
 Submit a ready dataset ID and an explicit confirmed rulebook ID/version.
 Omitted/null `sample_ids` selects all samples; a nonempty unique list selects those
-samples in request order. Keep `feedback_policy_id` omitted or null; non-null
-values are rejected until feedback execution is implemented. Start the explicit
+samples in request order. Omit/null `feedback_policy_id` for baseline context, or explicitly choose an active
+compatible immutable policy. The server pins its execution configuration at acceptance. Start the explicit
 audit worker documented in AUDITS.md. `GET /audits` lists persisted runs, newest first.
 Do not add a CPU batch-size field or assume the standalone detector is integrated.
 
@@ -119,7 +126,7 @@ until terminal. Terminal cancellation conflicts use 409 `JOB_ALREADY_FINISHED`.
 Completed evidence and decisions remain available. Dataset import, extraction
 and export jobs use their own managed cancellation dispatch through the same
 endpoint. Linked rechecks use kind `audit` and the same audit-aware cancellation
-and recovery path. Feedback-evaluation producers remain planned.
+and recovery path. Feedback comparisons use their own managed explicit worker and existing public job polling/cancellation.
 
 ## 6. Review queue, evidence and decisions
 
@@ -179,8 +186,8 @@ correction must not rewrite them or transfer acceptance to the new revision.
 `sample_ids`, with each value the expected positive current revision. Handle a
 stale-revision 409 by refreshing; malformed selections use 422. Do not silently substitute revisions. Poll the returned
 job and review the new audit's pinned revisions.
-The child pins the exact parent rulebook and supports only the existing null
-feedback policy. Selected heads remain locked through enqueue. Its job kind is
+The child pins the exact parent rulebook, compatible feedback policy snapshot
+and model execution configuration, including baseline/null context. Selected heads remain locked through enqueue. Its job kind is
 `audit`; run the existing explicit audit worker. It creates fresh evidence;
 old final sample decisions are not inherited.
 
@@ -201,18 +208,19 @@ remain separate gates.
 
 ## 9. Evaluated feedback
 
-**All planned:** browse approved `/feedback/examples`, create/read/list candidate
-`/feedback/policies`, and freeze reviewer-verified `/feedback/ground-truth`.
-Submit `/feedback/evaluations` with the policy and explicit ground-truth version;
-poll its job, read/list evaluations, compare measured baseline/candidate metrics,
-then explicitly POST `/feedback/policies/{policy_id}/activate`.
-
-Storing corrections alone is not evidence of improvement. The proposed policy
-retrieves approved examples for supported model checks; it does not train a model
-or change deterministic label rules. Held-out data must not overlap policy
-examples. Metrics can be null before measurement or when undefined. Fixture
-numbers are synthetic. Activation must not change historical audits or overrule
-reviewers; show incomplete/missing evaluation as a blocked state.
+**Implemented in supplied source:** browse approved `/feedback/examples` and select
+1–4 compatible example IDs plus reviewer attribution when creating a policy.
+Create truth with explicit sample-revision/rule references, binary expected
+outcomes and human reasons; absence of a finding is never automatic compliance.
+Submit `/feedback/evaluations` with exact policy/truth IDs, version 1 and reviewer
+attribution. Poll its existing job; cancel through the existing job endpoint.
+Inspect actual per-case predictions, durations, confusion counts, coverage and
+nullable ratios, then explicitly activate a matching complete evaluation.
+See [FEEDBACK.md](FEEDBACK.md) for concrete transports, all ten operations and
+commands. Only explicit policy selection affects future audits; linked rechecks
+preserve parent pins and create fresh pending reviews. No automatic global policy
+or synthetic improvement claim is introduced. New generated artifacts require
+local regeneration and runtime/model validation remains outstanding.
 
 ## 10. Mock coverage and conflict behavior
 
@@ -252,6 +260,6 @@ safe errors, selection snapshot cutoff, omitted images and storage limitations.
 ## Correction/recheck contract gate
 
 The correction/recheck source is applied and all five API artifacts are
-regenerated: 36 implemented and 14 planned operations, 50 total. Use the updated
+regenerated: 46 implemented and 4 planned operations, 50 total. Use the updated
 implemented-only contract for client generation. Migration 012 and regression
 execution after the latest integration fixes remain separate runtime gates.

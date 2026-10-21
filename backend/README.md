@@ -1,5 +1,12 @@
 # Backend
 
+> Current feedback source proposal: ten feedback operations plus real bounded
+> `annotation_guideline` inference are supplied. Proposed inventory: 46 implemented,
+> 4 planned, 50 total. This handoff did not run tests, migrations, workers, inference
+> or API contract generation. Regenerate all five artifacts together before using
+> them for this feature; earlier generation/test statements below refer to the
+> captured pre-feedback work. See [api/FEEDBACK.md](api/FEEDBACK.md).
+
 This folder contains the dataset reader, box and mask measurements, local Ollama
 client, rulebook extraction and review, batch audits, and finding/sample review backed
 by PostgreSQL. The remaining modules contain responsibility notes for later
@@ -352,8 +359,8 @@ when exceeded; preview decoding failures return `422 ASSET_NOT_RENDERABLE`.
 
 See api/README.md for the full contract and frontend fixtures.
 api/ENDPOINTS.md distinguishes these implemented routes from
-remaining planned operations, including evaluated feedback and other unfinished
-workflows. Correction/recheck source is described in api/CORRECTIONS.md; its
+remaining planned operations: three system reads and audit-wide findings.
+Evaluated feedback source is described in api/FEEDBACK.md. Correction/recheck source is described in api/CORRECTIONS.md; its
 generated inventory includes these operations. Reviewed dataset exports are applied; see
 [api/EXPORTS.md](api/EXPORTS.md) for selection semantics and remaining verification gates.
 
@@ -1052,13 +1059,13 @@ are required. Neither API startup nor submission runs that worker.
 
 See [api/EXPORTS.md](api/EXPORTS.md) for setup, limits and error responses.
 Correction/recheck source and all five regenerated contracts are integrated.
-The combined API has 36 implemented and 14 planned operations, 50 total.
+The combined API has 46 implemented and 4 planned operations, 50 total.
 Tests after the latest fixes, migration application and real worker/download
 verification remain operator-controlled gates.
 
 ## Correction/recheck source handoff
 
 See [api/CORRECTIONS.md](api/CORRECTIONS.md). All four source phases are applied and
-all five API artifacts are regenerated, with 36 implemented and 14 planned
+all five API artifacts are regenerated, with 46 implemented and 4 planned
 operations. Migration 012, regression execution and runtime verification remain
 separate gates; contract generation does not establish passing tests.

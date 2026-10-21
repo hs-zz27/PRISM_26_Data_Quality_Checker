@@ -1,8 +1,15 @@
 # Frontend API guide
 
+> Current feedback source proposal: ten feedback operations plus real bounded
+> `annotation_guideline` inference are supplied. Proposed inventory: 46 implemented,
+> 4 planned, 50 total. This handoff did not run tests, migrations, workers, inference
+> or API contract generation. Regenerate all five artifacts together before using
+> them for this feature; earlier generation/test statements below refer to the
+> captured pre-feedback work. See [FEEDBACK.md](FEEDBACK.md).
+
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**36 HTTP operations are implemented in source after this handoff is applied:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
+**46 HTTP operations are implemented in source after this handoff is applied:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
 and sample reads, revision-pinned assets, job polling/cancellation, and
 finding/sample decisions with history, five reviewed-export operations and four correction/recheck operations.
 All five API artifacts now include these four operations.
@@ -43,14 +50,14 @@ when API models or routes change.
 - AUDITS.md: catalogue-backed audit creation, listing and explicit worker commands.
 - EXPORTS.md: frozen reviewed selections, managed export jobs, manifests and downloads.
 - dataset_contract.py / dataset_examples.py: live-aligned dataset shapes and model-validated lifecycle snapshots.
-- PLANNED_ENDPOINTS.md: all 14 remaining future operations, with
+- PLANNED_ENDPOINTS.md: all 4 remaining future operations, with
   parameters, request/response examples, proposed errors and referenced schemas.
 - FRONTEND_WORKFLOW.md: screen flows, mock setup, jobs,
   correction/recheck pins and export/feedback interactions.
 - implemented-openapi.json: callable endpoints only,
   with actual FastAPI transport schemas and frontend examples; use for client generation.
 - openapi.json: combined implementation/planning reference; the
-  14 remaining planned operations are not available on the running server.
+  4 remaining planned operations are not available on the running server.
 - examples.json: frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
@@ -178,8 +185,8 @@ actions the running backend currently supports.
    samples; a nonempty unique list selects a subset in request order. Heads are
    resolved in one snapshot and exact manifests are durably pinned. The explicit
    audit worker processes the queue sequentially using the existing supervisor.
-   Send no private paths or execution settings. Feedback execution remains planned;
-   `feedback_policy_id` must be omitted or null. `GET /audits` lists all audit states.
+   Send no private paths or execution settings. Explicit active compatible `feedback_policy_id` is supported in source;
+   omission/null means baseline and execution settings are durably pinned. `GET /audits` lists all audit states.
 6. **Implemented for existing audits/jobs:** poll the job, list the complete review queue and load sample detail. Omit queue
    filters to include apparently correct cases. Findings include pass outcomes.
    Snapshot-backed samples advertise captured asset links when their manifest
@@ -207,7 +214,7 @@ they preserve immutable
 audited revisions and frozen human sample decisions without requiring corrections
 or rechecks. The five contract artifacts are regenerated; tests have not been rerun
 after integration corrections. Migration application and real worker/database/download
-verification remain pending. Evaluated feedback services remain planned; detector status follows the
+verification remain pending. Evaluated feedback services are supplied in source; detector status follows the
 merged source rather than older placeholder notes.
 
 ## Requests, responses and jobs
@@ -469,16 +476,17 @@ worker/database/download verification remain pending.
 
 ## Feedback boundary
 
-The proposed strategy retrieves approved examples as context for supported model
-checks. It does not change exact label membership rules, train/download a model
-or activate a policy automatically. Example feedback comes from a separate
-posture-review dataset, not the label-only demo.
-
-Ground truth freezes reviewer-verified findings, corrections, apparently correct
-cases and missed errors identified by reviewers. An actual scoring/matching
-implementation is still needed. Compare baseline and candidate on identical
-held-out samples and reject overlap with policy example samples. Undefined metric
-denominators return null. Storage alone does not fulfil evaluated improvement.
+The supplied strategy freezes explicitly selected, accepted binary model findings
+as examples for one exact sample-scoped `annotation_guideline` rule and dataset.
+It never changes deterministic numeric checks, trains/downloads a model or silently
+activates a policy. Ground truth requires explicit pass/fail rule-level human
+adjudications, including checked no-issue cases and missed errors, against exact
+immutable revisions. Corrections alone and missing findings do not assign truth.
+Fresh baseline/candidate inference uses the same held-out evidence and execution
+pin; candidate sees only training examples, not held-out labels/comments.
+See [FEEDBACK.md](FEEDBACK.md) for all ten routes, payloads, limits, metric
+denominators, leakage checks, explicit activation and owner-run commands.
+Storage, mocked results and source delivery do not prove actual improvement.
 
 ## Frontend fixtures
 
@@ -498,8 +506,8 @@ Their matching confirmed rulebooks are under
 `examples.review_scenario_rulebooks` with the same keys; the uncertain and
 unavailable cases include their additional reviewer-authored rules.
 `examples.job_scenarios` and `examples.audit_scenarios` cover all six lifecycle
-states with model-validated snapshots. `examples.dataset_import_scenarios` adds delivered import states and dirty-source examples. `examples.future_job_scenarios` adds six-state
-job mocks for feedback evaluation only; that producer remains planned.
+states with model-validated snapshots. `examples.dataset_import_scenarios` adds delivered import states and dirty-source examples. `examples.feedback_job_scenarios` adds the six implemented feedback job states
+after regeneration; `examples.future_job_scenarios` is empty for current producers.
 `examples.recheck_job_scenarios` provides delivered recheck states with kind `audit`. Delivered export examples are in `examples.export_scenarios`.
 Delivered extraction mocks are in
 `examples.extraction_job_scenarios.states` and `.failures`. Completed extraction links pin rulebook version 1.
@@ -521,7 +529,7 @@ the rulebook guide for exact paths,
 strict requests, states and error codes. Manual creation accepts strict editor
 inputs, preserves exact guideline text and saves a version-1 draft without
 inventing review history. Extraction and audit jobs use separate explicit workers;
-feedback-evaluation routes remain planned. Authentication is not implemented by this local prototype.
+feedback-evaluation routes are supplied in source; model and worker validation remain separate gates. Authentication is not implemented by this local prototype.
 
 Mutations use request-time repository injection. Review actions append a snapshot
 and real attribution atomically; initial creation adds no review record. Reads
@@ -560,7 +568,7 @@ See EXTRACTIONS.md for the complete submission, worker, polling, cancellation, r
 See [EXPORTS.md](EXPORTS.md). Five export operations are implemented in the applied
 source, using existing job polling/cancellation. Four planned operations are
 promoted in place and the collection GET is new. The integrated inventory is
-36 implemented, 14 planned, 50 total after this handoff is applied.
+46 implemented, 4 planned, 50 total after this handoff is applied.
 All five artifacts are regenerated for the correction/recheck source as well.
 A fresh test pass, the required migrations and real
 worker/download verification remain pending; source availability and schema
@@ -569,5 +577,5 @@ generation are not runtime validation.
 ## Correction/recheck application gate
 
 See [CORRECTIONS.md](CORRECTIONS.md). Source and all five regenerated API artifacts
-describe 36 implemented and 14 planned operations, 50 total. Migration 012 and
+describe 46 implemented and 4 planned operations, 50 total. Migration 012 and
 regression/runtime verification after the latest fixes remain separate gates.

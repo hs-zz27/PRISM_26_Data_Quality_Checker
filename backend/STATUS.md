@@ -1,5 +1,12 @@
 # Backend progress and team handoffs
 
+> Current feedback source proposal: ten feedback operations plus real bounded
+> `annotation_guideline` inference are supplied. Proposed inventory: 46 implemented,
+> 4 planned, 50 total. This handoff did not run tests, migrations, workers, inference
+> or API contract generation. Regenerate all five artifacts together before using
+> them for this feature; earlier generation/test statements below refer to the
+> captured pre-feedback work. See [api/FEEDBACK.md](api/FEEDBACK.md).
+
 Last updated: 21 October 2026 (Asia/Kolkata).
 Correction/recheck handoff baseline: `be424f833820e8e527dce8b6536ea1200279c935`.
 Dataset Feature 4 Phases 1–4 are applied in this workspace. All five API artifacts
@@ -52,19 +59,19 @@ latest complete test suite or real-model evaluation has passed.
   request/response examples, endpoint index and rulebook workflow documentation.
   The complete planned endpoint reference and
   screen-by-screen workflow guide cover the remaining
-  14 remaining operations for frontend mocks. Future job fixtures cover all six states;
+  4 remaining operations for frontend mocks. Future job fixtures cover all six states;
   these contracts do not add runtime routes.
 
 The current integration is **reviewed dataset exports**: terminal audit pins and
 human decisions feed a frozen archive selection. Dataset import, extraction,
 audits and exports retain explicit workers. Correction/recheck source is supplied by the current handoff, using the existing
-audit worker and durable child lineage. Evaluated feedback remains unfinished.
+audit worker and durable child lineage. Evaluated feedback source is supplied; runtime integration and actual quality validation remain unverified.
 
 ## Current HTTP surface
 
-The applied source and regenerated artifacts describe **36 implemented and 14
+The applied source and regenerated artifacts describe **46 implemented and 4
 planned operations**, 50 total. Route-inventory regression assertions include all
-four delivered correction/recheck operations. These counts
+four delivered correction/recheck operations and ten feedback operations. These counts
 describe source HTTP availability, not runtime test coverage or completion
 percentages or equal amounts of implementation work.
 
@@ -76,6 +83,7 @@ percentages or equal amounts of implementation work.
 - Jobs: status polling and cancellation — two operations.
 - Reviews: finding write/history and sample write/history — four operations.
 - Exports: creation, listing, detail, manifest and ZIP download — five operations.
+- Feedback: examples, candidate policies, explicit truth, comparisons and activation — ten operations.
 
 Use the endpoint index for the exact inventory and
 implemented-openapi.json for live client
@@ -168,8 +176,9 @@ After that, the proposed delivery order is:
    regenerated; preserve historical evidence and decisions during runtime checks.
 4. Verify the implemented export worker, download delivery and frozen manifest
    through the corrected tests and an operator-controlled end-to-end scenario.
-5. Reviewer-feedback improvement with evaluated baseline/candidate behavior and
-   explicit activation; feedback storage alone does not satisfy the SRS.
+5. Apply and validate migration 013 and the evaluated-feedback source, explicit
+   comparison worker, policy-bearing audits/rechecks and actual installed-model
+   smoke scenario. Mocked metrics and storage alone do not establish improvement.
 
 In parallel, review delivered detector/matching modules and agree the smallest
 integration into measurements and rule evaluation. Do not assume their completion
@@ -208,7 +217,7 @@ The source-only checkpoint was prepared from the supplied hash-verified snapshot
 ## Correction/recheck validation gate
 
 All four correction/recheck source phases are applied and all five API artifacts
-are regenerated. The inventory is 36 implemented and 14 planned, 50 total.
+are regenerated. The inventory is 46 implemented and 4 planned, 50 total.
 The original package application report records the earlier source-only step;
 the working source now also contains the subsequently authorized integration fixes.
 Regression execution after those fixes and runtime verification remain pending.
