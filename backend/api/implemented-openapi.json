@@ -12,7 +12,7 @@
           "Audits"
         ],
         "summary": "Start an audit against confirmed rules",
-        "description": "Omit sample_ids or send null for every sample in catalogue order; a nonempty unique subset preserves request order. Require a ready imported dataset and a nonempty confirmed rulebook version containing only confirmed rules. Resolve all selected current heads in one database snapshot and durably pin those immutable manifests before returning 202. Dirty sample annotations remain auditable. Processing runs in the explicitly started audit worker, never in the HTTP request. Unsupported rules yield unavailable findings and all findings remain pending human review. feedback_policy_id must be omitted or null until feedback execution is implemented; non-null values return 422. No source paths, model execution settings or client-supplied sample revisions are accepted. Repeated submissions create separate audits; after a lost response inspect the audit list before resubmitting.",
+        "description": "Omit sample_ids or send null for every sample in catalogue order; a nonempty unique subset preserves request order. Require a ready imported dataset and a nonempty confirmed rulebook version containing only confirmed rules. Resolve all selected current heads in one database snapshot and durably pin those immutable manifests before returning 202. Dirty sample annotations remain auditable. Processing runs in the explicitly started audit worker, never in the HTTP request. Unsupported rules yield unavailable findings and all findings remain pending human review. feedback_policy_id optionally selects an active compatible frozen policy; null uses baseline context. No source paths, model execution settings or client-supplied sample revisions are accepted. Repeated submissions create separate audits; after a lost response inspect the audit list before resubmitting. Explicit feedback_policy_id selects an active compatible immutable policy; null is baseline. Model identity is worker-verified, never probed during submission.",
         "operationId": "startAudit",
         "requestBody": {
           "required": true,
@@ -183,6 +183,56 @@
                       "error": {
                         "code": "RULEBOOK_NOT_CONFIRMED",
                         "message": "Confirm the selected rulebook version and all its rules before starting an audit.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
                         "details": [],
                         "request_id": "request_demo"
                       }
@@ -3595,6 +3645,2418 @@
         },
         "x-implementation-status": "implemented",
         "x-backing-service-status": "AuditReadRepository.get_sample and FastAPI route implemented."
+      }
+    },
+    "/api/v1/feedback/examples": {
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "List approved binary model examples",
+        "operationId": "listFeedbackExamples",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            },
+            "example": 20
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            },
+            "example": 0
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackExamplePage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "example_id": "example_ZmluZGluZ19kZW1v.1",
+                      "reference": {
+                        "audit_id": "audit_training_demo",
+                        "sample_id": "training_001",
+                        "sample_revision": 1,
+                        "rule_id": "SCENE-1"
+                      },
+                      "dataset_id": "dataset_feedback_demo",
+                      "target": {
+                        "rulebook_id": "rulebook_feedback_demo",
+                        "rulebook_version": 1,
+                        "rule": {
+                          "rule_id": "SCENE-1",
+                          "description": "Annotation labels agree with the visible scene.",
+                          "check_name": "annotation_guideline",
+                          "parameters": {},
+                          "origin": "reviewer",
+                          "source_sentence": null,
+                          "confirmation_state": "confirmed"
+                        },
+                        "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+                      },
+                      "expected": "fail",
+                      "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "reason": "Human accepted the binary proposal.",
+                      "finding_id": "finding_demo",
+                      "review_revision": 1,
+                      "correction_parent_revision": null,
+                      "correction_reviewer_id": null,
+                      "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
+                    }
+                  ],
+                  "limit": 20,
+                  "offset": 0,
+                  "total": 1,
+                  "next_offset": null
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
+      }
+    },
+    "/api/v1/feedback/policies": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Freeze selected approved examples",
+        "operationId": "createFeedbackPolicy",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackPolicyCreate"
+              },
+              "example": {
+                "name": "Reviewed scene examples",
+                "reviewer_id": "reviewer_demo",
+                "example_ids": [
+                  "example_ZmluZGluZ19kZW1v.1"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPolicy"
+                },
+                "example": {
+                  "policy_id": "policy_demo",
+                  "version": 1,
+                  "name": "Reviewed scene examples",
+                  "strategy": "reviewer_examples",
+                  "status": "draft",
+                  "snapshot_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                  "reviewer_id": "reviewer_demo",
+                  "created_at": "2026-10-21T00:00:00Z",
+                  "examples": [
+                    {
+                      "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "example_id": "example_ZmluZGluZ19kZW1v.1",
+                      "reference": {
+                        "audit_id": "audit_training_demo",
+                        "sample_id": "training_001",
+                        "sample_revision": 1,
+                        "rule_id": "SCENE-1"
+                      },
+                      "dataset_id": "dataset_feedback_demo",
+                      "target": {
+                        "rulebook_id": "rulebook_feedback_demo",
+                        "rulebook_version": 1,
+                        "rule": {
+                          "rule_id": "SCENE-1",
+                          "description": "Annotation labels agree with the visible scene.",
+                          "check_name": "annotation_guideline",
+                          "parameters": {},
+                          "origin": "reviewer",
+                          "source_sentence": null,
+                          "confirmation_state": "confirmed"
+                        },
+                        "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+                      },
+                      "expected": "fail",
+                      "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "reason": "Human accepted the binary proposal.",
+                      "finding_id": "finding_demo",
+                      "review_revision": 1,
+                      "correction_parent_revision": null,
+                      "correction_reviewer_id": null,
+                      "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
+                    }
+                  ],
+                  "activated_by": null,
+                  "evaluation_id": null
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
+      },
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "List candidate policies",
+        "operationId": "listFeedbackPolicies",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            },
+            "example": 20
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            },
+            "example": 0
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPolicyPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "policy_id": "policy_demo",
+                      "version": 1,
+                      "name": "Reviewed scene examples",
+                      "strategy": "reviewer_examples",
+                      "status": "draft",
+                      "snapshot_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                      "reviewer_id": "reviewer_demo",
+                      "created_at": "2026-10-21T00:00:00Z",
+                      "examples": [
+                        {
+                          "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "example_id": "example_ZmluZGluZ19kZW1v.1",
+                          "reference": {
+                            "audit_id": "audit_training_demo",
+                            "sample_id": "training_001",
+                            "sample_revision": 1,
+                            "rule_id": "SCENE-1"
+                          },
+                          "dataset_id": "dataset_feedback_demo",
+                          "target": {
+                            "rulebook_id": "rulebook_feedback_demo",
+                            "rulebook_version": 1,
+                            "rule": {
+                              "rule_id": "SCENE-1",
+                              "description": "Annotation labels agree with the visible scene.",
+                              "check_name": "annotation_guideline",
+                              "parameters": {},
+                              "origin": "reviewer",
+                              "source_sentence": null,
+                              "confirmation_state": "confirmed"
+                            },
+                            "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+                          },
+                          "expected": "fail",
+                          "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                          "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                          "reviewer_id": "reviewer_demo",
+                          "reviewed_at": "2026-10-21T00:00:00Z",
+                          "reason": "Human accepted the binary proposal.",
+                          "finding_id": "finding_demo",
+                          "review_revision": 1,
+                          "correction_parent_revision": null,
+                          "correction_reviewer_id": null,
+                          "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
+                        }
+                      ],
+                      "activated_by": null,
+                      "evaluation_id": null
+                    }
+                  ],
+                  "limit": 20,
+                  "offset": 0,
+                  "total": 1,
+                  "next_offset": null
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
+      }
+    },
+    "/api/v1/feedback/policies/{policy_id}": {
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Read a frozen policy",
+        "operationId": "getFeedbackPolicy",
+        "parameters": [
+          {
+            "name": "policy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Policy Id"
+            },
+            "example": "policy_demo"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPolicy"
+                },
+                "example": {
+                  "policy_id": "policy_demo",
+                  "version": 1,
+                  "name": "Reviewed scene examples",
+                  "strategy": "reviewer_examples",
+                  "status": "draft",
+                  "snapshot_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                  "reviewer_id": "reviewer_demo",
+                  "created_at": "2026-10-21T00:00:00Z",
+                  "examples": [
+                    {
+                      "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "example_id": "example_ZmluZGluZ19kZW1v.1",
+                      "reference": {
+                        "audit_id": "audit_training_demo",
+                        "sample_id": "training_001",
+                        "sample_revision": 1,
+                        "rule_id": "SCENE-1"
+                      },
+                      "dataset_id": "dataset_feedback_demo",
+                      "target": {
+                        "rulebook_id": "rulebook_feedback_demo",
+                        "rulebook_version": 1,
+                        "rule": {
+                          "rule_id": "SCENE-1",
+                          "description": "Annotation labels agree with the visible scene.",
+                          "check_name": "annotation_guideline",
+                          "parameters": {},
+                          "origin": "reviewer",
+                          "source_sentence": null,
+                          "confirmation_state": "confirmed"
+                        },
+                        "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+                      },
+                      "expected": "fail",
+                      "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "reason": "Human accepted the binary proposal.",
+                      "finding_id": "finding_demo",
+                      "review_revision": 1,
+                      "correction_parent_revision": null,
+                      "correction_reviewer_id": null,
+                      "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
+                    }
+                  ],
+                  "activated_by": null,
+                  "evaluation_id": null
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
+      }
+    },
+    "/api/v1/feedback/ground-truth": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Freeze explicit rule-level adjudications",
+        "operationId": "createGroundTruth",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroundTruthCreate"
+              },
+              "example": {
+                "reviewer_id": "reviewer_demo",
+                "cases": [
+                  {
+                    "audit_id": "audit_holdout_demo",
+                    "sample_id": "holdout_001",
+                    "sample_revision": 1,
+                    "rule_id": "SCENE-1",
+                    "expected": "fail",
+                    "reason": "Human explicitly checked the pinned image and annotation against this rule."
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroundTruth"
+                },
+                "example": {
+                  "ground_truth_id": "truth_demo",
+                  "version": 1,
+                  "snapshot_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "reviewer_id": "reviewer_demo",
+                  "created_at": "2026-10-21T00:00:00Z",
+                  "cases": [
+                    {
+                      "case_id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "example_id": null,
+                      "reference": {
+                        "audit_id": "audit_holdout_demo",
+                        "sample_id": "holdout_001",
+                        "sample_revision": 1,
+                        "rule_id": "SCENE-1"
+                      },
+                      "dataset_id": "dataset_feedback_demo",
+                      "target": {
+                        "rulebook_id": "rulebook_feedback_demo",
+                        "rulebook_version": 1,
+                        "rule": {
+                          "rule_id": "SCENE-1",
+                          "description": "Annotation labels agree with the visible scene.",
+                          "check_name": "annotation_guideline",
+                          "parameters": {},
+                          "origin": "reviewer",
+                          "source_sentence": null,
+                          "confirmation_state": "confirmed"
+                        },
+                        "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+                      },
+                      "expected": "fail",
+                      "image_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                      "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "reason": "Human explicitly checked the pinned image and annotation against this rule.",
+                      "finding_id": null,
+                      "review_revision": 0,
+                      "correction_parent_revision": null,
+                      "correction_reviewer_id": null,
+                      "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/holdout_001/assets/image?revision=1"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
+      }
+    },
+    "/api/v1/feedback/ground-truth/{ground_truth_id}": {
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Read immutable truth",
+        "operationId": "getGroundTruth",
+        "parameters": [
+          {
+            "name": "ground_truth_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Ground Truth Id"
+            },
+            "example": "truth_demo"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroundTruth"
+                },
+                "example": {
+                  "ground_truth_id": "truth_demo",
+                  "version": 1,
+                  "snapshot_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "reviewer_id": "reviewer_demo",
+                  "created_at": "2026-10-21T00:00:00Z",
+                  "cases": [
+                    {
+                      "case_id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "example_id": null,
+                      "reference": {
+                        "audit_id": "audit_holdout_demo",
+                        "sample_id": "holdout_001",
+                        "sample_revision": 1,
+                        "rule_id": "SCENE-1"
+                      },
+                      "dataset_id": "dataset_feedback_demo",
+                      "target": {
+                        "rulebook_id": "rulebook_feedback_demo",
+                        "rulebook_version": 1,
+                        "rule": {
+                          "rule_id": "SCENE-1",
+                          "description": "Annotation labels agree with the visible scene.",
+                          "check_name": "annotation_guideline",
+                          "parameters": {},
+                          "origin": "reviewer",
+                          "source_sentence": null,
+                          "confirmation_state": "confirmed"
+                        },
+                        "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+                      },
+                      "expected": "fail",
+                      "image_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                      "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "reason": "Human explicitly checked the pinned image and annotation against this rule.",
+                      "finding_id": null,
+                      "review_revision": 0,
+                      "correction_parent_revision": null,
+                      "correction_reviewer_id": null,
+                      "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/holdout_001/assets/image?revision=1"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
+      }
+    },
+    "/api/v1/feedback/evaluations": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Queue a held-out comparison",
+        "operationId": "evaluateFeedbackPolicy",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackEvaluationCreate"
+              },
+              "example": {
+                "policy_id": "policy_demo",
+                "policy_version": 1,
+                "ground_truth_id": "truth_demo",
+                "ground_truth_version": 1,
+                "reviewer_id": "reviewer_demo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackEvaluationStarted"
+                },
+                "example": {
+                  "evaluation": {
+                    "evaluation_id": "evaluation_demo",
+                    "job_id": "job_feedback_demo",
+                    "policy_id": "policy_demo",
+                    "policy_version": 1,
+                    "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                    "ground_truth_id": "truth_demo",
+                    "ground_truth_version": 1,
+                    "truth_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                    "execution": {
+                      "max_image_bytes": 8388608,
+                      "max_annotation_bytes": 131072,
+                      "max_pixels": 16000000,
+                      "model": "owner-installed-vision:demo",
+                      "model_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                      "prompt_version": "annotation-guideline-v1",
+                      "preprocessing": "original-png-no-transform-v1",
+                      "schema_version": 1,
+                      "identity_assurance": "local-server-reported-pre-post-v1",
+                      "temperature": 0,
+                      "num_ctx": 16384,
+                      "num_predict": 512,
+                      "timeout_seconds": 120,
+                      "max_request_bytes": 67108864,
+                      "max_response_bytes": 65536
+                    },
+                    "status": "queued",
+                    "created_at": "2026-10-21T00:00:00Z",
+                    "metrics": null,
+                    "results": []
+                  },
+                  "job": {
+                    "job_id": "job_feedback_demo",
+                    "kind": "feedback_evaluation",
+                    "status": "queued",
+                    "progress": {
+                      "phase": "queued",
+                      "processed": 0,
+                      "total": 1,
+                      "fraction": 0.0
+                    },
+                    "result": null,
+                    "error": null,
+                    "created_at": "2026-10-21T00:00:00Z",
+                    "updated_at": "2026-10-21T00:00:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
+      },
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "List comparisons",
+        "operationId": "listFeedbackEvaluations",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            },
+            "example": 20
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            },
+            "example": 0
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackEvaluationPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "evaluation_id": "evaluation_demo",
+                      "job_id": "job_feedback_demo",
+                      "policy_id": "policy_demo",
+                      "policy_version": 1,
+                      "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                      "ground_truth_id": "truth_demo",
+                      "ground_truth_version": 1,
+                      "truth_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "execution": {
+                        "max_image_bytes": 8388608,
+                        "max_annotation_bytes": 131072,
+                        "max_pixels": 16000000,
+                        "model": "owner-installed-vision:demo",
+                        "model_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                        "prompt_version": "annotation-guideline-v1",
+                        "preprocessing": "original-png-no-transform-v1",
+                        "schema_version": 1,
+                        "identity_assurance": "local-server-reported-pre-post-v1",
+                        "temperature": 0,
+                        "num_ctx": 16384,
+                        "num_predict": 512,
+                        "timeout_seconds": 120,
+                        "max_request_bytes": 67108864,
+                        "max_response_bytes": 65536
+                      },
+                      "status": "queued",
+                      "created_at": "2026-10-21T00:00:00Z",
+                      "metrics": null,
+                      "results": []
+                    }
+                  ],
+                  "limit": 20,
+                  "offset": 0,
+                  "total": 1,
+                  "next_offset": null
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
+      }
+    },
+    "/api/v1/feedback/evaluations/{evaluation_id}": {
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Read comparison results",
+        "operationId": "getFeedbackEvaluation",
+        "parameters": [
+          {
+            "name": "evaluation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Evaluation Id"
+            },
+            "example": "evaluation_demo"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackEvaluation"
+                },
+                "example": {
+                  "evaluation_id": "evaluation_demo",
+                  "job_id": "job_feedback_demo",
+                  "policy_id": "policy_demo",
+                  "policy_version": 1,
+                  "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                  "ground_truth_id": "truth_demo",
+                  "ground_truth_version": 1,
+                  "truth_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "execution": {
+                    "max_image_bytes": 8388608,
+                    "max_annotation_bytes": 131072,
+                    "max_pixels": 16000000,
+                    "model": "owner-installed-vision:demo",
+                    "model_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                    "prompt_version": "annotation-guideline-v1",
+                    "preprocessing": "original-png-no-transform-v1",
+                    "schema_version": 1,
+                    "identity_assurance": "local-server-reported-pre-post-v1",
+                    "temperature": 0,
+                    "num_ctx": 16384,
+                    "num_predict": 512,
+                    "timeout_seconds": 120,
+                    "max_request_bytes": 67108864,
+                    "max_response_bytes": 65536
+                  },
+                  "status": "queued",
+                  "created_at": "2026-10-21T00:00:00Z",
+                  "metrics": null,
+                  "results": []
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
+      }
+    },
+    "/api/v1/feedback/policies/{policy_id}/activate": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Record explicit reviewer activation",
+        "operationId": "activateFeedbackPolicy",
+        "parameters": [
+          {
+            "name": "policy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Policy Id"
+            },
+            "example": "policy_demo"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackPolicyActivate"
+              },
+              "example": {
+                "evaluation_id": "evaluation_demo",
+                "expected_policy_version": 1,
+                "reviewer_id": "reviewer_demo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPolicy"
+                },
+                "example": {
+                  "policy_id": "policy_demo",
+                  "version": 1,
+                  "name": "Reviewed scene examples",
+                  "strategy": "reviewer_examples",
+                  "status": "active",
+                  "snapshot_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                  "reviewer_id": "reviewer_demo",
+                  "created_at": "2026-10-21T00:00:00Z",
+                  "examples": [
+                    {
+                      "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "example_id": "example_ZmluZGluZ19kZW1v.1",
+                      "reference": {
+                        "audit_id": "audit_training_demo",
+                        "sample_id": "training_001",
+                        "sample_revision": 1,
+                        "rule_id": "SCENE-1"
+                      },
+                      "dataset_id": "dataset_feedback_demo",
+                      "target": {
+                        "rulebook_id": "rulebook_feedback_demo",
+                        "rulebook_version": 1,
+                        "rule": {
+                          "rule_id": "SCENE-1",
+                          "description": "Annotation labels agree with the visible scene.",
+                          "check_name": "annotation_guideline",
+                          "parameters": {},
+                          "origin": "reviewer",
+                          "source_sentence": null,
+                          "confirmation_state": "confirmed"
+                        },
+                        "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+                      },
+                      "expected": "fail",
+                      "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "reason": "Human accepted the binary proposal.",
+                      "finding_id": "finding_demo",
+                      "review_revision": 1,
+                      "correction_parent_revision": null,
+                      "correction_reviewer_id": null,
+                      "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
+                    }
+                  ],
+                  "activated_by": "reviewer_demo",
+                  "evaluation_id": "evaluation_demo"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The feedback resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FEEDBACK_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_NOT_READY",
+                        "message": "The reviewed evidence or completed evaluation is not ready.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "FEEDBACK_CONFLICT": {
+                    "value": {
+                      "error": {
+                        "code": "FEEDBACK_CONFLICT",
+                        "message": "The feedback snapshot or activation no longer matches.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "EVALUATION_OVERLAP": {
+                    "value": {
+                      "error": {
+                        "code": "EVALUATION_OVERLAP",
+                        "message": "Examples overlap the held-out evaluation scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "CONTEXT_NOT_REPRESENTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "CONTEXT_NOT_REPRESENTABLE",
+                        "message": "The complete required evidence cannot fit the configured context bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "POLICY_INCOMPATIBLE": {
+                    "value": {
+                      "error": {
+                        "code": "POLICY_INCOMPATIBLE",
+                        "message": "The policy is not active or does not match the confirmed rule scope.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Feedback storage or execution configuration is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       }
     },
     "/api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}": {
@@ -7419,7 +9881,7 @@
           "Reviews"
         ],
         "summary": "Record the reviewer's data decision",
-        "description": "Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: snapshot-backed audits use immutable captured assets; legacy audits use live files. Application-owned revision selection and correction workflows remain planned. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.",
+        "description": "Separate from finding resolution. Reviewer controls accepted/rejected/needs_correction decisions, including no_issue or no-findings samples; pending_review explicitly reopens review with attribution. Completed samples (including incomplete measurements) and failed samples are eligible regardless of parent audit status; queued/running/cancelled samples return 409 INVALID_SAMPLE_REVIEW_STATE. expected_sample_revision must identify a stored pin for this audit/sample, otherwise 409 STALE_SAMPLE_REVISION (404 if the audit/sample is missing). It does not check current dataset files: snapshot-backed audits use immutable captured assets; legacy audits use live files. Application-owned immutable correction revisions and linked rechecks remain separate from review decisions. expected_review_version is the last-read review revision, starting at 0; each decision advances it by one. A stale review revision returns 409 VERSION_CONFLICT. Machine evidence, failures, progress and finding resolutions stay unchanged.",
         "operationId": "reviewSample",
         "parameters": [
           {
@@ -9420,6 +11882,63 @@
   },
   "components": {
     "schemas": {
+      "Adjudication": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "sample_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "rule_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "expected": {
+            "enum": [
+              "pass",
+              "fail"
+            ],
+            "title": "Expected",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audit_id",
+          "sample_id",
+          "sample_revision",
+          "rule_id",
+          "expected",
+          "reason"
+        ],
+        "title": "Adjudication",
+        "type": "object"
+      },
       "AnnotationRevision": {
         "additionalProperties": false,
         "properties": {
@@ -9574,6 +12093,118 @@
           "request_id"
         ],
         "title": "ApiError",
+        "type": "object"
+      },
+      "ArmMetrics": {
+        "additionalProperties": false,
+        "properties": {
+          "intended": {
+            "minimum": 1,
+            "title": "Intended",
+            "type": "integer"
+          },
+          "tp": {
+            "minimum": 0,
+            "title": "Tp",
+            "type": "integer"
+          },
+          "fp": {
+            "minimum": 0,
+            "title": "Fp",
+            "type": "integer"
+          },
+          "fn": {
+            "minimum": 0,
+            "title": "Fn",
+            "type": "integer"
+          },
+          "tn": {
+            "minimum": 0,
+            "title": "Tn",
+            "type": "integer"
+          },
+          "negative_abstentions": {
+            "minimum": 0,
+            "title": "Negative Abstentions",
+            "type": "integer"
+          },
+          "unsure": {
+            "minimum": 0,
+            "title": "Unsure",
+            "type": "integer"
+          },
+          "unavailable": {
+            "minimum": 0,
+            "title": "Unavailable",
+            "type": "integer"
+          },
+          "coverage": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Coverage",
+            "type": "number"
+          },
+          "precision": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision"
+          },
+          "recall": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recall"
+          },
+          "f1": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F1"
+          },
+          "total_duration_ms": {
+            "minimum": 0,
+            "title": "Total Duration Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "intended",
+          "tp",
+          "fp",
+          "fn",
+          "tn",
+          "negative_abstentions",
+          "unsure",
+          "unavailable",
+          "coverage",
+          "precision",
+          "recall",
+          "f1",
+          "total_duration_ms"
+        ],
+        "title": "ArmMetrics",
         "type": "object"
       },
       "AssetAvailability": {
@@ -9777,10 +12408,20 @@
             "uniqueItems": true
           },
           "feedback_policy_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": null,
-            "description": "Feedback policies are not implemented; omit or send null.",
-            "title": "Feedback Policy Id",
-            "type": "null"
+            "description": "Explicit compatible active policy; null selects baseline context.",
+            "title": "Feedback Policy Id"
           }
         },
         "required": [
@@ -10003,6 +12644,245 @@
           "original_image"
         ],
         "title": "CapturedAvailability",
+        "type": "object"
+      },
+      "CaseComparison": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "baseline": {
+            "$ref": "#/components/schemas/RecordedPrediction"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/RecordedPrediction"
+          }
+        },
+        "required": [
+          "case_id",
+          "baseline",
+          "candidate"
+        ],
+        "title": "CaseComparison",
+        "type": "object"
+      },
+      "CaseReference": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "sample_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "rule_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audit_id",
+          "sample_id",
+          "sample_revision",
+          "rule_id"
+        ],
+        "title": "CaseReference",
+        "type": "object"
+      },
+      "CaseView": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "example_id": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "pattern": "^example_[A-Za-z0-9_-]+\\.[1-9][0-9]{0,9}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Example Id"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/CaseReference"
+          },
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/RulePin"
+          },
+          "expected": {
+            "enum": [
+              "pass",
+              "fail"
+            ],
+            "title": "Expected",
+            "type": "string"
+          },
+          "image_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Image Sha256",
+            "type": "string"
+          },
+          "annotation_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Annotation Sha256",
+            "type": "string"
+          },
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "format": "date-time",
+            "title": "Reviewed At",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          },
+          "finding_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finding Id"
+          },
+          "review_revision": {
+            "maximum": 2147483647,
+            "minimum": 0,
+            "title": "Review Revision",
+            "type": "integer"
+          },
+          "correction_parent_revision": {
+            "anyOf": [
+              {
+                "maximum": 2147483647,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Parent Revision"
+          },
+          "correction_reviewer_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Reviewer Id"
+          },
+          "image_url": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Image Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "example_id",
+          "reference",
+          "dataset_id",
+          "target",
+          "expected",
+          "image_sha256",
+          "annotation_sha256",
+          "reviewer_id",
+          "reviewed_at",
+          "reason",
+          "finding_id",
+          "review_revision",
+          "correction_parent_revision",
+          "correction_reviewer_id",
+          "image_url"
+        ],
+        "title": "CaseView",
+        "type": "object"
+      },
+      "ComparisonMetrics": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline": {
+            "$ref": "#/components/schemas/ArmMetrics"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/ArmMetrics"
+          },
+          "assessment": {
+            "enum": [
+              "improved",
+              "equal",
+              "regressed",
+              "inconclusive"
+            ],
+            "title": "Assessment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseline",
+          "candidate",
+          "assessment"
+        ],
+        "title": "ComparisonMetrics",
         "type": "object"
       },
       "ConfirmationState": {
@@ -10423,6 +13303,115 @@
         "title": "ExclusionReason",
         "type": "string"
       },
+      "ExecutionPin": {
+        "additionalProperties": false,
+        "properties": {
+          "max_image_bytes": {
+            "default": 8388608,
+            "maximum": 16777216,
+            "minimum": 1024,
+            "title": "Max Image Bytes",
+            "type": "integer"
+          },
+          "max_annotation_bytes": {
+            "default": 131072,
+            "maximum": 262144,
+            "minimum": 1024,
+            "title": "Max Annotation Bytes",
+            "type": "integer"
+          },
+          "max_pixels": {
+            "default": 16000000,
+            "maximum": 32000000,
+            "minimum": 1,
+            "title": "Max Pixels",
+            "type": "integer"
+          },
+          "model": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Model",
+            "type": "string"
+          },
+          "model_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Model Digest",
+            "type": "string"
+          },
+          "prompt_version": {
+            "const": "annotation-guideline-v1",
+            "default": "annotation-guideline-v1",
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "preprocessing": {
+            "const": "original-png-no-transform-v1",
+            "default": "original-png-no-transform-v1",
+            "title": "Preprocessing",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "identity_assurance": {
+            "const": "local-server-reported-pre-post-v1",
+            "default": "local-server-reported-pre-post-v1",
+            "title": "Identity Assurance",
+            "type": "string"
+          },
+          "temperature": {
+            "const": 0,
+            "default": 0,
+            "title": "Temperature",
+            "type": "integer"
+          },
+          "num_ctx": {
+            "default": 16384,
+            "maximum": 131072,
+            "minimum": 1024,
+            "title": "Num Ctx",
+            "type": "integer"
+          },
+          "num_predict": {
+            "default": 512,
+            "maximum": 2048,
+            "minimum": 128,
+            "title": "Num Predict",
+            "type": "integer"
+          },
+          "timeout_seconds": {
+            "default": 120,
+            "maximum": 600,
+            "minimum": 1,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          },
+          "max_request_bytes": {
+            "default": 67108864,
+            "maximum": 134217728,
+            "minimum": 1024,
+            "title": "Max Request Bytes",
+            "type": "integer"
+          },
+          "max_response_bytes": {
+            "default": 65536,
+            "maximum": 65536,
+            "minimum": 1024,
+            "title": "Max Response Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "model_digest"
+        ],
+        "title": "ExecutionPin",
+        "type": "object"
+      },
       "Export": {
         "additionalProperties": false,
         "properties": {
@@ -10826,6 +13815,510 @@
         "title": "ExportStarted",
         "type": "object"
       },
+      "FeedbackEvaluation": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluation_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "job_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "policy_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Policy Version",
+            "type": "integer"
+          },
+          "policy_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Policy Sha256",
+            "type": "string"
+          },
+          "ground_truth_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Ground Truth Id",
+            "type": "string"
+          },
+          "ground_truth_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Ground Truth Version",
+            "type": "integer"
+          },
+          "truth_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Truth Sha256",
+            "type": "string"
+          },
+          "execution": {
+            "$ref": "#/components/schemas/ExecutionPin"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "cancelling",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonMetrics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CaseComparison"
+            },
+            "maxItems": 100,
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "evaluation_id",
+          "job_id",
+          "policy_id",
+          "policy_sha256",
+          "ground_truth_id",
+          "truth_sha256",
+          "execution",
+          "status",
+          "created_at",
+          "metrics",
+          "results"
+        ],
+        "title": "FeedbackEvaluation",
+        "type": "object"
+      },
+      "FeedbackEvaluationCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "policy_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Policy Version",
+            "type": "integer"
+          },
+          "ground_truth_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Ground Truth Id",
+            "type": "string"
+          },
+          "ground_truth_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Ground Truth Version",
+            "type": "integer"
+          },
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_id",
+          "ground_truth_id",
+          "reviewer_id"
+        ],
+        "title": "FeedbackEvaluationCreate",
+        "type": "object"
+      },
+      "FeedbackEvaluationPage": {
+        "additionalProperties": false,
+        "description": "Comparison collection, including nonterminal and failed resources.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackEvaluation"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total",
+          "next_offset"
+        ],
+        "title": "FeedbackEvaluationPage",
+        "type": "object"
+      },
+      "FeedbackEvaluationStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluation": {
+            "$ref": "#/components/schemas/FeedbackEvaluation"
+          },
+          "job": {
+            "$ref": "#/components/schemas/Job"
+          }
+        },
+        "required": [
+          "evaluation",
+          "job"
+        ],
+        "title": "FeedbackEvaluationStarted",
+        "type": "object"
+      },
+      "FeedbackExamplePage": {
+        "additionalProperties": false,
+        "description": "Stable named collection transport for OpenAPI component references.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total",
+          "next_offset"
+        ],
+        "title": "FeedbackExamplePage",
+        "type": "object"
+      },
+      "FeedbackPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "policy_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Name",
+            "type": "string"
+          },
+          "strategy": {
+            "const": "reviewer_examples",
+            "default": "reviewer_examples",
+            "title": "Strategy",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "active"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "snapshot_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Sha256",
+            "type": "string"
+          },
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/CaseView"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Examples",
+            "type": "array"
+          },
+          "activated_by": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Activated By"
+          },
+          "evaluation_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evaluation Id"
+          }
+        },
+        "required": [
+          "policy_id",
+          "name",
+          "status",
+          "snapshot_sha256",
+          "reviewer_id",
+          "created_at",
+          "examples"
+        ],
+        "title": "FeedbackPolicy",
+        "type": "object"
+      },
+      "FeedbackPolicyActivate": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluation_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "expected_policy_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Expected Policy Version",
+            "type": "integer"
+          },
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evaluation_id",
+          "reviewer_id"
+        ],
+        "title": "FeedbackPolicyActivate",
+        "type": "object"
+      },
+      "FeedbackPolicyCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Name",
+            "type": "string"
+          },
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "example_ids": {
+            "items": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "pattern": "^example_[A-Za-z0-9_-]+\\.[1-9][0-9]{0,9}$",
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Example Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "reviewer_id",
+          "example_ids"
+        ],
+        "title": "FeedbackPolicyCreate",
+        "type": "object"
+      },
+      "FeedbackPolicyPage": {
+        "additionalProperties": false,
+        "description": "Candidate policy collection.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackPolicy"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total",
+          "next_offset"
+        ],
+        "title": "FeedbackPolicyPage",
+        "type": "object"
+      },
       "Finding": {
         "additionalProperties": false,
         "description": "One rule's outcome against a pinned sample revision and rulebook version.\n\nRule content is copied into the finding so evidence remains understandable\nafter later edits. object_id is absent for sample-wide findings and may be\nnonpositive when reporting invalid source annotation IDs. The evaluator\nowns rulebook confirmation, source matching and reason selection. Extracted\nfindings require a source sentence; reviewer-authored findings may omit it.",
@@ -11216,6 +14709,86 @@
         "title": "FindingReviewRequest",
         "type": "object"
       },
+      "GroundTruth": {
+        "additionalProperties": false,
+        "properties": {
+          "ground_truth_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Ground Truth Id",
+            "type": "string"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "snapshot_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Sha256",
+            "type": "string"
+          },
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/CaseView"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ground_truth_id",
+          "snapshot_sha256",
+          "reviewer_id",
+          "created_at",
+          "cases"
+        ],
+        "title": "GroundTruth",
+        "type": "object"
+      },
+      "GroundTruthCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/Adjudication"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reviewer_id",
+          "cases"
+        ],
+        "title": "GroundTruthCreate",
+        "type": "object"
+      },
       "ImportedAnnotationObject": {
         "additionalProperties": false,
         "description": "Keep order, duplicate/negative IDs and invalid boxes for later auditing.",
@@ -11432,6 +15005,61 @@
         "title": "MaskUpload",
         "type": "object"
       },
+      "Prediction": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "rule_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "unsure",
+              "unavailable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "evidence_references": {
+            "items": {
+              "enum": [
+                "image",
+                "annotations",
+                "guideline"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Evidence References",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "rule_id",
+          "outcome",
+          "reason",
+          "evidence_references"
+        ],
+        "title": "Prediction",
+        "type": "object"
+      },
       "Progress": {
         "additionalProperties": false,
         "description": "Safe-boundary progress; unknown work is represented by null values.",
@@ -11540,6 +15168,30 @@
           "reviewer_id"
         ],
         "title": "RecheckRequest",
+        "type": "object"
+      },
+      "RecordedPrediction": {
+        "additionalProperties": false,
+        "properties": {
+          "prediction": {
+            "$ref": "#/components/schemas/Prediction"
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "title": "Duration Ms",
+            "type": "number"
+          },
+          "model_verified": {
+            "title": "Model Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prediction",
+          "duration_ms",
+          "model_verified"
+        ],
+        "title": "RecordedPrediction",
         "type": "object"
       },
       "ResultReference": {
@@ -11734,6 +15386,40 @@
         ],
         "title": "RuleOrigin",
         "type": "string"
+      },
+      "RulePin": {
+        "additionalProperties": false,
+        "properties": {
+          "rulebook_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rulebook Id",
+            "type": "string"
+          },
+          "rulebook_version": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Rulebook Version",
+            "type": "integer"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/Rule"
+          },
+          "semantic_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Semantic Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rulebook_id",
+          "rulebook_version",
+          "rule",
+          "semantic_sha256"
+        ],
+        "title": "RulePin",
+        "type": "object"
       },
       "Rulebook": {
         "additionalProperties": false,

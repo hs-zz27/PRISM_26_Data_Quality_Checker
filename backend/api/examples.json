@@ -1,5 +1,5 @@
 {
-  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+  "notice": "Synthetic frontend fixtures, not stored resources, measured model accuracy or a stateful server. Feedback policies, adjudicated truth, comparisons and explicit activation are implemented in source. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
   "base_url": "http://127.0.0.1:8000",
   "operations": [
     {
@@ -53,6 +53,10 @@
           "checks": [
             {
               "name": "allowed_labels",
+              "implementation": "implemented"
+            },
+            {
+              "name": "annotation_guideline",
               "implementation": "implemented"
             },
             {
@@ -2529,9 +2533,9 @@
       "method": "GET",
       "path": "/api/v1/feedback/examples",
       "tag": "Feedback",
-      "summary": "List approved reviewer correction examples",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "List approved binary model examples",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {},
         "query": {
@@ -2547,16 +2551,40 @@
         "body": {
           "items": [
             {
-              "example_id": "feedback_demo",
-              "source_audit_id": "audit_posture_demo",
-              "dataset_id": "dataset_feedback",
-              "sample_id": "sample_feedback_001",
-              "original_revision": 1,
-              "corrected_revision": 2,
-              "rule_id": "LBL-2",
+              "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "example_id": "example_ZmluZGluZ19kZW1v.1",
+              "reference": {
+                "audit_id": "audit_training_demo",
+                "sample_id": "training_001",
+                "sample_revision": 1,
+                "rule_id": "SCENE-1"
+              },
+              "dataset_id": "dataset_feedback_demo",
+              "target": {
+                "rulebook_id": "rulebook_feedback_demo",
+                "rulebook_version": 1,
+                "rule": {
+                  "rule_id": "SCENE-1",
+                  "description": "Annotation labels agree with the visible scene.",
+                  "check_name": "annotation_guideline",
+                  "parameters": {},
+                  "origin": "reviewer",
+                  "source_sentence": null,
+                  "confirmation_state": "confirmed"
+                },
+                "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+              },
+              "expected": "fail",
+              "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
               "reviewer_id": "reviewer_demo",
-              "approved": true,
-              "description": "Reviewer corrected a separate posture example from walking to standing."
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "reason": "Human accepted the binary proposal.",
+              "finding_id": "finding_demo",
+              "review_revision": 1,
+              "correction_parent_revision": null,
+              "correction_reviewer_id": null,
+              "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
             }
           ],
           "limit": 20,
@@ -2571,21 +2599,18 @@
       "method": "POST",
       "path": "/api/v1/feedback/policies",
       "tag": "Feedback",
-      "summary": "Define a candidate reviewer-example policy",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Freeze selected approved examples",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {},
         "query": {},
         "content_type": "application/json",
         "body": {
-          "name": "Reviewed examples",
-          "strategy": "reviewer_examples",
+          "name": "Reviewed scene examples",
+          "reviewer_id": "reviewer_demo",
           "example_ids": [
-            "feedback_demo"
-          ],
-          "target_check_names": [
-            "person_posture"
+            "example_ZmluZGluZ19kZW1v.1"
           ]
         }
       },
@@ -2594,15 +2619,52 @@
         "content_type": "application/json",
         "body": {
           "policy_id": "policy_demo",
-          "name": "Reviewed examples",
+          "version": 1,
+          "name": "Reviewed scene examples",
           "strategy": "reviewer_examples",
           "status": "draft",
-          "example_ids": [
-            "feedback_demo"
+          "snapshot_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "reviewer_id": "reviewer_demo",
+          "created_at": "2026-10-21T00:00:00Z",
+          "examples": [
+            {
+              "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "example_id": "example_ZmluZGluZ19kZW1v.1",
+              "reference": {
+                "audit_id": "audit_training_demo",
+                "sample_id": "training_001",
+                "sample_revision": 1,
+                "rule_id": "SCENE-1"
+              },
+              "dataset_id": "dataset_feedback_demo",
+              "target": {
+                "rulebook_id": "rulebook_feedback_demo",
+                "rulebook_version": 1,
+                "rule": {
+                  "rule_id": "SCENE-1",
+                  "description": "Annotation labels agree with the visible scene.",
+                  "check_name": "annotation_guideline",
+                  "parameters": {},
+                  "origin": "reviewer",
+                  "source_sentence": null,
+                  "confirmation_state": "confirmed"
+                },
+                "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+              },
+              "expected": "fail",
+              "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "reviewer_id": "reviewer_demo",
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "reason": "Human accepted the binary proposal.",
+              "finding_id": "finding_demo",
+              "review_revision": 1,
+              "correction_parent_revision": null,
+              "correction_reviewer_id": null,
+              "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
+            }
           ],
-          "target_check_names": [
-            "person_posture"
-          ],
+          "activated_by": null,
           "evaluation_id": null
         }
       }
@@ -2612,9 +2674,9 @@
       "method": "GET",
       "path": "/api/v1/feedback/policies",
       "tag": "Feedback",
-      "summary": "List available feedback policies",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "List candidate policies",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {},
         "query": {
@@ -2631,15 +2693,52 @@
           "items": [
             {
               "policy_id": "policy_demo",
-              "name": "Reviewed examples",
+              "version": 1,
+              "name": "Reviewed scene examples",
               "strategy": "reviewer_examples",
               "status": "draft",
-              "example_ids": [
-                "feedback_demo"
+              "snapshot_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "reviewer_id": "reviewer_demo",
+              "created_at": "2026-10-21T00:00:00Z",
+              "examples": [
+                {
+                  "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "example_id": "example_ZmluZGluZ19kZW1v.1",
+                  "reference": {
+                    "audit_id": "audit_training_demo",
+                    "sample_id": "training_001",
+                    "sample_revision": 1,
+                    "rule_id": "SCENE-1"
+                  },
+                  "dataset_id": "dataset_feedback_demo",
+                  "target": {
+                    "rulebook_id": "rulebook_feedback_demo",
+                    "rulebook_version": 1,
+                    "rule": {
+                      "rule_id": "SCENE-1",
+                      "description": "Annotation labels agree with the visible scene.",
+                      "check_name": "annotation_guideline",
+                      "parameters": {},
+                      "origin": "reviewer",
+                      "source_sentence": null,
+                      "confirmation_state": "confirmed"
+                    },
+                    "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+                  },
+                  "expected": "fail",
+                  "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "reviewer_id": "reviewer_demo",
+                  "reviewed_at": "2026-10-21T00:00:00Z",
+                  "reason": "Human accepted the binary proposal.",
+                  "finding_id": "finding_demo",
+                  "review_revision": 1,
+                  "correction_parent_revision": null,
+                  "correction_reviewer_id": null,
+                  "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
+                }
               ],
-              "target_check_names": [
-                "person_posture"
-              ],
+              "activated_by": null,
               "evaluation_id": null
             }
           ],
@@ -2655,9 +2754,9 @@
       "method": "GET",
       "path": "/api/v1/feedback/policies/{policy_id}",
       "tag": "Feedback",
-      "summary": "Read a feedback policy",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Read a frozen policy",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {
           "policy_id": "policy_demo"
@@ -2671,15 +2770,52 @@
         "content_type": "application/json",
         "body": {
           "policy_id": "policy_demo",
-          "name": "Reviewed examples",
+          "version": 1,
+          "name": "Reviewed scene examples",
           "strategy": "reviewer_examples",
           "status": "draft",
-          "example_ids": [
-            "feedback_demo"
+          "snapshot_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "reviewer_id": "reviewer_demo",
+          "created_at": "2026-10-21T00:00:00Z",
+          "examples": [
+            {
+              "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "example_id": "example_ZmluZGluZ19kZW1v.1",
+              "reference": {
+                "audit_id": "audit_training_demo",
+                "sample_id": "training_001",
+                "sample_revision": 1,
+                "rule_id": "SCENE-1"
+              },
+              "dataset_id": "dataset_feedback_demo",
+              "target": {
+                "rulebook_id": "rulebook_feedback_demo",
+                "rulebook_version": 1,
+                "rule": {
+                  "rule_id": "SCENE-1",
+                  "description": "Annotation labels agree with the visible scene.",
+                  "check_name": "annotation_guideline",
+                  "parameters": {},
+                  "origin": "reviewer",
+                  "source_sentence": null,
+                  "confirmation_state": "confirmed"
+                },
+                "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+              },
+              "expected": "fail",
+              "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "reviewer_id": "reviewer_demo",
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "reason": "Human accepted the binary proposal.",
+              "finding_id": "finding_demo",
+              "review_revision": 1,
+              "correction_parent_revision": null,
+              "correction_reviewer_id": null,
+              "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
+            }
           ],
-          "target_check_names": [
-            "person_posture"
-          ],
+          "activated_by": null,
           "evaluation_id": null
         }
       }
@@ -2689,19 +2825,25 @@
       "method": "POST",
       "path": "/api/v1/feedback/ground-truth",
       "tag": "Feedback",
-      "summary": "Freeze reviewer-verified evaluation evidence",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Freeze explicit rule-level adjudications",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {},
         "query": {},
         "content_type": "application/json",
         "body": {
-          "dataset_id": "dataset_holdout",
-          "source_audit_ids": [
-            "audit_holdout_reviewed"
-          ],
-          "reviewer_id": "reviewer_demo"
+          "reviewer_id": "reviewer_demo",
+          "cases": [
+            {
+              "audit_id": "audit_holdout_demo",
+              "sample_id": "holdout_001",
+              "sample_revision": 1,
+              "rule_id": "SCENE-1",
+              "expected": "fail",
+              "reason": "Human explicitly checked the pinned image and annotation against this rule."
+            }
+          ]
         }
       },
       "response": {
@@ -2709,13 +2851,48 @@
         "content_type": "application/json",
         "body": {
           "ground_truth_id": "truth_demo",
-          "dataset_id": "dataset_holdout",
           "version": 1,
-          "source_audit_ids": [
-            "audit_holdout_reviewed"
-          ],
-          "verified_sample_count": 12,
-          "created_at": "2026-10-14T10:00:00Z"
+          "snapshot_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "reviewer_id": "reviewer_demo",
+          "created_at": "2026-10-21T00:00:00Z",
+          "cases": [
+            {
+              "case_id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "example_id": null,
+              "reference": {
+                "audit_id": "audit_holdout_demo",
+                "sample_id": "holdout_001",
+                "sample_revision": 1,
+                "rule_id": "SCENE-1"
+              },
+              "dataset_id": "dataset_feedback_demo",
+              "target": {
+                "rulebook_id": "rulebook_feedback_demo",
+                "rulebook_version": 1,
+                "rule": {
+                  "rule_id": "SCENE-1",
+                  "description": "Annotation labels agree with the visible scene.",
+                  "check_name": "annotation_guideline",
+                  "parameters": {},
+                  "origin": "reviewer",
+                  "source_sentence": null,
+                  "confirmation_state": "confirmed"
+                },
+                "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+              },
+              "expected": "fail",
+              "image_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "reviewer_id": "reviewer_demo",
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "reason": "Human explicitly checked the pinned image and annotation against this rule.",
+              "finding_id": null,
+              "review_revision": 0,
+              "correction_parent_revision": null,
+              "correction_reviewer_id": null,
+              "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/holdout_001/assets/image?revision=1"
+            }
+          ]
         }
       }
     },
@@ -2724,9 +2901,9 @@
       "method": "GET",
       "path": "/api/v1/feedback/ground-truth/{ground_truth_id}",
       "tag": "Feedback",
-      "summary": "Read a frozen evaluation snapshot",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Read immutable truth",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {
           "ground_truth_id": "truth_demo"
@@ -2740,13 +2917,48 @@
         "content_type": "application/json",
         "body": {
           "ground_truth_id": "truth_demo",
-          "dataset_id": "dataset_holdout",
           "version": 1,
-          "source_audit_ids": [
-            "audit_holdout_reviewed"
-          ],
-          "verified_sample_count": 12,
-          "created_at": "2026-10-14T10:00:00Z"
+          "snapshot_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "reviewer_id": "reviewer_demo",
+          "created_at": "2026-10-21T00:00:00Z",
+          "cases": [
+            {
+              "case_id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "example_id": null,
+              "reference": {
+                "audit_id": "audit_holdout_demo",
+                "sample_id": "holdout_001",
+                "sample_revision": 1,
+                "rule_id": "SCENE-1"
+              },
+              "dataset_id": "dataset_feedback_demo",
+              "target": {
+                "rulebook_id": "rulebook_feedback_demo",
+                "rulebook_version": 1,
+                "rule": {
+                  "rule_id": "SCENE-1",
+                  "description": "Annotation labels agree with the visible scene.",
+                  "check_name": "annotation_guideline",
+                  "parameters": {},
+                  "origin": "reviewer",
+                  "source_sentence": null,
+                  "confirmation_state": "confirmed"
+                },
+                "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+              },
+              "expected": "fail",
+              "image_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "reviewer_id": "reviewer_demo",
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "reason": "Human explicitly checked the pinned image and annotation against this rule.",
+              "finding_id": null,
+              "review_revision": 0,
+              "correction_parent_revision": null,
+              "correction_reviewer_id": null,
+              "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/holdout_001/assets/image?revision=1"
+            }
+          ]
         }
       }
     },
@@ -2755,17 +2967,19 @@
       "method": "POST",
       "path": "/api/v1/feedback/evaluations",
       "tag": "Feedback",
-      "summary": "Compare candidate feedback with a baseline",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Queue a held-out comparison",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {},
         "query": {},
         "content_type": "application/json",
         "body": {
           "policy_id": "policy_demo",
+          "policy_version": 1,
           "ground_truth_id": "truth_demo",
-          "ground_truth_version": 1
+          "ground_truth_version": 1,
+          "reviewer_id": "reviewer_demo"
         }
       },
       "response": {
@@ -2774,18 +2988,37 @@
         "body": {
           "evaluation": {
             "evaluation_id": "evaluation_demo",
+            "job_id": "job_feedback_demo",
             "policy_id": "policy_demo",
-            "job_id": "job_feedback_evaluation_demo",
-            "status": "queued",
-            "evaluation_dataset_id": "dataset_holdout",
+            "policy_version": 1,
+            "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
             "ground_truth_id": "truth_demo",
             "ground_truth_version": 1,
-            "baseline": null,
-            "candidate": null,
-            "error": null
+            "truth_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "execution": {
+              "max_image_bytes": 8388608,
+              "max_annotation_bytes": 131072,
+              "max_pixels": 16000000,
+              "model": "owner-installed-vision:demo",
+              "model_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "prompt_version": "annotation-guideline-v1",
+              "preprocessing": "original-png-no-transform-v1",
+              "schema_version": 1,
+              "identity_assurance": "local-server-reported-pre-post-v1",
+              "temperature": 0,
+              "num_ctx": 16384,
+              "num_predict": 512,
+              "timeout_seconds": 120,
+              "max_request_bytes": 67108864,
+              "max_response_bytes": 65536
+            },
+            "status": "queued",
+            "created_at": "2026-10-21T00:00:00Z",
+            "metrics": null,
+            "results": []
           },
           "job": {
-            "job_id": "job_feedback_evaluation_demo",
+            "job_id": "job_feedback_demo",
             "kind": "feedback_evaluation",
             "status": "queued",
             "progress": {
@@ -2796,8 +3029,8 @@
             },
             "result": null,
             "error": null,
-            "created_at": "2026-10-14T10:00:00Z",
-            "updated_at": "2026-10-14T10:00:00Z"
+            "created_at": "2026-10-21T00:00:00Z",
+            "updated_at": "2026-10-21T00:00:00Z"
           }
         }
       }
@@ -2807,9 +3040,9 @@
       "method": "GET",
       "path": "/api/v1/feedback/evaluations/{evaluation_id}",
       "tag": "Feedback",
-      "summary": "Read held-out feedback evaluation results",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Read comparison results",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {
           "evaluation_id": "evaluation_demo"
@@ -2823,33 +3056,34 @@
         "content_type": "application/json",
         "body": {
           "evaluation_id": "evaluation_demo",
+          "job_id": "job_feedback_demo",
           "policy_id": "policy_demo",
-          "job_id": "job_feedback_evaluation_demo",
-          "status": "completed",
-          "evaluation_dataset_id": "dataset_holdout",
+          "policy_version": 1,
+          "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
           "ground_truth_id": "truth_demo",
           "ground_truth_version": 1,
-          "baseline": {
-            "precision": 0.8,
-            "recall": 0.8,
-            "f1": 0.8,
-            "true_positives": 8,
-            "false_positives": 2,
-            "false_negatives": 2,
-            "sample_count": 12,
-            "elapsed_seconds": 20.0
+          "truth_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "execution": {
+            "max_image_bytes": 8388608,
+            "max_annotation_bytes": 131072,
+            "max_pixels": 16000000,
+            "model": "owner-installed-vision:demo",
+            "model_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "prompt_version": "annotation-guideline-v1",
+            "preprocessing": "original-png-no-transform-v1",
+            "schema_version": 1,
+            "identity_assurance": "local-server-reported-pre-post-v1",
+            "temperature": 0,
+            "num_ctx": 16384,
+            "num_predict": 512,
+            "timeout_seconds": 120,
+            "max_request_bytes": 67108864,
+            "max_response_bytes": 65536
           },
-          "candidate": {
-            "precision": 0.9,
-            "recall": 0.9,
-            "f1": 0.9,
-            "true_positives": 9,
-            "false_positives": 1,
-            "false_negatives": 1,
-            "sample_count": 12,
-            "elapsed_seconds": 22.0
-          },
-          "error": null
+          "status": "queued",
+          "created_at": "2026-10-21T00:00:00Z",
+          "metrics": null,
+          "results": []
         }
       }
     },
@@ -2858,9 +3092,9 @@
       "method": "GET",
       "path": "/api/v1/feedback/evaluations",
       "tag": "Feedback",
-      "summary": "List feedback evaluation jobs",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "List comparisons",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {},
         "query": {
@@ -2877,15 +3111,34 @@
           "items": [
             {
               "evaluation_id": "evaluation_demo",
+              "job_id": "job_feedback_demo",
               "policy_id": "policy_demo",
-              "job_id": "job_feedback_evaluation_demo",
-              "status": "queued",
-              "evaluation_dataset_id": "dataset_holdout",
+              "policy_version": 1,
+              "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
               "ground_truth_id": "truth_demo",
               "ground_truth_version": 1,
-              "baseline": null,
-              "candidate": null,
-              "error": null
+              "truth_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+              "execution": {
+                "max_image_bytes": 8388608,
+                "max_annotation_bytes": 131072,
+                "max_pixels": 16000000,
+                "model": "owner-installed-vision:demo",
+                "model_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                "prompt_version": "annotation-guideline-v1",
+                "preprocessing": "original-png-no-transform-v1",
+                "schema_version": 1,
+                "identity_assurance": "local-server-reported-pre-post-v1",
+                "temperature": 0,
+                "num_ctx": 16384,
+                "num_predict": 512,
+                "timeout_seconds": 120,
+                "max_request_bytes": 67108864,
+                "max_response_bytes": 65536
+              },
+              "status": "queued",
+              "created_at": "2026-10-21T00:00:00Z",
+              "metrics": null,
+              "results": []
             }
           ],
           "limit": 20,
@@ -2900,9 +3153,9 @@
       "method": "POST",
       "path": "/api/v1/feedback/policies/{policy_id}/activate",
       "tag": "Feedback",
-      "summary": "Approve an evaluated policy for future audits",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Record explicit reviewer activation",
+      "implementation": "implemented",
+      "backing_service": "Feedback repositories, explicit comparison worker and thin HTTP routes.",
       "request": {
         "path_parameters": {
           "policy_id": "policy_demo"
@@ -2911,6 +3164,7 @@
         "content_type": "application/json",
         "body": {
           "evaluation_id": "evaluation_demo",
+          "expected_policy_version": 1,
           "reviewer_id": "reviewer_demo"
         }
       },
@@ -2919,15 +3173,52 @@
         "content_type": "application/json",
         "body": {
           "policy_id": "policy_demo",
-          "name": "Reviewed examples",
+          "version": 1,
+          "name": "Reviewed scene examples",
           "strategy": "reviewer_examples",
           "status": "active",
-          "example_ids": [
-            "feedback_demo"
+          "snapshot_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "reviewer_id": "reviewer_demo",
+          "created_at": "2026-10-21T00:00:00Z",
+          "examples": [
+            {
+              "case_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "example_id": "example_ZmluZGluZ19kZW1v.1",
+              "reference": {
+                "audit_id": "audit_training_demo",
+                "sample_id": "training_001",
+                "sample_revision": 1,
+                "rule_id": "SCENE-1"
+              },
+              "dataset_id": "dataset_feedback_demo",
+              "target": {
+                "rulebook_id": "rulebook_feedback_demo",
+                "rulebook_version": 1,
+                "rule": {
+                  "rule_id": "SCENE-1",
+                  "description": "Annotation labels agree with the visible scene.",
+                  "check_name": "annotation_guideline",
+                  "parameters": {},
+                  "origin": "reviewer",
+                  "source_sentence": null,
+                  "confirmation_state": "confirmed"
+                },
+                "semantic_sha256": "fabea0612ac49260f0f907b542fba140669d70a9c086c709c30b48a595ebf54c"
+              },
+              "expected": "fail",
+              "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "annotation_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "reviewer_id": "reviewer_demo",
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "reason": "Human accepted the binary proposal.",
+              "finding_id": "finding_demo",
+              "review_revision": 1,
+              "correction_parent_revision": null,
+              "correction_reviewer_id": null,
+              "image_url": "/api/v1/datasets/dataset_feedback_demo/samples/training_001/assets/image?revision=1"
+            }
           ],
-          "target_check_names": [
-            "person_posture"
-          ],
+          "activated_by": "reviewer_demo",
           "evaluation_id": "evaluation_demo"
         }
       }
@@ -7352,110 +7643,109 @@
       "updated_at": "2026-10-14T10:00:00Z"
     }
   },
-  "future_job_scenarios": {
-    "feedback_evaluation": {
-      "queued": {
-        "job_id": "job_feedback_evaluation_demo",
-        "kind": "feedback_evaluation",
-        "status": "queued",
-        "progress": {
-          "phase": "queued",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+  "feedback_job_scenarios": {
+    "queued": {
+      "job_id": "job_feedback_demo",
+      "kind": "feedback_evaluation",
+      "status": "queued",
+      "progress": {
+        "phase": "queued",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
       },
-      "running": {
-        "job_id": "job_feedback_evaluation_demo",
-        "kind": "feedback_evaluation",
-        "status": "running",
-        "progress": {
-          "phase": "running",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z"
+    },
+    "running": {
+      "job_id": "job_feedback_demo",
+      "kind": "feedback_evaluation",
+      "status": "running",
+      "progress": {
+        "phase": "running",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
       },
-      "cancelling": {
-        "job_id": "job_feedback_evaluation_demo",
-        "kind": "feedback_evaluation",
-        "status": "cancelling",
-        "progress": {
-          "phase": "cancelling",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z"
+    },
+    "cancelling": {
+      "job_id": "job_feedback_demo",
+      "kind": "feedback_evaluation",
+      "status": "cancelling",
+      "progress": {
+        "phase": "cancelling",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
       },
-      "completed": {
-        "job_id": "job_feedback_evaluation_demo",
-        "kind": "feedback_evaluation",
-        "status": "completed",
-        "progress": {
-          "phase": "completed",
-          "processed": 1,
-          "total": 1,
-          "fraction": 1.0
-        },
-        "result": {
-          "kind": "feedback_evaluation",
-          "id": "evaluation_demo",
-          "version": null,
-          "href": "/api/v1/feedback/evaluations/evaluation_demo"
-        },
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z"
+    },
+    "completed": {
+      "job_id": "job_feedback_demo",
+      "kind": "feedback_evaluation",
+      "status": "completed",
+      "progress": {
+        "phase": "completed",
+        "processed": 1,
+        "total": 1,
+        "fraction": 1.0
       },
-      "failed": {
-        "job_id": "job_feedback_evaluation_demo",
+      "result": {
         "kind": "feedback_evaluation",
-        "status": "failed",
-        "progress": {
-          "phase": "failed",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": {
-          "code": "FEEDBACK_EVALUATION_FAILED",
-          "message": "The requested work could not be completed.",
-          "details": [],
-          "request_id": "request_demo"
-        },
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+        "id": "evaluation_demo",
+        "version": null,
+        "href": "/api/v1/feedback/evaluations/evaluation_demo"
       },
-      "cancelled": {
-        "job_id": "job_feedback_evaluation_demo",
-        "kind": "feedback_evaluation",
-        "status": "cancelled",
-        "progress": {
-          "phase": "cancelled",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      }
+      "error": null,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z"
+    },
+    "failed": {
+      "job_id": "job_feedback_demo",
+      "kind": "feedback_evaluation",
+      "status": "failed",
+      "progress": {
+        "phase": "failed",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
+      },
+      "result": null,
+      "error": {
+        "code": "FEEDBACK_EVALUATION_FAILED",
+        "message": "The comparison could not be completed.",
+        "details": [],
+        "request_id": "request_demo"
+      },
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z"
+    },
+    "cancelled": {
+      "job_id": "job_feedback_demo",
+      "kind": "feedback_evaluation",
+      "status": "cancelled",
+      "progress": {
+        "phase": "cancelled",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
+      },
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z"
     }
   },
+  "future_job_scenarios": {},
   "extraction_job_scenarios": {
     "states": {
       "queued": {
@@ -7785,6 +8075,18 @@
           "allowed_labels"
         ],
         "title": "AllowedLabelsParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "annotation_guideline",
+      "meaning": "Model-assisted judgment of one explicit visual annotation guideline against an image and parsed annotations. Not a fallback for numeric checks, motion, unseen facts or unsupported evidence.",
+      "scope": "sample",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Checks whose semantics do not require a threshold or label list.",
+        "properties": {},
+        "title": "EmptyParameters",
         "type": "object"
       }
     },

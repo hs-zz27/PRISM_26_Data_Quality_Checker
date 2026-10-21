@@ -4,7 +4,7 @@ Generated from `build_contract.py`. Paths include `/api/v1`.
 
 Use [implemented-openapi.json for callable endpoint schemas and client generation. openapi.json also includes planned designs. examples.json contains synthetic fixtures.
 
-## Implemented (36 operations)
+## Implemented (46 operations)
 
 ### Rulebooks
 
@@ -63,7 +63,20 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `GET /api/v1/exports/{export_id}/manifest` — Read exported and excluded sample decisions (`getExportManifest`; implemented).
 - `GET /api/v1/exports` — List reviewed exports (`listExports`; implemented).
 
-## Planned — unavailable on the running server (14 operations)
+### Feedback
+
+- `GET /api/v1/feedback/examples` — List approved binary model examples (`listFeedbackExamples`; implemented).
+- `POST /api/v1/feedback/policies` — Freeze selected approved examples (`createFeedbackPolicy`; implemented).
+- `GET /api/v1/feedback/policies` — List candidate policies (`listFeedbackPolicies`; implemented).
+- `GET /api/v1/feedback/policies/{policy_id}` — Read a frozen policy (`getFeedbackPolicy`; implemented).
+- `POST /api/v1/feedback/ground-truth` — Freeze explicit rule-level adjudications (`createGroundTruth`; implemented).
+- `GET /api/v1/feedback/ground-truth/{ground_truth_id}` — Read immutable truth (`getGroundTruth`; implemented).
+- `POST /api/v1/feedback/evaluations` — Queue a held-out comparison (`evaluateFeedbackPolicy`; implemented).
+- `GET /api/v1/feedback/evaluations/{evaluation_id}` — Read comparison results (`getFeedbackEvaluation`; implemented).
+- `GET /api/v1/feedback/evaluations` — List comparisons (`listFeedbackEvaluations`; implemented).
+- `POST /api/v1/feedback/policies/{policy_id}/activate` — Record explicit reviewer activation (`activateFeedbackPolicy`; implemented).
+
+## Planned — unavailable on the running server (4 operations)
 
 ### System
 
@@ -74,16 +87,3 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 ### Audits
 
 - `GET /api/v1/audits/{audit_id}/findings` — List findings with rule sources and review state (`listAuditFindings`; planned).
-
-### Feedback
-
-- `GET /api/v1/feedback/examples` — List approved reviewer correction examples (`listFeedbackExamples`; planned).
-- `POST /api/v1/feedback/policies` — Define a candidate reviewer-example policy (`createFeedbackPolicy`; planned).
-- `GET /api/v1/feedback/policies` — List available feedback policies (`listFeedbackPolicies`; planned).
-- `GET /api/v1/feedback/policies/{policy_id}` — Read a feedback policy (`getFeedbackPolicy`; planned).
-- `POST /api/v1/feedback/ground-truth` — Freeze reviewer-verified evaluation evidence (`createGroundTruth`; planned).
-- `GET /api/v1/feedback/ground-truth/{ground_truth_id}` — Read a frozen evaluation snapshot (`getGroundTruth`; planned).
-- `POST /api/v1/feedback/evaluations` — Compare candidate feedback with a baseline (`evaluateFeedbackPolicy`; planned).
-- `GET /api/v1/feedback/evaluations/{evaluation_id}` — Read held-out feedback evaluation results (`getFeedbackEvaluation`; planned).
-- `GET /api/v1/feedback/evaluations` — List feedback evaluation jobs (`listFeedbackEvaluations`; planned).
-- `POST /api/v1/feedback/policies/{policy_id}/activate` — Approve an evaluated policy for future audits (`activateFeedbackPolicy`; planned).
