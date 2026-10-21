@@ -156,12 +156,28 @@ set optional overrides in the root `.env` (see `.env.example`):
 ```dotenv
 OLLAMA_MODEL=qwen3-vl:4b-instruct
 OLLAMA_BASE_URL=http://127.0.0.1:11434
+# Portable default; benchmark before choosing an explicit count.
+OLLAMA_CPU_THREADS=auto
 ```
 
 Leave those keys out to use the TOML defaults. The model must already be installed
 and its name must match `ollama list`. Precedence is process environment, then
 root `.env`, then TOML. Blank or invalid overrides are rejected. These values
 are read directly; you do not need to export or source `.env`.
+
+`OLLAMA_CPU_THREADS` is read by this project and sent as Ollama's `num_thread`
+request option. Accepts an integer from 1 to 1024; `auto` restores automatic
+selection. You can also set `cpu_threads` in TOML. Omit both to keep the portable
+automatic default. More threads are not guaranteed to be faster on every machine.
+Feedback evaluations and new model-assisted audits save the accepted thread count;
+existing policy executions and linked rechecks keep their original settings.
+
+> **Machine-specific tuning note:** `OLLAMA_CPU_THREADS=10` was benchmarked only
+> on the maintainer's Apple M4 MacBook Air using `qwen3-vl:4b-instruct` in CPU mode
+> with two controlled images. It was the fastest tested count on that setup.
+> Other machines should start with `auto` and benchmark their own thread counts
+> before choosing an override. The maintainer's ten-thread override stays in the
+> local, Git-ignored `.env`.
 
 If port `11434` is occupied, start Ollama on a free port, for example:
 

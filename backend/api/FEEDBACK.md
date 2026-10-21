@@ -144,6 +144,18 @@ consecutive calls. This retains model memory while idle; it does not append chat
 history or skip either request's identity checks. Ollama may reuse prompt caches,
 so compare cold and warm timings separately when measuring performance.
 
+`OLLAMA_CPU_THREADS` (or TOML `cpu_threads`) selects a positive thread count for
+new executions; `auto` or an omitted setting lets Ollama choose. Feedback
+execution records pin it as optional `num_thread`, and both comparison arms use
+that saved value. Activation carries the evaluated execution into later audits
+and linked rechecks. Changing the machine setting does not retune existing
+policies or jobs; evaluate a policy again to use a different setting. Legacy
+records omit this field, retain automatic selection and preserve their hashes.
+The ten-thread setting was benchmarked only on the maintainer's M4 MacBook Air
+with the 4B model and two controlled images. Other machines should start with
+automatic selection and measure before choosing a count; see the
+[machine-specific tuning note](../README.md#ollama-configuration).
+
 Default finite bounds: four example images plus target; 8 MiB/image, 16 million
 pixels/image, 128 KiB annotation, 64 MiB serialized request, 64 KiB response.
 Model identity/capability metadata has a separate 1 MiB response bound because
