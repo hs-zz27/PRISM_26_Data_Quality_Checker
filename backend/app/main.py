@@ -8,6 +8,7 @@ from .routers.assets import router as assets_router
 from .routers.datasets import router as datasets_router
 from .routers.dataset_ingress import DatasetUploadIngress
 from .routers.errors import register_error_handlers
+from .routers.exports import router as exports_router, register_export_error_handlers
 from .routers.finding_reviews import router as finding_reviews_router
 from .routers.jobs import router as jobs_router
 from .routers.sample_reviews import router as sample_reviews_router
@@ -20,14 +21,17 @@ def create_app(*, dataset_upload_settings_factory=None) -> FastAPI:
             "Audit creation, listing and sample reads, revision-pinned asset delivery, job status and audit-aware cancellation, finding and sample review decisions, "
             "review history, durable plain-text extraction submission and manual rulebook creation/reads/reviewer actions are implemented. "
             "Dataset upload acceptance and catalogue reads are implemented; the import worker is explicit. "
+            "Reviewed dataset export acceptance, listing, metadata, manifest and ZIP download are implemented; export processing uses an explicit worker. "
             "Other operations in backend/api remain planned."
         ),
     )
     register_error_handlers(app)
+    register_export_error_handlers(app)
     app.add_middleware(DatasetUploadIngress, settings_factory=dataset_upload_settings_factory)
     app.include_router(audits_router, prefix="/api/v1")
     app.include_router(assets_router, prefix="/api/v1")
     app.include_router(datasets_router, prefix="/api/v1")
+    app.include_router(exports_router, prefix="/api/v1")
     app.include_router(finding_reviews_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(sample_reviews_router, prefix="/api/v1")
