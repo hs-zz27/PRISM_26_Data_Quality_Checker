@@ -17,6 +17,7 @@ from .routers.finding_reviews import router as finding_reviews_router
 from .routers.jobs import router as jobs_router
 from .routers.sample_reviews import router as sample_reviews_router
 from .routers.rulebooks import router as rulebooks_router
+from .routers.system import router as system_router
 
 def create_app(*, dataset_upload_settings_factory=None, correction_settings_factory=None) -> FastAPI:
     app = FastAPI(
@@ -27,7 +28,9 @@ def create_app(*, dataset_upload_settings_factory=None, correction_settings_fact
             "Dataset upload acceptance and catalogue reads are implemented; the import worker is explicit. "
             "Reviewed dataset export acceptance, listing, metadata, manifest and ZIP download are implemented; export processing uses an explicit worker. "
             "Annotation/mask correction, revision history and linked snapshot rechecks are implemented; rechecks use the explicit audit worker. "
-            "Reviewed-example policies, adjudicated truth, held-out comparison jobs and explicit activation are implemented in source. Other operations in backend/api remain planned."
+            "Reviewed-example policies, adjudicated truth, held-out comparison jobs and explicit activation are implemented in source. "
+            "Liveness, capabilities and local readiness reads are implemented. "
+            "Other operations in backend/api remain planned."
         ),
     )
     register_error_handlers(app)
@@ -47,6 +50,7 @@ def create_app(*, dataset_upload_settings_factory=None, correction_settings_fact
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(sample_reviews_router, prefix="/api/v1")
     app.include_router(rulebooks_router, prefix="/api/v1")
+    app.include_router(system_router, prefix="/api/v1")
     preserve_schema_values(app)
     return app
 

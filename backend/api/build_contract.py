@@ -26,6 +26,7 @@ from .fixtures import EXAMPLE_MODEL, SOURCE, TIMESTAMP, build_examples, job, pag
 from .schemas import build_schemas
 from .dataset_contract import align_dataset_contract
 from .export_contract import align_export_contract
+from .system_contract import align_system_contract
 from .planned_endpoints import render_planned_endpoints
 
 API_DIRECTORY = Path(__file__).resolve().parent
@@ -52,7 +53,7 @@ def build_contract() -> JsonObject:
     contract: JsonObject = {
         "openapi": "3.1.0",
         "info": {"title": "PRISM Data Quality Checker — API contract", "version": "0.1.0",
-                 "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
+                 "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Liveness, capabilities and local readiness reads are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
         "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Local development server; only implemented operations are callable."}],
         "tags": [{"name": name} for name in ("System", "Rulebooks", "Datasets", "Jobs", "Audits", "Reviews", "Corrections", "Exports", "Feedback")],
         "paths": {}, "components": {"schemas": schemas},
@@ -417,6 +418,7 @@ def build_contract() -> JsonObject:
     align_dataset_contract(contract, create_app().openapi())
     align_export_contract(contract, create_app().openapi(), operations)
     align_correction_contract(contract, create_app().openapi(), operations)
+    align_system_contract(contract, create_app().openapi(), operations)
     align_feedback_contract(contract, create_app().openapi(), operations)
     contract["x-feedback-job-scenarios"] = feedback_job_scenarios()
     contract["x-recheck-job-scenarios"] = recheck_job_scenarios()
