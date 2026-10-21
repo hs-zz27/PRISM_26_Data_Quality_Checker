@@ -81,16 +81,5 @@ def build_schemas() -> JsonObject:
         "objects": array(ref("ObjectMeasurements")),
     })
     schemas["FindingPage"] = page_schema(ref("Finding"))
-    schemas["Health"] = obj({"status": {"const": "ok"}, "api_version": {"const": "v1"}})
-    schemas["Capabilities"] = obj({
-        "dataset_formats": array(TEXT), "guideline_input_formats": array(TEXT),
-        "coordinate_convention": {"const": "one_based_inclusive"},
-        "checks": array(obj({"name": TEXT, "implementation": choice("implemented", "planned")})),
-        "execution_device": {"const": "cpu"},
-    })
-    schemas["SystemStatus"] = obj({
-        "ollama": obj({"reachable": BOOLEAN, "model": TEXT, "model_available": nullable(BOOLEAN)}),
-        "detector": obj({"weights_cached": BOOLEAN, "integration_ready": BOOLEAN}),
-        "execution_device": {"const": "cpu"},
-    })
+    # Health, Capabilities and SystemStatus come from the live Pydantic models; see system_contract.py.
     return schemas

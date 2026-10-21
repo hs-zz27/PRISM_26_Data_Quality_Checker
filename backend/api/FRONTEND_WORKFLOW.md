@@ -29,12 +29,12 @@ decisions; it is not authentication or a permission mechanism.
 
 ## 1. Start screen and service readiness
 
-**Planned:** `GET /health`, `GET /capabilities`, `GET /system/status`.
+**Implemented:** `GET /health`, `GET /capabilities`, `GET /system/status` (see [SYSTEM.md](SYSTEM.md)).
 
 Design separate HTTP liveness and model-readiness indicators. A reachable API
-does not imply that Ollama or detector weights are available. These planned reads
-will report readiness rather than start services or download models. Capabilities
-may include implemented checks even while the capabilities HTTP route is planned.
+does not imply that Ollama or detector weights are available. These reads
+report readiness rather than start services or download models. Capabilities
+lists executable checks and, separately, detection evidence features.
 For mocks, use `examples.check_catalog` for check meanings and parameter schemas;
 do not infer runtime model readiness from synthetic fixtures.
 

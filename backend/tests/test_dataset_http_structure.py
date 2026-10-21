@@ -24,7 +24,7 @@ def test_exact_five_dataset_routes_once_in_current_inventory(tmp_path):
               for method, operation in methods.items()}
     ids = [context.original_route.operation_id for context in iter_route_contexts(app.routes)
            if isinstance(context.original_route, APIRoute) and context.original_route.include_in_schema]
-    assert len(actual) == len(ids) == len(set(ids)) == 46
+    assert len(actual) == len(ids) == len(set(ids)) == 49
     assert EXPECTED <= actual
     assert {row for row in actual if row[2] in {entry[2] for entry in EXPECTED}} == EXPECTED
     for operation_id in ("getSampleAsset", "getJob", "cancelJob", "extractRulebook", "createRulebook",

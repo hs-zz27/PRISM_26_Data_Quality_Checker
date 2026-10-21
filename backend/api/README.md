@@ -9,7 +9,7 @@
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**46 HTTP operations are implemented in source after this handoff is applied:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
+**49 HTTP operations are implemented in source after this handoff is applied:** health, capabilities and system status reads (see [SYSTEM.md](SYSTEM.md)), dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
 and sample reads, revision-pinned assets, job polling/cancellation, and
 finding/sample decisions with history, five reviewed-export operations and four correction/recheck operations.
 All five API artifacts now include these four operations.
@@ -164,7 +164,7 @@ human acceptance.
 This is the target workflow. Planned steps are mock/UI design references, not
 actions the running backend currently supports.
 
-1. **Planned:** inspect health, capabilities and system status. Liveness is separate from
+1. **Implemented:** inspect health, capabilities and system status ([SYSTEM.md](SYSTEM.md)). Liveness is separate from
    model readiness; these endpoints do not start services or download models.
 2. **Implemented:** submit plain text through `POST /rulebooks/extractions`, poll the job, then
    follow its version-pinned `result.href` to the saved draft. **Implemented:**
@@ -513,7 +513,7 @@ Delivered extraction mocks are in
 `examples.extraction_job_scenarios.states` and `.failures`. Completed extraction links pin rulebook version 1.
 `examples.check_catalog` comes from the
 current registry and includes supported check names, meanings, scopes and parameter
-schemas. These are bundled reference data, not a live `/capabilities` endpoint.
+schemas. These are bundled reference data; the live `GET /capabilities` lists the executable checks from the same registry.
 Do not invent default thresholds for vague rules.
 
 Fixtures are independent synthetic snapshots, not a mutable mock server. Example
@@ -573,6 +573,10 @@ All five artifacts are regenerated for the correction/recheck source as well.
 A fresh test pass, the required migrations and real
 worker/download verification remain pending; source availability and schema
 generation are not runtime validation.
+
+## System readiness
+
+See [SYSTEM.md](SYSTEM.md). `GET /health`, `GET /capabilities` and `GET /system/status` are implemented. With the regenerated contract the inventory is 49 implemented, 1 planned, 50 total.
 
 ## Correction/recheck application gate
 
