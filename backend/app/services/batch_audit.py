@@ -36,6 +36,7 @@ from ..storage.workflow_repository import (
     SampleProcessingTimeoutError,
 )
 from .audit import audit_sample
+from .detection_audit import DetectionAwareCollector
 from .asset_snapshot import capture_sample, materialize_sample, sample_work_directory
 from .evaluation import RuleEvaluationResult, evaluate_rules_detailed
 from .sample_worker import (
@@ -447,12 +448,23 @@ class BatchAuditService:
         except SampleAssetManifestNotFoundError as error:
             raise SampleDataError("The immutable sample snapshot could not be read.") from error
 
+    def _collector_for(self, request: BatchAuditRequest) -> Callable[..., Any]:
+        """Use the plain collector unless the audit froze a detector configuration.
+
+        The wrapper holds only that configuration, so it is spawn-safe. Audits saved
+        without one keep their historical behavior.
+        """
+        if request.detector is None:
+            return self.measurement_collector
+        return DetectionAwareCollector(request.detector, base_collector=self.measurement_collector)
+
     def _compute_isolated(
         self, request: BatchAuditRequest, rulebook: Rulebook, sample_claim,
     ) -> tuple[Mapping[str, Any], RuleEvaluationResult]:
         """Supervise snapshot preparation, collection and evaluation together."""
+        collector = self._collector_for(request)
         try:
-            pickle.dumps((self.measurement_collector, self.rule_evaluator, rulebook))
+            pickle.dumps((collector, self.rule_evaluator, rulebook))
         except Exception as error:  # noqa: BLE001 - preflight serialization boundary
             raise SampleComputationError(
                 "The sample computation cannot be serialized for isolated execution."
@@ -491,7 +503,7 @@ class BatchAuditService:
                 target=run_sample_child,
                 args=(
                     send_connection,
-                    self.measurement_collector,
+                    collector,
                     self.rule_evaluator,
                     rulebook,
                     collection_root,
@@ -607,7 +619,7 @@ class BatchAuditService:
                     target_root=root,
                 )
                 collection_root = str(root)
-            return self.measurement_collector(
+            return self._collector_for(request)(
                 collection_root,
                 sample_claim.sample_id,
                 request.allowed_labels,
