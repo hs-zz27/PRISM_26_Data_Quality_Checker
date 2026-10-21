@@ -210,7 +210,8 @@ class DatasetRepository:
                        ORDER BY ordinal, sample_id COLLATE "C" LIMIT %s OFFSET %s
                    ) """ + _SAMPLE_VIEW.replace("FROM dataset_samples s", "FROM selected s") + """
                    WHERE r.sample_revision=h.sample_revision
-                   ORDER BY s.ordinal, s.sample_id COLLATE "C""", (dataset_id, limit, offset),
+                   ORDER BY s.ordinal, s.sample_id COLLATE "C"
+                   """, (dataset_id, limit, offset),
             ).fetchall()
             if len(rows) != min(limit, max(0, total - offset)):
                 raise DatasetStorageError("The catalogue has an incomplete sample head.")

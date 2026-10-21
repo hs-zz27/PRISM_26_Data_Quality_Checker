@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import FastAPI, Query
+from fastapi import APIRouter, FastAPI, Query
 from pydantic import BaseModel, Field
 
 from backend.app.core.openapi import preserve_schema_values
@@ -50,3 +50,29 @@ def test_openapi_preserves_route_metadata_and_excludes_hidden_routes():
     assert set(schema["paths"]) == {"/visible"}
     assert schema["paths"]["/visible"]["get"]["operationId"] == "visible"
     assert schema["paths"]["/visible"]["get"]["tags"] == ["Example"]
+
+
+def test_openapi_edits_do_not_mutate_shared_router_metadata():
+    router = APIRouter()
+    body = {
+        "required": True,
+        "content": {"multipart/form-data": {"schema": {
+            "type": "object", "properties": {"archive": {"type": "string", "format": "binary"}},
+        }}},
+    }
+
+    @router.post("/upload", openapi_extra={"requestBody": body})
+    def upload():
+        raise AssertionError("Schema generation must not execute the endpoint.")
+
+    def application():
+        app = FastAPI()
+        app.include_router(router)
+        preserve_schema_values(app)
+        return app
+
+    first = application().openapi()
+    first["paths"]["/upload"]["post"]["requestBody"]["content"] = {"application/json": {}}
+    second = application().openapi()
+    assert second["paths"]["/upload"]["post"]["requestBody"] == body
+    assert set(body["content"]) == {"multipart/form-data"}

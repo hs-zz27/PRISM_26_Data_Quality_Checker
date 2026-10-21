@@ -201,12 +201,12 @@ def test_generated_examples_and_inventory_are_complete_unique_and_fresh():
     examples = json.loads(rendered["examples.json"])
     operations = [op for methods in document["paths"].values() for op in methods.values()]
     ids = [op["operationId"] for op in operations]
-    assert len(ids) == len(set(ids)) == 49
-    assert sum(op["x-implementation-status"] == "implemented" for op in operations) == 27
-    assert sum(op["x-implementation-status"] == "planned" for op in operations) == 22
+    assert len(ids) == len(set(ids)) == 50
+    assert sum(op["x-implementation-status"] == "implemented" for op in operations) == 32
+    assert sum(op["x-implementation-status"] == "planned" for op in operations) == 18
     routes = [context.original_route.operation_id for context in iter_route_contexts(create_app().routes)
               if isinstance(context.original_route, APIRoute) and context.original_route.include_in_schema]
-    assert len(routes) == len(set(routes)) == 27
+    assert len(routes) == len(set(routes)) == 32
     for identifier in DATASET_OPERATIONS:
         assert routes.count(identifier) == 1
         fixture = next(item for item in examples["operations"] if item["operation_id"] == identifier)
@@ -214,7 +214,7 @@ def test_generated_examples_and_inventory_are_complete_unique_and_fresh():
         path, method = DATASET_OPERATIONS[identifier]
         schema = document["paths"][path][method]["responses"][str(fixture["response"]["status"])]["content"]["application/json"]["schema"]
         _validate(document, schema, fixture["response"]["body"])
-    assert set(examples["future_job_scenarios"]) == {"recheck", "export", "feedback_evaluation"}
+    assert set(examples["future_job_scenarios"]) == {"recheck", "feedback_evaluation"}
     assert examples["dataset_import_scenarios"] == build_dataset_import_scenarios()
     assert "dataset_import" not in examples["future_job_scenarios"]
     scenarios = examples["dataset_import_scenarios"]

@@ -31,7 +31,7 @@ class DatasetHttpDependencyError(RuntimeError):
 class DatasetUpload(BaseModel):
     """Actual parsed multipart inputs; file is a handle, never a bytes blob."""
     model_config = ConfigDict(extra="forbid", strict=True)
-    archive: UploadFile
+    archive: UploadFile = Field(json_schema_extra={"format": "binary"})
     name: Identifier
     format: Literal["penn_fudan"]
 

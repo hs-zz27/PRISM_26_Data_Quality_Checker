@@ -73,7 +73,8 @@ def test_upgrade_keeps_existing_manifests_audits_findings_and_reviews_exact(
                   "dataset_sample_revisions", "dataset_sample_heads"):
         assert read_sql(settings, f"SELECT count(*) AS n FROM {table}") == [{"n": 0}]
     assert read_sql(settings, "SELECT version FROM schema_migrations ORDER BY version") == [
-        {"version": number} for number in range(1, 11)
+        {"version": int(source.name[:3])}
+        for source in sorted(original_directory.glob("[0-9][0-9][0-9]_*.sql"))
     ]
     initialize_database(settings)
     assert snapshot(settings) == before

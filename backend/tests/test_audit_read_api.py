@@ -590,6 +590,10 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "/api/v1/datasets/{dataset_id}",
         "/api/v1/datasets/{dataset_id}/samples",
         "/api/v1/datasets/{dataset_id}/samples/{sample_id}",
+        "/api/v1/exports",
+        "/api/v1/exports/{export_id}",
+        "/api/v1/exports/{export_id}/manifest",
+        "/api/v1/exports/{export_id}/download",
         "/api/v1/findings/{finding_id}/review",
         "/api/v1/findings/{finding_id}/reviews",
         "/api/v1/jobs/{job_id}",
@@ -603,6 +607,7 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "startAudit", "listAudits", "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "reviewFinding", "listFindingReviews", "getJob", "cancelJob",
         "importDataset", "listDatasets", "getDataset", "listDatasetSamples", "getDatasetSample",
         "reviewSample", "listSampleReviews",
+        "startExport", "listExports", "getExport", "getExportManifest", "downloadExport",
     }
     assert client.post("/api/v1/audits/audit_1/samples").status_code == 405
     response = client.put("/api/v1/audits/audit_1/samples/sample_1/review", json={})

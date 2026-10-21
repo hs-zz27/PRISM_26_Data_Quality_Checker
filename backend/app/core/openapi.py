@@ -6,6 +6,7 @@ route/schema generation to retain PostgreSQL BIGINT limits and nullable defaults
 This adapter follows the pinned FastAPI API and does no storage or request work.
 """
 
+from copy import deepcopy
 from typing import Any
 
 from fastapi import FastAPI
@@ -54,8 +55,14 @@ def preserve_schema_values(app: FastAPI) -> None:
                 if path:
                     paths.setdefault(context.path_format, {}).update(path)
                 definitions.update(extra_definitions)
-            document["paths"] = paths
-            document.setdefault("components", {}).setdefault("schemas", {}).update(definitions)
+            # FastAPI's raw path builder can retain references to a route's
+            # openapi_extra. Each app document must own its values: consumers
+            # annotate/inspect the cached schema without changing shared router
+            # declarations or another app's later schema generation.
+            document["paths"] = deepcopy(paths)
+            document.setdefault("components", {}).setdefault("schemas", {}).update(
+                deepcopy(definitions)
+            )
         except Exception:
             app.openapi_schema = None
             raise

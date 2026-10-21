@@ -24,7 +24,7 @@ def test_exact_five_dataset_routes_once_in_current_inventory(tmp_path):
               for method, operation in methods.items()}
     ids = [context.original_route.operation_id for context in iter_route_contexts(app.routes)
            if isinstance(context.original_route, APIRoute) and context.original_route.include_in_schema]
-    assert len(actual) == len(ids) == len(set(ids)) == 27
+    assert len(actual) == len(ids) == len(set(ids)) == 32
     assert EXPECTED <= actual
     assert {row for row in actual if row[2] in {entry[2] for entry in EXPECTED}} == EXPECTED
     for operation_id in ("getSampleAsset", "getJob", "cancelJob", "extractRulebook", "createRulebook",
@@ -32,6 +32,8 @@ def test_exact_five_dataset_routes_once_in_current_inventory(tmp_path):
         assert ids.count(operation_id) == 1
     assert ("/api/v1/audits", "post", "startAudit") in actual
     assert ("/api/v1/audits", "get", "listAudits") in actual
+    for operation_id in ("startExport", "listExports", "getExport", "getExportManifest", "downloadExport"):
+        assert ids.count(operation_id) == 1
 
 
 def test_live_multipart_schema_is_strict_required_and_response_is_real_model(tmp_path):

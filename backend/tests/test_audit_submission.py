@@ -215,11 +215,19 @@ def test_ready_state_and_heads_use_one_read_snapshot(ready_catalogue, monkeypatc
 
 def test_broken_catalogue_head_fails_closed_without_recapture(ready_catalogue):
     settings, catalogue, _, audits, service, _, _ = ready_catalogue
-    # Deliberate corruption in this isolated test schema, bypassing the guard.
+    # Deliberate corruption in this isolated test schema. Both the head trigger
+    # and the deferred identity-to-head FK normally prevent this stored state.
     with database_connection(settings) as connection:
+        connection.execute("ALTER TABLE dataset_samples DROP CONSTRAINT dataset_samples_head_fk")
         connection.execute("ALTER TABLE dataset_sample_heads DISABLE TRIGGER dataset_head_monotonic")
         connection.execute("DELETE FROM dataset_sample_heads WHERE dataset_id='dataset_a' AND sample_id='z'")
         connection.execute("ALTER TABLE dataset_sample_heads ENABLE TRIGGER dataset_head_monotonic")
+        connection.execute(
+            """ALTER TABLE dataset_samples ADD CONSTRAINT dataset_samples_head_fk
+               FOREIGN KEY (dataset_id,sample_id)
+               REFERENCES dataset_sample_heads(dataset_id,sample_id)
+               DEFERRABLE INITIALLY DEFERRED NOT VALID"""
+        )
     with pytest.raises(DatasetStorageError):
         catalogue.resolve_audit_samples("dataset_a")
     with pytest.raises(DatasetStorageError):
@@ -252,8 +260,10 @@ def test_listing_is_stable_and_public_and_worker_claims_only_audits(ready_catalo
     assert [item.audit_id for item in audits.list_audits(limit=2, offset=2).items] == ["a"]
     assert audits.list_audits(offset=99).items == []
     assert "dataset_root" not in page.model_dump_json() and "/private/source" not in page.model_dump_json()
-    other = Job.queued(job_id="export", kind=JobKind.EXPORT, total=1, now=now - timedelta(seconds=60))
+    # Exports have their own enqueue boundary; use a generic-supported kind to
+    # verify that an older non-audit job cannot be taken by an audit worker.
+    other = Job.queued(job_id="recheck", kind=JobKind.RECHECK, total=1, now=now - timedelta(seconds=60))
     audits.jobs.create_job(other)
     claim = audits.jobs.claim_next_job(worker_id="worker", kind=JobKind.AUDIT, now=now)
     assert claim is not None and claim.job.kind is JobKind.AUDIT
-    assert audits.jobs.get_job("export").status.value == "queued"
+    assert audits.jobs.get_job("recheck").status.value == "queued"
