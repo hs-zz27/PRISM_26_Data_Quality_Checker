@@ -85,6 +85,11 @@ def test_owned_comparison_publication_activation_and_future_audit_pin(dataset_da
     assert JobRepository(settings=repository.settings).claim_next_job(worker_id='generic', kind=JobKind.FEEDBACK_EVALUATION) is None
     claim = repository.claim('feedback-worker')
     assert claim is not None
+    running = JobRepository(settings=repository.settings).get_job(started.job.job_id)
+    assert running.status.value == 'running'
+    assert running.progress.phase == 'comparing'
+    assert running.progress.processed == 0 and running.progress.total == len(claim[3].truth.cases)
+    assert running.progress.fraction == 0.0
     for ordinal, value in enumerate(claim[3].truth.cases):
         assert repository.save_case(claim, ordinal, comparison(value))
     repository.complete(claim)
