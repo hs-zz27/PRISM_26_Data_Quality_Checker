@@ -20,6 +20,7 @@ from .common import (
 from .fixtures import EXAMPLE_MODEL, SOURCE, TIMESTAMP, build_examples, job, page
 from .schemas import build_schemas
 from .dataset_contract import align_dataset_contract
+from .export_contract import align_export_contract
 from .planned_endpoints import render_planned_endpoints
 
 API_DIRECTORY = Path(__file__).resolve().parent
@@ -383,7 +384,7 @@ def build_contract() -> JsonObject:
         conflict_examples={"AUDIT_NOT_READY": "Wait until the selected audit can be exported."},
         description="accepted_only includes explicit accepted decisions. all_reviewed includes accepted and rejected with their decisions in the manifest. pending_review and needs_correction are excluded. Export exactly the immutable revisions reviewed in the selected audit; newer dataset heads do not invalidate those old-pin decisions or silently replace the export contents. Corrected data requires recheck and fresh review. Preserve source coordinates and original files.")
     add("GET", "/exports/{export_id}", "getExport", "Exports", "Read export status and download URLs", "Export", examples["export"])
-    add("GET", "/exports/{export_id}/download", "downloadExport", "Exports", "Download corrected dataset archive", "", None, binary=True,
+    add("GET", "/exports/{export_id}/download", "downloadExport", "Exports", "Download reviewed dataset archive", "", None, binary=True,
         conflict_examples={"EXPORT_NOT_READY": "Wait for export preparation to complete before downloading."},
         description="ZIP bytes with annotations, masks and review manifest; images included only when requested. Return 409 EXPORT_NOT_READY until preparation completes.")
     add("GET", "/exports/{export_id}/manifest", "getExportManifest", "Exports", "Read exported and excluded sample decisions", "ExportManifest",
@@ -422,6 +423,7 @@ def build_contract() -> JsonObject:
         description="Require a completed matching evaluation and explicit reviewer activation. Does not alter historical audits or override final reviewer control. Return 409 POLICY_NOT_EVALUATED if the evaluation is missing or unfinished.")
 
     align_dataset_contract(contract, create_app().openapi())
+    align_export_contract(contract, create_app().openapi(), operations)
     contract["x-template-operations"] = operations
     contract["x-review-scenarios"] = examples["review_scenarios"]
     contract["x-review-scenario-rulebooks"] = examples["review_scenario_rulebooks"]
@@ -429,7 +431,8 @@ def build_contract() -> JsonObject:
     contract["x-audit-scenarios"] = examples["audit_scenarios"]
     contract["x-extraction-job-scenarios"] = examples["extraction_job_scenarios"]
     contract["x-dataset-import-scenarios"] = examples["dataset_import_scenarios"]
-    contract["x-future-job-scenarios"] = examples["future_job_scenarios"]
+    contract["x-future-job-scenarios"] = {kind: states for kind, states in examples["future_job_scenarios"].items()
+                                            if kind != "export"}
     return contract
 
 def build_implemented_contract(reference: JsonObject) -> JsonObject:
@@ -489,12 +492,14 @@ def render_artifacts() -> dict[str, str]:
     future_job_scenarios = contract.pop("x-future-job-scenarios")
     extraction_job_scenarios = contract.pop("x-extraction-job-scenarios")
     dataset_import_scenarios = contract.pop("x-dataset-import-scenarios")
+    export_scenarios = contract.pop("x-export-scenarios")
     documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
-        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,
         "dataset_import_scenarios": dataset_import_scenarios,
+        "export_scenarios": export_scenarios,
         "future_job_scenarios": future_job_scenarios,
         "extraction_job_scenarios": extraction_job_scenarios,
         "check_catalog": extraction_check_catalog(),

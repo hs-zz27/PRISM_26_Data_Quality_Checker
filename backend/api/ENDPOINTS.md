@@ -4,7 +4,7 @@ Generated from `build_contract.py`. Paths include `/api/v1`.
 
 Use [implemented-openapi.json for callable endpoint schemas and client generation. openapi.json also includes planned designs. examples.json contains synthetic fixtures.
 
-## Implemented (27 operations)
+## Implemented (32 operations)
 
 ### Rulebooks
 
@@ -48,7 +48,15 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `PUT /api/v1/audits/{audit_id}/samples/{sample_id}/review` — Record the reviewer's data decision (`reviewSample`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}/reviews` — Read sample decision history (`listSampleReviews`; implemented).
 
-## Planned — unavailable on the running server (22 operations)
+### Exports
+
+- `POST /api/v1/exports` — Prepare reviewed output and manifest (`startExport`; implemented).
+- `GET /api/v1/exports/{export_id}` — Read export status and download URLs (`getExport`; implemented).
+- `GET /api/v1/exports/{export_id}/download` — Download reviewed dataset archive (`downloadExport`; implemented).
+- `GET /api/v1/exports/{export_id}/manifest` — Read exported and excluded sample decisions (`getExportManifest`; implemented).
+- `GET /api/v1/exports` — List reviewed exports (`listExports`; implemented).
+
+## Planned — unavailable on the running server (18 operations)
 
 ### System
 
@@ -66,13 +74,6 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `POST /api/v1/datasets/{dataset_id}/samples/{sample_id}/mask-uploads` — Stage a replacement instance-ID mask (`uploadCorrectionMask`; planned).
 - `POST /api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions` — Save corrected annotations and optional mask (`correctAnnotations`; planned).
 - `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions` — Read correction history (`listAnnotationRevisions`; planned).
-
-### Exports
-
-- `POST /api/v1/exports` — Prepare reviewed output and manifest (`startExport`; planned).
-- `GET /api/v1/exports/{export_id}` — Read export status and download URLs (`getExport`; planned).
-- `GET /api/v1/exports/{export_id}/download` — Download corrected dataset archive (`downloadExport`; planned).
-- `GET /api/v1/exports/{export_id}/manifest` — Read exported and excluded sample decisions (`getExportManifest`; planned).
 
 ### Feedback
 

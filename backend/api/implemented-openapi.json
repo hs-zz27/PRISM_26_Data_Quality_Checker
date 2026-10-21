@@ -3949,6 +3949,7 @@
                 "properties": {
                   "archive": {
                     "contentMediaType": "application/octet-stream",
+                    "format": "binary",
                     "title": "Archive",
                     "type": "string"
                   },
@@ -4671,6 +4672,877 @@
         "description": "Missing dataset, sample or exact revision is 404. Missing/corrupt pinned manifest fails closed as a storage error; never recapture from mutable files or a deleted staging directory. Sample issues explain basic integrity, not rulebook or reviewer decisions. Source order, duplicate/negative IDs and invalid boxes remain source evidence.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Catalogue-owned current head or exact historical revision."
+      }
+    },
+    "/api/v1/exports": {
+      "post": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "Prepare reviewed output and manifest",
+        "operationId": "startExport",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              },
+              "example": {
+                "audit_id": "audit_demo",
+                "format": "penn_fudan",
+                "selection": "all_reviewed",
+                "include_images": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportStarted"
+                },
+                "example": {
+                  "export": {
+                    "audit_id": "audit_demo",
+                    "format": "penn_fudan",
+                    "selection": "all_reviewed",
+                    "include_images": false,
+                    "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "job_id": "job_export_demo",
+                    "status": "queued",
+                    "included_count": null,
+                    "excluded_count": null,
+                    "download_url": null,
+                    "manifest_url": null,
+                    "created_at": "2026-10-21T00:00:00Z"
+                  },
+                  "job": {
+                    "job_id": "job_export_demo",
+                    "kind": "export",
+                    "status": "queued",
+                    "progress": {
+                      "phase": "queued",
+                      "processed": 0,
+                      "total": 2,
+                      "fraction": 0.0
+                    },
+                    "result": null,
+                    "error": null,
+                    "created_at": "2026-10-21T00:00:00Z",
+                    "updated_at": "2026-10-21T00:00:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid export request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more request fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected export error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Export storage, configuration or durable outcome unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Export storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Export or source audit not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested export or source audit does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "AUDIT_NOT_READY or AUDIT_NOT_EXPORTABLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "AUDIT_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "AUDIT_NOT_READY",
+                        "message": "Wait for a terminal audit.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "AUDIT_NOT_EXPORTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "AUDIT_NOT_EXPORTABLE",
+                        "message": "The source audit has no immutable snapshot.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
+      },
+      "get": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "List reviewed exports",
+        "operationId": "listExports",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            },
+            "example": 20
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            },
+            "example": 0
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "audit_id": "audit_demo",
+                      "format": "penn_fudan",
+                      "selection": "all_reviewed",
+                      "include_images": false,
+                      "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "job_id": "job_export_demo",
+                      "status": "completed",
+                      "included_count": 2,
+                      "excluded_count": 2,
+                      "download_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/download",
+                      "manifest_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/manifest",
+                      "created_at": "2026-10-21T00:00:00Z"
+                    }
+                  ],
+                  "limit": 20,
+                  "offset": 0,
+                  "total": 1,
+                  "next_offset": null
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid export request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more request fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected export error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Export storage, configuration or durable outcome unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Export storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
+      }
+    },
+    "/api/v1/exports/{export_id}": {
+      "get": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "Read export status and download URLs",
+        "operationId": "getExport",
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Export Id"
+            },
+            "example": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Export"
+                },
+                "example": {
+                  "audit_id": "audit_demo",
+                  "format": "penn_fudan",
+                  "selection": "all_reviewed",
+                  "include_images": false,
+                  "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "job_id": "job_export_demo",
+                  "status": "completed",
+                  "included_count": 2,
+                  "excluded_count": 2,
+                  "download_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/download",
+                  "manifest_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/manifest",
+                  "created_at": "2026-10-21T00:00:00Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid export request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more request fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected export error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Export storage, configuration or durable outcome unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Export storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Export or source audit not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested export or source audit does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
+      }
+    },
+    "/api/v1/exports/{export_id}/manifest": {
+      "get": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "Read exported and excluded sample decisions",
+        "operationId": "getExportManifest",
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Export Id"
+            },
+            "example": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportManifest"
+                },
+                "example": {
+                  "format": "penn_fudan",
+                  "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "audit_id": "audit_demo",
+                  "dataset_id": "dataset_demo",
+                  "source_mode": "snapshot",
+                  "rulebook_id": "rulebook_demo",
+                  "rulebook_version": 3,
+                  "selection": "all_reviewed",
+                  "include_images": false,
+                  "selected_at": "2026-10-21T00:00:00Z",
+                  "entries": [
+                    {
+                      "sample_id": "sample_000",
+                      "sample_revision": 2,
+                      "ordinal": 0,
+                      "processing_state": "failed",
+                      "included": true,
+                      "review_decision": "accepted",
+                      "review_revision": 3,
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "availability": {
+                        "annotation_text": "available",
+                        "raw_mask": "available",
+                        "original_image": "missing"
+                      },
+                      "reason": null
+                    },
+                    {
+                      "sample_id": "sample_001",
+                      "sample_revision": 2,
+                      "ordinal": 1,
+                      "processing_state": "completed",
+                      "included": true,
+                      "review_decision": "rejected",
+                      "review_revision": 3,
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "availability": {
+                        "annotation_text": "available",
+                        "raw_mask": "available",
+                        "original_image": "missing"
+                      },
+                      "reason": null
+                    },
+                    {
+                      "sample_id": "sample_002",
+                      "sample_revision": 2,
+                      "ordinal": 2,
+                      "processing_state": "completed",
+                      "included": false,
+                      "review_decision": "pending_review",
+                      "review_revision": 3,
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "availability": {
+                        "annotation_text": "available",
+                        "raw_mask": "available",
+                        "original_image": "missing"
+                      },
+                      "reason": "pending_review"
+                    },
+                    {
+                      "sample_id": "sample_003",
+                      "sample_revision": 2,
+                      "ordinal": 3,
+                      "processing_state": "completed",
+                      "included": false,
+                      "review_decision": "accepted",
+                      "review_revision": 3,
+                      "reviewer_id": "reviewer_demo",
+                      "reviewed_at": "2026-10-21T00:00:00Z",
+                      "availability": {
+                        "annotation_text": "available",
+                        "raw_mask": "unreadable",
+                        "original_image": "missing"
+                      },
+                      "reason": "raw_mask_unreadable"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid export request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more request fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected export error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Export storage, configuration or durable outcome unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Export storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Export or source audit not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested export or source audit does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Export has not completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "EXPORT_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "EXPORT_NOT_READY",
+                        "message": "The export has not completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
+      }
+    },
+    "/api/v1/exports/{export_id}/download": {
+      "get": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "Download reviewed dataset archive",
+        "operationId": "downloadExport",
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Export Id"
+            },
+            "example": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviewed dataset ZIP; errors before headers remain JSON.",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Constant-safe attachment filename."
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Registered verified artifact byte length."
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid export request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more request fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected export error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Export storage, configuration or durable outcome unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Export storage or durable acceptance is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Export or source audit not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested export or source audit does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Export has not completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "EXPORT_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "EXPORT_NOT_READY",
+                        "message": "The export has not completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
       }
     },
     "/api/v1/findings/{finding_id}/reviews": {
@@ -7518,6 +8390,16 @@
         "title": "ApiError",
         "type": "object"
       },
+      "AssetAvailability": {
+        "description": "Whether the source asset was captured and can be verified.",
+        "enum": [
+          "available",
+          "missing",
+          "unreadable"
+        ],
+        "title": "AssetAvailability",
+        "type": "string"
+      },
       "AssetReference": {
         "additionalProperties": false,
         "properties": {
@@ -7916,6 +8798,27 @@
         "title": "AuditStarted",
         "type": "object"
       },
+      "CapturedAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "annotation_text": {
+            "$ref": "#/components/schemas/AssetAvailability"
+          },
+          "raw_mask": {
+            "$ref": "#/components/schemas/AssetAvailability"
+          },
+          "original_image": {
+            "$ref": "#/components/schemas/AssetAvailability"
+          }
+        },
+        "required": [
+          "annotation_text",
+          "raw_mask",
+          "original_image"
+        ],
+        "title": "CapturedAvailability",
+        "type": "object"
+      },
       "ConfirmationState": {
         "description": "Reviewer confirmation state for a rule or rulebook.",
         "enum": [
@@ -8192,6 +9095,424 @@
           }
         },
         "title": "Evidence",
+        "type": "object"
+      },
+      "ExclusionReason": {
+        "enum": [
+          "pending_review",
+          "needs_correction",
+          "rejected",
+          "annotation_text_missing",
+          "annotation_text_unreadable",
+          "raw_mask_missing",
+          "raw_mask_unreadable",
+          "original_image_missing",
+          "original_image_unreadable"
+        ],
+        "title": "ExclusionReason",
+        "type": "string"
+      },
+      "Export": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "format": {
+            "const": "penn_fudan",
+            "title": "Format",
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/ExportSelection"
+          },
+          "include_images": {
+            "title": "Include Images",
+            "type": "boolean"
+          },
+          "export_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Export Id",
+            "type": "string"
+          },
+          "job_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "included_count": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Included Count"
+          },
+          "excluded_count": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Excluded Count"
+          },
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Download Url"
+          },
+          "manifest_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Manifest Url"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audit_id",
+          "format",
+          "selection",
+          "include_images",
+          "export_id",
+          "job_id",
+          "status",
+          "created_at"
+        ],
+        "title": "Export",
+        "type": "object"
+      },
+      "ExportManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "const": "penn_fudan",
+            "default": "penn_fudan",
+            "title": "Format",
+            "type": "string"
+          },
+          "export_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Export Id",
+            "type": "string"
+          },
+          "audit_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "source_mode": {
+            "const": "snapshot",
+            "title": "Source Mode",
+            "type": "string"
+          },
+          "rulebook_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rulebook Id",
+            "type": "string"
+          },
+          "rulebook_version": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Rulebook Version",
+            "type": "integer"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/ExportSelection"
+          },
+          "include_images": {
+            "title": "Include Images",
+            "type": "boolean"
+          },
+          "selected_at": {
+            "format": "date-time",
+            "title": "Selected At",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ExportManifestEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "export_id",
+          "audit_id",
+          "dataset_id",
+          "source_mode",
+          "rulebook_id",
+          "rulebook_version",
+          "selection",
+          "include_images",
+          "selected_at",
+          "entries"
+        ],
+        "title": "ExportManifest",
+        "type": "object"
+      },
+      "ExportManifestEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "sample_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "ordinal": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "processing_state": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Processing State",
+            "type": "string"
+          },
+          "included": {
+            "title": "Included",
+            "type": "boolean"
+          },
+          "review_decision": {
+            "$ref": "#/components/schemas/SampleReviewDecision"
+          },
+          "review_revision": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Review Revision",
+            "type": "integer"
+          },
+          "reviewer_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Id"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "availability": {
+            "$ref": "#/components/schemas/CapturedAvailability"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExclusionReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "sample_id",
+          "sample_revision",
+          "ordinal",
+          "processing_state",
+          "included",
+          "review_decision",
+          "review_revision",
+          "reviewer_id",
+          "reviewed_at",
+          "availability",
+          "reason"
+        ],
+        "title": "ExportManifestEntry",
+        "type": "object"
+      },
+      "ExportPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Export"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total"
+        ],
+        "title": "ExportPage",
+        "type": "object"
+      },
+      "ExportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "format": {
+            "const": "penn_fudan",
+            "title": "Format",
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/ExportSelection"
+          },
+          "include_images": {
+            "title": "Include Images",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "audit_id",
+          "format",
+          "selection",
+          "include_images"
+        ],
+        "title": "ExportRequest",
+        "type": "object"
+      },
+      "ExportSelection": {
+        "enum": [
+          "accepted_only",
+          "all_reviewed"
+        ],
+        "title": "ExportSelection",
+        "type": "string"
+      },
+      "ExportStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "export": {
+            "$ref": "#/components/schemas/Export"
+          },
+          "job": {
+            "$ref": "#/components/schemas/Job"
+          }
+        },
+        "required": [
+          "export",
+          "job"
+        ],
+        "title": "ExportStarted",
         "type": "object"
       },
       "Finding": {

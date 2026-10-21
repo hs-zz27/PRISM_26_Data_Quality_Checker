@@ -3,6 +3,9 @@
 from backend.app.models.dataset import Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted
 from backend.app.core.dataset_http import DatasetUpload
 from backend.app.models.finding import Finding
+from backend.app.models.export import (
+    ExportRequest, Export, ExportStarted, ExportPage, ExportManifestEntry, ExportManifest,
+)
 from backend.app.models.audit import AuditRun
 from backend.app.models.audit_submission import AuditPage, AuditRequest, AuditStarted
 from backend.app.models.audit_read import AuditSamplePage, SampleAudit, SampleAuditSummary
@@ -32,6 +35,7 @@ def build_schemas() -> JsonObject:
         AuditSamplePage, SampleAudit, SampleAuditSummary,
         ErrorDetail, ApiError, Progress, ResultReference, Job, AuditRun, AuditPage, AuditRequest, AuditStarted,
         Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted, DatasetUpload,
+        ExportRequest, Export, ExportStarted, ExportPage, ExportManifestEntry, ExportManifest,
     ):
         schema = model.model_json_schema()
         schemas.update({name: replace_model_refs(definition)
@@ -101,25 +105,6 @@ def build_schemas() -> JsonObject:
             "description": "Expected current revisions; keys must exactly match sample_ids. Reject stale revisions rather than auditing a different selection.",
         },
         "reviewer_id": TEXT,
-    })
-    schemas["ExportRequest"] = obj({
-        "audit_id": TEXT, "format": choice("penn_fudan"),
-        "selection": choice("accepted_only", "all_reviewed"), "include_images": BOOLEAN,
-    })
-    schemas["Export"] = obj({
-        "export_id": TEXT, "audit_id": TEXT, "job_id": TEXT, "status": JOB_STATUS,
-        "format": choice("penn_fudan"), "selection": choice("accepted_only", "all_reviewed"),
-        "include_images": BOOLEAN, "included_count": nullable(COUNT), "excluded_count": nullable(COUNT),
-        "download_url": nullable(TEXT), "manifest_url": nullable(TEXT), "created_at": TIME,
-    })
-    schemas["ExportStarted"] = obj({"export": ref("Export"), "job": ref("Job")})
-    schemas["ExportManifestEntry"] = obj({
-        "sample_id": TEXT, "sample_revision": VERSION, "included": BOOLEAN,
-        "review_decision": SAMPLE_REVIEW_STATUS, "reason": nullable(TEXT),
-    })
-    schemas["ExportManifest"] = obj({
-        "export_id": TEXT, "audit_id": TEXT, "rulebook_id": TEXT, "rulebook_version": VERSION,
-        "entries": array(ref("ExportManifestEntry")),
     })
     schemas["FeedbackExample"] = obj({
         "example_id": TEXT, "source_audit_id": TEXT, "dataset_id": TEXT, "sample_id": TEXT,

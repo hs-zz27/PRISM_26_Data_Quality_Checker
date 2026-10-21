@@ -41,7 +41,7 @@ def media_examples(media):
 def test_routes_distinguish_implemented_handlers_from_planned_operations():
     assert SPEC["openapi"] == "3.1.0"
     identifiers = [operation["operationId"] for _, _, operation in OPERATIONS]
-    assert len(identifiers) == len(set(identifiers)) == 49
+    assert len(identifiers) == len(set(identifiers)) == 50
     implemented = {
         "extractRulebook", "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
         "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
@@ -49,10 +49,11 @@ def test_routes_distinguish_implemented_handlers_from_planned_operations():
         "reviewFinding", "listFindingReviews", "reviewSample", "listSampleReviews",
         "importDataset", "listDatasets", "getDataset", "listDatasetSamples", "getDatasetSample",
         "startAudit", "listAudits",
+        "startExport", "listExports", "getExport", "downloadExport", "getExportManifest",
     }
-    assert len(implemented) == 27
-    assert sum(op["x-implementation-status"] == "implemented" for _, _, op in OPERATIONS) == 27
-    assert sum(op["x-implementation-status"] == "planned" for _, _, op in OPERATIONS) == 22
+    assert len(implemented) == 32
+    assert sum(op["x-implementation-status"] == "implemented" for _, _, op in OPERATIONS) == 32
+    assert sum(op["x-implementation-status"] == "planned" for _, _, op in OPERATIONS) == 18
     for _, _, operation in OPERATIONS:
         expected = "implemented" if operation["operationId"] in implemented else "planned"
         assert operation["x-implementation-status"] == expected
@@ -362,12 +363,41 @@ def test_completed_job_result_link_points_to_a_declared_resource():
     assert href == "/audits/" + response["result"]["id"]
     assert "get" in SPEC["paths"][pattern]
 
-def test_corrected_export_pins_the_rechecked_revision():
+def test_reviewed_export_preserves_frozen_decisions_and_historical_pins():
+    from backend.app.models.export import Export, ExportManifest, ExportRequest, ExportStarted
+
+    operations = {fixture["operation_id"]: fixture for fixture in EXAMPLES["operations"]}
     response = SPEC["paths"]["/exports/{export_id}/manifest"]["get"]["responses"]["200"]["content"]["application/json"]["example"]
-    assert response["audit_id"] == "audit_recheck_demo"
-    assert response["rulebook_version"] == 3
-    assert response["entries"][0]["sample_revision"] == 2
-    assert response["entries"][0]["review_decision"] == "accepted"
+    manifest = ExportManifest.model_validate_json(json.dumps(response))
+    request = ExportRequest.model_validate_json(json.dumps(operations["startExport"]["request"]["body"]))
+    started = ExportStarted.model_validate_json(json.dumps(operations["startExport"]["response"]["body"]))
+    completed = Export.model_validate_json(json.dumps(operations["getExport"]["response"]["body"]))
+    assert response == operations["getExportManifest"]["response"]["body"]
+    assert manifest.audit_id == request.audit_id == started.export.audit_id == completed.audit_id
+    assert manifest.export_id == started.export.export_id == completed.export_id
+    assert manifest.format == request.format == completed.format == "penn_fudan"
+    assert manifest.source_mode == "snapshot" and manifest.dataset_id == "dataset_demo"
+    assert manifest.selection == request.selection == completed.selection == "all_reviewed"
+    assert manifest.include_images is request.include_images is completed.include_images is False
+    assert manifest.rulebook_id == "rulebook_demo" and manifest.rulebook_version == 3
+    assert manifest.entries and [entry.ordinal for entry in manifest.entries] == list(range(len(manifest.entries)))
+    accepted = [entry for entry in manifest.entries if entry.included and entry.review_decision == "accepted"]
+    rejected = [entry for entry in manifest.entries if entry.included and entry.review_decision == "rejected"]
+    assert len(accepted) == len(rejected) == 1
+    # Sample revision is not review revision; no correction/recheck is required.
+    assert accepted[0].sample_revision == 2 and accepted[0].review_revision == 3
+    assert accepted[0].processing_state == "failed"  # No new machine-quality veto.
+    assert accepted[0].reviewer_id is not None and accepted[0].reviewed_at is not None
+    assert rejected[0].reason is None  # Remains rejected in this diagnostic export.
+    assert {entry.reason for entry in manifest.entries if not entry.included} == {
+        "pending_review", "raw_mask_unreadable",
+    }
+    assert completed.included_count == sum(entry.included for entry in manifest.entries)
+    assert completed.excluded_count == sum(not entry.included for entry in manifest.entries)
+    assert completed.download_url == f"/api/v1/exports/{manifest.export_id}/download"
+    assert completed.manifest_url == f"/api/v1/exports/{manifest.export_id}/manifest"
+    # All included records have missing images, permitted only because images are omitted.
+    assert all(entry.availability.original_image == "missing" for entry in manifest.entries if entry.included)
 
 def test_generated_artifacts_match_the_current_builder():
     for filename, expected in render_artifacts().items():

@@ -1,5 +1,5 @@
 {
-  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
   "base_url": "http://127.0.0.1:8000",
   "operations": [
     {
@@ -2323,16 +2323,16 @@
       "path": "/api/v1/exports",
       "tag": "Exports",
       "summary": "Prepare reviewed output and manifest",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "implementation": "implemented",
+      "backing_service": "ExportRepository, bounded explicit export worker and verified download service.",
       "request": {
         "path_parameters": {},
         "query": {},
         "content_type": "application/json",
         "body": {
-          "audit_id": "audit_recheck_demo",
+          "audit_id": "audit_demo",
           "format": "penn_fudan",
-          "selection": "accepted_only",
+          "selection": "all_reviewed",
           "include_images": false
         }
       },
@@ -2341,18 +2341,18 @@
         "content_type": "application/json",
         "body": {
           "export": {
-            "export_id": "export_demo",
-            "audit_id": "audit_recheck_demo",
+            "audit_id": "audit_demo",
+            "format": "penn_fudan",
+            "selection": "all_reviewed",
+            "include_images": false,
+            "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "job_id": "job_export_demo",
             "status": "queued",
-            "format": "penn_fudan",
-            "selection": "accepted_only",
-            "include_images": false,
             "included_count": null,
             "excluded_count": null,
             "download_url": null,
             "manifest_url": null,
-            "created_at": "2026-10-14T10:00:00Z"
+            "created_at": "2026-10-21T00:00:00Z"
           },
           "job": {
             "job_id": "job_export_demo",
@@ -2361,13 +2361,13 @@
             "progress": {
               "phase": "queued",
               "processed": 0,
-              "total": 1,
+              "total": 2,
               "fraction": 0.0
             },
             "result": null,
             "error": null,
-            "created_at": "2026-10-14T10:00:00Z",
-            "updated_at": "2026-10-14T10:00:00Z"
+            "created_at": "2026-10-21T00:00:00Z",
+            "updated_at": "2026-10-21T00:00:00Z"
           }
         }
       }
@@ -2378,11 +2378,11 @@
       "path": "/api/v1/exports/{export_id}",
       "tag": "Exports",
       "summary": "Read export status and download URLs",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "implementation": "implemented",
+      "backing_service": "ExportRepository, bounded explicit export worker and verified download service.",
       "request": {
         "path_parameters": {
-          "export_id": "export_demo"
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "query": {},
         "content_type": null,
@@ -2392,18 +2392,18 @@
         "status": 200,
         "content_type": "application/json",
         "body": {
-          "export_id": "export_demo",
-          "audit_id": "audit_recheck_demo",
+          "audit_id": "audit_demo",
+          "format": "penn_fudan",
+          "selection": "all_reviewed",
+          "include_images": false,
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "job_id": "job_export_demo",
           "status": "completed",
-          "format": "penn_fudan",
-          "selection": "accepted_only",
-          "include_images": false,
-          "included_count": 1,
-          "excluded_count": 0,
-          "download_url": "/api/v1/exports/export_demo/download",
-          "manifest_url": "/api/v1/exports/export_demo/manifest",
-          "created_at": "2026-10-14T10:00:00Z"
+          "included_count": 2,
+          "excluded_count": 2,
+          "download_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/download",
+          "manifest_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/manifest",
+          "created_at": "2026-10-21T00:00:00Z"
         }
       }
     },
@@ -2412,12 +2412,12 @@
       "method": "GET",
       "path": "/api/v1/exports/{export_id}/download",
       "tag": "Exports",
-      "summary": "Download corrected dataset archive",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "summary": "Download reviewed dataset archive",
+      "implementation": "implemented",
+      "backing_service": "ExportRepository, bounded explicit export worker and verified download service.",
       "request": {
         "path_parameters": {
-          "export_id": "export_demo"
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "query": {},
         "content_type": null,
@@ -2435,11 +2435,11 @@
       "path": "/api/v1/exports/{export_id}/manifest",
       "tag": "Exports",
       "summary": "Read exported and excluded sample decisions",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "implementation": "implemented",
+      "backing_service": "ExportRepository, bounded explicit export worker and verified download service.",
       "request": {
         "path_parameters": {
-          "export_id": "export_demo"
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "query": {},
         "content_type": null,
@@ -2449,17 +2449,84 @@
         "status": 200,
         "content_type": "application/json",
         "body": {
-          "export_id": "export_demo",
-          "audit_id": "audit_recheck_demo",
+          "format": "penn_fudan",
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "audit_id": "audit_demo",
+          "dataset_id": "dataset_demo",
+          "source_mode": "snapshot",
           "rulebook_id": "rulebook_demo",
           "rulebook_version": 3,
+          "selection": "all_reviewed",
+          "include_images": false,
+          "selected_at": "2026-10-21T00:00:00Z",
           "entries": [
+            {
+              "sample_id": "sample_000",
+              "sample_revision": 2,
+              "ordinal": 0,
+              "processing_state": "failed",
+              "included": true,
+              "review_decision": "accepted",
+              "review_revision": 3,
+              "reviewer_id": "reviewer_demo",
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "availability": {
+                "annotation_text": "available",
+                "raw_mask": "available",
+                "original_image": "missing"
+              },
+              "reason": null
+            },
             {
               "sample_id": "sample_001",
               "sample_revision": 2,
+              "ordinal": 1,
+              "processing_state": "completed",
               "included": true,
-              "review_decision": "accepted",
+              "review_decision": "rejected",
+              "review_revision": 3,
+              "reviewer_id": "reviewer_demo",
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "availability": {
+                "annotation_text": "available",
+                "raw_mask": "available",
+                "original_image": "missing"
+              },
               "reason": null
+            },
+            {
+              "sample_id": "sample_002",
+              "sample_revision": 2,
+              "ordinal": 2,
+              "processing_state": "completed",
+              "included": false,
+              "review_decision": "pending_review",
+              "review_revision": 3,
+              "reviewer_id": "reviewer_demo",
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "availability": {
+                "annotation_text": "available",
+                "raw_mask": "available",
+                "original_image": "missing"
+              },
+              "reason": "pending_review"
+            },
+            {
+              "sample_id": "sample_003",
+              "sample_revision": 2,
+              "ordinal": 3,
+              "processing_state": "completed",
+              "included": false,
+              "review_decision": "accepted",
+              "review_revision": 3,
+              "reviewer_id": "reviewer_demo",
+              "reviewed_at": "2026-10-21T00:00:00Z",
+              "availability": {
+                "annotation_text": "available",
+                "raw_mask": "unreadable",
+                "original_image": "missing"
+              },
+              "reason": "raw_mask_unreadable"
             }
           ]
         }
@@ -2872,6 +2939,50 @@
           "evaluation_id": "evaluation_demo"
         }
       }
+    },
+    {
+      "operation_id": "listExports",
+      "method": "GET",
+      "path": "/api/v1/exports",
+      "tag": "Exports",
+      "request": {
+        "path_parameters": {},
+        "query": {
+          "limit": 20,
+          "offset": 0
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "items": [
+            {
+              "audit_id": "audit_demo",
+              "format": "penn_fudan",
+              "selection": "all_reviewed",
+              "include_images": false,
+              "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "job_id": "job_export_demo",
+              "status": "completed",
+              "included_count": 2,
+              "excluded_count": 2,
+              "download_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/download",
+              "manifest_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/manifest",
+              "created_at": "2026-10-21T00:00:00Z"
+            }
+          ],
+          "limit": 20,
+          "offset": 0,
+          "total": 1,
+          "next_offset": null
+        }
+      },
+      "summary": "List reviewed exports",
+      "implementation": "implemented",
+      "backing_service": "ExportRepository, bounded explicit export worker and verified download service."
     }
   ],
   "review_scenarios": {
@@ -6824,6 +6935,329 @@
       ]
     }
   },
+  "export_scenarios": {
+    "request": {
+      "audit_id": "audit_demo",
+      "format": "penn_fudan",
+      "selection": "all_reviewed",
+      "include_images": false
+    },
+    "states": [
+      {
+        "export": {
+          "audit_id": "audit_demo",
+          "format": "penn_fudan",
+          "selection": "all_reviewed",
+          "include_images": false,
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "job_id": "job_export_demo",
+          "status": "queued",
+          "included_count": null,
+          "excluded_count": null,
+          "download_url": null,
+          "manifest_url": null,
+          "created_at": "2026-10-21T00:00:00Z"
+        },
+        "job": {
+          "job_id": "job_export_demo",
+          "kind": "export",
+          "status": "queued",
+          "progress": {
+            "phase": "queued",
+            "processed": 0,
+            "total": 2,
+            "fraction": 0.0
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-21T00:00:00Z",
+          "updated_at": "2026-10-21T00:00:00Z"
+        }
+      },
+      {
+        "export": {
+          "audit_id": "audit_demo",
+          "format": "penn_fudan",
+          "selection": "all_reviewed",
+          "include_images": false,
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "job_id": "job_export_demo",
+          "status": "running",
+          "included_count": null,
+          "excluded_count": null,
+          "download_url": null,
+          "manifest_url": null,
+          "created_at": "2026-10-21T00:00:00Z"
+        },
+        "job": {
+          "job_id": "job_export_demo",
+          "kind": "export",
+          "status": "running",
+          "progress": {
+            "phase": "running",
+            "processed": 0,
+            "total": 2,
+            "fraction": 0.0
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-21T00:00:00Z",
+          "updated_at": "2026-10-21T00:00:00Z"
+        }
+      },
+      {
+        "export": {
+          "audit_id": "audit_demo",
+          "format": "penn_fudan",
+          "selection": "all_reviewed",
+          "include_images": false,
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "job_id": "job_export_demo",
+          "status": "cancelling",
+          "included_count": null,
+          "excluded_count": null,
+          "download_url": null,
+          "manifest_url": null,
+          "created_at": "2026-10-21T00:00:00Z"
+        },
+        "job": {
+          "job_id": "job_export_demo",
+          "kind": "export",
+          "status": "cancelling",
+          "progress": {
+            "phase": "cancelling",
+            "processed": 0,
+            "total": 2,
+            "fraction": 0.0
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-21T00:00:00Z",
+          "updated_at": "2026-10-21T00:00:00Z"
+        }
+      },
+      {
+        "export": {
+          "audit_id": "audit_demo",
+          "format": "penn_fudan",
+          "selection": "all_reviewed",
+          "include_images": false,
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "job_id": "job_export_demo",
+          "status": "completed",
+          "included_count": 2,
+          "excluded_count": 2,
+          "download_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/download",
+          "manifest_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/manifest",
+          "created_at": "2026-10-21T00:00:00Z"
+        },
+        "job": {
+          "job_id": "job_export_demo",
+          "kind": "export",
+          "status": "completed",
+          "progress": {
+            "phase": "completed",
+            "processed": 2,
+            "total": 2,
+            "fraction": 1.0
+          },
+          "result": {
+            "kind": "export",
+            "id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "version": null,
+            "href": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "error": null,
+          "created_at": "2026-10-21T00:00:00Z",
+          "updated_at": "2026-10-21T00:00:00Z"
+        }
+      },
+      {
+        "export": {
+          "audit_id": "audit_demo",
+          "format": "penn_fudan",
+          "selection": "all_reviewed",
+          "include_images": false,
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "job_id": "job_export_demo",
+          "status": "failed",
+          "included_count": null,
+          "excluded_count": null,
+          "download_url": null,
+          "manifest_url": null,
+          "created_at": "2026-10-21T00:00:00Z"
+        },
+        "job": {
+          "job_id": "job_export_demo",
+          "kind": "export",
+          "status": "failed",
+          "progress": {
+            "phase": "failed",
+            "processed": 0,
+            "total": 2,
+            "fraction": 0.0
+          },
+          "result": null,
+          "error": {
+            "code": "EXPORT_FAILED",
+            "message": "Export processing could not be completed.",
+            "details": [],
+            "request_id": "request_demo"
+          },
+          "created_at": "2026-10-21T00:00:00Z",
+          "updated_at": "2026-10-21T00:00:00Z"
+        }
+      },
+      {
+        "export": {
+          "audit_id": "audit_demo",
+          "format": "penn_fudan",
+          "selection": "all_reviewed",
+          "include_images": false,
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "job_id": "job_export_demo",
+          "status": "cancelled",
+          "included_count": null,
+          "excluded_count": null,
+          "download_url": null,
+          "manifest_url": null,
+          "created_at": "2026-10-21T00:00:00Z"
+        },
+        "job": {
+          "job_id": "job_export_demo",
+          "kind": "export",
+          "status": "cancelled",
+          "progress": {
+            "phase": "cancelled",
+            "processed": 0,
+            "total": 2,
+            "fraction": 0.0
+          },
+          "result": null,
+          "error": null,
+          "created_at": "2026-10-21T00:00:00Z",
+          "updated_at": "2026-10-21T00:00:00Z"
+        }
+      }
+    ],
+    "manifest": {
+      "format": "penn_fudan",
+      "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "audit_id": "audit_demo",
+      "dataset_id": "dataset_demo",
+      "source_mode": "snapshot",
+      "rulebook_id": "rulebook_demo",
+      "rulebook_version": 3,
+      "selection": "all_reviewed",
+      "include_images": false,
+      "selected_at": "2026-10-21T00:00:00Z",
+      "entries": [
+        {
+          "sample_id": "sample_000",
+          "sample_revision": 2,
+          "ordinal": 0,
+          "processing_state": "failed",
+          "included": true,
+          "review_decision": "accepted",
+          "review_revision": 3,
+          "reviewer_id": "reviewer_demo",
+          "reviewed_at": "2026-10-21T00:00:00Z",
+          "availability": {
+            "annotation_text": "available",
+            "raw_mask": "available",
+            "original_image": "missing"
+          },
+          "reason": null
+        },
+        {
+          "sample_id": "sample_001",
+          "sample_revision": 2,
+          "ordinal": 1,
+          "processing_state": "completed",
+          "included": true,
+          "review_decision": "rejected",
+          "review_revision": 3,
+          "reviewer_id": "reviewer_demo",
+          "reviewed_at": "2026-10-21T00:00:00Z",
+          "availability": {
+            "annotation_text": "available",
+            "raw_mask": "available",
+            "original_image": "missing"
+          },
+          "reason": null
+        },
+        {
+          "sample_id": "sample_002",
+          "sample_revision": 2,
+          "ordinal": 2,
+          "processing_state": "completed",
+          "included": false,
+          "review_decision": "pending_review",
+          "review_revision": 3,
+          "reviewer_id": "reviewer_demo",
+          "reviewed_at": "2026-10-21T00:00:00Z",
+          "availability": {
+            "annotation_text": "available",
+            "raw_mask": "available",
+            "original_image": "missing"
+          },
+          "reason": "pending_review"
+        },
+        {
+          "sample_id": "sample_003",
+          "sample_revision": 2,
+          "ordinal": 3,
+          "processing_state": "completed",
+          "included": false,
+          "review_decision": "accepted",
+          "review_revision": 3,
+          "reviewer_id": "reviewer_demo",
+          "reviewed_at": "2026-10-21T00:00:00Z",
+          "availability": {
+            "annotation_text": "available",
+            "raw_mask": "unreadable",
+            "original_image": "missing"
+          },
+          "reason": "raw_mask_unreadable"
+        }
+      ]
+    },
+    "empty_manifest": {
+      "format": "penn_fudan",
+      "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "audit_id": "audit_demo",
+      "dataset_id": "dataset_demo",
+      "source_mode": "snapshot",
+      "rulebook_id": "rulebook_demo",
+      "rulebook_version": 3,
+      "selection": "all_reviewed",
+      "include_images": false,
+      "selected_at": "2026-10-21T00:00:00Z",
+      "entries": []
+    },
+    "page": {
+      "items": [
+        {
+          "audit_id": "audit_demo",
+          "format": "penn_fudan",
+          "selection": "all_reviewed",
+          "include_images": false,
+          "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "job_id": "job_export_demo",
+          "status": "completed",
+          "included_count": 2,
+          "excluded_count": 2,
+          "download_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/download",
+          "manifest_url": "/api/v1/exports/export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/manifest",
+          "created_at": "2026-10-21T00:00:00Z"
+        }
+      ],
+      "limit": 20,
+      "offset": 0,
+      "total": 1,
+      "next_offset": null
+    }
+  },
   "future_job_scenarios": {
     "recheck": {
       "queued": {
@@ -6914,108 +7348,6 @@
       "cancelled": {
         "job_id": "job_recheck_demo",
         "kind": "recheck",
-        "status": "cancelled",
-        "progress": {
-          "phase": "cancelled",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      }
-    },
-    "export": {
-      "queued": {
-        "job_id": "job_export_demo",
-        "kind": "export",
-        "status": "queued",
-        "progress": {
-          "phase": "queued",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      },
-      "running": {
-        "job_id": "job_export_demo",
-        "kind": "export",
-        "status": "running",
-        "progress": {
-          "phase": "running",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      },
-      "cancelling": {
-        "job_id": "job_export_demo",
-        "kind": "export",
-        "status": "cancelling",
-        "progress": {
-          "phase": "cancelling",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      },
-      "completed": {
-        "job_id": "job_export_demo",
-        "kind": "export",
-        "status": "completed",
-        "progress": {
-          "phase": "completed",
-          "processed": 1,
-          "total": 1,
-          "fraction": 1.0
-        },
-        "result": {
-          "kind": "export",
-          "id": "export_demo",
-          "version": null,
-          "href": "/api/v1/exports/export_demo"
-        },
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      },
-      "failed": {
-        "job_id": "job_export_demo",
-        "kind": "export",
-        "status": "failed",
-        "progress": {
-          "phase": "failed",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": {
-          "code": "EXPORT_FAILED",
-          "message": "The requested work could not be completed.",
-          "details": [],
-          "request_id": "request_demo"
-        },
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      },
-      "cancelled": {
-        "job_id": "job_export_demo",
-        "kind": "export",
         "status": "cancelled",
         "progress": {
           "phase": "cancelled",
