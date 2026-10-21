@@ -18,6 +18,7 @@ about detection accuracy. See backend/CPU_DETECTION.md.
 import argparse
 import json
 import math
+import multiprocessing
 import os
 import platform
 import sys
@@ -42,6 +43,7 @@ from backend.app.services.detection_evidence import (
     file_sha256,
 )
 
+ISOLATED_TIMEOUT_SECONDS = 300
 MIN_SAMPLES_FOR_PERCENTILE = 20
 PERCENTILE = 95
 MEASUREMENT_NOTES = {
@@ -52,6 +54,7 @@ MEASUREMENT_NOTES = {
     "model_load": "Checkpoint hashing and PersonDetector construction, measured once before any image is processed.",
     "peak_process_memory": "Process-lifetime high-water mark in bytes (peak resident set, or peak working set on Windows). It includes the interpreter, Torch and the loaded model and is not per-image memory.",
     "percentile": f"p{PERCENTILE} uses the nearest-rank method and is reported only with at least {MIN_SAMPLES_FOR_PERCENTILE} samples.",
+    "isolated_process": "Fresh spawned processes, one image each, like the audit worker's per-sample children. wall_ms is the parent's view from process start to result; process_start_and_imports_ms is wall_ms minus the time measured inside the child, so it includes interpreter start, importing the project and Torch, and pipe transport. setup_ms is checkpoint hashing plus model construction. Excludes database work, snapshot materialization and rule evaluation.",
     "scope": "Not audit throughput: no database work, snapshot staging, process supervision or other audit stages are included. No batch size is recommended.",
 }
 
@@ -164,6 +167,79 @@ def _decode(path: Path) -> Image.Image:
     return image
 
 
+def _isolated_child(connection, weights, image, labels, min_confidence, min_iou, annotations) -> None:
+    """Handle one image in a fresh process, the way an audit sample child does."""
+    try:
+        started = perf_counter()
+        picture = _decode(Path(image))
+        decoded = perf_counter()
+        if labels is None:
+            detector = PersonDetector(Path(weights))
+            ready = perf_counter()
+            detector.detect(picture, DETECTOR_INFERENCE_CUTOFF)
+        else:
+            service = DetectionEvidenceService(person_labels=labels, checkpoint_path=Path(weights))
+            ready = perf_counter()
+            evidence = service.collect(picture, annotations, min_confidence=min_confidence, min_iou=min_iou)
+            if evidence.status not in (EvidenceStatus.COMPARED, EvidenceStatus.COMPARED_INCOMPLETE):
+                connection.send({"error": f"detection did not complete ({evidence.status.value})"})
+                return
+        finished = perf_counter()
+        connection.send({
+            "decode_s": decoded - started, "setup_s": ready - decoded, "inference_s": finished - ready,
+        })
+    except Exception as error:  # noqa: BLE001 - any failure is reported to the parent
+        connection.send({"error": type(error).__name__})
+    finally:
+        connection.close()
+
+
+def _run_isolated(args, annotations: dict[str, list] | None) -> dict:
+    """Time fresh processes that each load the checkpoint and handle the first image."""
+    context = multiprocessing.get_context("spawn")
+    image = args.images[0]
+    labels = sorted(set(args.person_labels)) if annotations is not None else None
+    records = []
+    for _ in range(args.isolated_runs):
+        receive, send = context.Pipe(duplex=False)
+        process = context.Process(
+            target=_isolated_child,
+            args=(
+                send, str(args.weights), str(image), labels, args.min_confidence, args.min_iou,
+                None if annotations is None else annotations[image.name],
+            ),
+            daemon=True,
+        )
+        started = perf_counter()
+        process.start()
+        send.close()
+        try:
+            if not receive.poll(ISOLATED_TIMEOUT_SECONDS):
+                raise BenchmarkError("an isolated run produced no result in time")
+            try:
+                result = receive.recv()
+            except EOFError:
+                raise BenchmarkError("an isolated run ended without a result") from None
+            wall = perf_counter() - started
+        finally:
+            process.join(timeout=10)
+            if process.is_alive():
+                process.terminate()
+            receive.close()
+        if "error" in result:
+            raise BenchmarkError(f"an isolated run failed: {result['error']}")
+        inside = result["decode_s"] + result["setup_s"] + result["inference_s"]
+        records.append({
+            "wall_ms": wall * 1000, "process_start_and_imports_ms": max(0.0, wall - inside) * 1000,
+            "setup_ms": result["setup_s"] * 1000, "decode_ms": result["decode_s"] * 1000,
+            "inference_ms": result["inference_s"] * 1000,
+        })
+    return {
+        "runs": len(records), "image": image.name,
+        **{name: summarize([record[name] for record in records]) for name in records[0]},
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -181,6 +257,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-confidence", type=float, help="confidence threshold in [0, 1] (needs --annotations)")
     parser.add_argument("--min-iou", type=float, help="IoU threshold greater than 0 and at most 1 (needs --annotations)")
     parser.add_argument("--list-detections-above", type=float, metavar="SCORE", help="also list each image's detections scoring at least SCORE, for manual review")
+    parser.add_argument("--include-evidence", action="store_true", help="include each image's full detection evidence from the first measured pass (needs --annotations)")
+    parser.add_argument("--isolated-runs", type=int, default=0, metavar="N", help="also time N fresh spawned processes that each handle the first image, like audit sample children (default 0: skip)")
     parser.add_argument("--warmup", type=int, default=1, help="unmeasured passes over all images (default 1)")
     parser.add_argument("--iterations", type=int, default=5, help="measured passes over all images (default 5)")
     parser.add_argument("--output", type=Path, help="write the JSON report to this new file; existing files are never overwritten")
@@ -222,6 +300,10 @@ def _validate(parser: argparse.ArgumentParser, args) -> dict[str, list] | None:
         parser.error("--warmup must be 0 or more")
     if args.iterations < 1:
         parser.error("--iterations must be at least 1")
+    if args.isolated_runs < 0:
+        parser.error("--isolated-runs must be 0 or more")
+    if args.include_evidence and args.annotations is None:
+        parser.error("--include-evidence only applies with --annotations")
     if args.list_detections_above is not None and not _in_unit_range(args.list_detections_above, allow_zero=True):
         parser.error("--list-detections-above must be a finite number between 0 and 1")
 
@@ -284,6 +366,7 @@ def run_benchmark(args, annotations: dict[str, list] | None) -> dict:
         decoded = perf_counter()
         incomplete = False
         matching_ms = None
+        evidence = None
         try:
             if comparing:
                 evidence = service.collect(
@@ -308,7 +391,7 @@ def run_benchmark(args, annotations: dict[str, list] | None) -> dict:
         return {
             "decode_ms": (decoded - started) * 1000, "detector_ms": detector_ms,
             "matching_ms": matching_ms, "total_ms": (finished - started) * 1000,
-            "incomplete": incomplete, "detections": detections,
+            "incomplete": incomplete, "detections": detections, "evidence": evidence,
         }
 
     for _ in range(args.warmup):
@@ -318,6 +401,7 @@ def run_benchmark(args, annotations: dict[str, list] | None) -> dict:
     series = {"decode_ms": [], "detector_ms": [], "matching_ms": [], "total_ms": []}
     per_image_totals = {path.name: [] for path in args.images}
     listed = {}
+    evidence_by_name = {}
     incomplete_samples = 0
     for iteration in range(args.iterations):
         for path in args.images:
@@ -327,12 +411,15 @@ def run_benchmark(args, annotations: dict[str, list] | None) -> dict:
                     series[key].append(sample[key])
             per_image_totals[path.name].append(sample["total_ms"])
             incomplete_samples += sample["incomplete"]
+            if iteration == 0 and args.include_evidence:
+                evidence_by_name[path.name] = sample["evidence"].model_dump(mode="json")
             if iteration == 0 and args.list_detections_above is not None:
                 listed[path.name] = [
                     detection.model_dump() for detection in sample["detections"]
                     if detection.score >= args.list_detections_above
                 ]
     memory_after_measurement = peak_memory_bytes()
+    isolated = _run_isolated(args, annotations) if args.isolated_runs else None
 
     files = []
     for path in args.images:
@@ -343,6 +430,8 @@ def run_benchmark(args, annotations: dict[str, list] | None) -> dict:
         }
         if path.name in listed:
             entry["detections"] = listed[path.name]
+        if path.name in evidence_by_name:
+            entry["evidence"] = evidence_by_name[path.name]
         files.append(entry)
 
     return {
@@ -372,6 +461,7 @@ def run_benchmark(args, annotations: dict[str, list] | None) -> dict:
             "total_ms": summarize(series["total_ms"]),
         },
         "incomplete_comparison_samples": incomplete_samples if comparing else None,
+        "isolated_process_runs": isolated,
         "peak_process_memory": {
             "unit": "bytes",
             "after_model_load": memory_after_load,
