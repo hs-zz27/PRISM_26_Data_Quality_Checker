@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import contextmanager
-import fcntl
+import errno
 from hashlib import sha256
 import logging
 import os
@@ -22,6 +22,13 @@ from ..storage.workflow_repository import (
 
 
 logger = logging.getLogger(__name__)
+
+try:
+    import fcntl
+    msvcrt = None
+except ImportError:  # Windows has no fcntl; msvcrt provides the equivalent file lock
+    fcntl = None
+    import msvcrt
 
 
 class AssetSnapshotStorageError(RuntimeError):
@@ -170,6 +177,40 @@ def _remove_created(paths: list[Path]) -> None:
             pass
 
 
+_LOCK_BUSY = getattr(errno, "EDEADLOCK", errno.EDEADLK)
+
+
+def _lock_exclusively(stream) -> None:
+    """Block until this process holds an exclusive lock on the open file.
+
+    POSIX uses flock. Windows uses msvcrt.locking on the first byte. That call waits about ten
+    seconds and then fails with EDEADLOCK when another process still holds the lock, so keep
+    waiting on that error only. Any other error is a real failure and is raised.
+    """
+    if fcntl is not None:
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        return
+    while True:
+        stream.seek(0)
+        try:
+            msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+            return
+        except OSError as error:
+            if error.errno != _LOCK_BUSY:
+                raise
+
+
+def _unlock(stream) -> None:
+    """POSIX releases on close. Windows may hold a lock briefly after close, so release it now."""
+    if fcntl is not None:
+        return
+    try:
+        stream.seek(0)
+        msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+    except OSError:
+        pass  # closing the file releases the lock anyway
+
+
 @contextmanager
 def _capture_lock(root: Path, dataset_id: str, sample_id: str, revision: int):
     """Serialize publication and cleanup for one revision on the local filesystem."""
@@ -182,12 +223,15 @@ def _capture_lock(root: Path, dataset_id: str, sample_id: str, revision: int):
         raise AssetSnapshotStorageError("The sample capture lock could not be opened.") from error
     with lock:
         try:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            _lock_exclusively(lock)
         except OSError as error:
             raise AssetSnapshotStorageError("The sample capture lock could not be acquired.") from error
         # Closing releases the lock, including after an exception or process exit.
         # Retain the file: unlinking it could give waiters different lock inodes.
-        yield
+        try:
+            yield
+        finally:
+            _unlock(lock)
 
 
 def capture_sample(
