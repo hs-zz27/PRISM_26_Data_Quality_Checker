@@ -28,7 +28,34 @@ DETECTION_EVIDENCE_LIMITATIONS = (
     "counterpart was found."
 )
 
+DETECTION_NOT_RUN_NOTE = (
+    "Detection did not run for this sample. This says nothing about whether the "
+    "annotations are correct."
+)
+EVIDENCE_SCHEMA_VERSION = 1
+
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+Label = Annotated[str, StringConstraints(min_length=1)]
+
+
+class PreprocessingIdentity(BaseModel):
+    """How an image reaches the model, so stored boxes can be interpreted later.
+
+    Values describe torchvision's fasterrcnn_mobilenet_v3_large_320_fpn as the
+    detector builds it. Boxes are always reported in original-image pixels.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    color_mode: Literal["RGB"] = "RGB"
+    pixel_scale: Literal["float 0-1 (torchvision to_tensor)"] = "float 0-1 (torchvision to_tensor)"
+    model_min_size: int = 320
+    model_max_size: int = 640
+    normalization: Literal["ImageNet mean and std, applied inside the model"] = (
+        "ImageNet mean and std, applied inside the model"
+    )
+    exif_orientation: Literal["not applied"] = "not applied"
+    box_coordinates: Literal["original image pixels"] = "original image pixels"
 
 
 class EvidenceStatus(StrEnum):
@@ -44,12 +71,14 @@ class UnavailableReason(StrEnum):
     WEIGHTS_UNUSABLE = "weights_unusable"
     INFERENCE_FAILED = "inference_failed"
     ANNOTATIONS_UNAVAILABLE = "annotations_unavailable"
+    CHECKPOINT_MISMATCH = "checkpoint_mismatch"
 
 
 _REASONS_BY_STATUS = {
     EvidenceStatus.COMPARISON_UNAVAILABLE: {UnavailableReason.ANNOTATIONS_UNAVAILABLE},
     EvidenceStatus.DETECTOR_UNAVAILABLE: {
         UnavailableReason.WEIGHTS_MISSING, UnavailableReason.WEIGHTS_UNUSABLE,
+        UnavailableReason.CHECKPOINT_MISMATCH,
     },
     EvidenceStatus.INFERENCE_FAILED: {UnavailableReason.INFERENCE_FAILED},
 }
@@ -70,11 +99,68 @@ class ModelIdentity(BaseModel):
     checkpoint_source: Literal["local_checkpoint", "injected_detector"]
     # SHA-256 of the local checkpoint file; None when unreadable or not a real checkpoint.
     checkpoint_sha256: Sha256 | None = None
+    # The hash the audit was configured to use, when one was configured.
+    expected_checkpoint_sha256: Sha256 | None = None
 
     @model_validator(mode="after")
     def injected_detectors_have_no_checkpoint_hash(self):
-        if self.checkpoint_source == "injected_detector" and self.checkpoint_sha256 is not None:
+        if self.checkpoint_source == "injected_detector" and (
+            self.checkpoint_sha256 is not None or self.expected_checkpoint_sha256 is not None
+        ):
             raise ValueError("an injected detector has no checkpoint to hash")
+        return self
+
+
+class DetectorConfiguration(BaseModel):
+    """Detector settings frozen into one audit when it is accepted.
+
+    Holds no file paths. A disabled configuration records only that detection
+    was switched off; an enabled one must set every field so the audit never
+    falls back to settings that changed after it was queued.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    enabled: bool
+    architecture: str | None = Field(default=None, min_length=1)
+    checkpoint_sha256: Sha256 | None = None
+    min_confidence: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    min_iou: float | None = Field(default=None, gt=0, le=1, allow_inf_nan=False)
+    person_labels: list[Label] | None = Field(default=None, min_length=1)
+    matching_policy: str | None = Field(default=None, min_length=1)
+    evidence_schema_version: int | None = Field(default=None, ge=1)
+    preprocessing: PreprocessingIdentity | None = None
+
+    @model_validator(mode="after")
+    def require_every_setting_exactly_when_enabled(self):
+        settings = (
+            self.architecture, self.checkpoint_sha256, self.min_confidence, self.min_iou,
+            self.person_labels, self.matching_policy, self.evidence_schema_version,
+            self.preprocessing,
+        )
+        if self.enabled and any(value is None for value in settings):
+            raise ValueError("an enabled detector configuration must set every setting")
+        if not self.enabled and any(value is not None for value in settings):
+            raise ValueError("a disabled detector configuration holds no other settings")
+        if self.person_labels is not None and len(set(self.person_labels)) != len(self.person_labels):
+            raise ValueError("person_labels must not contain duplicates")
+        return self
+
+
+class DetectionNotRun(BaseModel):
+    """Stored in place of detection evidence when detection did not run for a sample."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    evidence_schema_version: int = EVIDENCE_SCHEMA_VERSION
+    status: Literal["disabled", "image_unavailable"]
+    configuration: DetectorConfiguration
+    limitations: str = DETECTION_NOT_RUN_NOTE
+
+    @model_validator(mode="after")
+    def disabled_means_a_disabled_configuration(self):
+        if (self.status == "disabled") == self.configuration.enabled:
+            raise ValueError("status 'disabled' requires a disabled configuration, and no other status does")
         return self
 
 
@@ -100,6 +186,7 @@ class DetectionEvidence(BaseModel):
 
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
+    evidence_schema_version: int = EVIDENCE_SCHEMA_VERSION
     status: EvidenceStatus = Field(strict=False)
     reason: UnavailableReason | None = Field(default=None, strict=False)
     image_width: int = Field(gt=0)
@@ -114,6 +201,7 @@ class DetectionEvidence(BaseModel):
     excluded_annotations: list[ExcludedAnnotation]
     matching: DetectionMatchingResult | None = None
     matching_policy: str = MATCHING_POLICY
+    preprocessing: PreprocessingIdentity = Field(default_factory=PreprocessingIdentity)
     detector_coordinate_convention: str = COORDINATE_CONVENTION
     annotation_coordinate_convention: str = ANNOTATION_COORDINATE_CONVENTION
     limitations: str = DETECTION_EVIDENCE_LIMITATIONS
