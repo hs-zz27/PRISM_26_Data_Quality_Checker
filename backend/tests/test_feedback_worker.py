@@ -10,7 +10,7 @@ from backend.app.storage.workflow_repository import AuditRepository, FindingRepo
 from backend.app.services.batch_audit import BatchAuditService
 from backend.app.services.audit_submission import AuditSubmissionService
 from backend.app.models.audit_submission import AuditRequest
-from backend.app.models.feedback import FeedbackPolicyActivate
+from backend.app.models.feedback import ExecutionPin, FeedbackPolicyActivate
 from backend.app.models.job import JobKind
 from backend.app.storage.recheck_repository import RecheckRepository
 from backend.app.models.correction import RecheckRequest
@@ -62,8 +62,14 @@ def local_protocol(monkeypatch):
         server.server_close()
         thread.join(timeout=5)
 
-def test_spawn_comparison_then_active_policy_audit_and_linked_recheck(dataset_database_settings, tmp_path, monkeypatch):
+@pytest.mark.parametrize('threads', [None, 10])
+def test_spawn_comparison_then_active_policy_audit_and_linked_recheck(dataset_database_settings, tmp_path, monkeypatch, threads):
     repository, audits, _ = seed(dataset_database_settings, tmp_path, monkeypatch)
+    execution = ExecutionPin(
+        model='test-vision', model_digest='sha256:' + 'a' * 64,
+        num_ctx=131072, num_thread=threads,
+    )
+    monkeypatch.setattr('backend.app.storage.feedback_jobs.load_execution_pin', lambda: execution)
     policy, truth = resources(repository, audits)
     started = queue(repository, policy, truth)
     claim = repository.claim('owned-worker')
@@ -71,8 +77,10 @@ def test_spawn_comparison_then_active_policy_audit_and_linked_recheck(dataset_da
         run_claim(repository, claim)
         result = repository.get_evaluation(started.evaluation.evaluation_id)
         assert result.status == 'completed' and result.metrics.assessment == 'improved'
+        assert result.execution.num_thread == threads
         assert len([p for p, _ in calls if p == '/api/chat']) == 2
         repository.activate(policy.policy_id, FeedbackPolicyActivate(evaluation_id=result.evaluation_id, reviewer_id='human'))
+        monkeypatch.setenv('OLLAMA_CPU_THREADS', '4')
         audit_repo = AuditRepository(settings=repository.settings)
         manifests = SampleAssetManifestRepository(settings=repository.settings, asset_settings=assets(tmp_path))
         service = BatchAuditService(rulebook_repository=RulebookRepository(settings=repository.settings), audit_repository=audit_repo, manifest_repository=manifests, sample_max_seconds=60)
@@ -87,10 +95,15 @@ def test_spawn_comparison_then_active_policy_audit_and_linked_recheck(dataset_da
         parent_request = audit_repo.get_request(accepted.audit.audit_id)
         child_request = audit_repo.get_request(linked.audit.audit_id)
         assert child_request.feedback_runtime == parent_request.feedback_runtime
+        assert parent_request.feedback_runtime.execution.num_thread == threads
         owned = audit_repo.jobs.claim_next_job(worker_id='audit-worker', kind=JobKind.AUDIT, lease_seconds=300)
         assert service.run_claimed_job(owned).status.value == 'completed'
         child_findings = FindingRepository(settings=repository.settings).list_findings(linked.audit.audit_id)
         assert child_findings[0].review.revision == 0
+        chats = [body for path, body in calls if path == '/api/chat']
+        assert len(chats) == 4
+        assert all(body['options'].get('num_thread') == threads for body in chats)
+        assert all(body['options']['num_gpu'] == 0 for body in chats)
     assert not any((p.is_alive() for p in multiprocessing.active_children()))
 
 def repository_catalogue(repository):

@@ -96,6 +96,25 @@ def test_consecutive_requests_keep_model_warm_with_independent_context(tmp_path)
     assert sum(request.url.path == '/api/show' for request in requests) == 4
 
 
+@pytest.mark.parametrize('threads', [None, 10])
+def test_feedback_uses_pinned_threads_instead_of_current_machine_setting(tmp_path, monkeypatch, threads):
+    frozen = inputs(tmp_path)
+    case = frozen.truth.cases[0]
+    execution = ExecutionPin.model_validate(frozen.runtime.model_dump() | {'num_thread': threads})
+    monkeypatch.setenv('OLLAMA_CPU_THREADS', '4')
+    client, requests = client_for(execution, case)
+    try:
+        result = client.predict(case.manifest, case.target, [], assets(tmp_path))
+    finally:
+        client.close()
+
+    assert result.model_verified
+    chat = next(json.loads(request.content) for request in requests if request.url.path == '/api/chat')
+    assert chat['options']['num_gpu'] == 0
+    assert chat['options'].get('num_thread') == threads
+    assert ('num_thread' in chat['options']) == (threads is not None)
+
+
 def test_model_metadata_has_a_separate_bound_from_predictions(tmp_path):
     frozen = inputs(tmp_path)
     case = frozen.truth.cases[0]

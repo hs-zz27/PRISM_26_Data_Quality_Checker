@@ -16465,6 +16465,21 @@
             "title": "Num Predict",
             "type": "integer"
           },
+          "num_thread": {
+            "anyOf": [
+              {
+                "maximum": 1024,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Pinned CPU threads; omitted or null retains automatic selection.",
+            "title": "Num Thread"
+          },
           "timeout_seconds": {
             "default": 120,
             "maximum": 600,

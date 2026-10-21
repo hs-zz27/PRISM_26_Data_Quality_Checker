@@ -33,6 +33,8 @@ def prepare_payload(manifest, target, examples, execution, asset_settings):
     if text_bytes > max(0, execution.num_ctx - reserved) // 2:
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
     payload = {'model': execution.model, 'stream': False, 'keep_alive': OLLAMA_KEEP_ALIVE_SECONDS, 'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': content, 'images': images}], 'format': schema, 'options': {'num_gpu': 0, 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
+    if execution.num_thread is not None:
+        payload['options']['num_thread'] = execution.num_thread
     if len(json.dumps(payload, ensure_ascii=False, allow_nan=False).encode()) > execution.max_request_bytes:
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
     return payload
