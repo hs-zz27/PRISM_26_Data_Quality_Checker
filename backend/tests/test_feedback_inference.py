@@ -1,4 +1,4 @@
-"""Mocked local protocol, evidence and pending-finding coverage. Never run here."""
+"""Mocked local protocol, evidence and pending-finding coverage."""
 import json
 from base64 import b64decode
 import httpx
@@ -68,6 +68,32 @@ def test_real_protocol_mock_preserves_finite_outcomes_and_digest(tmp_path, outco
     assert result.prediction.outcome == outcome and result.model_verified is True
     assert result.duration_ms >= 0 and sum((r.url.path == '/api/tags' for r in requests)) == 2
     assert all((r.url.host in {'localhost', '127.0.0.1', '::1'} for r in requests))
+
+
+def test_consecutive_requests_keep_model_warm_with_independent_context(tmp_path):
+    frozen = inputs(tmp_path)
+    case = frozen.truth.cases[0]
+    client, requests = client_for(frozen.runtime, case)
+    try:
+        baseline = client.predict(case.manifest, case.target, [], assets(tmp_path))
+        candidate = client.predict(case.manifest, case.target, frozen.policy.cases, assets(tmp_path))
+    finally:
+        client.close()
+
+    assert baseline.model_verified and candidate.model_verified
+    chats = [json.loads(request.content) for request in requests if request.url.path == '/api/chat']
+    assert len(chats) == 2
+    for chat in chats:
+        assert chat['keep_alive'] == 300
+        assert chat['options']['num_gpu'] == 0
+        assert [message['role'] for message in chat['messages']] == ['system', 'user']
+    assert len(chats[0]['messages'][1]['images']) == 1
+    assert json.loads(chats[0]['messages'][1]['content'])['examples'] == []
+    assert len(chats[1]['messages'][1]['images']) == 2
+    assert len(json.loads(chats[1]['messages'][1]['content'])['examples']) == 1
+    # Warm residency must not skip either request's pre/post identity checks.
+    assert sum(request.url.path == '/api/tags' for request in requests) == 4
+    assert sum(request.url.path == '/api/show' for request in requests) == 4
 
 
 def test_model_metadata_has_a_separate_bound_from_predictions(tmp_path):

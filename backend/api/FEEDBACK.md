@@ -139,6 +139,11 @@ of a transient tag change between observations, model correctness, complete visi
 tokenization fidelity or deterministic generations across runtimes. Validate the
 specific installed model's image ordering/context behavior before relying on it.
 
+Local requests use a five-minute model keep-alive to avoid unloading between
+consecutive calls. This retains model memory while idle; it does not append chat
+history or skip either request's identity checks. Ollama may reuse prompt caches,
+so compare cold and warm timings separately when measuring performance.
+
 Default finite bounds: four example images plus target; 8 MiB/image, 16 million
 pixels/image, 128 KiB annotation, 64 MiB serialized request, 64 KiB response.
 Model identity/capability metadata has a separate 1 MiB response bound because

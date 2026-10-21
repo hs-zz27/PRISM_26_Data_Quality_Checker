@@ -70,7 +70,7 @@ def test_valid_proposals_preserve_content_and_request_uses_cpu_schema(fake_serve
     request = state["requests"][1][1]
     assert request["model"] == load_ollama_settings().model and request["stream"] is False
     assert request["options"]["num_gpu"] == 0 and request["options"]["temperature"] == 0
-    assert request["keep_alive"] == 0
+    assert request["keep_alive"] == 300
     assert request["messages"][1]["content"] == GUIDELINES
     schema = request["format"]
     rule_definition = schema["properties"]["rules"]["items"]["$ref"].rsplit("/", 1)[1]

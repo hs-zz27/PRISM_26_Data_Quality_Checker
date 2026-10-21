@@ -178,6 +178,10 @@ starting another if you intend to move it rather than run a separate instance.
 terminal's working directory. `propose_rules()` reloads the files and environment
 on each call, so subsequent requests use saved changes. Invalid settings fail
 before an API request. CPU execution remains enforced by this local client.
+Rule extraction and feedback requests keep the model loaded for five minutes
+after each request to reduce repeated startup work. Idle residency uses RAM;
+each request still supplies its own messages and evidence. Run
+`ollama stop qwen3-vl:4b-instruct` to release that memory immediately when idle.
 Cloud AI is permitted by the user, but cloud provider support is not implemented.
 
 `ASSET_STORAGE_ROOT` optionally selects the private absolute root for immutable

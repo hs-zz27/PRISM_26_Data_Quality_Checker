@@ -18,6 +18,8 @@ from pydantic import (
 BACKEND_DIRECTORY = Path(__file__).resolve().parents[2]
 OLLAMA_CONFIG_PATH = BACKEND_DIRECTORY / "ollama.toml"
 DEFAULT_ENV_PATH = BACKEND_DIRECTORY.parent / ".env"
+# Keep consecutive local requests warm without reserving memory indefinitely.
+OLLAMA_KEEP_ALIVE_SECONDS = 300
 
 
 class OllamaSettings(BaseModel):
