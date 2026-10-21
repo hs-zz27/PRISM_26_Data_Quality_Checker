@@ -3,7 +3,7 @@
   "info": {
     "title": "PRISM Data Quality Checker — API contract",
     "version": "0.1.0",
-    "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
+    "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Liveness, capabilities and local readiness reads are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
   },
   "servers": [
     {
@@ -43,17 +43,15 @@
   "paths": {
     "/health": {
       "get": {
-        "operationId": "getHealth",
         "tags": [
           "System"
         ],
         "summary": "Check HTTP server liveness",
-        "description": "Liveness only. Ollama being offline must not make this endpoint fail.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "description": "Liveness only. Returns ok while the HTTP server is running. It never touches PostgreSQL, Ollama, the detector checkpoint or inference, so an offline optional service cannot make it fail.",
+        "operationId": "getHealth",
         "responses": {
           "200": {
-            "description": "Check HTTP server liveness",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
@@ -66,80 +64,8 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested resource does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "One or more request fields are invalid.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "One or more request fields are invalid.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local model or service is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "500": {
-            "description": "The request could not be completed.",
+            "description": "Unexpected server error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -156,22 +82,22 @@
               }
             }
           }
-        }
+        },
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "FastAPI route; no dependencies."
       }
     },
     "/capabilities": {
       "get": {
-        "operationId": "getCapabilities",
         "tags": [
           "System"
         ],
-        "summary": "List supported and planned checks",
-        "description": "List supported and planned checks",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "CHECK_REGISTRY and measurement/evaluation services exist; the HTTP route is planned.",
+        "summary": "List supported checks and evidence features",
+        "description": "Describes what this backend build supports: dataset and guideline input formats, the annotation coordinate convention, executable guideline checks taken from the real registry, and detection and matching evidence features, which are listed separately because they are not guideline checks. Installed files do not change it. It starts no service and runs no inference. Planned posture, mask or person-count checks and detection-mask coverage are not listed because they do not exist.",
+        "operationId": "getCapabilities",
         "responses": {
           "200": {
-            "description": "List supported and planned checks",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
@@ -233,26 +159,18 @@
                     {
                       "name": "mask_outside_box",
                       "implementation": "implemented"
-                    },
+                    }
+                  ],
+                  "evidence_features": [
                     {
                       "name": "person_detection",
-                      "implementation": "planned"
+                      "implementation": "implemented",
+                      "description": "CPU person detector run inside audit sample processing when enabled for an audit. Stored as the detection_evidence measurement; not a guideline check and creates no findings."
                     },
                     {
-                      "name": "detection_annotation_matches",
-                      "implementation": "planned"
-                    },
-                    {
-                      "name": "detection_mask_coverage",
-                      "implementation": "planned"
-                    },
-                    {
-                      "name": "mask_person_count",
-                      "implementation": "planned"
-                    },
-                    {
-                      "name": "person_posture",
-                      "implementation": "planned"
+                      "name": "detection_annotation_matching",
+                      "implementation": "implemented",
+                      "description": "Conservative matching of detections to person annotations, stored inside detection_evidence. Ambiguity is reported for review, never resolved automatically."
                     }
                   ],
                   "execution_device": "cpu"
@@ -260,80 +178,8 @@
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested resource does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "One or more request fields are invalid.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "One or more request fields are invalid.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local model or service is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "500": {
-            "description": "The request could not be completed.",
+            "description": "Unexpected server error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -350,22 +196,22 @@
               }
             }
           }
-        }
+        },
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "CHECK_REGISTRY and a static evidence feature list; FastAPI route."
       }
     },
     "/system/status": {
       "get": {
-        "operationId": "getSystemStatus",
         "tags": [
           "System"
         ],
         "summary": "Inspect local model readiness",
-        "description": "Read-only readiness. Does not start services, download models or change configuration.",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "description": "Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.",
+        "operationId": "getSystemStatus",
         "responses": {
           "200": {
-            "description": "Inspect local model readiness",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
@@ -373,93 +219,25 @@
                 },
                 "example": {
                   "ollama": {
-                    "reachable": false,
+                    "configuration": "valid",
+                    "reachable": true,
                     "model": "example-local-model:latest",
-                    "model_available": null
+                    "model_available": true
                   },
                   "detector": {
-                    "weights_cached": true,
-                    "integration_ready": false
+                    "integration_supported": true,
+                    "configuration": "enabled",
+                    "checkpoint_file": "present",
+                    "validation": "unknown",
+                    "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"
                   },
                   "execution_device": "cpu"
                 }
               }
             }
           },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested resource does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "One or more request fields are invalid.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "One or more request fields are invalid.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local model or service is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
-                    "details": [],
-                    "request_id": "request_demo"
-                  }
-                }
-              }
-            }
-          },
           "500": {
-            "description": "The request could not be completed.",
+            "description": "Unexpected server error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -476,7 +254,9 @@
               }
             }
           }
-        }
+        },
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "SystemStatusService: bounded Ollama model-list probe, detection settings and a checkpoint file-existence check; FastAPI route."
       }
     },
     "/rulebooks": {
@@ -17269,68 +17049,49 @@
         ],
         "additionalProperties": false
       },
-      "Health": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "const": "ok"
-          },
-          "api_version": {
-            "const": "v1"
-          }
-        },
-        "required": [
-          "status",
-          "api_version"
-        ],
-        "additionalProperties": false
-      },
       "Capabilities": {
-        "type": "object",
+        "additionalProperties": false,
+        "description": "What this backend build can do. It never reflects which files are installed.",
         "properties": {
           "dataset_formats": {
-            "type": "array",
             "items": {
-              "type": "string",
-              "minLength": 1
-            }
+              "type": "string"
+            },
+            "title": "Dataset Formats",
+            "type": "array"
           },
           "guideline_input_formats": {
-            "type": "array",
             "items": {
-              "type": "string",
-              "minLength": 1
-            }
+              "type": "string"
+            },
+            "title": "Guideline Input Formats",
+            "type": "array"
           },
           "coordinate_convention": {
-            "const": "one_based_inclusive"
+            "const": "one_based_inclusive",
+            "description": "Annotation boxes. Detection evidence documents its own zero-based pixel-edge convention inside each evidence record.",
+            "title": "Coordinate Convention",
+            "type": "string"
           },
           "checks": {
-            "type": "array",
+            "description": "Executable guideline checks. Detection evidence is listed separately. A listed check can still report unavailable results for a sample when its inputs are missing; model-assisted checks, for example, need the configured local model (see system status).",
             "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "implementation": {
-                  "type": "string",
-                  "enum": [
-                    "implemented",
-                    "planned"
-                  ]
-                }
-              },
-              "required": [
-                "name",
-                "implementation"
-              ],
-              "additionalProperties": false
-            }
+              "$ref": "#/components/schemas/CheckCapability"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "evidence_features": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceFeature"
+            },
+            "title": "Evidence Features",
+            "type": "array"
           },
           "execution_device": {
-            "const": "cpu"
+            "const": "cpu",
+            "title": "Execution Device",
+            "type": "string"
           }
         },
         "required": [
@@ -17338,59 +17099,98 @@
           "guideline_input_formats",
           "coordinate_convention",
           "checks",
+          "evidence_features",
           "execution_device"
         ],
-        "additionalProperties": false
+        "title": "Capabilities",
+        "type": "object"
+      },
+      "CheckCapability": {
+        "additionalProperties": false,
+        "description": "An executable guideline check that rules may name, taken from the real registry.",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "implementation": {
+            "const": "implemented",
+            "title": "Implementation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "implementation"
+        ],
+        "title": "CheckCapability",
+        "type": "object"
+      },
+      "EvidenceFeature": {
+        "additionalProperties": false,
+        "description": "Evidence stored with audited samples. It is not an executable guideline check.",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "implementation": {
+            "const": "implemented",
+            "title": "Implementation",
+            "type": "string"
+          },
+          "description": {
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "implementation",
+          "description"
+        ],
+        "title": "EvidenceFeature",
+        "type": "object"
+      },
+      "Health": {
+        "additionalProperties": false,
+        "description": "HTTP liveness only. It says nothing about Ollama, the detector or storage.",
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "api_version": {
+            "const": "v1",
+            "title": "Api Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "api_version"
+        ],
+        "title": "Health",
+        "type": "object"
       },
       "SystemStatus": {
-        "type": "object",
+        "additionalProperties": false,
+        "description": "Read-only readiness. Reading it starts nothing and downloads nothing.",
         "properties": {
           "ollama": {
-            "type": "object",
-            "properties": {
-              "reachable": {
-                "type": "boolean"
-              },
-              "model": {
-                "type": "string",
-                "minLength": 1
-              },
-              "model_available": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": [
-              "reachable",
-              "model",
-              "model_available"
-            ],
-            "additionalProperties": false
+            "$ref": "#/components/schemas/OllamaStatus"
           },
           "detector": {
-            "type": "object",
-            "properties": {
-              "weights_cached": {
-                "type": "boolean"
-              },
-              "integration_ready": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "weights_cached",
-              "integration_ready"
-            ],
-            "additionalProperties": false
+            "$ref": "#/components/schemas/DetectorStatus"
           },
           "execution_device": {
-            "const": "cpu"
+            "const": "cpu",
+            "title": "Execution Device",
+            "type": "string"
           }
         },
         "required": [
@@ -17398,7 +17198,114 @@
           "detector",
           "execution_device"
         ],
-        "additionalProperties": false
+        "title": "SystemStatus",
+        "type": "object"
+      },
+      "DetectorStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "integration_supported": {
+            "description": "Whether this environment has the packages the CPU detector needs.",
+            "title": "Integration Supported",
+            "type": "boolean"
+          },
+          "configuration": {
+            "description": "Detection settings for new audits; invalid means enabled but unusable.",
+            "enum": [
+              "disabled",
+              "enabled",
+              "invalid"
+            ],
+            "title": "Configuration",
+            "type": "string"
+          },
+          "checkpoint_file": {
+            "description": "Whether a file exists at the configured location. A present file is not verified: it is not hashed, loaded or run.",
+            "enum": [
+              "not_configured",
+              "present",
+              "missing",
+              "unreadable"
+            ],
+            "title": "Checkpoint File",
+            "type": "string"
+          },
+          "validation": {
+            "description": "Whether the checkpoint was actually loaded and checked. 'unknown' means no validation has been recorded; it never means the model works.",
+            "enum": [
+              "unknown",
+              "validated",
+              "failed"
+            ],
+            "title": "Validation",
+            "type": "string"
+          },
+          "architecture": {
+            "minLength": 1,
+            "title": "Architecture",
+            "type": "string"
+          }
+        },
+        "required": [
+          "integration_supported",
+          "configuration",
+          "checkpoint_file",
+          "validation",
+          "architecture"
+        ],
+        "title": "DetectorStatus",
+        "type": "object"
+      },
+      "OllamaStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration": {
+            "description": "Whether the local Ollama settings could be read.",
+            "enum": [
+              "valid",
+              "invalid"
+            ],
+            "title": "Configuration",
+            "type": "string"
+          },
+          "reachable": {
+            "description": "Whether a short metadata request to the server succeeded.",
+            "title": "Reachable",
+            "type": "boolean"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Configured language model name; null when settings are invalid.",
+            "title": "Model"
+          },
+          "model_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the configured model is installed; null when that is unknown.",
+            "title": "Model Available"
+          }
+        },
+        "required": [
+          "configuration",
+          "reachable",
+          "model",
+          "model_available"
+        ],
+        "title": "OllamaStatus",
+        "type": "object"
       }
     }
   }
