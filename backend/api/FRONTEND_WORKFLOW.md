@@ -75,7 +75,10 @@ while derived previews fail safely. Do not automatically accept/reject samples.
 Use `examples.dataset_import_scenarios` for all six job states, invalid archives,
 partial cancellation, dirty samples and explicit-zero versus malformed annotations.
 See DATASETS.md for worker setup, resource policies, safe errors and generation gates.
-Audit creation is implemented; corrections and export below remain planned.
+Audit creation is implemented; annotation corrections and rechecks remain planned.
+Reviewed dataset exports are implemented in source and their contracts are
+regenerated. Tests have not been rerun after integration corrections; migration
+application and real worker/database/download verification remain pending.
 
 ## 4. Start an audit and display processing
 
@@ -112,9 +115,10 @@ separate; a temporary failed poll does not establish that the job failed.
 and uses the existing audit-aware dispatch. A queued audit can already be
 cancelled in that response; a running audit enters cancelling. Continue polling
 until terminal. Terminal cancellation conflicts use 409 `JOB_ALREADY_FINISHED`.
-Completed evidence and decisions remain available. Do not assume cancellation
-support for future import/export/evaluation job kinds merely because
-their proposed responses use the same public Job schema.
+Completed evidence and decisions remain available. Dataset import, extraction
+and export jobs use their own managed cancellation dispatch through the same
+endpoint. Do not infer cancellation support for planned recheck/evaluation job
+producers merely because their proposed responses use the public Job schema.
 
 ## 6. Review queue, evidence and decisions
 
@@ -177,14 +181,20 @@ job and review the new audit's pinned revisions.
 The target contract keeps the prior book/policy while creating fresh evidence;
 old final sample decisions are not inherited.
 
-**Planned:** `POST /exports` returns `export` plus `job`. After preparation, read
+**Implemented in source:**
+`POST /exports` returns `export` plus `job`. After preparation, read
 `GET /exports/{export_id}`, then follow download/manifest links or their endpoints.
 `accepted_only` includes explicit sample acceptance. `all_reviewed` includes
 accepted and rejected decisions; pending/needs-correction samples remain excluded.
-The proposed export uses reviewed pins, not silently substituted latest files.
-ZIP download is binary; the manifest is JSON. Handle 409 `EXPORT_NOT_READY` and
-`AUDIT_NOT_READY` without presenting a successful download. A newer dataset head
-does not invalidate review decisions for the immutable exported pin.
+The export uses immutable reviewed pins, not silently substituted latest files, and
+does not require annotation corrections or rechecks. Exports freeze the current
+human decision for each exact audited revision at submission. A later catalogue head
+change does not invalidate that historical pin, and later review changes do not
+alter an existing export's frozen selection. ZIP download is binary; the manifest
+is JSON. Handle 409 `EXPORT_NOT_READY` and `AUDIT_NOT_READY` without presenting a
+successful download. Contracts are regenerated; the corrections have not been
+retested. Migration application and real worker/database/download verification
+remain separate gates.
 
 ## 9. Evaluated feedback
 
@@ -220,3 +230,18 @@ changes as each feature becomes callable.
 ## Extraction execution and fixtures
 
 See EXTRACTIONS.md for the explicit worker, one-attempt/deadline policy, safe errors and cancellation limits. Extraction cancellation is implemented through the existing job route. Completion pins version 1; later review does not change that pin. Use `examples.extraction_job_scenarios.states` and `.failures`; other producer mocks remain under `examples.future_job_scenarios`. Do not infer worker/model readiness from 202 or synthetic fixtures.
+
+## Reviewed export flow
+
+POST `/api/v1/exports` with audit_id, format="penn_fudan", selection and boolean
+include_images; 202 means durable enqueue, not a ready ZIP. Poll its existing job
+and export metadata, or cancel through the existing job API. List export history
+with GET `/api/v1/exports?limit=20&offset=0`. Download/manifest are 409 until completed.
+Counts and artifact URLs are null until completion. Failed/cancelled metadata
+remains readable. Empty completed selections are valid manifest/README-only ZIPs.
+accepted_only selects current explicit acceptance; all_reviewed also includes
+rejected entries diagnostically without changing their decision. Pending/reopened
+and needs_correction are excluded. Export revisions remain historical audit pins.
+A lost POST response requires reconciliation through list/detail/job reads before
+resubmission; there is no automatic retry or idempotency key. See EXPORTS.md for
+safe errors, selection snapshot cutoff, omitted images and storage limitations.

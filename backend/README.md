@@ -12,11 +12,17 @@ verification status and the recommended next features.
 
 Feature 4 adds durable Penn-Fudan ZIP acceptance, an explicit single-attempt
 worker, and four catalogue reads. Phases 1–4 are applied and the five API artifacts
-are regenerated. Tests, migrations and import execution remain unrun.
+are regenerated. The developer's latest suite reported 39 failures, 2,021 passes
+and two errors; tests have not been rerun after the integration corrections.
+Migration application and real import/export execution remain separate gates.
 See api/DATASETS.md for setup, statuses, nullable counts, revision
 authority, partial evidence, limits and known local-prototype boundaries.
 Ready does not mean clean annotations. Audit creation and listing now connect the
-catalogue to the existing batch engine. Corrections and export remain planned.
+catalogue to the existing batch engine. Annotation corrections and rechecks remain
+planned. Reviewed dataset exports are implemented in source and preserve immutable
+audited revisions and frozen human sample decisions; they do not require corrections
+or rechecks. Their five contract artifacts are regenerated. The corrected export
+workflow still requires a developer-run test pass and runtime verification.
 
 ## Create and process audits
 
@@ -58,6 +64,7 @@ backend/
 
 FastAPI routers expose audit creation/listing/reads, revision-pinned asset delivery,
 job status/cancellation, finding/sample review routes and saved-rulebook reads/reviewer actions.
+Dataset export creation, listing, detail, manifest and download routes are implemented.
 Read repositories compose stored evidence; services coordinate workflow changes. A
 separate controller layer is not needed.
 
@@ -331,7 +338,9 @@ when exceeded; preview decoding failures return `422 ASSET_NOT_RENDERABLE`.
 
 See api/README.md for the full contract and frontend fixtures.
 api/ENDPOINTS.md distinguishes these implemented routes from
-remaining planned operations, including correction/export workflows.
+remaining planned operations, including annotation correction/recheck and other
+unfinished workflows. Reviewed dataset exports are applied; see
+[api/EXPORTS.md](api/EXPORTS.md) for selection semantics and remaining verification gates.
 
 ## Finding records
 
@@ -512,7 +521,8 @@ own authoritative revision and trusted source root for each sample.
 `needs_correction` records a decision, not an annotation edit. Correction storage,
 validation and immutable revision publication still need implementation; corrected
 data must receive a new audit and explicit review rather than inheriting acceptance.
-Reviewed-count aggregation and export remain separate work.
+Reviewed-count aggregation remains separate work. Exports now freeze the current
+human decisions and exact audited revisions without requiring correction support.
 
 ## Confirmed-rule evaluation
 
@@ -999,9 +1009,33 @@ No exception internals are returned to clients.
 
 Generated OpenAPI, fixtures and endpoint inventories must come from
 `.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
-The full backend suite passes without a configured database; PostgreSQL
-integration tests remain opt-in and require `PRISM_TEST_DATABASE_URL`.
+Earlier passing suite results do not validate the current export integration.
+The latest reported failing suite is being corrected; a fresh full-suite result
+remains pending. PostgreSQL tests require `PRISM_TEST_DATABASE_URL`.
 
 ## Durable guideline extraction jobs
 
-The extraction guide documents migration 009, separate HTTP/worker processes, `--once`/loop mode, saved model settings, finite execution policy, one-attempt stale recovery, atomic draft/job publication and the external Ollama cancellation limitation. The original synchronous extraction APIs remain compatible. This source-only checkpoint has not run runtime tests or regenerated artifacts; integrate and verify it in the complete checkout before deployment.
+The extraction guide documents migration 009, separate HTTP/worker processes, `--once`/loop mode, saved model settings, finite execution policy, one-attempt stale recovery, atomic draft/job publication and the external Ollama cancellation limitation. The original synchronous extraction APIs remain compatible. Its source is integrated and the shared API artifacts are regenerated; runtime validation remains a separate developer-controlled step.
+
+## Reviewed dataset exports
+
+`POST /api/v1/exports` freezes the terminal audit's exact sample revisions and human
+sample decisions, then durably queues a managed export job. `accepted_only` selects
+explicit acceptance; `all_reviewed` also includes rejected samples diagnostically.
+Pending and needs-correction decisions remain excluded. The archive copies verified
+captured bytes and includes an inclusion/exclusion manifest; later reviews or
+catalogue heads do not change an existing export.
+
+Read/list export metadata, poll or cancel its existing job, and download the ZIP
+or JSON manifest after completion. Migration 011 and an explicit export worker
+are required. Neither API startup nor submission runs that worker.
+
+```bash
+.venv/bin/python -B -m backend.app.workers.export
+```
+
+See [api/EXPORTS.md](api/EXPORTS.md) for setup, limits and error responses. Source
+integration and regenerated contracts are complete; the fixes have not been
+retested, and migration application plus real worker/download verification remain
+operator-controlled gates. The combined API now has 32 implemented and 18 planned
+operations, 50 total.

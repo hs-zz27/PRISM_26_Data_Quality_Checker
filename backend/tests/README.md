@@ -1,5 +1,23 @@
 # Backend tests
 
+## Current verification status
+
+The developer's latest full-suite run reported 39 failures, 2,021 passes and two
+errors. Integration corrections are applied, but tests have not been rerun after
+those fixes. Earlier notes below describe coverage and its original authoring
+status; they do not establish that the corrected source passes. No tests were run
+automatically during this correction pass. Migration application and real
+worker/database/download verification remain separate operator-controlled gates.
+
+## Reviewed export regressions
+
+Export coverage exercises frozen selections and human decisions, exact historical
+pins, managed claim/cancellation/recovery transitions, bounded archive generation,
+verified artifacts, safe HTTP delivery and live/generated contract alignment.
+Migration 011 adds export storage without backfilling earlier audits or reviews.
+All five API artifacts are regenerated. The current inventory is 32 implemented
+and 18 planned operations, 50 total; a fresh test result is still pending.
+
 ## Audit creation and listing
 
 `test_audit_submission.py` covers strict public inputs, confirmed-book policy,
@@ -7,8 +25,8 @@ manifest-only submission and opt-in isolated PostgreSQL pinning, rollback and
 pagination. `test_audit_submission_api.py` covers HTTP validation, safe errors,
 public payloads and live/generated transport alignment. `test_audit_worker.py`
 covers audit-only dispatch and unresolved-claim handling. Inventory expectations
-now include 27 implemented and 22 planned operations. This coverage is authored
-but has not been run during implementation.
+now include 32 implemented and 18 planned operations. This coverage is present;
+its integration corrections have not been retested.
 
 ## Dataset checkpoint regression gate
 
@@ -17,7 +35,8 @@ rulebook-inventory and planned-contract tests. Phases 1–4, including the corre
 Phase 2 cleanup test, are applied and all five contract artifacts are regenerated.
 test_openapi_schema_values.py covers exact integer bounds, nullable defaults,
 route metadata and schema caching for the pinned framework adapter. These
-checks were authored but not collected or run during application. PostgreSQL
+checks were authored during application; see the current verification status for
+the subsequent developer-run suite and outstanding rerun. PostgreSQL
 integration groups retain their existing isolated opt-in fixtures. DATASETS.md
 in ../api documents prerequisites and operator-only commands. Do not interpret
 syntax compilation or source-hash verification as a runtime test pass.
@@ -91,7 +110,7 @@ covers all reads, latest versus explicit versions, empty histories, nonblank
 identifiers, pagination, safe errors and thin delegation without side effects.
 `test_rulebook_review_api.py` covers service delegation, strict bodies, state and
 origin policy, unsupported checks, content validation and no-write failures.
-`test_rulebook_contract.py` checks all 20 live operations, ten unique rulebook
+`test_rulebook_contract.py` checks all 32 live operations, ten unique rulebook
 operations, action-specific conflicts, actual model schemas, full schema
 constraints/nullability/required fields, parameter defaults and artifact freshness.
 Only schema titles and nullable explicit-null default metadata may differ between

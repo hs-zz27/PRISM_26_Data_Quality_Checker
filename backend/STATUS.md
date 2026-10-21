@@ -3,10 +3,12 @@
 Last updated: 21 October 2026 (Asia/Kolkata).
 Captured implementation baseline: `071f3fcf9c16debb95f1308c546bfb3e115204ff` (merged CPU detection).
 Dataset Feature 4 Phases 1–4 are applied in this workspace. All five API artifacts
-are regenerated. Syntax and schema generation are verified; tests, migrations,
+are regenerated. Syntax and schema generation are verified; migrations,
 HTTP scenarios and import execution were not run during application.
 Audit creation/listing and an explicit audit worker are now implemented. Their
-regression tests are authored and unrun; runtime verification remains pending.
+regression coverage is present. The developer's latest full-suite run reported
+39 failures, 2,021 passes and two errors. Integration corrections are applied,
+but tests have not been rerun; no passing result is claimed for the corrected source.
 
 This is the working tracker for implemented features, teammate assignments and
 the next delivery steps. Update it when work is delivered, reviewed, integrated
@@ -41,21 +43,25 @@ latest complete test suite or real-model evaluation has passed.
 - **Human review:** audit metadata and sample queue/detail reads, finding
   decisions/history, and separate sample decisions/history. Apparently correct,
   flagged, uncertain and unavailable evidence remain reviewable.
+- **Reviewed dataset exports:** frozen audit revisions and human decisions,
+  durable managed jobs, a bounded explicit archive worker, metadata/list reads,
+  a selection manifest and ZIP downloads. Source and API contracts are integrated;
+  fresh tests, migration 011 application and runtime verification remain pending.
 - **Frontend handoff:** generated combined and implemented-only OpenAPI,
   request/response examples, endpoint index and rulebook workflow documentation.
   The complete planned endpoint reference and
   screen-by-screen workflow guide cover the remaining
-  22 operations for frontend mocks. Future job fixtures cover all six states;
+  18 operations for frontend mocks. Future job fixtures cover all six states;
   these contracts do not add runtime routes.
 
-The current feature is **audit creation and listing**: imported catalogue heads
-and an exact confirmed rulebook version feed the existing batch engine. Dataset
-import and plain-text extraction retain their own explicit workers. Feedback
-execution and correction/recheck workflows remain unfinished.
+The current integration is **reviewed dataset exports**: terminal audit pins and
+human decisions feed a frozen archive selection. Dataset import, extraction,
+audits and exports retain explicit workers. Feedback execution and
+correction/recheck workflows remain unfinished.
 
 ## Current HTTP surface
 
-The generated reference has **27 implemented and 22 planned operations**, 49
+The generated reference has **32 implemented and 18 planned operations**, 50
 total. The live OpenAPI inventory and generated artifacts agree. These counts
 describe source HTTP availability, not runtime test coverage or completion
 percentages or equal amounts of implementation work.
@@ -67,6 +73,7 @@ percentages or equal amounts of implementation work.
 - Assets: revision-pinned sample asset delivery — one operation.
 - Jobs: status polling and cancellation — two operations.
 - Reviews: finding write/history and sample write/history — four operations.
+- Exports: creation, listing, detail, manifest and ZIP download — five operations.
 
 Use the endpoint index for the exact inventory and
 implemented-openapi.json for live client
@@ -121,9 +128,10 @@ Do not record a suggested task as assigned without confirmation of its owner.
   guarantee of runtime correctness.
 - Current generated artifacts were checked for freshness and live schema
   alignment. Syntax and whitespace checks passed at the last review.
-- New creation model/service, HTTP and PostgreSQL tests exist. A passing full-suite
-  result for this latest feature has not been supplied in the conversation.
-  Tests were not executed during the review.
+- New creation and export model/service, HTTP and PostgreSQL tests exist. The
+  developer supplied a failing full-suite result; corrections include shared SQL,
+  transport/schema integration, fixtures and inventory expectations. Tests have
+  not been rerun after those corrections.
 - The earlier included-router inventory failure was fixed in `15ea976` using
   FastAPI's `iter_route_contexts`, preserving duplicate-registration detection.
 - The handoff text `p4.md` has a corrupted generator snippet near line 450. The
@@ -134,8 +142,8 @@ Do not record a suggested task as assigned without confirmation of its owner.
 
 ## What to build next
 
-**Immediate verification:** obtain the latest full-suite result, including the
-opt-in isolated PostgreSQL tests, for dataset import and the shared workflow.
+**Immediate verification:** obtain a fresh full-suite result after these fixes,
+including opt-in isolated PostgreSQL tests for import, audits and exports.
 Do not run tests automatically; the user controls execution.
 
 **Earlier checkpoint: plain-text rulebook extraction over HTTP.**
@@ -148,14 +156,15 @@ remains separate; do not treat syntax or schema generation as passing test evide
 
 After that, the proposed delivery order is:
 
-1. Apply migration 010 explicitly and obtain developer-run dataset/API/worker and
+1. Apply current migrations, including 010 and 011, explicitly and obtain developer-run dataset/API/worker and
    PostgreSQL regression results. Dataset sources and contract regeneration are
    complete; no runtime results are claimed.
 2. Obtain developer-run audit submission/listing/worker and PostgreSQL regression
    results. The two APIs and worker are implemented; runtime results are not claimed.
 3. Annotation and mask correction revisions, correction history and rechecks that
    retain old audit evidence and human decisions.
-4. Reviewed dataset exports, download delivery and an inclusion/exclusion manifest.
+4. Verify the implemented export worker, download delivery and frozen manifest
+   through the corrected tests and an operator-controlled end-to-end scenario.
 5. Reviewer-feedback improvement with evaluated baseline/candidate behavior and
    explicit activation; feedback storage alone does not satisfy the SRS.
 
@@ -175,6 +184,19 @@ readiness routes when needed for frontend integration.
   coverage and report honestly which checks were actually performed.
 - No commits or pushes are authorized by updating this tracker. Every push requires
   the specific approval defined in AGENTS.md.
+
+## Reviewed export integration — validation status
+
+A four-phase reviewed-dataset export implementation now covers frozen selection,
+durable enqueue, one-attempt bounded archive worker, five HTTP endpoints and
+contract-generator alignment. It preserves imported reviewed bytes; it does
+not implement annotation corrections, rechecks, feedback improvement or detection.
+All four phases are applied and the five API artifacts are regenerated. The
+inventory is 32 implemented, 18 planned, 50 total; this is an HTTP availability
+count, not a backend-completion percentage. The developer's failing run exposed
+integration gaps; corrections have not been retested. Migration application,
+real PostgreSQL/worker/download verification and a fresh full-suite pass remain
+open gates. Do not mark this feature tested or production-ready.
 
 ## CDIF Feature 3 checkpoint verification
 

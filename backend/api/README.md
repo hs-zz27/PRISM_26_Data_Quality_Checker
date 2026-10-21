@@ -2,9 +2,9 @@
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**27 HTTP operations are implemented:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
+**32 HTTP operations are implemented:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
 and sample reads, revision-pinned assets, job polling/cancellation, and
-finding/sample decisions with history.
+finding/sample decisions with history, and five reviewed-export operations.
 All other operations remain planned. Check `x-implementation-status` in OpenAPI
 and `implementation` in each fixture. Server setup
 includes the launch command. The running server's `/docs` and `/openapi.json`
@@ -26,8 +26,10 @@ not an SPA route.
 ## Dataset import verification status
 
 Phases 1–4 are applied, including the corrected Phase 2 producer cleanup. All
-five API artifacts were generated in this checkout on 21 October 2026. Tests,
-migrations and import execution remain unrun. See DATASETS.md for setup, worker
+five API artifacts are regenerated, including the export integration. The developer
+reported 39 failures, 2,021 passes and two errors in the latest suite; tests have
+not been rerun after corrections. Migration application and real import/export
+execution remain separate verification gates. See DATASETS.md for setup, worker
 commands and the remaining verification steps. Regenerate the artifacts together
 when API models or routes change.
 
@@ -38,15 +40,16 @@ when API models or routes change.
 - RULEBOOKS.md: manual creation, editing, confirmation and history.
 - DATASETS.md: durable ZIP acceptance, explicit worker, dirty-source browsing and generation prerequisites.
 - AUDITS.md: catalogue-backed audit creation, listing and explicit worker commands.
+- EXPORTS.md: frozen reviewed selections, managed export jobs, manifests and downloads.
 - dataset_contract.py / dataset_examples.py: live-aligned dataset shapes and model-validated lifecycle snapshots.
-- PLANNED_ENDPOINTS.md: all 22 future operations, with
+- PLANNED_ENDPOINTS.md: all 18 future operations, with
   parameters, request/response examples, proposed errors and referenced schemas.
 - FRONTEND_WORKFLOW.md: screen flows, mock setup, jobs,
   correction/recheck pins and export/feedback interactions.
 - implemented-openapi.json: callable endpoints only,
   with actual FastAPI transport schemas and frontend examples; use for client generation.
 - openapi.json: combined implementation/planning reference; the
-  22 planned operations are not available on the running server.
+  18 planned operations are not available on the running server.
 - examples.json: frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
@@ -123,6 +126,14 @@ Finding and sample decisions:
 - `GET /audits/{audit_id}/samples/{sample_id}/reviews?sample_revision=N`
   → 200 `SampleReviewPage`; the positive audited pin is required.
 
+Reviewed exports (see EXPORTS.md):
+
+- `POST /exports` → 202 `ExportStarted`; strict `ExportRequest` body.
+- `GET /exports` → 200 `ExportPage`.
+- `GET /exports/{export_id}` → 200 `Export`.
+- `GET /exports/{export_id}/manifest` → 200 `ExportManifest` after completion.
+- `GET /exports/{export_id}/download` → 200 ZIP bytes after completion.
+
 Lists support `limit` (1–100, default 20) and nonnegative `offset` (default 0).
 Audit sample lists also accept `tool_status` and `review_status`; omit a filter
 to disable it rather than sending the string `null`.
@@ -177,7 +188,8 @@ actions the running backend currently supports.
    **Planned:** correct boxes, labels and masks through a new annotation revision.
 8. **Planned:** recheck corrected revisions. This creates a child audit, retaining old evidence
    and requiring a new reviewer decision. Export the reviewed child audit.
-9. **Planned:** prepare an export, poll its job, then download the ZIP and JSON manifest.
+9. **Implemented:** prepare an export from a terminal snapshot-backed audit, poll
+   its job, then download the ZIP and JSON manifest. Corrections/rechecks are not prerequisites.
 10. **Planned:** inspect approved correction examples, create an example-retrieval policy,
     freeze reviewer-verified held-out ground truth, evaluate baseline/candidate,
     then explicitly activate the evaluated policy for later audits.
@@ -188,9 +200,14 @@ and finding/sample review routes plus rulebook reads/reviewer actions are implem
 measurements, rule records, Ollama integration, rulebook, finding and sample review
 services, confirmed-rule evaluation, durable PostgreSQL jobs/audits/findings and
 PostgreSQL version/review storage also exist. Dataset import/catalogue checkpoint
-source is described in DATASETS.md. Other HTTP routes, correction/export and
-evaluated feedback services remain planned; detector status follows the merged
-source rather than older placeholder notes.
+source is described in DATASETS.md. Other HTTP routes and correction/recheck
+services remain planned. Reviewed dataset export routes are implemented in source;
+they preserve immutable
+audited revisions and frozen human sample decisions without requiring corrections
+or rechecks. The five contract artifacts are regenerated; tests have not been rerun
+after integration corrections. Migration application and real worker/database/download
+verification remain pending. Evaluated feedback services remain planned; detector status follows the
+merged source rather than older placeholder notes.
 
 ## Requests, responses and jobs
 
@@ -437,11 +454,17 @@ Commit objects and mask atomically after checking IDs, labels and geometry.
 Staged masks expire; expired uploads must be repeated. Old audit evidence and
 final decisions do not automatically carry forward to corrected data.
 
-**Planned exports** use pinned reviewed revisions and preserve source coordinates. The
-example uses `accepted_only`; `all_reviewed` explicitly includes accepted and
-rejected data with decisions in the manifest. Pending and needs-correction data
-remain excluded. Stale decisions do not authorize changed data. Images are only
-included when requested. No actual demo PNG or ZIP files are supplied here.
+**Reviewed dataset exports** use pinned reviewed revisions and preserve source
+coordinates. The export routes are implemented in source. The example uses `accepted_only`;
+`all_reviewed` explicitly includes accepted and rejected data with decisions in
+the manifest. Pending and needs-correction data remain excluded. Exports freeze
+the current human decision for each exact audited revision at submission. A later
+catalogue head change does not invalidate that historical pin, and later review
+changes do not alter an existing export's frozen selection. Exports do not require
+corrections or rechecks. Images are only included when requested. No actual demo
+PNG or ZIP files are supplied here. The five contract artifacts are regenerated.
+Tests have not been rerun after corrections; migration application and real
+worker/database/download verification remain pending.
 
 ## Feedback boundary
 
@@ -475,8 +498,9 @@ Their matching confirmed rulebooks are under
 unavailable cases include their additional reviewer-authored rules.
 `examples.job_scenarios` and `examples.audit_scenarios` cover all six lifecycle
 states with model-validated snapshots. `examples.dataset_import_scenarios` adds delivered import states and dirty-source examples. `examples.future_job_scenarios` adds six-state
-job mocks for recheck, export and feedback evaluation; these
-job producers are still planned. Delivered extraction mocks are in
+job mocks for recheck and feedback evaluation; these job producers are still
+planned. Delivered export examples are in `examples.export_scenarios`.
+Delivered extraction mocks are in
 `examples.extraction_job_scenarios.states` and `.failures`. Completed extraction links pin rulebook version 1.
 `examples.check_catalog` comes from the
 current registry and includes supported check names, meanings, scopes and parameter
@@ -520,9 +544,20 @@ idempotency store is added.
 
 Generated OpenAPI, fixtures and endpoint inventories must come from
 `.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
-The focused and full backend HTTP/contract tests pass in the pinned environment;
-PostgreSQL integration tests remain opt-in and require `PRISM_TEST_DATABASE_URL`.
+Earlier passing HTTP/contract results do not validate the current integration.
+The developer's latest suite failed; the fixes have not been retested.
+PostgreSQL integration tests require `PRISM_TEST_DATABASE_URL`.
 
 ## Durable plain-text extraction
 
-See EXTRACTIONS.md for the complete submission, worker, polling, cancellation, review and error workflow. The checkpoint source requires migration 009, explicit worker startup, regeneration of all five artifacts and operator-controlled runtime verification in the complete checkout. 202 does not imply model/worker readiness. No private ledger/claim fields are added to Job.
+See EXTRACTIONS.md for the complete submission, worker, polling, cancellation, review and error workflow. Extraction requires migration 009, explicit worker startup and operator-controlled runtime verification. The shared artifacts are regenerated. 202 does not imply model/worker readiness. No private ledger/claim fields are added to Job.
+
+## Reviewed export integration
+
+See [EXPORTS.md](EXPORTS.md). Five export operations are implemented in the applied
+source, using existing job polling/cancellation. Four planned operations are
+promoted in place and the collection GET is new. The integrated inventory is
+32 implemented, 18 planned, 50 total. All five shared artifacts are regenerated
+from the corrected source. A fresh test pass, migration 011 application and real
+worker/download verification remain pending; source availability and schema
+generation are not runtime validation.

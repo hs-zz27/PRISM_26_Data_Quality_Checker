@@ -4,19 +4,20 @@
 
 Feature 4 Phases 1–4 are applied in this workspace as of 21 October 2026.
 The five contract artifacts have been generated with the installed dependencies.
-Tests, migrations, HTTP scenarios and import workers have not been run during
-application. The source baseline is PRISM commit
+The developer's latest suite reported 39 failures, 2,021 passes and two errors;
+tests have not been rerun after integration corrections. Migration application
+and real import/export execution remain separate verification gates. The source baseline is PRISM commit
 `071f3fcf9c16debb95f1308c546bfb3e115204ff` (merged CPU detection).
 Never overwrite newer local work with a snapshot copy.
 
 Phase 4 source patches promote the five existing declarations, derive public
 schemas from Pydantic, align operations with live FastAPI and add independent
 synthetic lifecycle examples. No sixth route or detector/evaluator change is added.
-The generated inventory is 49 operations: 27 implemented and 22 planned.
-Audit creation/listing are implemented; see AUDITS.md. Corrections, exports and
-evaluated feedback remain planned.
+The generated inventory is 50 operations: 32 implemented and 18 planned.
+Audit creation/listing and reviewed exports are implemented; see AUDITS.md and
+EXPORTS.md. Corrections, rechecks and evaluated feedback remain planned.
 The catalogue revision resolver deliberately has no fabricated live source_root;
-wiring it into a future audit-start endpoint is separate work.
+audit submission now resolves its exact manifest-only pins directly.
 
 The live OpenAPI adapter preserves exact integer bounds and nullable defaults
 from the pinned FastAPI/Pydantic schema generation. This avoids rounding the
@@ -257,8 +258,10 @@ Only when the developer separately authorizes test execution:
 Also run the authored Phase 1–3 model, repository, migration, ZIP/import,
 managed-kind/cancellation and multipart/HTTP regression groups, plus unchanged
 existing routes. PostgreSQL groups use the existing isolated opt-in fixture and
-must never point cleanup at application tables. No tests/collection, migrations,
-HTTP scenarios, worker runs or application/OpenAPI imports were executed here.
+must never point cleanup at application tables. The developer ran the suite before
+these corrections; no rerun has occurred. Source/schema verification and regenerated
+artifacts do not establish runtime correctness. Migration application and real
+worker/HTTP verification remain separate operator-controlled steps.
 
 ## Frontend fixtures and structural checks
 
@@ -270,7 +273,8 @@ The six sample examples are zero_object, annotation_only, missing_mask,
 corrupt_image, malformed_annotation and invalid_objects. A completed dirty dataset
 can legitimately have object_count null. Preview availability is not renderability.
 
-future_job_scenarios now contains only recheck, export and feedback_evaluation.
+future_job_scenarios now contains only recheck and feedback_evaluation. Delivered
+exports have separate export_scenarios.
 Delivered extraction scenarios and unrelated mocks remain unchanged.
 Dataset/Sample schemas come from real Pydantic records; ImportedAnnotationObject
 retains permissive source values while future CorrectionObject/CorrectionBoundingBox
@@ -282,7 +286,8 @@ Authored tests compare combined/implemented/live requests, responses and reachab
 schemas; they retain validation constraints and normalize descriptions/examples
 only. Duplicate included-router registration is checked with iter_route_contexts,
 not flat app.routes assumptions. All five artifacts must match render_artifacts
-exactly. These are authored regressions, not executed passes.
+exactly. These are authored regressions; the corrected integration has no fresh
+passing suite result.
 
 ## Remaining limits
 
