@@ -359,6 +359,16 @@ def _reject_managed_extraction(row) -> None:
     if row is not None and row["kind"] == "export":
         raise ValueError("Use ExportRepository for managed export execution.")
 
+def _reject_linked_recheck(connection, row) -> None:
+    # The AUDIT worker may claim/renew these jobs, but only AuditRepository may
+    # change related lifecycle/progress. Leave unrelated historical jobs alone.
+    if row is not None and row['resource_kind'] == 'audit' and connection.execute(
+        'SELECT 1 FROM audit_recheck_lineage WHERE child_audit_id=%s',
+        (row['resource_id'],),
+    ).fetchone() is not None:
+        raise ValueError('Use AuditRepository for linked recheck lifecycle changes.')
+
+
 class JobRepository(_WorkflowRepository):
     """Persist jobs and perform lease-protected state transitions."""
 
@@ -428,6 +438,7 @@ class JobRepository(_WorkflowRepository):
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (job_id,)
             ).fetchone()
             _reject_managed_extraction(row)
+            _reject_linked_recheck(connection, row)
             if row is None:
                 raise JobNotFoundError(job_id)
             timestamp = _timestamp(now)
@@ -479,9 +490,12 @@ class JobRepository(_WorkflowRepository):
                    WHERE kind NOT IN (%s, %s, %s) AND (status = 'queued'
                       OR (status = 'running' AND lease_until <= %s))
                      AND (%s::text IS NULL OR kind = %s)
+                     AND (%s::text = 'audit' OR NOT EXISTS (
+                         SELECT 1 FROM audit_recheck_lineage linked
+                         WHERE linked.child_audit_id=jobs.resource_id AND jobs.resource_kind='audit'))
                    ORDER BY created_at ASC, job_id ASC
                    FOR UPDATE SKIP LOCKED LIMIT 1""",
-                ("rule_extraction", "dataset_import", "export", cutoff, kind_value, kind_value),
+                ("rule_extraction", "dataset_import", "export", cutoff, kind_value, kind_value, kind_value),
             ).fetchone()
             if row is None:
                 return None
@@ -552,6 +566,7 @@ class JobRepository(_WorkflowRepository):
                 # never open a second transaction while holding the same job row.
                 from .dataset_import_repository import DatasetImportRepository
                 return DatasetImportRepository(settings=self.settings)._cancel_locked(connection, row)
+            _reject_linked_recheck(connection, row)
             timestamp = _timestamp(now)
             status = JobStatus(row["status"])
             if status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
@@ -572,6 +587,7 @@ class JobRepository(_WorkflowRepository):
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (claim.job.job_id,)
             ).fetchone()
             _reject_managed_extraction(row)
+            _reject_linked_recheck(connection, row)
             timestamp = _timestamp(now)
             if row is None or row["claim_token"] != claim.claim_token:
                 raise JobClaimLostError("The worker no longer owns this job claim.")
@@ -609,6 +625,7 @@ class JobRepository(_WorkflowRepository):
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (claim.job.job_id,),
             ).fetchone()
             _reject_managed_extraction(row)
+            _reject_linked_recheck(connection, row)
             if row is None or row["claim_token"] != claim.claim_token:
                 raise JobClaimLostError("The worker no longer owns this job claim.")
             timestamp = _timestamp(now)
@@ -653,6 +670,7 @@ class JobRepository(_WorkflowRepository):
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (claim.job.job_id,)
             ).fetchone()
             _reject_managed_extraction(row)
+            _reject_linked_recheck(connection, row)
             timestamp = _timestamp(now)
             if row is None or row["claim_token"] != claim.claim_token:
                 raise JobClaimLostError("The worker no longer owns this job claim.")
@@ -680,6 +698,7 @@ class JobRepository(_WorkflowRepository):
                 "SELECT * FROM jobs WHERE job_id = %s FOR UPDATE", (claim.job.job_id,)
             ).fetchone()
             _reject_managed_extraction(row)
+            _reject_linked_recheck(connection, row)
             timestamp = _timestamp(now)
             if row is None or row["claim_token"] != claim.claim_token:
                 raise JobClaimLostError("The worker no longer owns this job claim.")
@@ -709,6 +728,8 @@ class JobRepository(_WorkflowRepository):
                 """SELECT * FROM jobs
                    WHERE kind NOT IN (%s, %s, %s) AND ((status = 'running' AND lease_until <= %s)
                       OR (status = 'cancelling' AND lease_until <= %s))
+                     AND NOT EXISTS (SELECT 1 FROM audit_recheck_lineage linked
+                         WHERE linked.child_audit_id=jobs.resource_id AND jobs.resource_kind='audit')
                    FOR UPDATE SKIP LOCKED""",
                 ("rule_extraction", "dataset_import", "export", cutoff, cutoff),
             ).fetchall()
@@ -1264,7 +1285,20 @@ class AuditRepository(_WorkflowRepository):
         return snapshot
 
     def start_audit(
+        self, request: BatchAuditRequest, *,
+        sample_manifests: Mapping[str, SampleAssetManifest] | None = None,
+        audit_id: str | None = None, job_id: str | None = None,
+        now: datetime | None = None,
+    ) -> tuple[AuditRun, Job]:
+        # Keep ordinary submission validation before acquiring a connection.
+        request = self._snapshot_request(request)
+        with self._connection(write=True) as connection:
+            return self._start_audit_locked(connection, request,
+                sample_manifests=sample_manifests, audit_id=audit_id, job_id=job_id, now=now)
+
+    def _start_audit_locked(
         self,
+        connection,
         request: BatchAuditRequest,
         *,
         sample_manifests: Mapping[str, SampleAssetManifest] | None = None,
@@ -1315,44 +1349,43 @@ class AuditRepository(_WorkflowRepository):
             updated_at=timestamp,
         )
         request_document = Jsonb(request.model_dump(mode="json"))
-        with self._connection(write=True) as connection:
-            connection.execute(
-                """INSERT INTO jobs
-                   (job_id, kind, status, progress, result, error, created_at, updated_at,
-                    resource_kind, resource_id)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'audit', %s)""",
-                _job_row_values(job) + (audit_id,),
+        connection.execute(
+            """INSERT INTO jobs
+               (job_id, kind, status, progress, result, error, created_at, updated_at,
+                resource_kind, resource_id)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'audit', %s)""",
+            _job_row_values(job) + (audit_id,),
+        )
+        connection.execute(
+            """INSERT INTO audit_runs
+                (audit_id, job_id, dataset_id, dataset_root, rulebook_id, rulebook_version,
+                 status, source_mode, request, sample_count, processed_count, failed_count,
+                 incomplete_count, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s, %s)""",
+            (
+                audit.audit_id, audit.job_id, audit.dataset_id, request.dataset_root,
+                audit.rulebook_id, audit.rulebook_version, audit.status.value,
+                request.source_mode.value,
+                request_document, audit.sample_count, timestamp, timestamp,
+            ),
+        )
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                """INSERT INTO audit_samples
+                   (audit_id, sample_id, sample_revision, ordinal, status, manifest_dataset_id)
+                   VALUES (%s, %s, %s, %s, 'queued', %s)""",
+                [
+                    (
+                        audit_id, sample_id,
+                        request.sample_revisions[sample_id]
+                        if request.source_mode is AuditSourceMode.SNAPSHOT
+                        else request.sample_revisions.get(sample_id, 1),
+                        ordinal,
+                        manifests[sample_id].dataset_id if manifests else None,
+                    )
+                    for ordinal, sample_id in enumerate(request.sample_ids)
+                ],
             )
-            connection.execute(
-                """INSERT INTO audit_runs
-                    (audit_id, job_id, dataset_id, dataset_root, rulebook_id, rulebook_version,
-                     status, source_mode, request, sample_count, processed_count, failed_count,
-                     incomplete_count, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s, %s)""",
-                (
-                    audit.audit_id, audit.job_id, audit.dataset_id, request.dataset_root,
-                    audit.rulebook_id, audit.rulebook_version, audit.status.value,
-                    request.source_mode.value,
-                    request_document, audit.sample_count, timestamp, timestamp,
-                ),
-            )
-            with connection.cursor() as cursor:
-                cursor.executemany(
-                    """INSERT INTO audit_samples
-                       (audit_id, sample_id, sample_revision, ordinal, status, manifest_dataset_id)
-                       VALUES (%s, %s, %s, %s, 'queued', %s)""",
-                    [
-                        (
-                            audit_id, sample_id,
-                            request.sample_revisions[sample_id]
-                            if request.source_mode is AuditSourceMode.SNAPSHOT
-                            else request.sample_revisions.get(sample_id, 1),
-                            ordinal,
-                            manifests[sample_id].dataset_id if manifests else None,
-                        )
-                        for ordinal, sample_id in enumerate(request.sample_ids)
-                    ],
-                )
         return audit, job
 
     def get_audit(self, audit_id: str) -> AuditRun:

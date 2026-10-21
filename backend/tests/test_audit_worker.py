@@ -50,3 +50,13 @@ def test_unknown_claim_commit_stops_without_retry(monkeypatch, capsys):
     repository.jobs.claim_next_job.assert_called_once()
     service.run_claimed_job.assert_not_called()
     assert "private" not in capsys.readouterr().err
+
+
+def test_linked_recheck_dispatches_through_the_unchanged_audit_cli(monkeypatch):
+    repository,service,_=prepare(monkeypatch)
+    claim=Mock(resource_kind='audit',resource_id='audit_linked_child')
+    claim.job.kind=JobKind.AUDIT
+    repository.jobs.claim_next_job.return_value=claim
+    assert worker.main(['--once'])==0
+    assert repository.jobs.claim_next_job.call_args.kwargs['kind'] is JobKind.AUDIT
+    service.run_claimed_job.assert_called_once_with(claim)
