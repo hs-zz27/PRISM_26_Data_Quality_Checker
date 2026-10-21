@@ -97,6 +97,99 @@ Poll `GET /jobs/{job_id}`, read `GET /audits/{audit_id}`, then use the existing
 sample queue/detail and finding/sample review routes. Completion is processing
 status, not reviewer approval. Include apparently correct samples in review.
 
+## Detection and matching evidence
+
+When person detection is enabled on the server, each sample processed by a **new** audit gets a
+`detection_evidence` entry in its stored measurements. Read it from
+`GET /audits/{audit_id}/samples/{sample_id}` under `measurements.detection_evidence`; it is returned
+exactly as stored. Reading never loads a model or recomputes anything, and there is no separate
+detection endpoint. Audits accepted before this feature have no `detection_evidence` key. Treat a
+missing key as "not recorded", never as "no people found".
+
+The server settings are frozen when an audit is accepted. They are not part of any request or
+response: clients send no file paths or model settings. A recheck reuses the parent audit's frozen
+settings.
+
+### Reading `status`
+
+| `status` | Meaning |
+| --- | --- |
+| `disabled` | Detection was switched off when the audit was accepted. Only `configuration` is present. |
+| `image_unavailable` | The sample's image could not be read, so detection did not run. |
+| `compared` | Detection and comparison completed. |
+| `compared_incomplete` | Compared, but some records were invalid; see `matching.invalid_records`. |
+| `comparison_unavailable` | Detection ran, but the annotations could not be used, so nothing was compared. Detections are kept. |
+| `detector_unavailable` | The checkpoint was missing, unusable or did not match the frozen SHA-256; `reason` says which. |
+| `inference_failed` | The detector ran but failed. |
+
+An empty `detector_output.detections` list on a `compared` result means the model ran and found
+nobody. That is different from an unavailable status. For `comparison_unavailable`,
+`detector_unavailable` and `inference_failed` the sample is also marked incomplete:
+`summary.incomplete` is true and `measurements.errors` has an entry with `stage` `detection` and a
+`reason` beginning `detection_`. Unrelated passing checks therefore do not read as a clean result.
+
+### What the fields mean
+
+- `detector_identity`: `architecture`, `checkpoint_sha256` (of the file actually used) and
+  `expected_checkpoint_sha256` (frozen when the audit was accepted).
+- `detector_output.detections`: boxes in original-image pixels, zero-based, with `x_min`, `y_min`,
+  `x_max`, `y_max` as pixel edges, and a `score`. This is not the one-based inclusive convention
+  annotations use; matching converts annotations before comparing. The detector returns every
+  candidate it produces, and `min_confidence` is applied only during matching.
+- `matching`: `matches`, `ambiguous_groups` (detections and annotations that overlap enough to be
+  confused; the backend never picks one), `unmatched_detections`, `unmatched_annotations`,
+  `confidence_filtered_detections` (below `min_confidence`, not compared) and `invalid_records`.
+  Detection references are positions in `detector_output.detections`. Annotation references are
+  positions in the original annotation list, and duplicate `object_id` values stay separate records.
+- `person_labels` and `excluded_annotations`: only annotations whose label is in `person_labels` are
+  compared. Others are listed as excluded, which is not an error.
+- `min_confidence`, `min_iou`, `preprocessing`, `matching_policy` and the coordinate convention
+  fields record how to interpret the result.
+
+### Why unmatched is not an error
+
+An unmatched detection may be a missing annotation, a duplicate detection or a false positive. An
+unmatched annotation may be a detector miss or an annotation problem. Detector output is fallible
+evidence. The backend creates no finding from it and does not change a sample's review. Final sample
+review stays with the reviewer.
+
+Illustrative, hand-written and abbreviated; not program output:
+
+```json
+{
+  "evidence_schema_version": 1,
+  "status": "compared",
+  "reason": null,
+  "image_width": 559, "image_height": 536,
+  "min_confidence": 0.5, "min_iou": 0.5,
+  "person_labels": ["PASperson"],
+  "detector_identity": {
+    "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint_source": "local_checkpoint",
+    "checkpoint_sha256": "<64 hex characters>",
+    "expected_checkpoint_sha256": "<same 64 hex characters>"
+  },
+  "detector_output": {
+    "detections": [{"x_min": 162.7, "y_min": 177.3, "x_max": 303.5, "y_max": 432.2, "score": 0.99}]
+  },
+  "matching": {
+    "matches": [{"detection": {"index": 0, "score": 0.99},
+                 "annotation": {"index": 0, "object_id": 1, "label": "PASperson"}, "iou": 0.9}],
+    "ambiguous_groups": [], "unmatched_detections": [], "unmatched_annotations": [],
+    "confidence_filtered_detections": [], "invalid_records": [], "comparison_complete": true
+  },
+  "annotations_available": true, "annotation_count": 1, "excluded_annotations": []
+}
+```
+
+```json
+{
+  "evidence_schema_version": 1,
+  "status": "disabled",
+  "configuration": {"enabled": false}
+}
+```
+
 ## Verification status
 
 Coverage is authored for request validation, safe HTTP errors, catalogue-head

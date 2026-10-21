@@ -9,10 +9,10 @@ It produces evidence only: no findings, pass/fail outcomes, reviewer decisions
 or annotation corrections. Model output is fallible and never establishes that
 an annotation is right or wrong.
 
-This package is **not** audit integration, annotation correction, rechecking or
-feedback learning. Real-model validation and benchmark runs are described below
-but have **not been performed** for this delivery; no performance number is
-claimed.
+The audit integration is described under "Audit integration" below. This package does not
+include correction workflows, rechecks or feedback learning. A first real-checkpoint validation
+and a detector-only benchmark were run by the developer on one machine; their results are
+reported below with their limits, and no other performance number is claimed.
 
 Files:
 
@@ -296,7 +296,8 @@ hardware with representative images.
 
 ## Known limitations
 
-- No real-model validation or benchmark has been run for this delivery.
+- Validation covered three images and a detector-only benchmark on one machine. Matching on
+  real annotations, no-person images and the isolated per-sample cost are not yet measured.
 - Model reuse holds within one service instance, not across separate spawned
   audit processes. Each process would load and hash its own copy.
 - Detector scores are not calibrated probabilities.
@@ -325,3 +326,139 @@ Not implemented here. The audit sample step would:
 Questions for coordination: how rules supply `person_labels` and thresholds, and
 whether spawned workers should keep a long-lived process to avoid reloading the
 model for every sample.
+
+## Audit integration
+
+Real audits can now run detection and matching inside the supervised sample child and store the
+evidence with the sample's other measurements. This section describes that integration. It does
+not add findings, change reviewer decisions or add a new HTTP endpoint.
+
+### Turning it on for new audits
+
+Detection is **off** unless the server opts in. Nothing is downloaded by the application.
+
+1. Download the official checkpoint once, as a deliberate developer step (not application code):
+   it is `FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.COCO_V1`, saved as
+   `fasterrcnn_mobilenet_v3_large_320_fpn-907ea3f9.pth` (about 77.8 MB) under
+   `.cache/torch/hub/checkpoints/`. The file name only contains the first part of the hash.
+2. Record the full SHA-256 of the file you actually have:
+
+   ```powershell
+   Get-FileHash -Algorithm SHA256 .cache\torch\hub\checkpoints\fasterrcnn_mobilenet_v3_large_320_fpn-907ea3f9.pth
+   ```
+
+   ```bash
+   sha256sum .cache/torch/hub/checkpoints/fasterrcnn_mobilenet_v3_large_320_fpn-907ea3f9.pth
+   ```
+
+3. Put these in the project `.env` (or the environment of both the API and the audit worker):
+
+   | Setting | Meaning |
+   | --- | --- |
+   | `DETECTION_ENABLED` | `true` to enable. Anything else, or unset, means off. |
+   | `DETECTION_CHECKPOINT_PATH` | Absolute path to the checkpoint, read by the audit worker. |
+   | `DETECTION_CHECKPOINT_SHA256` | The 64-character SHA-256 from step 2. |
+   | `DETECTION_PERSON_LABELS` | Comma-separated annotation labels that mean "person", e.g. `PASperson`. |
+   | `DETECTION_MIN_CONFIDENCE` | Confidence threshold from 0 to 1. There is no default. |
+   | `DETECTION_MIN_IOU` | IoU threshold greater than 0 and at most 1. There is no default. |
+
+   Enabling it with any of these missing or invalid makes audit submission fail with a safe 503
+   before anything is queued.
+4. Start the API and the explicit audit worker as usual. Submit a **new** audit.
+
+### What is frozen into an audit, and what is not
+
+When an audit is accepted, the settings above (except the path) are copied into the audit's private
+saved request as `detector`: the enabled flag, architecture, checkpoint SHA-256, thresholds, person
+labels, matching policy, evidence schema version and preprocessing identity. Later changes to the
+environment do not alter a queued or finished audit. A recheck copies the parent's request, so it
+keeps the same frozen settings.
+
+- **Audits saved before this feature** have no `detector`. They keep their old behavior: no
+  detection runs and no `detection_evidence` key is stored.
+- **The checkpoint location is not frozen.** The audit worker reads `DETECTION_CHECKPOINT_PATH`
+  when it processes a sample, hashes the file, and refuses to load it if the hash differs from the
+  frozen value. The evidence then reports `detector_unavailable` with reason `checkpoint_mismatch`.
+  The hash is checked again after loading, so a file replaced while loading is not trusted.
+  If the path is unset on the worker, the reason is `weights_missing`.
+- Nothing about the checkpoint location appears in any request, response or stored evidence.
+
+### What a worker does per sample
+
+Everything below runs inside the supervised child, so it counts against the sample's time limit:
+load the materialized image and annotation text from the pinned revision, hash and load the
+checkpoint, run detection, then match. Masks are never read, so a missing mask does not block it. If
+the annotations cannot be parsed, are missing, or do not use the supported one-based origin,
+detection still runs and the comparison is reported as unavailable.
+
+When enabled detection cannot complete (`detector_unavailable`, `inference_failed` or
+`comparison_unavailable`), the sample is marked incomplete and gets a `detection` error entry, so a
+clean-looking set of unrelated checks cannot be read as a clean sample. Image-unavailable samples
+are already marked by the collector's own load error.
+
+The evidence is stored under the measurement key `detection_evidence` and is returned unchanged by
+the existing sample-detail read. See `api/AUDITS.md` for the frontend description.
+
+### Model lifetime
+
+The API process never imports Torch or builds a model. Each audit sample runs in a freshly spawned
+child, and a child starts with nothing loaded: it pays process start, importing Torch, hashing the
+checkpoint and building the model for every sample. Reuse of the loaded detector happens only inside
+one process (for example the in-process test seam, or several calls in one child). To see what the
+per-sample child costs on your machine, run the benchmark with `--isolated-runs`:
+
+```bash
+python -B -m backend.benchmarks.benchmark_detection --weights PATH/TO/checkpoint.pth \
+  --images a.jpg --warmup 2 --iterations 10 --isolated-runs 5 --output result.json
+```
+
+`isolated_process_runs` reports, over fresh processes that each handle one image, `wall_ms`,
+`process_start_and_imports_ms`, `setup_ms`, `decode_ms` and `inference_ms`. This excludes the
+database, snapshot materialization and rule evaluation, so it is not full audit throughput. Use
+`--include-evidence` (with `--annotations`) to list each image's full evidence for manual review.
+No change to the worker, its isolation or its deadlines is proposed here; decide that only after
+measuring on the demo machine.
+
+### Measured on one machine (detector only)
+
+Measured by the developer on one laptop, with the checkpoint SHA-256
+`907ea3f91ff92242bc1baea8049276a3e76bca48ce7560bd268cc029f37977b5`. Windows 11, 11th Gen Intel Core
+i5-1135G7 (4 cores, 8 logical CPUs), Python 3.12.10, PyTorch 2.14.1 (CPU), torchvision 0.29.1, 4
+PyTorch threads. Three Penn-Fudan images (559x536, 455x414, 612x406), 2 warm-up passes and 10
+measured passes (30 samples), detector only, no annotations:
+
+| Measurement | Median | p95 |
+| --- | --- | --- |
+| Detector execution per image | 139 ms | 165 ms |
+| Decode plus detector per image | 148 ms | 171 ms |
+| Reading the image file | 8.7 ms | 11.8 ms |
+
+Checkpoint hashing took about 0.13 s and model construction about 0.39 s once per process. Peak
+process memory was about 459 MB after loading and 478 MB after the run; this is a process-lifetime
+high-water mark, not per-image memory. These numbers describe that machine and these small images
+only. They are not audit throughput and they support no batch-size recommendation. The same commands
+should be repeated on the demo machine. The isolated per-sample cost has not been measured yet.
+
+### Real-image validation observations
+
+Three Penn-Fudan images were checked by eye against the reported boxes, which are in original-image
+pixels:
+
+- Two men walking apart: both people boxed tightly; no misses or false positives.
+- Two women walking close together: at a 0.5 cutoff only one box covering the front woman was
+  listed. Listing down to 0.1 showed a second box at score 0.44 on the woman behind her, so the
+  second person was detected but below the threshold.
+- A crowded crossing: the five clearest people were boxed accurately. Lower-scoring boxes
+  (0.78 to 0.85) included a plausible partly hidden person and two overlapping boxes on one narrow
+  figure that look like a duplicate. Several small background people were not detected.
+- No-person photos were not tested.
+
+This is a sanity check on three images, not an accuracy evaluation. It shows that occlusion produces
+merged, duplicate and missed detections, which is why matching reports ambiguous groups instead of
+choosing.
+
+### Verification status
+
+The tests for this integration are authored but have not been run. The system endpoints
+(`/health`, `/capabilities`, `/system/status`) and the API contract regeneration are not part of
+this change. An end-to-end audit through PostgreSQL has not been run.
