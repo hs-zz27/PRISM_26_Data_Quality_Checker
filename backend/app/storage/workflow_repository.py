@@ -352,6 +352,8 @@ class _WorkflowRepository:
 
 def _reject_managed_extraction(row) -> None:
     """Check the locked row, not caller-supplied claim fields, before mutation."""
+    if row is not None and row["kind"] == "feedback_evaluation":
+        raise ValueError("Use FeedbackJobRepository for feedback execution.")
     if row is not None and row["kind"] == "rule_extraction":
         raise ValueError("Use ExtractionRepository for managed extraction execution.")
     if row is not None and row["kind"] == "dataset_import":
@@ -388,6 +390,8 @@ class JobRepository(_WorkflowRepository):
             raise ValueError("Use DatasetImportRepository to enqueue managed import jobs.")
         if snapshot.kind is JobKind.EXPORT:
             raise ValueError("Use ExportRepository to enqueue managed export jobs.")
+        if snapshot.kind is JobKind.FEEDBACK_EVALUATION:
+            raise ValueError("Use FeedbackJobRepository to enqueue managed feedback jobs.")
         if snapshot.status is not JobStatus.QUEUED:
             raise ValueError("new jobs must start in queued state.")
         if resource_kind is not None:
@@ -487,7 +491,7 @@ class JobRepository(_WorkflowRepository):
             cutoff = _timestamp(now)
             row = connection.execute(
                 """SELECT * FROM jobs
-                   WHERE kind NOT IN (%s, %s, %s) AND (status = 'queued'
+                   WHERE kind NOT IN (%s, %s, %s, %s) AND (status = 'queued'
                       OR (status = 'running' AND lease_until <= %s))
                      AND (%s::text IS NULL OR kind = %s)
                      AND (%s::text = 'audit' OR NOT EXISTS (
@@ -495,7 +499,7 @@ class JobRepository(_WorkflowRepository):
                          WHERE linked.child_audit_id=jobs.resource_id AND jobs.resource_kind='audit'))
                    ORDER BY created_at ASC, job_id ASC
                    FOR UPDATE SKIP LOCKED LIMIT 1""",
-                ("rule_extraction", "dataset_import", "export", cutoff, kind_value, kind_value, kind_value),
+                ("rule_extraction", "dataset_import", "export", "feedback_evaluation", cutoff, kind_value, kind_value, kind_value),
             ).fetchone()
             if row is None:
                 return None
@@ -557,6 +561,9 @@ class JobRepository(_WorkflowRepository):
             ).fetchone()
             if row is None:
                 raise JobNotFoundError(job_id)
+            if row["kind"] == "feedback_evaluation":
+                from .feedback_jobs import FeedbackJobRepository
+                return FeedbackJobRepository(settings=self.settings)._cancel_locked(connection,row)
             if row["kind"] == "export":
                 # Reuse this transaction and locked job row; never nest a connection.
                 from .export_repository import ExportRepository
@@ -726,12 +733,12 @@ class JobRepository(_WorkflowRepository):
             cutoff = _timestamp(now)
             rows = connection.execute(
                 """SELECT * FROM jobs
-                   WHERE kind NOT IN (%s, %s, %s) AND ((status = 'running' AND lease_until <= %s)
+                   WHERE kind NOT IN (%s, %s, %s, %s) AND ((status = 'running' AND lease_until <= %s)
                       OR (status = 'cancelling' AND lease_until <= %s))
                      AND NOT EXISTS (SELECT 1 FROM audit_recheck_lineage linked
                          WHERE linked.child_audit_id=jobs.resource_id AND jobs.resource_kind='audit')
                    FOR UPDATE SKIP LOCKED""",
-                ("rule_extraction", "dataset_import", "export", cutoff, cutoff),
+                ("rule_extraction", "dataset_import", "export", "feedback_evaluation", cutoff, cutoff),
             ).fetchall()
             timestamp = _timestamp(now)
             for row in rows:
@@ -1348,6 +1355,16 @@ class AuditRepository(_WorkflowRepository):
             created_at=timestamp,
             updated_at=timestamp,
         )
+        # Pin model/policy configuration atomically with audit/job acceptance.
+        from .repository import RulebookRepository
+        from ..services.feedback import prepare_runtime
+        bookrow = connection.execute("SELECT * FROM rulebook_versions WHERE rulebook_id=%s AND version=%s",
+            (request.rulebook_id,request.rulebook_version)).fetchone()
+        if bookrow is not None:
+            request = prepare_runtime(connection,request,RulebookRepository._decode(bookrow),settings=self.settings)
+        elif request.feedback_policy_id is not None or request.feedback_runtime is not None:
+            from ..core.feedback import FeedbackError
+            raise FeedbackError('POLICY_INCOMPATIBLE')
         request_document = Jsonb(request.model_dump(mode="json"))
         connection.execute(
             """INSERT INTO jobs
@@ -1428,8 +1445,12 @@ class AuditRepository(_WorkflowRepository):
             if row is None:
                 raise AuditNotFoundError(audit_id)
             try:
-                return BatchAuditRequest.model_validate(row["request"])
-            except ValidationError as error:
+                # JSONB timestamps are strings; decode them in JSON mode while
+                # retaining strict validation of the saved request's fields.
+                return BatchAuditRequest.model_validate_json(
+                    json.dumps(row["request"], allow_nan=False)
+                )
+            except (ValidationError, TypeError, ValueError) as error:
                 raise WorkflowStorageError("A saved audit request failed validation.") from error
 
     def get_job(self, audit_id: str) -> Job:

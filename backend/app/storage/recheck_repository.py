@@ -65,7 +65,7 @@ class RecheckRepository(CorrectionRepository):
             audit,job=AuditRepository(settings=self.settings)._start_audit_locked(connection,batch,sample_manifests=pins)
             connection.execute('''INSERT INTO audit_recheck_lineage(child_audit_id,parent_audit_id,reviewer_id,created_at)
                 VALUES(%s,%s,%s,%s)''',(audit.audit_id,parent_audit_id,request.reviewer_id,audit.created_at))
-            result=AuditStarted(audit=audit,job=job,parent_audit_id=parent_audit_id,feedback_policy_id=None)
+            result=AuditStarted(audit=audit,job=job,parent_audit_id=parent_audit_id,feedback_policy_id=original.feedback_policy_id)
         return result
 
     @staticmethod
@@ -81,7 +81,7 @@ class RecheckRepository(CorrectionRepository):
         except (TypeError,ValueError) as error:
             raise CorrectionStorageError() from error
         if (audit.source_mode.value!='snapshot' or original.source_mode.value!='snapshot'
-                or original.feedback_policy_id is not None):
+                or (original.feedback_policy_id is not None and original.feedback_runtime is None)):
             raise CorrectionError('AUDIT_NOT_RECHECKABLE')
         if ((audit.dataset_id,audit.rulebook_id,audit.rulebook_version)!=(original.dataset_id,original.rulebook_id,original.rulebook_version)
                 or audit.sample_count!=len(original.sample_ids) or set(original.sample_revisions)!=set(original.sample_ids)):

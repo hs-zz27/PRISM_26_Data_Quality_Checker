@@ -4,10 +4,12 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+import json
 import os
 from queue import Queue
 from threading import Barrier
 from time import monotonic, sleep
+from unittest.mock import Mock
 from uuid import uuid4
 
 import psycopg
@@ -18,6 +20,7 @@ import pytest
 
 from backend.app.core.config import DatabaseSettings
 from backend.app.models.audit import AuditFailure, BatchAuditRequest
+from backend.app.models.feedback import FeedbackRuntime
 from backend.app.models.finding import Finding
 from backend.app.models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
 from backend.app.models.review import SampleReview
@@ -35,6 +38,63 @@ from backend.app.storage.workflow_repository import (
     SampleReviewRepository,
     WorkflowStorageError,
 )
+from backend.tests.feedback_fixtures import inputs
+
+
+@pytest.fixture
+def saved_feedback_audit_request(tmp_path, monkeypatch):
+    evaluation = inputs(tmp_path)
+    request = BatchAuditRequest(
+        dataset_id="dataset_a", dataset_root="", rulebook_id="feedback_book",
+        rulebook_version=1, source_mode="snapshot", sample_ids=["heldout_0"],
+        sample_revisions={"heldout_0": 1}, feedback_policy_id=evaluation.policy.resource_id,
+        feedback_runtime=FeedbackRuntime(execution=evaluation.runtime, policy=evaluation.policy),
+    )
+    document = json.loads(request.model_dump_json())
+    repository = AuditRepository(settings=DatabaseSettings(conninfo=SecretStr("dbname=unused")))
+    connection = Mock()
+    connection.execute.return_value.fetchone.return_value = {"request": document}
+
+    @contextmanager
+    def saved_connection():
+        yield connection
+
+    monkeypatch.setattr(repository, "_connection", saved_connection)
+    return repository, request, document
+
+
+def test_saved_audit_request_restores_feedback_pins(saved_feedback_audit_request):
+    repository, original, _ = saved_feedback_audit_request
+
+    restored = repository.get_request("audit_with_feedback")
+
+    assert restored == original
+    assert restored.feedback_runtime is not None
+    policy = restored.feedback_runtime.policy
+    assert policy is not None
+    assert isinstance(policy.created_at, datetime)
+    assert isinstance(policy.cases[0].reviewed_at, datetime)
+    assert policy.cases[0].finding_review is not None
+    assert isinstance(policy.cases[0].finding_review.updated_at, datetime)
+
+
+@pytest.mark.parametrize("path", [
+    ("created_at",),
+    ("cases", 0, "reviewed_at"),
+    ("cases", 0, "finding_review", "updated_at"),
+])
+@pytest.mark.parametrize("timestamp", ["not-a-timestamp", "2026-10-21T00:00:00"])
+def test_saved_audit_request_rejects_invalid_feedback_timestamps(
+    saved_feedback_audit_request, path, timestamp,
+):
+    repository, _, document = saved_feedback_audit_request
+    target = document["feedback_runtime"]["policy"]
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = timestamp
+
+    with pytest.raises(WorkflowStorageError, match="A saved audit request failed validation"):
+        repository.get_request("audit_with_feedback")
 
 
 @pytest.fixture

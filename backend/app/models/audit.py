@@ -14,6 +14,7 @@ from pydantic import (
 )
 
 from .job import JobStatus
+from .feedback import FeedbackRuntime
 
 
 NonBlank = Annotated[str, StringConstraints(min_length=1, pattern=r"\S")]
@@ -45,6 +46,7 @@ class BatchAuditRequest(BaseModel):
     sample_revisions: dict[str, int] = Field(default_factory=dict)
     connectivity: int = Field(default=8)
     feedback_policy_id: NonBlank | None = None
+    feedback_runtime: FeedbackRuntime | None = None
     source_mode: AuditSourceMode = Field(default=AuditSourceMode.LEGACY, strict=False)
 
     @field_validator("sample_ids")

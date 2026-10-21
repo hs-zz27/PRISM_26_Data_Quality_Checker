@@ -19,8 +19,8 @@ class AuditRequest(BaseModel):
         default=None, min_length=1, json_schema_extra={"uniqueItems": True},
         description="Omit or send null for all catalogue samples; a subset preserves request order.",
     )
-    feedback_policy_id: None = Field(
-        default=None, description="Feedback policies are not implemented; omit or send null.",
+    feedback_policy_id: Identifier | None = Field(
+        default=None, description="Explicit compatible active policy; null selects baseline context.",
     )
 
     @field_validator("sample_ids")

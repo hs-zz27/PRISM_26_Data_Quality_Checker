@@ -63,7 +63,7 @@ def test_start_returns_202_queued_public_resources_and_forwards_selection(api, s
 @pytest.mark.parametrize("changes", [
     {"sample_ids": []}, {"sample_ids": ["a", "a"]}, {"sample_ids": ["a\x00b"]},
     {"rulebook_version": True}, {"rulebook_version": "1"}, {"rulebook_version": 0},
-    {"dataset_root": "/private"}, {"source_mode": "legacy"}, {"feedback_policy_id": "policy"},
+    {"dataset_root": "/private"}, {"source_mode": "legacy"}, {"feedback_policy_id": " "},
 ])
 def test_bad_requests_are_422_and_never_submitted(api, changes):
     client, service, _ = api

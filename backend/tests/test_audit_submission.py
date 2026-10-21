@@ -83,7 +83,7 @@ def test_submission_uses_manifest_only_pins_without_running_or_recapturing(submi
     {"rulebook_version": True}, {"rulebook_version": "1"}, {"rulebook_version": 0},
     {"rulebook_version": 2147483648}, {"dataset_id": "a\x00b"}, {"dataset_id": "a" * 256},
     {"dataset_root": "/private/path"}, {"source_mode": "legacy"},
-    {"sample_revisions": {"a": 1}}, {"feedback_policy_id": "unsupported"},
+    {"sample_revisions": {"a": 1}}, {"feedback_policy_id": " "},
 ])
 def test_public_request_rejects_invalid_or_private_inputs(changes):
     with pytest.raises(ValidationError):

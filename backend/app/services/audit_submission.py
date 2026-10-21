@@ -30,6 +30,7 @@ class AuditSubmissionService:
             sample_ids=list(pins),
             sample_revisions={sample_id: pin.revision for sample_id, pin in pins.items()},
             source_mode=AuditSourceMode.SNAPSHOT,
+            feedback_policy_id=request.feedback_policy_id,
         )
         try:
             audit, job = self.batch.start(
@@ -38,4 +39,4 @@ class AuditSubmissionService:
             )
         except RuleParameterError as error:
             raise AuditRuleParametersError("The selected rule parameters are invalid.") from error
-        return AuditStarted(audit=audit, job=job)
+        return AuditStarted(audit=audit, job=job,feedback_policy_id=request.feedback_policy_id)

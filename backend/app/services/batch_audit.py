@@ -501,7 +501,8 @@ class BatchAuditService:
                     sample_claim.audit_id,
                     sample_claim.sample_revision,
                 ),
-                kwargs={"snapshot_manifest": manifest, "asset_settings": asset_settings},
+                kwargs={"snapshot_manifest": manifest, "asset_settings": asset_settings,
+                        "feedback_runtime":request.feedback_runtime},
                 daemon=True,
             )
             try:
@@ -724,6 +725,11 @@ class BatchAuditService:
                         sample_id=sample_claim.sample_id,
                         sample_revision=sample_claim.sample_revision,
                     )
+                    if request.feedback_runtime is not None:
+                        from .feedback import augment_evaluation
+                        evaluation=augment_evaluation(evaluation,rulebook,self._snapshot_for_claim(request,sample_claim),
+                            request.feedback_runtime,self.manifest_repository.asset_settings,
+                            audit_id=sample_claim.audit_id,sample_id=sample_claim.sample_id,sample_revision=sample_claim.sample_revision)
                 # Preserve the collector's source-processing status. The
                 # durable incomplete flag also records evaluator health.
                 stored_measurements = deepcopy(dict(measurements))
