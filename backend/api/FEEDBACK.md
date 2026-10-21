@@ -141,6 +141,9 @@ specific installed model's image ordering/context behavior before relying on it.
 
 Default finite bounds: four example images plus target; 8 MiB/image, 16 million
 pixels/image, 128 KiB annotation, 64 MiB serialized request, 64 KiB response.
+Model identity/capability metadata has a separate 1 MiB response bound because
+Ollama includes licenses and tensor descriptions; prediction responses retain
+their stricter 64 KiB bound.
 Execution pins record these bounds and context/output/time settings. Output tokens
 are at most 2048; request timeout at most 600 seconds. No silent annotation/rule
 truncation occurs. Conservative text/image reservations are checked before job

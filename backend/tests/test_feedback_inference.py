@@ -13,7 +13,8 @@ from backend.app.services.feedback import augment_evaluation
 from backend.app.services.evaluation import RuleEvaluationResult
 from backend.tests.feedback_fixtures import inputs, assets, book, record
 
-def client_for(execution, case, *, outcome='fail', drift=False, broken=False, capabilities=None):
+def client_for(execution, case, *, outcome='fail', drift=False, broken=False, capabilities=None,
+               metadata_padding=0, chat_padding=0):
     requests = []
     tags = 0
 
@@ -25,12 +26,13 @@ def client_for(execution, case, *, outcome='fail', drift=False, broken=False, ca
             digest = 'b' * 64 if drift and tags > 1 else 'a' * 64
             return httpx.Response(200, json={'models': [{'name': execution.model, 'digest': digest}]})
         if request.url.path == '/api/show':
-            return httpx.Response(200, json={'capabilities': ['vision'] if capabilities is None else capabilities})
+            return httpx.Response(200, json={'capabilities': ['vision'] if capabilities is None else capabilities,
+                                             'template': 'x' * metadata_padding})
         assert request.url.path == '/api/chat'
         prediction = record(case.manifest, case.target, outcome).prediction.model_dump(mode='json')
         if broken:
             prediction['outcome'] = 'accepted'
-        return httpx.Response(200, json={'model': execution.model, 'done': True, 'done_reason': 'stop', 'prompt_eval_count': 1024, 'message': {'role': 'assistant', 'content': json.dumps(prediction)}})
+        return httpx.Response(200, json={'model': execution.model, 'done': True, 'done_reason': 'stop', 'prompt_eval_count': 1024, 'message': {'role': 'assistant', 'content': json.dumps(prediction)}, 'padding': 'x' * chat_padding})
     return (GuidelineClient(execution, transport=httpx.MockTransport(handler)), requests)
 
 def test_target_labels_comments_and_private_paths_never_enter_prompt(tmp_path):
@@ -66,6 +68,35 @@ def test_real_protocol_mock_preserves_finite_outcomes_and_digest(tmp_path, outco
     assert result.prediction.outcome == outcome and result.model_verified is True
     assert result.duration_ms >= 0 and sum((r.url.path == '/api/tags' for r in requests)) == 2
     assert all((r.url.host in {'localhost', '127.0.0.1', '::1'} for r in requests))
+
+
+def test_model_metadata_has_a_separate_bound_from_predictions(tmp_path):
+    frozen = inputs(tmp_path)
+    case = frozen.truth.cases[0]
+    client, _ = client_for(frozen.runtime, case, metadata_padding=100_000)
+    try:
+        result = client.predict(case.manifest, case.target, [], assets(tmp_path))
+    finally:
+        client.close()
+    assert result.model_verified is True
+    assert result.prediction.outcome == 'fail'
+
+
+@pytest.mark.parametrize('padding', [
+    {'metadata_padding': 1024 * 1024},
+    {'metadata_padding': 100_000, 'chat_padding': 70_000},
+])
+def test_metadata_and_prediction_bounds_both_remain_enforced(tmp_path, padding):
+    frozen = inputs(tmp_path)
+    case = frozen.truth.cases[0]
+    client, _ = client_for(frozen.runtime, case, **padding)
+    try:
+        result = client.predict(case.manifest, case.target, [], assets(tmp_path))
+    finally:
+        client.close()
+    assert result.model_verified is False
+    assert result.prediction.outcome == 'unavailable'
+    assert result.prediction.reason == 'response_limit'
 
 @pytest.mark.parametrize('options', [{'drift': True}, {'broken': True}, {'capabilities': ['completion']}])
 def test_identity_drift_invalid_output_and_no_vision_are_unavailable(tmp_path, options):
