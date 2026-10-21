@@ -131,6 +131,15 @@ Dependencies are recorded in the root-level `requirements.txt`. The dataset rema
 
 Follow `../SRS.md`: plain text guidelines first, CPU inference, reviewer-controlled final decisions, actual annotation corrections and evaluated use of feedback.
 
+## CPU person-detector weights
+
+The person detector uses pretrained Torchvision `COCO_V1` weights for
+`fasterrcnn_mobilenet_v3_large_320_fpn`, downloaded separately from Ollama.
+See [CPU detector setup](CPU_DETECTION.md#download-the-pretrained-weights) for the
+download command, checksum verification, local cache path and real-model
+validation steps. The checkpoint is approximately 74.24 MiB and stays in the
+Git-ignored `.cache/torch` folder; no training is required to use it.
+
 ## Ollama configuration
 
 `ollama.toml` contains the shared defaults for the model, local server address,

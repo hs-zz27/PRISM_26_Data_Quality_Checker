@@ -21,6 +21,69 @@ Files:
 - `benchmarks/benchmark_detection.py`: validation and CPU timing command line.
 - `tests/test_detection_evidence.py`, `tests/test_detection_benchmark.py`.
 
+## Download the pretrained weights
+
+Use `fasterrcnn_mobilenet_v3_large_320_fpn` with the explicit
+`FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.COCO_V1` weights from
+[Torchvision](https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.detection.fasterrcnn_mobilenet_v3_large_320_fpn.html).
+The checkpoint is approximately **77.84 MB (74.24 MiB)**. It is already pretrained;
+no training or Ollama model is needed for this detector.
+
+With the project's Python 3.12 environment activated and its pinned dependencies
+installed, run this from the **project root** in Bash or Zsh:
+
+```bash
+python -B - <<'PY'
+import hashlib
+from pathlib import Path
+
+import torch
+from torchvision.models.detection import (
+    FasterRCNN_MobileNet_V3_Large_320_FPN_Weights,
+)
+
+directory = Path(".cache/torch/hub/checkpoints")
+directory.mkdir(parents=True, exist_ok=True)
+weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.COCO_V1
+checkpoint = directory / Path(weights.url).name
+expected_prefix = "907ea3f9"
+
+if not checkpoint.exists():
+    torch.hub.download_url_to_file(
+        weights.url, str(checkpoint), hash_prefix=expected_prefix, progress=True,
+    )
+
+with checkpoint.open("rb") as stream:
+    checksum = hashlib.file_digest(stream, "sha256").hexdigest()
+if not checksum.startswith(expected_prefix):
+    raise SystemExit(f"Checksum mismatch: {checkpoint}. Move the file aside and retry.")
+
+print(f"Checkpoint: {checkpoint}")
+print(f"SHA-256: {checksum}")
+PY
+```
+
+On PowerShell, save the Python body between the `PY` markers to a temporary
+`.py` file outside the checkout and run it with the activated environment's
+`python`, keeping the working directory at the project root.
+
+This explicitly downloads from the official weight URL only when the file is
+missing and checks the expected SHA-256 prefix for both new and cached files.
+It does not load the model or run inference. The resulting checkpoint is:
+
+```text
+.cache/torch/hub/checkpoints/fasterrcnn_mobilenet_v3_large_320_fpn-907ea3f9.pth
+```
+
+Keep the weights local: `.cache/` is already excluded by `.gitignore`. Each
+developer downloads their own copy; do not commit the checkpoint. Application
+imports and detector setup never download it automatically.
+
+A successful download verifies file availability and checksum only. Follow
+[Validating a real checkpoint](#validating-a-real-checkpoint) to load the model
+and inspect detections on representative images; accuracy and CPU benchmarks
+remain separate validation steps.
+
 ## Service interface
 
 ```python

@@ -23,6 +23,7 @@ PennFudanPed/
 
 # Local architectural decision record
 /decisions.md
+/RUN_INSTRUCTIONS.md
 
 # Local application records and legacy database files
 /backend/data/
