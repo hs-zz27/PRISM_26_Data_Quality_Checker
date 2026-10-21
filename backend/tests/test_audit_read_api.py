@@ -603,6 +603,14 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "/api/v1/jobs/{job_id}/cancel",
         "/api/v1/audits/{audit_id}/samples/{sample_id}/review",
         "/api/v1/audits/{audit_id}/samples/{sample_id}/reviews",
+        "/api/v1/feedback/examples",
+        "/api/v1/feedback/policies",
+        "/api/v1/feedback/policies/{policy_id}",
+        "/api/v1/feedback/policies/{policy_id}/activate",
+        "/api/v1/feedback/ground-truth",
+        "/api/v1/feedback/ground-truth/{ground_truth_id}",
+        "/api/v1/feedback/evaluations",
+        "/api/v1/feedback/evaluations/{evaluation_id}",
     }
     assert {operation["operationId"] for path in spec["paths"].values() for operation in path.values()} == {
         "extractRulebook", "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
@@ -612,6 +620,9 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "reviewSample", "listSampleReviews",
         "startExport", "listExports", "getExport", "getExportManifest", "downloadExport",
         "uploadCorrectionMask", "correctAnnotations", "listAnnotationRevisions", "recheckSamples",
+        "listFeedbackExamples", "createFeedbackPolicy", "listFeedbackPolicies", "getFeedbackPolicy",
+        "createGroundTruth", "getGroundTruth", "evaluateFeedbackPolicy", "getFeedbackEvaluation",
+        "listFeedbackEvaluations", "activateFeedbackPolicy",
     }
     assert client.post("/api/v1/audits/audit_1/samples").status_code == 405
     response = client.put("/api/v1/audits/audit_1/samples/sample_1/review", json={})

@@ -18,9 +18,9 @@ from backend.tests.test_rulebook_contract import assert_same_schema
 def test_four_existing_operations_promoted_once_and_exact_inventory():
     app=create_app();live=app.openapi();generated=build_contract()
     ids=[c.original_route.operation_id for c in iter_route_contexts(app.routes) if isinstance(c.original_route,APIRoute) and c.original_route.include_in_schema]
-    assert len(ids)==len(set(ids))==36
+    assert len(ids)==len(set(ids))==46
     operations=[op for methods in generated['paths'].values() for op in methods.values()]
-    assert len(operations)==50 and sum(op['x-implementation-status']=='planned' for op in operations)==14
+    assert len(operations)==50 and sum(op['x-implementation-status']=='planned' for op in operations)==4
     for (path,method),identifier in OPERATIONS.items():
         one=generated['paths'][path][method];two=live['paths']['/api/v1'+path][method]
         assert one['operationId']==two['operationId']==identifier and ids.count(identifier)==1
@@ -61,7 +61,7 @@ def test_recheck_fixtures_use_executable_audit_kind_and_declared_result_urls():
         job=Job.model_validate_json(json.dumps(value));assert job.kind.value=='audit' and job.status.value==state
         if job.result is not None:
             assert job.result.href=='/api/v1/audits/'+job.result.id
-    assert set(document['x-future-job-scenarios'])=={'feedback_evaluation'}
+    assert set(document['x-future-job-scenarios'])==set()
 
 
 def test_generated_artifact_freshness_remains_a_required_gate():

@@ -22,7 +22,7 @@ def test_planned_reference_covers_every_future_operation_and_no_live_operation()
                 assert "500" in operation["responses"]
             else:
                 assert heading not in guide
-    assert len(planned) == 14
+    assert len(planned) == 4
 
 def test_future_audit_payloads_reuse_the_live_audit_transport():
     schemas = SPEC["components"]["schemas"]
@@ -59,9 +59,9 @@ def test_future_conflicts_expose_the_domain_codes_needed_by_frontend_flows():
         ("/audits/{audit_id}/rechecks", "post"): "STALE_SAMPLE_REVISION",
         ("/exports/{export_id}/download", "get"): "EXPORT_NOT_READY",
         ("/exports/{export_id}/manifest", "get"): "EXPORT_NOT_READY",
-        ("/feedback/ground-truth", "post"): "GROUND_TRUTH_NOT_READY",
-        ("/feedback/evaluations", "post"): "EVALUATION_DATA_OVERLAP",
-        ("/feedback/policies/{policy_id}/activate", "post"): "POLICY_NOT_EVALUATED",
+        ("/feedback/ground-truth", "post"): "FEEDBACK_NOT_READY",
+        ("/feedback/evaluations", "post"): "EVALUATION_OVERLAP",
+        ("/feedback/policies/{policy_id}/activate", "post"): "FEEDBACK_NOT_READY",
     }
     for (path, method), code in expected.items():
         media = SPEC["paths"][path][method]["responses"]["409"]["content"]["application/json"]
@@ -70,7 +70,8 @@ def test_future_conflicts_expose_the_domain_codes_needed_by_frontend_flows():
 
 def test_future_job_mocks_cover_six_states_and_pin_extraction_results():
     scenarios = EXAMPLES["future_job_scenarios"]
-    assert set(scenarios) == {"feedback_evaluation"}
+    assert scenarios == {}
+    scenarios = {"feedback_evaluation": EXAMPLES["feedback_job_scenarios"]}
     assert "dataset_import_scenarios" in EXAMPLES
     for kind, states in scenarios.items():
         assert set(states) == {status.value for status in JobStatus}
