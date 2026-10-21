@@ -13,17 +13,9 @@ from .audit_read import SampleAssets
 from .job import ErrorDetail, Job, JobKind, JobStatus
 
 
-def _no_nul(value: str) -> str:
-    if "\x00" in value:
-        raise ValueError("Identifiers must not contain NUL characters.")
-    return value
+from .identifiers import _no_nul, Identifier, Count, Revision, Dimension
 
 
-Identifier = Annotated[str, StringConstraints(min_length=1, max_length=255, pattern=r"\S"),
-                       AfterValidator(_no_nul)]
-Count = Annotated[int, Field(strict=True, ge=0, le=9_223_372_036_854_775_807)]
-Revision = Annotated[int, Field(strict=True, ge=1, le=2_147_483_647)]
-Dimension = Annotated[int, Field(strict=True, ge=1, le=2_147_483_647)]
 MAX_SAMPLE_OBJECTS = 10_000
 MAX_ISSUES = 256
 
