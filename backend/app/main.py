@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from .core.openapi import preserve_schema_values
+from .routers.feedback import router as feedback_router,register_feedback_errors
 from .routers.corrections import router as corrections_router, register_correction_errors
 from .routers.correction_ingress import CorrectionIngress
 from .routers.rechecks import router as rechecks_router
@@ -26,15 +27,17 @@ def create_app(*, dataset_upload_settings_factory=None, correction_settings_fact
             "Dataset upload acceptance and catalogue reads are implemented; the import worker is explicit. "
             "Reviewed dataset export acceptance, listing, metadata, manifest and ZIP download are implemented; export processing uses an explicit worker. "
             "Annotation/mask correction, revision history and linked snapshot rechecks are implemented; rechecks use the explicit audit worker. "
-            "Other operations in backend/api remain planned."
+            "Reviewed-example policies, adjudicated truth, held-out comparison jobs and explicit activation are implemented in source. Other operations in backend/api remain planned."
         ),
     )
     register_error_handlers(app)
+    register_feedback_errors(app)
     register_export_error_handlers(app)
     register_correction_errors(app)
     app.add_middleware(CorrectionIngress, settings_factory=correction_settings_factory)
     app.add_middleware(DatasetUploadIngress, settings_factory=dataset_upload_settings_factory)
     app.include_router(audits_router, prefix="/api/v1")
+    app.include_router(feedback_router,prefix="/api/v1")
     app.include_router(assets_router, prefix="/api/v1")
     app.include_router(datasets_router, prefix="/api/v1")
     app.include_router(exports_router, prefix="/api/v1")
