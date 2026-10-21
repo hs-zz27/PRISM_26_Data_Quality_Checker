@@ -17,6 +17,7 @@ each load their own copy.
 
 import hashlib
 import logging
+import re
 from collections.abc import Collection, Mapping, Sequence
 from math import isfinite
 from numbers import Integral, Real
@@ -73,6 +74,9 @@ class DetectionEvidenceService:
     `checkpoint_path` (an existing local checkpoint; nothing is downloaded).
     `person_labels` names the annotation labels that mean "person"; labels are
     matched exactly, and other labels are reported as excluded, never compared.
+    `expected_checkpoint_sha256` makes the service refuse any other checkpoint: a
+    file whose hash differs is never loaded and the evidence reports
+    `checkpoint_mismatch`.
 
     A missing or unusable checkpoint does not raise here. It is reported as
     `detector_unavailable` evidence on every call, and the original exception is
@@ -85,10 +89,19 @@ class DetectionEvidenceService:
         person_labels: Collection[str],
         detector: DetectorLike | None = None,
         checkpoint_path: str | Path | None = None,
+        expected_checkpoint_sha256: str | None = None,
     ):
         self._person_labels = _checked_labels(person_labels)
         if (detector is None) == (checkpoint_path is None):
             raise ValueError("Provide exactly one of detector or checkpoint_path.")
+        if expected_checkpoint_sha256 is not None and checkpoint_path is None:
+            raise ValueError("expected_checkpoint_sha256 applies only with checkpoint_path.")
+        if expected_checkpoint_sha256 is not None and not (
+            isinstance(expected_checkpoint_sha256, str)
+            and re.fullmatch(r"[0-9a-f]{64}", expected_checkpoint_sha256)
+        ):
+            raise ValueError("expected_checkpoint_sha256 must be 64 lowercase hexadecimal characters.")
+        self._expected_checkpoint_sha256 = expected_checkpoint_sha256
         self._detector = detector
         self._checkpoint_sha256: str | None = None
         self._setup_failure: WeightsLoadError | None = None
@@ -104,6 +117,13 @@ class DetectionEvidenceService:
 
     def _set_up_checkpoint(self, path: Path) -> None:
         self._checkpoint_sha256 = file_sha256(path)
+        expected = self._expected_checkpoint_sha256
+        if expected is not None and self._checkpoint_sha256 not in (None, expected):
+            # Never load weights other than the ones the caller asked for.
+            self._setup_failure = WeightsLoadError("The checkpoint does not match the expected SHA-256.")
+            self._setup_reason = UnavailableReason.CHECKPOINT_MISMATCH
+            logger.warning("Person detector checkpoint does not match the expected SHA-256")
+            return
         try:
             self._detector = PersonDetector(path)
         except WeightsLoadError as error:
@@ -205,6 +225,7 @@ class DetectionEvidenceService:
             return ModelIdentity(
                 architecture=MODEL_NAME, checkpoint_source="local_checkpoint",
                 checkpoint_sha256=self._checkpoint_sha256,
+                expected_checkpoint_sha256=self._expected_checkpoint_sha256,
             )
         return ModelIdentity(
             architecture=None if output is None else output.model_name,
