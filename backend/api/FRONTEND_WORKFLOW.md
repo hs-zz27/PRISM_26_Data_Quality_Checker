@@ -75,7 +75,8 @@ while derived previews fail safely. Do not automatically accept/reject samples.
 Use `examples.dataset_import_scenarios` for all six job states, invalid archives,
 partial cancellation, dirty samples and explicit-zero versus malformed annotations.
 See DATASETS.md for worker setup, resource policies, safe errors and generation gates.
-Audit creation is implemented; annotation corrections and rechecks remain planned.
+Audit creation, annotation/mask correction revisions and linked rechecks are implemented
+in source after the current handoff is applied; see CORRECTIONS.md.
 Reviewed dataset exports are implemented in source and their contracts are
 regenerated. Tests have not been rerun after integration corrections; migration
 application and real worker/database/download verification remain pending.
@@ -94,7 +95,7 @@ Do not add a CPU batch-size field or assume the standalone detector is integrate
 IDs from the creation response. Startup creates no demo records.
 Audit processing completion does not mean that a reviewer accepted its samples.
 
-The live audit read returns `AuditRun` directly. Start and planned recheck responses
+The live audit read returns `AuditRun` directly. Start and linked recheck responses
 wrap that lifecycle shape as `audit` beside `job`; optional parent/policy context
 belongs to the wrapper. Do not require `reviewed_count`, `parent_audit_id` or
 `feedback_policy_id` on the persisted `AuditRun` response.
@@ -117,8 +118,8 @@ cancelled in that response; a running audit enters cancelling. Continue polling
 until terminal. Terminal cancellation conflicts use 409 `JOB_ALREADY_FINISHED`.
 Completed evidence and decisions remain available. Dataset import, extraction
 and export jobs use their own managed cancellation dispatch through the same
-endpoint. Do not infer cancellation support for planned recheck/evaluation job
-producers merely because their proposed responses use the public Job schema.
+endpoint. Linked rechecks use kind `audit` and the same audit-aware cancellation
+and recovery path. Feedback-evaluation producers remain planned.
 
 ## 6. Review queue, evidence and decisions
 
@@ -159,26 +160,28 @@ Annotation boxes are one-based inclusive `[xmin, ymin, xmax, ymax]`; image size 
 `[width, height]`. Canvas left/top subtract one, while width/height include `+1`.
 Convert edited boxes back to the source convention before submission.
 
-**Planned:** stage a raw instance-ID PNG through
+**Implemented in source:** stage a raw instance-ID PNG through
 `POST /datasets/{dataset_id}/samples/{sample_id}/mask-uploads` using multipart,
 including its required `expected_revision`. Its response's `base_revision` binds
 the staged mask to the source revision being edited.
 Then POST `/revisions` with its `mask_upload_id`, or null when keeping the mask,
 the last-read `expected_revision`, attribution/reason and the full object list.
-Omitted objects are removed; this is not a patch. The proposed correction is an
-atomic annotation/mask revision. Expired staged uploads must be repeated.
+Omitted objects are removed; this is not a patch. The correction publishes a real immutable annotation/mask revision atomically
+with provenance, head movement and any staged-mask consumption. Expired staged uploads must be repeated.
 Use revision-history GET to display earlier versions. Keep original audit
 evidence visible. Old decisions remain valid for their exact immutable old pins;
 correction must not rewrite them or transfer acceptance to the new revision.
 
 ## 8. Recheck and export
 
-**Planned:** POST `/audits/{audit_id}/rechecks` with selected sample IDs, explicit
+**Implemented in source:** POST `/audits/{audit_id}/rechecks` with selected sample IDs, explicit
 `sample_revisions` and reviewer attribution. The map keys must exactly match
 `sample_ids`, with each value the expected positive current revision. Handle a
 stale-revision 409 by refreshing; malformed selections use 422. Do not silently substitute revisions. Poll the returned
 job and review the new audit's pinned revisions.
-The target contract keeps the prior book/policy while creating fresh evidence;
+The child pins the exact parent rulebook and supports only the existing null
+feedback policy. Selected heads remain locked through enqueue. Its job kind is
+`audit`; run the existing explicit audit worker. It creates fresh evidence;
 old final sample decisions are not inherited.
 
 **Implemented in source:**
@@ -245,3 +248,10 @@ and needs_correction are excluded. Export revisions remain historical audit pins
 A lost POST response requires reconciliation through list/detail/job reads before
 resubmission; there is no automatic retry or idempotency key. See EXPORTS.md for
 safe errors, selection snapshot cutoff, omitted images and storage limitations.
+
+## Correction/recheck contract gate
+
+The correction/recheck source is applied and all five API artifacts are
+regenerated: 36 implemented and 14 planned operations, 50 total. Use the updated
+implemented-only contract for client generation. Migration 012 and regression
+execution after the latest integration fixes remain separate runtime gates.

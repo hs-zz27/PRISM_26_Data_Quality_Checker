@@ -1,5 +1,5 @@
 {
-  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+  "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
   "base_url": "http://127.0.0.1:8000",
   "operations": [
     {
@@ -996,8 +996,8 @@
       "path": "/api/v1/datasets/{dataset_id}/samples/{sample_id}/mask-uploads",
       "tag": "Corrections",
       "summary": "Stage a replacement instance-ID mask",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "implementation": "implemented",
+      "backing_service": "Immutable correction repository/service and linked AUDIT enqueue.",
       "request": {
         "path_parameters": {
           "dataset_id": "dataset_demo",
@@ -1006,7 +1006,7 @@
         "query": {},
         "content_type": "multipart/form-data",
         "body": {
-          "mask": "<binary 2D instance-ID PNG>",
+          "mask": "<binary integer-ID PNG>",
           "expected_revision": 1
         }
       },
@@ -1014,7 +1014,7 @@
         "status": 201,
         "content_type": "application/json",
         "body": {
-          "mask_upload_id": "mask_upload_demo",
+          "mask_upload_id": "mask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "dataset_id": "dataset_demo",
           "sample_id": "sample_001",
           "base_revision": 1,
@@ -1024,10 +1024,9 @@
           ],
           "mask_ids": [
             0,
-            1,
-            2
+            1
           ],
-          "expires_at": "2026-10-14T11:00:00Z"
+          "expires_at": "2026-10-21T01:00:00Z"
         }
       }
     },
@@ -1037,8 +1036,8 @@
       "path": "/api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions",
       "tag": "Corrections",
       "summary": "Save corrected annotations and optional mask",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "implementation": "implemented",
+      "backing_service": "Immutable correction repository/service and linked AUDIT enqueue.",
       "request": {
         "path_parameters": {
           "dataset_id": "dataset_demo",
@@ -1049,30 +1048,20 @@
         "body": {
           "expected_revision": 1,
           "reviewer_id": "reviewer_demo",
-          "reason": "Corrected the second object's label.",
+          "reason": "Correct the complete object list.",
           "objects": [
             {
               "object_id": 1,
-              "label": "person",
+              "label": "pedestrian",
               "bbox": [
                 1,
                 1,
-                2,
-                2
-              ]
-            },
-            {
-              "object_id": 2,
-              "label": "person",
-              "bbox": [
-                4,
-                3,
                 4,
                 3
               ]
             }
           ],
-          "mask_upload_id": null,
+          "mask_upload_id": "mask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "source_audit_id": "audit_demo"
         }
       },
@@ -1087,30 +1076,20 @@
           "objects": [
             {
               "object_id": 1,
-              "label": "person",
+              "label": "pedestrian",
               "bbox": [
                 1,
                 1,
-                2,
-                2
-              ]
-            },
-            {
-              "object_id": 2,
-              "label": "person",
-              "bbox": [
-                4,
-                3,
                 4,
                 3
               ]
             }
           ],
-          "mask_changed": false,
+          "mask_changed": true,
           "reviewer_id": "reviewer_demo",
-          "reason": "Corrected the second object's label.",
+          "reason": "Correct the complete object list.",
           "source_audit_id": "audit_demo",
-          "created_at": "2026-10-14T10:00:00Z"
+          "created_at": "2026-10-21T00:00:00Z"
         }
       }
     },
@@ -1120,8 +1099,8 @@
       "path": "/api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions",
       "tag": "Corrections",
       "summary": "Read correction history",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "implementation": "implemented",
+      "backing_service": "Immutable correction repository/service and linked AUDIT enqueue.",
       "request": {
         "path_parameters": {
           "dataset_id": "dataset_demo",
@@ -1147,35 +1126,48 @@
               "objects": [
                 {
                   "object_id": 1,
-                  "label": "person",
+                  "label": "pedestrian",
                   "bbox": [
                     1,
                     1,
-                    2,
-                    2
-                  ]
-                },
-                {
-                  "object_id": 2,
-                  "label": "person",
-                  "bbox": [
                     4,
-                    3,
+                    3
+                  ]
+                }
+              ],
+              "mask_changed": true,
+              "reviewer_id": "reviewer_demo",
+              "reason": "Correct the complete object list.",
+              "source_audit_id": "audit_demo",
+              "created_at": "2026-10-21T00:00:00Z"
+            },
+            {
+              "dataset_id": "dataset_demo",
+              "sample_id": "sample_001",
+              "revision": 1,
+              "parent_revision": null,
+              "objects": [
+                {
+                  "object_id": 1,
+                  "label": "pedestrian",
+                  "bbox": [
+                    1,
+                    1,
                     4,
                     3
                   ]
                 }
               ],
               "mask_changed": false,
-              "reviewer_id": "reviewer_demo",
-              "reason": "Corrected the second object's label.",
-              "source_audit_id": "audit_demo",
-              "created_at": "2026-10-14T10:00:00Z"
+              "reviewer_id": null,
+              "reason": null,
+              "source_audit_id": null,
+              "created_at": "2026-10-21T00:00:00Z"
             }
           ],
           "limit": 20,
           "offset": 0,
-          "total": 1,
+          "total": 2,
           "next_offset": null
         }
       }
@@ -2023,8 +2015,8 @@
       "path": "/api/v1/audits/{audit_id}/rechecks",
       "tag": "Audits",
       "summary": "Audit corrected sample revisions again",
-      "implementation": "planned",
-      "backing_service": "planned",
+      "implementation": "implemented",
+      "backing_service": "Immutable correction repository/service and linked AUDIT enqueue.",
       "request": {
         "path_parameters": {
           "audit_id": "audit_demo"
@@ -2062,7 +2054,7 @@
           },
           "job": {
             "job_id": "job_recheck_demo",
-            "kind": "recheck",
+            "kind": "audit",
             "status": "queued",
             "progress": {
               "phase": "queued",
@@ -7258,109 +7250,109 @@
       "next_offset": null
     }
   },
-  "future_job_scenarios": {
-    "recheck": {
-      "queued": {
-        "job_id": "job_recheck_demo",
-        "kind": "recheck",
-        "status": "queued",
-        "progress": {
-          "phase": "queued",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
+  "recheck_job_scenarios": {
+    "queued": {
+      "job_id": "job_recheck_demo",
+      "kind": "audit",
+      "status": "queued",
+      "progress": {
+        "phase": "queued",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
       },
-      "running": {
-        "job_id": "job_recheck_demo",
-        "kind": "recheck",
-        "status": "running",
-        "progress": {
-          "phase": "running",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      },
-      "cancelling": {
-        "job_id": "job_recheck_demo",
-        "kind": "recheck",
-        "status": "cancelling",
-        "progress": {
-          "phase": "cancelling",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      },
-      "completed": {
-        "job_id": "job_recheck_demo",
-        "kind": "recheck",
-        "status": "completed",
-        "progress": {
-          "phase": "completed",
-          "processed": 1,
-          "total": 1,
-          "fraction": 1.0
-        },
-        "result": {
-          "kind": "audit",
-          "id": "audit_recheck_demo",
-          "version": null,
-          "href": "/api/v1/audits/audit_recheck_demo"
-        },
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      },
-      "failed": {
-        "job_id": "job_recheck_demo",
-        "kind": "recheck",
-        "status": "failed",
-        "progress": {
-          "phase": "failed",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": {
-          "code": "RECHECK_FAILED",
-          "message": "The requested work could not be completed.",
-          "details": [],
-          "request_id": "request_demo"
-        },
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      },
-      "cancelled": {
-        "job_id": "job_recheck_demo",
-        "kind": "recheck",
-        "status": "cancelled",
-        "progress": {
-          "phase": "cancelled",
-          "processed": 0,
-          "total": 1,
-          "fraction": 0.0
-        },
-        "result": null,
-        "error": null,
-        "created_at": "2026-10-14T10:00:00Z",
-        "updated_at": "2026-10-14T10:00:00Z"
-      }
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
     },
+    "running": {
+      "job_id": "job_recheck_demo",
+      "kind": "audit",
+      "status": "running",
+      "progress": {
+        "phase": "running",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
+      },
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "cancelling": {
+      "job_id": "job_recheck_demo",
+      "kind": "audit",
+      "status": "cancelling",
+      "progress": {
+        "phase": "cancelling",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
+      },
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "completed": {
+      "job_id": "job_recheck_demo",
+      "kind": "audit",
+      "status": "completed",
+      "progress": {
+        "phase": "completed",
+        "processed": 1,
+        "total": 1,
+        "fraction": 1.0
+      },
+      "result": {
+        "kind": "audit",
+        "id": "audit_recheck_demo",
+        "version": null,
+        "href": "/api/v1/audits/audit_recheck_demo"
+      },
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "failed": {
+      "job_id": "job_recheck_demo",
+      "kind": "audit",
+      "status": "failed",
+      "progress": {
+        "phase": "failed",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
+      },
+      "result": null,
+      "error": {
+        "code": "AUDIT_FAILED",
+        "message": "The audit could not be completed.",
+        "details": [],
+        "request_id": "request_demo"
+      },
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    },
+    "cancelled": {
+      "job_id": "job_recheck_demo",
+      "kind": "audit",
+      "status": "cancelled",
+      "progress": {
+        "phase": "cancelled",
+        "processed": 0,
+        "total": 1,
+        "fraction": 0.0
+      },
+      "result": null,
+      "error": null,
+      "created_at": "2026-10-14T10:00:00Z",
+      "updated_at": "2026-10-14T10:00:00Z"
+    }
+  },
+  "future_job_scenarios": {
     "feedback_evaluation": {
       "queued": {
         "job_id": "job_feedback_evaluation_demo",

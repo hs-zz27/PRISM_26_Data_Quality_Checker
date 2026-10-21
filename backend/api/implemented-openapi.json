@@ -5545,6 +5545,1074 @@
         "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
       }
     },
+    "/api/v1/datasets/{dataset_id}/samples/{sample_id}/mask-uploads": {
+      "post": {
+        "tags": [
+          "Corrections"
+        ],
+        "summary": "Stage a replacement instance-ID mask",
+        "operationId": "uploadCorrectionMask",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Dataset Id"
+            },
+            "example": "dataset_demo"
+          },
+          {
+            "name": "sample_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Sample Id"
+            },
+            "example": "sample_001"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaskUpload"
+                },
+                "example": {
+                  "mask_upload_id": "mask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "dataset_id": "dataset_demo",
+                  "sample_id": "sample_001",
+                  "base_revision": 1,
+                  "image_size": [
+                    4,
+                    3
+                  ],
+                  "mask_ids": [
+                    0,
+                    1
+                  ],
+                  "expires_at": "2026-10-21T01:00:00Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or sample not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale revision, unavailable mask or incompatible source audit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "STALE_SAMPLE_REVISION": {
+                    "value": {
+                      "error": {
+                        "code": "STALE_SAMPLE_REVISION",
+                        "message": "Refresh the selected revision before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid correction inputs or unusable source.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "SOURCE_NOT_CORRECTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "SOURCE_NOT_CORRECTABLE",
+                        "message": "A verified PNG image and resulting integer-ID mask are required.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or durable publication unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Storage or durable publication is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload byte limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UPLOAD_TOO_LARGE": {
+                    "value": {
+                      "error": {
+                        "code": "UPLOAD_TOO_LARGE",
+                        "message": "The correction request exceeds configured bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported multipart representation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UNSUPPORTED_MEDIA_TYPE": {
+                    "value": {
+                      "error": {
+                        "code": "UNSUPPORTED_MEDIA_TYPE",
+                        "message": "Use the documented content representation.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "mask": {
+                    "format": "binary",
+                    "title": "Mask",
+                    "type": "string"
+                  },
+                  "expected_revision": {
+                    "maximum": 2147483646,
+                    "minimum": 1,
+                    "title": "Expected Revision",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "mask",
+                  "expected_revision"
+                ],
+                "title": "MaskUploadRequest",
+                "type": "object"
+              },
+              "example": {
+                "mask": "<binary integer-ID PNG>",
+                "expected_revision": 1
+              }
+            }
+          }
+        },
+        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Immutable correction repository/service and linked AUDIT enqueue."
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions": {
+      "post": {
+        "tags": [
+          "Corrections"
+        ],
+        "summary": "Save corrected annotations and optional mask",
+        "operationId": "correctAnnotations",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Dataset Id"
+            },
+            "example": "dataset_demo"
+          },
+          {
+            "name": "sample_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Sample Id"
+            },
+            "example": "sample_001"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectionRequest"
+              },
+              "example": {
+                "expected_revision": 1,
+                "reviewer_id": "reviewer_demo",
+                "reason": "Correct the complete object list.",
+                "objects": [
+                  {
+                    "object_id": 1,
+                    "label": "pedestrian",
+                    "bbox": [
+                      1,
+                      1,
+                      4,
+                      3
+                    ]
+                  }
+                ],
+                "mask_upload_id": "mask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "source_audit_id": "audit_demo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationRevision"
+                },
+                "example": {
+                  "dataset_id": "dataset_demo",
+                  "sample_id": "sample_001",
+                  "revision": 2,
+                  "parent_revision": 1,
+                  "objects": [
+                    {
+                      "object_id": 1,
+                      "label": "pedestrian",
+                      "bbox": [
+                        1,
+                        1,
+                        4,
+                        3
+                      ]
+                    }
+                  ],
+                  "mask_changed": true,
+                  "reviewer_id": "reviewer_demo",
+                  "reason": "Correct the complete object list.",
+                  "source_audit_id": "audit_demo",
+                  "created_at": "2026-10-21T00:00:00Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or sample not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale revision, unavailable mask or incompatible source audit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "STALE_SAMPLE_REVISION": {
+                    "value": {
+                      "error": {
+                        "code": "STALE_SAMPLE_REVISION",
+                        "message": "Refresh the selected revision before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "MASK_UPLOAD_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "MASK_UPLOAD_UNAVAILABLE",
+                        "message": "The mask upload cannot be used.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "SOURCE_AUDIT_MISMATCH": {
+                    "value": {
+                      "error": {
+                        "code": "SOURCE_AUDIT_MISMATCH",
+                        "message": "The source audit does not pin this base.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid correction inputs or unusable source.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "SOURCE_NOT_CORRECTABLE": {
+                    "value": {
+                      "error": {
+                        "code": "SOURCE_NOT_CORRECTABLE",
+                        "message": "A verified PNG image and resulting integer-ID mask are required.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or durable publication unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Storage or durable publication is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Actual request or annotation size exceeds policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UPLOAD_TOO_LARGE": {
+                    "value": {
+                      "error": {
+                        "code": "UPLOAD_TOO_LARGE",
+                        "message": "The correction request exceeds configured bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported content encoding.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UNSUPPORTED_MEDIA_TYPE": {
+                    "value": {
+                      "error": {
+                        "code": "UNSUPPORTED_MEDIA_TYPE",
+                        "message": "Use the documented content representation.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Immutable correction repository/service and linked AUDIT enqueue."
+      },
+      "get": {
+        "tags": [
+          "Corrections"
+        ],
+        "summary": "Read correction history",
+        "operationId": "listAnnotationRevisions",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Dataset Id"
+            },
+            "example": "dataset_demo"
+          },
+          {
+            "name": "sample_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Sample Id"
+            },
+            "example": "sample_001"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            },
+            "example": 20
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            },
+            "example": 0
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisionPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "dataset_id": "dataset_demo",
+                      "sample_id": "sample_001",
+                      "revision": 2,
+                      "parent_revision": 1,
+                      "objects": [
+                        {
+                          "object_id": 1,
+                          "label": "pedestrian",
+                          "bbox": [
+                            1,
+                            1,
+                            4,
+                            3
+                          ]
+                        }
+                      ],
+                      "mask_changed": true,
+                      "reviewer_id": "reviewer_demo",
+                      "reason": "Correct the complete object list.",
+                      "source_audit_id": "audit_demo",
+                      "created_at": "2026-10-21T00:00:00Z"
+                    },
+                    {
+                      "dataset_id": "dataset_demo",
+                      "sample_id": "sample_001",
+                      "revision": 1,
+                      "parent_revision": null,
+                      "objects": [
+                        {
+                          "object_id": 1,
+                          "label": "pedestrian",
+                          "bbox": [
+                            1,
+                            1,
+                            4,
+                            3
+                          ]
+                        }
+                      ],
+                      "mask_changed": false,
+                      "reviewer_id": null,
+                      "reason": null,
+                      "source_audit_id": null,
+                      "created_at": "2026-10-21T00:00:00Z"
+                    }
+                  ],
+                  "limit": 20,
+                  "offset": 0,
+                  "total": 2,
+                  "next_offset": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or sample not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale revision, unavailable mask or incompatible source audit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "STALE_SAMPLE_REVISION": {
+                    "value": {
+                      "error": {
+                        "code": "STALE_SAMPLE_REVISION",
+                        "message": "Refresh the selected revision before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid correction inputs or unusable source.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or durable publication unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Storage or durable publication is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Immutable correction repository/service and linked AUDIT enqueue."
+      }
+    },
+    "/api/v1/audits/{audit_id}/rechecks": {
+      "post": {
+        "tags": [
+          "Audits"
+        ],
+        "summary": "Audit corrected sample revisions again",
+        "operationId": "recheckSamples",
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "\\S",
+              "title": "Audit Id"
+            },
+            "example": "audit_demo"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecheckRequest"
+              },
+              "example": {
+                "sample_ids": [
+                  "sample_001"
+                ],
+                "sample_revisions": {
+                  "sample_001": 2
+                },
+                "reviewer_id": "reviewer_demo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditStarted"
+                },
+                "example": {
+                  "audit": {
+                    "audit_id": "audit_recheck_demo",
+                    "job_id": "job_recheck_demo",
+                    "dataset_id": "dataset_demo",
+                    "rulebook_id": "rulebook_demo",
+                    "rulebook_version": 3,
+                    "source_mode": "snapshot",
+                    "status": "queued",
+                    "sample_count": 1,
+                    "processed_count": 0,
+                    "failed_count": 0,
+                    "incomplete_count": 0,
+                    "created_at": "2026-10-14T10:00:00Z",
+                    "updated_at": "2026-10-14T10:00:00Z"
+                  },
+                  "job": {
+                    "job_id": "job_recheck_demo",
+                    "kind": "audit",
+                    "status": "queued",
+                    "progress": {
+                      "phase": "queued",
+                      "processed": 0,
+                      "total": 1,
+                      "fraction": 0.0
+                    },
+                    "result": null,
+                    "error": null,
+                    "created_at": "2026-10-14T10:00:00Z",
+                    "updated_at": "2026-10-14T10:00:00Z"
+                  },
+                  "parent_audit_id": "audit_demo",
+                  "feedback_policy_id": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Parent audit not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested resource does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Parent not ready/recheckable or stale sample revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "STALE_SAMPLE_REVISION": {
+                    "value": {
+                      "error": {
+                        "code": "STALE_SAMPLE_REVISION",
+                        "message": "Refresh the selected revision before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "AUDIT_NOT_READY": {
+                    "value": {
+                      "error": {
+                        "code": "AUDIT_NOT_READY",
+                        "message": "Wait for a terminal parent.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "AUDIT_NOT_RECHECKABLE": {
+                    "value": {
+                      "error": {
+                        "code": "AUDIT_NOT_RECHECKABLE",
+                        "message": "The parent lacks supported immutable lineage.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "RULEBOOK_NOT_CONFIRMED": {
+                    "value": {
+                      "error": {
+                        "code": "RULEBOOK_NOT_CONFIRMED",
+                        "message": "The recorded book must be confirmed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request byte limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UPLOAD_TOO_LARGE": {
+                    "value": {
+                      "error": {
+                        "code": "UPLOAD_TOO_LARGE",
+                        "message": "The correction request exceeds configured bounds.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported content encoding.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UNSUPPORTED_MEDIA_TYPE": {
+                    "value": {
+                      "error": {
+                        "code": "UNSUPPORTED_MEDIA_TYPE",
+                        "message": "Use the documented content representation.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or rule parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "The request could not be completed.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or enqueue unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Storage or durable publication is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "Immutable correction repository/service and linked AUDIT enqueue."
+      }
+    },
     "/api/v1/findings/{finding_id}/reviews": {
       "get": {
         "tags": [
@@ -8352,6 +9420,124 @@
   },
   "components": {
     "schemas": {
+      "AnnotationRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "sample_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "parent_revision": {
+            "anyOf": [
+              {
+                "maximum": 2147483647,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ImportedAnnotationObject"
+            },
+            "maxItems": 10000,
+            "title": "Objects",
+            "type": "array"
+          },
+          "mask_changed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mask Changed"
+          },
+          "reviewer_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source_audit_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Audit Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "sample_id",
+          "revision",
+          "parent_revision",
+          "objects",
+          "mask_changed",
+          "reviewer_id",
+          "reason",
+          "source_audit_id",
+          "created_at"
+        ],
+        "title": "AnnotationRevision",
+        "type": "object"
+      },
       "ApiError": {
         "additionalProperties": false,
         "description": "Structured, secret-free error information retained on failed jobs.",
@@ -8828,6 +10014,131 @@
         ],
         "title": "ConfirmationState",
         "type": "string"
+      },
+      "CorrectionBoundingBox": {
+        "maxItems": 4,
+        "minItems": 4,
+        "prefixItems": [
+          {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          },
+          {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          },
+          {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          },
+          {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "CorrectionObject": {
+        "additionalProperties": false,
+        "properties": {
+          "object_id": {
+            "maximum": 65535,
+            "minimum": 1,
+            "title": "Object Id",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "bbox": {
+            "$ref": "#/components/schemas/CorrectionBoundingBox"
+          }
+        },
+        "required": [
+          "object_id",
+          "label",
+          "bbox"
+        ],
+        "title": "CorrectionObject",
+        "type": "object"
+      },
+      "CorrectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/CorrectionObject"
+            },
+            "maxItems": 10000,
+            "title": "Objects",
+            "type": "array"
+          },
+          "mask_upload_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mask Upload Id"
+          },
+          "source_audit_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Audit Id"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "reviewer_id",
+          "reason",
+          "objects"
+        ],
+        "title": "CorrectionRequest",
+        "type": "object"
       },
       "Dataset": {
         "additionalProperties": false,
@@ -10045,6 +11356,82 @@
         "type": "string"
       },
       "JsonValue": {},
+      "MaskUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "mask_upload_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Mask Upload Id",
+            "type": "string"
+          },
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "sample_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "base_revision": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Base Revision",
+            "type": "integer"
+          },
+          "image_size": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "maximum": 2147483647,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "maximum": 2147483647,
+                "minimum": 1,
+                "type": "integer"
+              }
+            ],
+            "title": "Image Size",
+            "type": "array"
+          },
+          "mask_ids": {
+            "items": {
+              "maximum": 65535,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 65536,
+            "title": "Mask Ids",
+            "type": "array"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mask_upload_id",
+          "dataset_id",
+          "sample_id",
+          "base_revision",
+          "image_size",
+          "mask_ids",
+          "expires_at"
+        ],
+        "title": "MaskUpload",
+        "type": "object"
+      },
       "Progress": {
         "additionalProperties": false,
         "description": "Safe-boundary progress; unknown work is represented by null values.",
@@ -10106,6 +11493,55 @@
         "title": "PublicAssetKind",
         "type": "string"
       },
+      "RecheckRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "sample_ids": {
+            "items": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "maxItems": 3000,
+            "minItems": 1,
+            "title": "Sample Ids",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "sample_revisions": {
+            "maxProperties": 3000,
+            "minProperties": 1,
+            "patternProperties": {
+              "\\S": {
+                "maximum": 2147483647,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "propertyNames": {
+              "maxLength": 255,
+              "minLength": 1
+            },
+            "title": "Sample Revisions",
+            "type": "object"
+          },
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sample_ids",
+          "sample_revisions",
+          "reviewer_id"
+        ],
+        "title": "RecheckRequest",
+        "type": "object"
+      },
       "ResultReference": {
         "additionalProperties": false,
         "properties": {
@@ -10152,6 +11588,58 @@
           "href"
         ],
         "title": "ResultReference",
+        "type": "object"
+      },
+      "RevisionPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnnotationRevision"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "maximum": 9223372036854775807,
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total",
+          "next_offset"
+        ],
+        "title": "RevisionPage",
         "type": "object"
       },
       "Rule": {

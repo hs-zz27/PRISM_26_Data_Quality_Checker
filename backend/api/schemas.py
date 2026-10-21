@@ -1,5 +1,7 @@
 """Resource schemas, reusing implemented Python models where available."""
 
+from backend.app.models.correction import (CorrectionObject, MaskUploadRequest, MaskUpload, CorrectionRequest, AnnotationRevision, RevisionPage, RecheckRequest)
+
 from backend.app.models.dataset import Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted
 from backend.app.core.dataset_http import DatasetUpload
 from backend.app.models.finding import Finding
@@ -36,6 +38,7 @@ def build_schemas() -> JsonObject:
         ErrorDetail, ApiError, Progress, ResultReference, Job, AuditRun, AuditPage, AuditRequest, AuditStarted,
         Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted, DatasetUpload,
         ExportRequest, Export, ExportStarted, ExportPage, ExportManifestEntry, ExportManifest,
+        CorrectionObject, MaskUploadRequest, MaskUpload, CorrectionRequest, AnnotationRevision, RevisionPage, RecheckRequest,
     ):
         schema = model.model_json_schema()
         schemas.update({name: replace_model_refs(definition)
@@ -50,33 +53,7 @@ def build_schemas() -> JsonObject:
         "description": "[xmin, ymin, xmax, ymax], one-based and inclusive. Source data may be invalid; display integrity results.",
     }
     schemas["AnnotationObject"] = obj({"object_id": INTEGER, "label": TEXT, "bbox": ref("BoundingBox")})
-    schemas["CorrectionObject"] = obj({"object_id": VERSION, "label": TEXT, "bbox": ref("BoundingBox")})
-    schemas["CorrectionBoundingBox"] = {
-        **array(VERSION), "minItems": 4, "maxItems": 4,
-        "description": "[xmin, ymin, xmax, ymax], one-based inclusive positive integers. The server also validates ordering and image bounds.",
-    }
-    schemas["CorrectionObject"]["properties"]["bbox"] = ref("CorrectionBoundingBox")
     schemas["ErrorResponse"] = obj({"error": ref("ApiError")})
-    schemas["MaskUploadRequest"] = obj({
-        "mask": {"type": "string", "format": "binary"}, "expected_revision": VERSION,
-    })
-    schemas["MaskUpload"] = obj({
-        "mask_upload_id": TEXT, "dataset_id": TEXT, "sample_id": TEXT,
-        "base_revision": VERSION, "image_size": ref("ImageSize"),
-        "mask_ids": array(COUNT), "expires_at": TIME,
-    })
-    schemas["CorrectionRequest"] = obj({
-        "expected_revision": VERSION, "reviewer_id": TEXT, "reason": TEXT,
-        "objects": array(ref("CorrectionObject")), "mask_upload_id": nullable(TEXT),
-        "source_audit_id": nullable(TEXT),
-    })
-    schemas["AnnotationRevision"] = obj({
-        "dataset_id": TEXT, "sample_id": TEXT, "revision": VERSION,
-        "parent_revision": nullable(VERSION), "objects": array(ref("AnnotationObject")),
-        "mask_changed": BOOLEAN, "reviewer_id": nullable(TEXT), "reason": nullable(TEXT),
-        "source_audit_id": nullable(TEXT), "created_at": TIME,
-    })
-    schemas["RevisionPage"] = page_schema(ref("AnnotationRevision"))
     # Planned consumers reuse the implemented audit transport. Relationship
     # context belongs to AuditStarted, not the stored public model.
     schemas["Audit"] = ref("AuditRun")
@@ -98,14 +75,6 @@ def build_schemas() -> JsonObject:
         "objects": array(ref("ObjectMeasurements")),
     })
     schemas["FindingPage"] = page_schema(ref("Finding"))
-    schemas["RecheckRequest"] = obj({
-        "sample_ids": {**array(TEXT), "minItems": 1, "uniqueItems": True},
-        "sample_revisions": {
-            "type": "object", "minProperties": 1, "additionalProperties": VERSION,
-            "description": "Expected current revisions; keys must exactly match sample_ids. Reject stale revisions rather than auditing a different selection.",
-        },
-        "reviewer_id": TEXT,
-    })
     schemas["FeedbackExample"] = obj({
         "example_id": TEXT, "source_audit_id": TEXT, "dataset_id": TEXT, "sample_id": TEXT,
         "original_revision": VERSION, "corrected_revision": VERSION, "rule_id": TEXT,

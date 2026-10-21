@@ -2,9 +2,10 @@
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**32 HTTP operations are implemented:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
+**36 HTTP operations are implemented in source after this handoff is applied:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
 and sample reads, revision-pinned assets, job polling/cancellation, and
-finding/sample decisions with history, and five reviewed-export operations.
+finding/sample decisions with history, five reviewed-export operations and four correction/recheck operations.
+All five API artifacts now include these four operations.
 All other operations remain planned. Check `x-implementation-status` in OpenAPI
 and `implementation` in each fixture. Server setup
 includes the launch command. The running server's `/docs` and `/openapi.json`
@@ -27,8 +28,8 @@ not an SPA route.
 
 Phases 1–4 are applied, including the corrected Phase 2 producer cleanup. All
 five API artifacts are regenerated, including the export integration. The developer
-reported 39 failures, 2,021 passes and two errors in the latest suite; tests have
-not been rerun after corrections. Migration application and real import/export
+reports the latest pre-feature suite passed (count and independent evidence not supplied).
+The correction/recheck changes remain unexecuted. Migration application and real import/export
 execution remain separate verification gates. See DATASETS.md for setup, worker
 commands and the remaining verification steps. Regenerate the artifacts together
 when API models or routes change.
@@ -42,14 +43,14 @@ when API models or routes change.
 - AUDITS.md: catalogue-backed audit creation, listing and explicit worker commands.
 - EXPORTS.md: frozen reviewed selections, managed export jobs, manifests and downloads.
 - dataset_contract.py / dataset_examples.py: live-aligned dataset shapes and model-validated lifecycle snapshots.
-- PLANNED_ENDPOINTS.md: all 18 future operations, with
+- PLANNED_ENDPOINTS.md: all 14 remaining future operations, with
   parameters, request/response examples, proposed errors and referenced schemas.
 - FRONTEND_WORKFLOW.md: screen flows, mock setup, jobs,
   correction/recheck pins and export/feedback interactions.
 - implemented-openapi.json: callable endpoints only,
   with actual FastAPI transport schemas and frontend examples; use for client generation.
 - openapi.json: combined implementation/planning reference; the
-  18 planned operations are not available on the running server.
+  14 remaining planned operations are not available on the running server.
 - examples.json: frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
@@ -146,7 +147,7 @@ fixture IDs do not imply that matching PostgreSQL records exist.
 `GET /audits/{audit_id}` uses `AuditRun`: IDs, pinned rulebook version,
 `source_mode`, lifecycle status, sample/processed/failed/incomplete counts and
 timestamps. It does not return `reviewed_count`, `parent_audit_id` or
-`feedback_policy_id`. Start/list and planned recheck contracts reuse this same
+`feedback_policy_id`. Start/list and linked recheck contracts reuse this same
 `AuditRun` shape; optional parent/policy context is on the `AuditStarted` wrapper.
 The planning name `Audit` aliases `AuditRun`. Processing completion does not mean
 human acceptance.
@@ -185,8 +186,8 @@ actions the running backend currently supports.
    roles are available; legacy samples without manifest associations retain null
    links. Follow an asset link only with its explicit revision query parameter.
 7. **Implemented:** resolve findings and record sample decisions separately.
-   **Planned:** correct boxes, labels and masks through a new annotation revision.
-8. **Planned:** recheck corrected revisions. This creates a child audit, retaining old evidence
+   **Implemented in source:** correct boxes, labels and masks through a new immutable revision; see CORRECTIONS.md.
+8. **Implemented in source:** recheck corrected revisions through an audit-kind job. This creates a child audit, retaining old evidence
    and requiring a new reviewer decision. Export the reviewed child audit.
 9. **Implemented:** prepare an export from a terminal snapshot-backed audit, poll
    its job, then download the ZIP and JSON manifest. Corrections/rechecks are not prerequisites.
@@ -200,8 +201,8 @@ and finding/sample review routes plus rulebook reads/reviewer actions are implem
 measurements, rule records, Ollama integration, rulebook, finding and sample review
 services, confirmed-rule evaluation, durable PostgreSQL jobs/audits/findings and
 PostgreSQL version/review storage also exist. Dataset import/catalogue checkpoint
-source is described in DATASETS.md. Other HTTP routes and correction/recheck
-services remain planned. Reviewed dataset export routes are implemented in source;
+source is described in DATASETS.md. Correction/recheck services are implemented in source after this handoff is applied.
+Other still-planned HTTP routes remain unavailable. Reviewed dataset export routes are implemented in source;
 they preserve immutable
 audited revisions and frozen human sample decisions without requiring corrections
 or rechecks. The five contract artifacts are regenerated; tests have not been rerun
@@ -368,7 +369,7 @@ for unexpected failures. The sample revision conflict only means the supplied pi
 **not** verify current annotation files. Snapshot-backed Python audits now read
 captured immutable assets, while legacy audits still read live files.
 `needs_correction` saves a decision and does not
-edit annotations. Future correction/recheck workflows must create fresh evidence
+edit annotations. Correction/recheck workflows create fresh evidence
 and require a new decision on corrected revisions. Current decisions/history can
 be read through `SampleReviewRepository` or the implemented queue/detail/review-history
 GET routes. Reviewed-count aggregation remains planned.
@@ -448,7 +449,7 @@ Asset links never expose private storage paths. Missing/unavailable assets use t
 JSON error envelope, and legacy audit samples without manifest associations keep
 null links.
 
-**Planned correction workflow:** stage the PNG first, then submit its upload ID with the
+**Correction workflow (implemented in source):** stage the PNG first, then submit its upload ID with the
 complete replacement object list. Add/remove objects by adding/removing entries.
 Commit objects and mask atomically after checking IDs, labels and geometry.
 Staged masks expire; expired uploads must be repeated. Old audit evidence and
@@ -498,8 +499,8 @@ Their matching confirmed rulebooks are under
 unavailable cases include their additional reviewer-authored rules.
 `examples.job_scenarios` and `examples.audit_scenarios` cover all six lifecycle
 states with model-validated snapshots. `examples.dataset_import_scenarios` adds delivered import states and dirty-source examples. `examples.future_job_scenarios` adds six-state
-job mocks for recheck and feedback evaluation; these job producers are still
-planned. Delivered export examples are in `examples.export_scenarios`.
+job mocks for feedback evaluation only; that producer remains planned.
+`examples.recheck_job_scenarios` provides delivered recheck states with kind `audit`. Delivered export examples are in `examples.export_scenarios`.
 Delivered extraction mocks are in
 `examples.extraction_job_scenarios.states` and `.failures`. Completed extraction links pin rulebook version 1.
 `examples.check_catalog` comes from the
@@ -545,7 +546,9 @@ idempotency store is added.
 Generated OpenAPI, fixtures and endpoint inventories must come from
 `.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
 Earlier passing HTTP/contract results do not validate the current integration.
-The developer's latest suite failed; the fixes have not been retested.
+The user reports the pre-correction baseline passed. Reported correction/recheck
+failures are addressed in source and regenerated artifacts, but tests have not
+been rerun after those fixes. Migration and worker verification remain separate.
 PostgreSQL integration tests require `PRISM_TEST_DATABASE_URL`.
 
 ## Durable plain-text extraction
@@ -557,7 +560,14 @@ See EXTRACTIONS.md for the complete submission, worker, polling, cancellation, r
 See [EXPORTS.md](EXPORTS.md). Five export operations are implemented in the applied
 source, using existing job polling/cancellation. Four planned operations are
 promoted in place and the collection GET is new. The integrated inventory is
-32 implemented, 18 planned, 50 total. All five shared artifacts are regenerated
-from the corrected source. A fresh test pass, migration 011 application and real
+36 implemented, 14 planned, 50 total after this handoff is applied.
+All five artifacts are regenerated for the correction/recheck source as well.
+A fresh test pass, the required migrations and real
 worker/download verification remain pending; source availability and schema
 generation are not runtime validation.
+
+## Correction/recheck application gate
+
+See [CORRECTIONS.md](CORRECTIONS.md). Source and all five regenerated API artifacts
+describe 36 implemented and 14 planned operations, 50 total. Migration 012 and
+regression/runtime verification after the latest fixes remain separate gates.

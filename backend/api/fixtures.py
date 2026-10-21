@@ -45,7 +45,6 @@ def job(kind: str, resource_kind: str, resource_id: str, *, completed: bool = Fa
 def build_future_job_scenarios() -> JsonObject:
     """Model-validated lifecycle mocks for the still-planned job producers."""
     targets = {
-        "recheck": ("audit", "audit_recheck_demo", "RECHECK_FAILED"),
         "export": ("export", "export_demo", "EXPORT_FAILED"),
         "feedback_evaluation": ("feedback_evaluation", "evaluation_demo", "FEEDBACK_EVALUATION_FAILED"),
     }

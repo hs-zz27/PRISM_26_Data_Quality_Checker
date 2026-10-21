@@ -50,10 +50,11 @@ def test_routes_distinguish_implemented_handlers_from_planned_operations():
         "importDataset", "listDatasets", "getDataset", "listDatasetSamples", "getDatasetSample",
         "startAudit", "listAudits",
         "startExport", "listExports", "getExport", "downloadExport", "getExportManifest",
+        "uploadCorrectionMask", "correctAnnotations", "listAnnotationRevisions", "recheckSamples",
     }
-    assert len(implemented) == 32
-    assert sum(op["x-implementation-status"] == "implemented" for _, _, op in OPERATIONS) == 32
-    assert sum(op["x-implementation-status"] == "planned" for _, _, op in OPERATIONS) == 18
+    assert len(implemented) == 36
+    assert sum(op["x-implementation-status"] == "implemented" for _, _, op in OPERATIONS) == 36
+    assert sum(op["x-implementation-status"] == "planned" for _, _, op in OPERATIONS) == 14
     for _, _, operation in OPERATIONS:
         expected = "implemented" if operation["operationId"] in implemented else "planned"
         assert operation["x-implementation-status"] == expected

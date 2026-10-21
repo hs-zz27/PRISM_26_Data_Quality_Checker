@@ -2,11 +2,10 @@
 
 ## Current verification status
 
-The developer's latest full-suite run reported 39 failures, 2,021 passes and two
-errors. Integration corrections are applied, but tests have not been rerun after
-those fixes. Earlier notes below describe coverage and its original authoring
-status; they do not establish that the corrected source passes. No tests were run
-automatically during this correction pass. Migration application and real
+The user reports the pre-correction baseline passed. Reported correction/recheck
+failures exposed stale generated contracts, missed inventory assertions and a
+model-revalidation defect. Source fixes and all five regenerated contracts are
+present; tests have not been rerun after these fixes. Migration application and real
 worker/database/download verification remain separate operator-controlled gates.
 
 ## Reviewed export regressions
@@ -15,8 +14,9 @@ Export coverage exercises frozen selections and human decisions, exact historica
 pins, managed claim/cancellation/recovery transitions, bounded archive generation,
 verified artifacts, safe HTTP delivery and live/generated contract alignment.
 Migration 011 adds export storage without backfilling earlier audits or reviews.
-All five API artifacts are regenerated. The current inventory is 32 implemented
-and 18 planned operations, 50 total; a fresh test result is still pending.
+All five artifacts are regenerated for the correction/recheck source as well.
+The inventory is 36 implemented and 14 planned, 50 total; a new test result after
+the latest integration fixes is pending.
 
 ## Audit creation and listing
 
@@ -25,7 +25,7 @@ manifest-only submission and opt-in isolated PostgreSQL pinning, rollback and
 pagination. `test_audit_submission_api.py` covers HTTP validation, safe errors,
 public payloads and live/generated transport alignment. `test_audit_worker.py`
 covers audit-only dispatch and unresolved-claim handling. Inventory expectations
-now include 32 implemented and 18 planned operations. This coverage is present;
+now include 36 implemented and 14 planned operations. This coverage is present;
 its integration corrections have not been retested.
 
 ## Dataset checkpoint regression gate
@@ -110,7 +110,7 @@ covers all reads, latest versus explicit versions, empty histories, nonblank
 identifiers, pagination, safe errors and thin delegation without side effects.
 `test_rulebook_review_api.py` covers service delegation, strict bodies, state and
 origin policy, unsupported checks, content validation and no-write failures.
-`test_rulebook_contract.py` checks all 32 live operations, ten unique rulebook
+`test_rulebook_contract.py` checks all 36 live operations, ten unique rulebook
 operations, action-specific conflicts, actual model schemas, full schema
 constraints/nullability/required fields, parameter defaults and artifact freshness.
 Only schema titles and nullable explicit-null default metadata may differ between
@@ -161,3 +161,12 @@ weakening route traversal, duplicate detection or schema/response constraints.
 These tests were authored and syntax-compiled only, NOT collected or executed.
 All runtime/import/schema/fixture/freshness checks remain for the full checkout.
 See EXTRACTIONS.md for the operator workflow and limitations.
+
+## Correction/recheck regressions — authored, NOT RUN
+
+New model, PNG, repository, migration-012, HTTP, linked-worker and contract
+regressions use synthetic assets and isolated opt-in PostgreSQL schemas.
+They are not evidence of passing behavior. All five API artifacts are regenerated,
+with 36 implemented and 14 planned operations. `test_correction_validation.py`
+also covers nested mutable and copied-model validation before storage, without
+requiring PostgreSQL. Tests after the integration fixes remain unexecuted.

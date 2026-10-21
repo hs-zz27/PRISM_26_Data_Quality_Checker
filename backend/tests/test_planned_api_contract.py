@@ -22,7 +22,7 @@ def test_planned_reference_covers_every_future_operation_and_no_live_operation()
                 assert "500" in operation["responses"]
             else:
                 assert heading not in guide
-    assert len(planned) == 18
+    assert len(planned) == 14
 
 def test_future_audit_payloads_reuse_the_live_audit_transport():
     schemas = SPEC["components"]["schemas"]
@@ -45,7 +45,7 @@ def test_future_mask_upload_and_corrected_boxes_have_revision_and_geometry_const
     assert "expected_revision" in schemas["MaskUploadRequest"]["required"]
     assert "base_revision" in schemas["MaskUpload"]["required"]
     corrected = schemas["CorrectionBoundingBox"]
-    assert corrected["items"]["minimum"] == 1
+    assert all(item["minimum"] == 1 for item in corrected["prefixItems"])
     assert corrected["minItems"] == corrected["maxItems"] == 4
     assert "minimum" not in schemas["BoundingBox"]["items"]
     for path in ("/datasets", "/datasets/{dataset_id}/samples/{sample_id}/mask-uploads"):
@@ -70,7 +70,7 @@ def test_future_conflicts_expose_the_domain_codes_needed_by_frontend_flows():
 
 def test_future_job_mocks_cover_six_states_and_pin_extraction_results():
     scenarios = EXAMPLES["future_job_scenarios"]
-    assert set(scenarios) == {"recheck", "feedback_evaluation"}
+    assert set(scenarios) == {"feedback_evaluation"}
     assert "dataset_import_scenarios" in EXAMPLES
     for kind, states in scenarios.items():
         assert set(states) == {status.value for status in JobStatus}

@@ -1,14 +1,15 @@
 # Backend progress and team handoffs
 
 Last updated: 21 October 2026 (Asia/Kolkata).
-Captured implementation baseline: `071f3fcf9c16debb95f1308c546bfb3e115204ff` (merged CPU detection).
+Correction/recheck handoff baseline: `be424f833820e8e527dce8b6536ea1200279c935`.
 Dataset Feature 4 Phases 1–4 are applied in this workspace. All five API artifacts
 are regenerated. Syntax and schema generation are verified; migrations,
 HTTP scenarios and import execution were not run during application.
 Audit creation/listing and an explicit audit worker are now implemented. Their
-regression coverage is present. The developer's latest full-suite run reported
-39 failures, 2,021 passes and two errors. Integration corrections are applied,
-but tests have not been rerun; no passing result is claimed for the corrected source.
+regression coverage is present. The user reports the pre-correction baseline
+passed. Reported correction/recheck failures were traced to stale generated
+contracts, missed route inventories and serialization before model revalidation.
+Source fixes and contract regeneration are complete; tests have not been rerun.
 
 This is the working tracker for implemented features, teammate assignments and
 the next delivery steps. Update it when work is delivered, reviewed, integrated
@@ -39,7 +40,7 @@ latest complete test suite or real-model evaluation has passed.
   explicit audit-only worker. No request-time computation or snapshot recapture.
 - **Immutable assets:** snapshot capture, manifests, audit-to-revision pins,
   verified asset reads, thumbnails and mask previews. Application-owned dataset
-  revision selection is supplied by the dataset checkpoint; annotation corrections remain unfinished.
+  revision selection is supplied by the dataset checkpoint; correction publication now creates new immutable heads after this handoff is applied.
 - **Human review:** audit metadata and sample queue/detail reads, finding
   decisions/history, and separate sample decisions/history. Apparently correct,
   flagged, uncertain and unavailable evidence remain reviewable.
@@ -51,25 +52,26 @@ latest complete test suite or real-model evaluation has passed.
   request/response examples, endpoint index and rulebook workflow documentation.
   The complete planned endpoint reference and
   screen-by-screen workflow guide cover the remaining
-  18 operations for frontend mocks. Future job fixtures cover all six states;
+  14 remaining operations for frontend mocks. Future job fixtures cover all six states;
   these contracts do not add runtime routes.
 
 The current integration is **reviewed dataset exports**: terminal audit pins and
 human decisions feed a frozen archive selection. Dataset import, extraction,
-audits and exports retain explicit workers. Feedback execution and
-correction/recheck workflows remain unfinished.
+audits and exports retain explicit workers. Correction/recheck source is supplied by the current handoff, using the existing
+audit worker and durable child lineage. Evaluated feedback remains unfinished.
 
 ## Current HTTP surface
 
-The generated reference has **32 implemented and 18 planned operations**, 50
-total. The live OpenAPI inventory and generated artifacts agree. These counts
+The applied source and regenerated artifacts describe **36 implemented and 14
+planned operations**, 50 total. Route-inventory regression assertions include all
+four delivered correction/recheck operations. These counts
 describe source HTTP availability, not runtime test coverage or completion
 percentages or equal amounts of implementation work.
 
 - Rulebooks: create, collection read, detail read, version history, review history,
   replace draft, confirm, reject and start a draft revision, plus extraction submission — ten operations.
-- Audits: creation, listing, metadata, sample queue and sample detail — five operations.
-- Datasets: import submission and four catalogue reads — five operations.
+- Audits: creation, listing, metadata, sample queue, sample detail and linked rechecks — six operations.
+- Datasets: import submission, four catalogue reads and three correction/history operations — eight operations.
 - Assets: revision-pinned sample asset delivery — one operation.
 - Jobs: status polling and cancellation — two operations.
 - Reviews: finding write/history and sample write/history — four operations.
@@ -156,13 +158,14 @@ remains separate; do not treat syntax or schema generation as passing test evide
 
 After that, the proposed delivery order is:
 
-1. Apply current migrations, including 010 and 011, explicitly and obtain developer-run dataset/API/worker and
+1. Apply current migrations, including 010, 011 and 012, explicitly and obtain developer-run dataset/API/worker and
    PostgreSQL regression results. Dataset sources and contract regeneration are
    complete; no runtime results are claimed.
 2. Obtain developer-run audit submission/listing/worker and PostgreSQL regression
    results. The two APIs and worker are implemented; runtime results are not claimed.
-3. Annotation and mask correction revisions, correction history and rechecks that
-   retain old audit evidence and human decisions.
+3. Validate the applied correction/recheck source, additive migration 012 and the
+   authored collector/concurrency/cancellation regressions. Contracts are
+   regenerated; preserve historical evidence and decisions during runtime checks.
 4. Verify the implemented export worker, download delivery and frozen manifest
    through the corrected tests and an operator-controlled end-to-end scenario.
 5. Reviewer-feedback improvement with evaluated baseline/candidate behavior and
@@ -192,12 +195,21 @@ durable enqueue, one-attempt bounded archive worker, five HTTP endpoints and
 contract-generator alignment. It preserves imported reviewed bytes; it does
 not implement annotation corrections, rechecks, feedback improvement or detection.
 All four phases are applied and the five API artifacts are regenerated. The
-inventory is 32 implemented, 18 planned, 50 total; this is an HTTP availability
-count, not a backend-completion percentage. The developer's failing run exposed
-integration gaps; corrections have not been retested. Migration application,
+current source inventory is 36 implemented, 14 planned, 50 total; this is an HTTP availability
+count, not a backend-completion percentage. The earlier failed run is historical; the user reports the baseline now passed.
+The new correction/recheck implementation remains unexecuted. Migration application,
 real PostgreSQL/worker/download verification and a fresh full-suite pass remain
 open gates. Do not mark this feature tested or production-ready.
 
 ## CDIF Feature 3 checkpoint verification
 
 The source-only checkpoint was prepared from the supplied hash-verified snapshot. No live repository, service/model readiness, migration execution, pytest, HTTP scenario or inference was verified. Three static review passes are documented in the Notion checkpoint. The real checkout and teammate changes take precedence when integrating. No production-readiness or zero-defect guarantee is made.
+
+## Correction/recheck validation gate
+
+All four correction/recheck source phases are applied and all five API artifacts
+are regenerated. The inventory is 36 implemented and 14 planned, 50 total.
+The original package application report records the earlier source-only step;
+the working source now also contains the subsequently authorized integration fixes.
+Regression execution after those fixes and runtime verification remain pending.
+See api/CORRECTIONS.md for limits, compatibility changes and application dependencies.

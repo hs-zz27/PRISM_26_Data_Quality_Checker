@@ -4,7 +4,7 @@ Generated from `build_contract.py`. Paths include `/api/v1`.
 
 Use [implemented-openapi.json for callable endpoint schemas and client generation. openapi.json also includes planned designs. examples.json contains synthetic fixtures.
 
-## Implemented (32 operations)
+## Implemented (36 operations)
 
 ### Rulebooks
 
@@ -40,6 +40,7 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `GET /api/v1/audits/{audit_id}` — Read persisted audit progress (`getAudit`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples` — Read the complete review queue (`listAuditSamples`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}` — Read sample findings, evidence and measurements (`getAuditSample`; implemented).
+- `POST /api/v1/audits/{audit_id}/rechecks` — Audit corrected sample revisions again (`recheckSamples`; implemented).
 
 ### Reviews
 
@@ -47,6 +48,12 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `PUT /api/v1/findings/{finding_id}/review` — Accept or reject a tool finding (`reviewFinding`; implemented).
 - `PUT /api/v1/audits/{audit_id}/samples/{sample_id}/review` — Record the reviewer's data decision (`reviewSample`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}/reviews` — Read sample decision history (`listSampleReviews`; implemented).
+
+### Corrections
+
+- `POST /api/v1/datasets/{dataset_id}/samples/{sample_id}/mask-uploads` — Stage a replacement instance-ID mask (`uploadCorrectionMask`; implemented).
+- `POST /api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions` — Save corrected annotations and optional mask (`correctAnnotations`; implemented).
+- `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions` — Read correction history (`listAnnotationRevisions`; implemented).
 
 ### Exports
 
@@ -56,7 +63,7 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `GET /api/v1/exports/{export_id}/manifest` — Read exported and excluded sample decisions (`getExportManifest`; implemented).
 - `GET /api/v1/exports` — List reviewed exports (`listExports`; implemented).
 
-## Planned — unavailable on the running server (18 operations)
+## Planned — unavailable on the running server (14 operations)
 
 ### System
 
@@ -67,13 +74,6 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 ### Audits
 
 - `GET /api/v1/audits/{audit_id}/findings` — List findings with rule sources and review state (`listAuditFindings`; planned).
-- `POST /api/v1/audits/{audit_id}/rechecks` — Audit corrected sample revisions again (`recheckSamples`; planned).
-
-### Corrections
-
-- `POST /api/v1/datasets/{dataset_id}/samples/{sample_id}/mask-uploads` — Stage a replacement instance-ID mask (`uploadCorrectionMask`; planned).
-- `POST /api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions` — Save corrected annotations and optional mask (`correctAnnotations`; planned).
-- `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/revisions` — Read correction history (`listAnnotationRevisions`; planned).
 
 ### Feedback
 

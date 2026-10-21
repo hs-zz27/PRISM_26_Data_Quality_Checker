@@ -12,14 +12,16 @@ verification status and the recommended next features.
 
 Feature 4 adds durable Penn-Fudan ZIP acceptance, an explicit single-attempt
 worker, and four catalogue reads. Phases 1–4 are applied and the five API artifacts
-are regenerated. The developer's latest suite reported 39 failures, 2,021 passes
-and two errors; tests have not been rerun after the integration corrections.
+are regenerated. The user reports the pre-correction baseline passed. Reported
+correction/recheck failures exposed stale contracts, missed route-inventory updates
+and serialization before strict model revalidation. Those issues are corrected and
+all five contracts are regenerated; tests have not been rerun after these fixes.
 Migration application and real import/export execution remain separate gates.
 See api/DATASETS.md for setup, statuses, nullable counts, revision
 authority, partial evidence, limits and known local-prototype boundaries.
 Ready does not mean clean annotations. Audit creation and listing now connect the
-catalogue to the existing batch engine. Annotation corrections and rechecks remain
-planned. Reviewed dataset exports are implemented in source and preserve immutable
+catalogue to the existing batch engine. Annotation/mask corrections, revision history and linked rechecks are implemented
+in source after this handoff is applied; see api/CORRECTIONS.md. Reviewed dataset exports are implemented in source and preserve immutable
 audited revisions and frozen human sample decisions; they do not require corrections
 or rechecks. Their five contract artifacts are regenerated. The corrected export
 workflow still requires a developer-run test pass and runtime verification.
@@ -40,7 +42,10 @@ Run the explicit worker in a separate terminal:
 Use `--once` to process at most one eligible audit. The worker uses the existing
 supervised batch engine and only claims audit jobs. It shares the configured
 PostgreSQL database and managed asset storage with the API/import worker.
-No new migration is needed beyond the current dataset migration 010.
+Ordinary audit submission retains its existing schema requirements; linked rechecks
+and correction publication require additive migration 012 after 001–011.
+Updated audit/generic worker guards also require 012 before any queue scanning;
+coordinate source/schema deployment before restarting services.
 
 See [api/AUDITS.md](api/AUDITS.md) for pins, errors, cancellation and frontend
 integration. Tests are authored but have not been run during this implementation.
@@ -338,8 +343,9 @@ when exceeded; preview decoding failures return `422 ASSET_NOT_RENDERABLE`.
 
 See api/README.md for the full contract and frontend fixtures.
 api/ENDPOINTS.md distinguishes these implemented routes from
-remaining planned operations, including annotation correction/recheck and other
-unfinished workflows. Reviewed dataset exports are applied; see
+remaining planned operations, including evaluated feedback and other unfinished
+workflows. Correction/recheck source is described in api/CORRECTIONS.md; its
+generated inventory includes these operations. Reviewed dataset exports are applied; see
 [api/EXPORTS.md](api/EXPORTS.md) for selection semantics and remaining verification gates.
 
 ## Finding records
@@ -519,8 +525,9 @@ Dataset import now owns annotation-head selection. Audit HTTP submission reads
 those heads directly; legacy Python resolver integrations still provide their
 own authoritative revision and trusted source root for each sample.
 `needs_correction` records a decision, not an annotation edit. Correction storage,
-validation and immutable revision publication still need implementation; corrected
-data must receive a new audit and explicit review rather than inheriting acceptance.
+validation and immutable publication now create new revisions without changing old
+audits or exports. Corrected data needs a new linked audit and explicit review;
+correction never transfers acceptance.
 Reviewed-count aggregation remains separate work. Exports now freeze the current
 human decisions and exact audited revisions without requiring correction support.
 
@@ -1010,7 +1017,7 @@ No exception internals are returned to clients.
 Generated OpenAPI, fixtures and endpoint inventories must come from
 `.venv/bin/python -B -m backend.api.build_contract`, not manual artifact edits.
 Earlier passing suite results do not validate the current export integration.
-The latest reported failing suite is being corrected; a fresh full-suite result
+The earlier failing-suite note is historical; the user now reports the baseline passed. A correction/recheck full-suite result
 remains pending. PostgreSQL tests require `PRISM_TEST_DATABASE_URL`.
 
 ## Durable guideline extraction jobs
@@ -1034,8 +1041,15 @@ are required. Neither API startup nor submission runs that worker.
 .venv/bin/python -B -m backend.app.workers.export
 ```
 
-See [api/EXPORTS.md](api/EXPORTS.md) for setup, limits and error responses. Source
-integration and regenerated contracts are complete; the fixes have not been
-retested, and migration application plus real worker/download verification remain
-operator-controlled gates. The combined API now has 32 implemented and 18 planned
-operations, 50 total.
+See [api/EXPORTS.md](api/EXPORTS.md) for setup, limits and error responses.
+Correction/recheck source and all five regenerated contracts are integrated.
+The combined API has 36 implemented and 14 planned operations, 50 total.
+Tests after the latest fixes, migration application and real worker/download
+verification remain operator-controlled gates.
+
+## Correction/recheck source handoff
+
+See [api/CORRECTIONS.md](api/CORRECTIONS.md). All four source phases are applied and
+all five API artifacts are regenerated, with 36 implemented and 14 planned
+operations. Migration 012, regression execution and runtime verification remain
+separate gates; contract generation does not establish passing tests.

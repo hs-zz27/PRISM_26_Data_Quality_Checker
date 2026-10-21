@@ -4,6 +4,8 @@ Run from the project root with python -m backend.api.build_contract.
 Schema generation imports the app without serving requests or connecting to storage.
 """
 
+from .correction_contract import align_correction_contract, recheck_job_scenarios
+
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -321,7 +323,7 @@ def build_contract() -> JsonObject:
         parameters=pagination_parameters() + [parameter("sample_id", "query", TEXT, "sample_001"), parameter("outcome", "query", choice("pass", "fail", "unsure", "unavailable"), "fail")])
     add("POST", "/audits/{audit_id}/rechecks", "recheckSamples", "Audits", "Audit corrected sample revisions again", "AuditStarted",
         {"audit": {**examples["audit"], "audit_id": "audit_recheck_demo", "status": "queued", "processed_count": 0, "job_id": "job_recheck_demo"},
-         "job": job("recheck", "audit", "audit_recheck_demo"), "parent_audit_id": "audit_demo", "feedback_policy_id": None}, status=202,
+         "job": {**job("audit", "audit", "audit_recheck_demo"), "job_id": "job_recheck_demo"}, "parent_audit_id": "audit_demo", "feedback_policy_id": None}, status=202,
         body_schema="RecheckRequest", body_example={"sample_ids": ["sample_001"], "sample_revisions": {"sample_001": 2}, "reviewer_id": "reviewer_demo"},
         conflict_examples={
             "STALE_SAMPLE_REVISION": "A selected sample changed. Refresh the revision selection before rechecking.",
@@ -424,6 +426,8 @@ def build_contract() -> JsonObject:
 
     align_dataset_contract(contract, create_app().openapi())
     align_export_contract(contract, create_app().openapi(), operations)
+    align_correction_contract(contract, create_app().openapi(), operations)
+    contract["x-recheck-job-scenarios"] = recheck_job_scenarios()
     contract["x-template-operations"] = operations
     contract["x-review-scenarios"] = examples["review_scenarios"]
     contract["x-review-scenario-rulebooks"] = examples["review_scenario_rulebooks"]
@@ -432,7 +436,7 @@ def build_contract() -> JsonObject:
     contract["x-extraction-job-scenarios"] = examples["extraction_job_scenarios"]
     contract["x-dataset-import-scenarios"] = examples["dataset_import_scenarios"]
     contract["x-future-job-scenarios"] = {kind: states for kind, states in examples["future_job_scenarios"].items()
-                                            if kind != "export"}
+                                            if kind not in {"export", "recheck"}}
     return contract
 
 def build_implemented_contract(reference: JsonObject) -> JsonObject:
@@ -493,13 +497,15 @@ def render_artifacts() -> dict[str, str]:
     extraction_job_scenarios = contract.pop("x-extraction-job-scenarios")
     dataset_import_scenarios = contract.pop("x-dataset-import-scenarios")
     export_scenarios = contract.pop("x-export-scenarios")
+    recheck_job_scenarios = contract.pop("x-recheck-job-scenarios")
     documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
-        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+        "notice": "Synthetic frontend fixtures, not stored resources or a stateful server. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,
         "dataset_import_scenarios": dataset_import_scenarios,
         "export_scenarios": export_scenarios,
+        "recheck_job_scenarios": recheck_job_scenarios,
         "future_job_scenarios": future_job_scenarios,
         "extraction_job_scenarios": extraction_job_scenarios,
         "check_catalog": extraction_check_catalog(),
