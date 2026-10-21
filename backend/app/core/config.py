@@ -36,6 +36,9 @@ class OllamaSettings(BaseModel):
     timeout_seconds: float = Field(gt=0, allow_inf_nan=False)
     context_length: int = Field(gt=0)
     max_output_tokens: int = Field(gt=0)
+    cpu_threads: int | None = Field(
+        default=None, ge=1, le=1024, exclude_if=lambda value: value is None,
+    )
 
     @field_validator("host")
     @classmethod
@@ -146,7 +149,7 @@ def load_asset_storage_settings(*, env_path: str | Path | None = None) -> AssetS
 def load_ollama_settings(
     path: str | Path | None = None, *, env_path: str | Path | None = None,
 ) -> OllamaSettings:
-    """Read TOML defaults with optional model and base URL overrides.
+    """Read TOML defaults with optional model, base URL and CPU thread overrides.
 
     Process environment overrides root .env, which overrides TOML. Loading
     never changes the environment or caches values. Missing .env files are
@@ -162,6 +165,15 @@ def load_ollama_settings(
     for name, field in (("OLLAMA_MODEL", "model"), ("OLLAMA_BASE_URL", "host")):
         if name in values:
             settings[field] = values[name]
+    if "OLLAMA_CPU_THREADS" in values:
+        raw = values["OLLAMA_CPU_THREADS"]
+        if isinstance(raw, str) and raw.strip().lower() == "auto":
+            settings["cpu_threads"] = None
+        else:
+            try:
+                settings["cpu_threads"] = int(raw)
+            except (TypeError, ValueError):
+                raise ValueError("OLLAMA_CPU_THREADS must be a positive integer or 'auto'.") from None
     return OllamaSettings.model_validate(settings)
 
 

@@ -157,7 +157,7 @@ def propose_rules(
         if not isinstance(metadata.get("model_info"), dict) or not metadata["model_info"]:
             raise OllamaClientError("invalid_model_metadata", "Cannot verify local model information.")
 
-        response = _post_json(client, "/api/chat", {
+        payload = {
             "model": configuration.model,
             "messages": [
                 {"role": "system", "content": instructions},
@@ -172,7 +172,10 @@ def propose_rules(
                 "num_predict": configuration.max_output_tokens,
             },
             "keep_alive": OLLAMA_KEEP_ALIVE_SECONDS,
-        })
+        }
+        if configuration.cpu_threads is not None:
+            payload["options"]["num_thread"] = configuration.cpu_threads
+        response = _post_json(client, "/api/chat", payload)
 
     if response.get("done") is not True or response.get("done_reason") == "length":
         raise OllamaClientError("incomplete_response", "Ollama did not finish generating the rule proposals.")

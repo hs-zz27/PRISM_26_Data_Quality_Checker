@@ -292,7 +292,8 @@ def test_redirects_are_not_followed(fake_server):
     assert caught.value.reason == "request_failed" and len(state["requests"]) == 1
 
 
-def test_custom_settings_select_model_and_generation_limits(fake_server):
+@pytest.mark.parametrize("threads", [None, 10])
+def test_custom_settings_select_model_and_generation_limits(fake_server, threads):
     state, transport = fake_server
     settings = OllamaSettings(
         model="another-local-model:latest",
@@ -300,6 +301,7 @@ def test_custom_settings_select_model_and_generation_limits(fake_server):
         timeout_seconds=30.0,
         context_length=4096,
         max_output_tokens=512,
+        cpu_threads=threads,
     )
     propose_rules(GUIDELINES, settings=settings, transport=transport)
     assert state["requests"][0][1]["model"] == settings.model
@@ -308,6 +310,8 @@ def test_custom_settings_select_model_and_generation_limits(fake_server):
     assert chat["options"]["num_ctx"] == 4096
     assert chat["options"]["num_predict"] == 512
     assert chat["options"]["num_gpu"] == 0
+    assert chat["options"].get("num_thread") == threads
+    assert ("num_thread" in chat["options"]) == (threads is not None)
 
 
 def test_per_call_override_does_not_change_shared_settings(fake_server):
