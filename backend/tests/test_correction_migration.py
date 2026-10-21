@@ -16,6 +16,10 @@ def test_upgrade_preserves_existing_import_and_leaves_new_ledgers_empty(empty_da
     seed_import(settings,started=False)
     saved=read_sql(settings,'SELECT * FROM datasets ORDER BY dataset_id')
     jobs=read_sql(settings,'SELECT * FROM jobs ORDER BY job_id')
+    # Exercise this migration boundary without also applying later features.
+    migration=latest/'012_corrections_rechecks.sql'
+    (before/migration.name).write_bytes(migration.read_bytes())
+    monkeypatch.setattr(database,'MIGRATIONS_DIRECTORY',before)
     database.initialize_database(settings)
     assert read_sql(settings,'SELECT * FROM datasets ORDER BY dataset_id')==saved
     assert read_sql(settings,'SELECT * FROM jobs ORDER BY job_id')==jobs
