@@ -83,8 +83,8 @@ def test_ten_promotions_exact_inventory_and_live_constraints():
     generated = build_contract()
     routes = [c.original_route.operation_id for c in iter_route_contexts(app.routes) if isinstance(c.original_route, APIRoute) and c.original_route.include_in_schema]
     operations = [op for methods in generated['paths'].values() for op in methods.values()]
-    assert len(routes) == len(set(routes)) == 49 and len(operations) == 50
-    assert sum((op['x-implementation-status'] == 'planned' for op in operations)) == 1
+    assert len(routes) == len(set(routes)) == 50 and len(operations) == 50
+    assert sum((op['x-implementation-status'] == 'planned' for op in operations)) == 0
     for (path, method), identifier in OPERATIONS.items():
         left = generated['paths'][path][method]
         right = live['paths']['/api/v1' + path][method]

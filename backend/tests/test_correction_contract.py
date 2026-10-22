@@ -18,9 +18,9 @@ from backend.tests.test_rulebook_contract import assert_same_schema
 def test_four_existing_operations_promoted_once_and_exact_inventory():
     app=create_app();live=app.openapi();generated=build_contract()
     ids=[c.original_route.operation_id for c in iter_route_contexts(app.routes) if isinstance(c.original_route,APIRoute) and c.original_route.include_in_schema]
-    assert len(ids)==len(set(ids))==49
+    assert len(ids)==len(set(ids))==50
     operations=[op for methods in generated['paths'].values() for op in methods.values()]
-    assert len(operations)==50 and sum(op['x-implementation-status']=='planned' for op in operations)==1
+    assert len(operations)==50 and sum(op['x-implementation-status']=='planned' for op in operations)==0
     for (path,method),identifier in OPERATIONS.items():
         one=generated['paths'][path][method];two=live['paths']['/api/v1'+path][method]
         assert one['operationId']==two['operationId']==identifier and ids.count(identifier)==1

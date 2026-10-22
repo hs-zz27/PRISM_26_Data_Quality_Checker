@@ -32,13 +32,13 @@ def test_the_three_system_operations_are_promoted_once_and_match_the_live_routes
         assert "parameters" not in one and "requestBody" not in one
 
 
-def test_the_inventory_is_49_implemented_and_1_planned_of_50():
+def test_the_inventory_is_50_implemented_and_nothing_planned():
     document = build_contract()
     ops = operations(document)
     assert len(ops) == len({op["operationId"] for op in ops}) == 50
-    assert sum(op["x-implementation-status"] == "implemented" for op in ops) == 49
+    assert sum(op["x-implementation-status"] == "implemented" for op in ops) == 50
     planned = {op["operationId"] for op in ops if op["x-implementation-status"] == "planned"}
-    assert planned == {"listAuditFindings"}
+    assert planned == set()
 
 
 def test_system_schemas_come_from_the_live_models_not_handwritten_copies():

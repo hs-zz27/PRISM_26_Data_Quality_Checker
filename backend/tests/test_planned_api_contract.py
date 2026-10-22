@@ -22,7 +22,9 @@ def test_planned_reference_covers_every_future_operation_and_no_live_operation()
                 assert "500" in operation["responses"]
             else:
                 assert heading not in guide
-    assert len(planned) == 1
+    assert planned == []
+    # With nothing planned the reference says so instead of listing zero operations.
+    assert "No operations are currently planned" in guide
 
 def test_future_audit_payloads_reuse_the_live_audit_transport():
     schemas = SPEC["components"]["schemas"]
