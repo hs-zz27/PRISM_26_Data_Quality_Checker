@@ -2,9 +2,9 @@
 
 Generated from `build_contract.py`. Paths include `/api/v1`.
 
-Use [implemented-openapi.json for callable endpoint schemas and client generation. openapi.json also includes planned designs. examples.json contains synthetic fixtures.
+Use implemented-openapi.json for callable endpoint schemas and client generation. openapi.json is the combined reference and marks each operation with x-implementation-status. examples.json contains synthetic fixtures.
 
-## Implemented (49 operations)
+## Implemented (50 operations)
 
 ### System
 
@@ -46,6 +46,7 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `GET /api/v1/audits/{audit_id}` — Read persisted audit progress (`getAudit`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples` — Read the complete review queue (`listAuditSamples`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}` — Read sample findings, evidence and measurements (`getAuditSample`; implemented).
+- `GET /api/v1/audits/{audit_id}/findings` — List findings with rule sources and review state (`listAuditFindings`; implemented).
 - `POST /api/v1/audits/{audit_id}/rechecks` — Audit corrected sample revisions again (`recheckSamples`; implemented).
 
 ### Reviews
@@ -82,8 +83,6 @@ Use [implemented-openapi.json for callable endpoint schemas and client generatio
 - `GET /api/v1/feedback/evaluations` — List comparisons (`listFeedbackEvaluations`; implemented).
 - `POST /api/v1/feedback/policies/{policy_id}/activate` — Record explicit reviewer activation (`activateFeedbackPolicy`; implemented).
 
-## Planned — unavailable on the running server (1 operations)
+## Planned — unavailable on the running server (0 operations)
 
-### Audits
-
-- `GET /api/v1/audits/{audit_id}/findings` — List findings with rule sources and review state (`listAuditFindings`; planned).
+None.
