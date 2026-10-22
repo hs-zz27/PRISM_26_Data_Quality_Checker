@@ -58,8 +58,8 @@ latest complete test suite or real-model evaluation has passed.
 - **Frontend handoff:** generated combined and implemented-only OpenAPI,
   request/response examples, endpoint index and rulebook workflow documentation.
   The complete planned endpoint reference and
-  screen-by-screen workflow guide cover the remaining
-  4 remaining operations for frontend mocks. Future job fixtures cover all six states;
+  screen-by-screen workflow guide describe the planning history; no operation is
+  currently planned. Future job fixtures cover all six states;
   these contracts do not add runtime routes.
 
 The current integration is **reviewed dataset exports**: terminal audit pins and
@@ -69,26 +69,34 @@ audit worker and durable child lineage. Evaluated feedback source is supplied; r
 
 ## Current HTTP surface
 
-The applied source and regenerated artifacts describe **46 implemented and 4
-planned operations**, 50 total. Route-inventory regression assertions include all
-four delivered correction/recheck operations and ten feedback operations. These counts
-describe source HTTP availability, not runtime test coverage or completion
-percentages or equal amounts of implementation work.
+The applied source and regenerated artifacts describe **50 implemented and 0
+planned operations**, 50 total: rulebooks, audits (including the audit-wide finding
+list), datasets, assets, jobs, reviews, exports, feedback and system reads.
+Route-inventory regression assertions pin this exact set. These counts describe
+source HTTP availability only. They are not test results, runtime validation, model
+accuracy or a statement that the project is complete.
+
+Evidence is separate from availability. The developer's last full-suite run, before
+the finding list, reported 2663 passed and 7 warnings. The finding-list repository,
+HTTP and contract tests are authored and not yet run. CPU detector validation is
+limited to the observations in CPU_DETECTION.md, and no detection accuracy
+evaluation exists.
 
 - Rulebooks: create, collection read, detail read, version history, review history,
   replace draft, confirm, reject and start a draft revision, plus extraction submission — ten operations.
-- Audits: creation, listing, metadata, sample queue, sample detail and linked rechecks — six operations.
+- Audits: creation, listing, metadata, sample queue, sample detail, the audit-wide finding list and linked rechecks — seven operations.
 - Datasets: import submission, four catalogue reads and three correction/history operations — eight operations.
 - Assets: revision-pinned sample asset delivery — one operation.
 - Jobs: status polling and cancellation — two operations.
 - Reviews: finding write/history and sample write/history — four operations.
 - Exports: creation, listing, detail, manifest and ZIP download — five operations.
 - Feedback: examples, candidate policies, explicit truth, comparisons and activation — ten operations.
+- System: health, capabilities and local readiness — three operations.
 
 Use the endpoint index for the exact inventory and
 implemented-openapi.json for live client
-generation. The combined contract includes future designs;
-planned routes cannot be called yet.
+generation. The combined contract marks every operation implemented; a
+future planned design would be marked in x-implementation-status and could not be called yet.
 
 ## What has been assigned or prepared for teammates
 

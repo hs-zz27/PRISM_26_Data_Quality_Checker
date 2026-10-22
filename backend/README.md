@@ -278,6 +278,7 @@ FastAPI:
 
 - `GET /api/v1/audits/{audit_id}/samples`
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}`
+- `GET /api/v1/audits/{audit_id}/findings`
 - `GET /api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}?revision={revision}`
 - `GET /api/v1/jobs/{job_id}`
 - `POST /api/v1/jobs/{job_id}/cancel`
@@ -285,6 +286,13 @@ FastAPI:
 - `GET /api/v1/findings/{finding_id}/reviews`
 - `PUT /api/v1/audits/{audit_id}/samples/{sample_id}/review`
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}/reviews`
+
+`GET /api/v1/audits/{audit_id}/findings` returns `FindingPage` for one audit, optionally
+filtered by `sample_id` and `outcome`, in ascending `finding_id` order with `limit` 1 to 100.
+`AuditReadRepository.list_audit_findings` reads the audit check, the filtered total, the
+page and the latest human reviews in one read-only snapshot. An existing audit without
+findings gives an empty page and a missing audit gives 404. `FindingRepository.list_findings`
+keeps its list return type. See [api/AUDITS.md](api/AUDITS.md).
 
 From the project root, with dependencies installed and PostgreSQL configured:
 
@@ -378,8 +386,8 @@ kinds enforce the 64 MiB source-byte limit and return `422 ASSET_TOO_LARGE`
 when exceeded; preview decoding failures return `422 ASSET_NOT_RENDERABLE`.
 
 See api/README.md for the full contract and frontend fixtures.
-api/ENDPOINTS.md distinguishes these implemented routes from
-remaining planned operations: three system reads and audit-wide findings.
+api/ENDPOINTS.md lists every implemented route; all 50 operations are implemented and
+none remain planned.
 Evaluated feedback source is described in api/FEEDBACK.md. Correction/recheck source is described in api/CORRECTIONS.md; its
 generated inventory includes these operations. Reviewed dataset exports are applied; see
 [api/EXPORTS.md](api/EXPORTS.md) for selection semantics and remaining verification gates.
@@ -1079,7 +1087,8 @@ are required. Neither API startup nor submission runs that worker.
 
 See [api/EXPORTS.md](api/EXPORTS.md) for setup, limits and error responses.
 Correction/recheck source and all five regenerated contracts are integrated.
-The combined API has 46 implemented and 4 planned operations, 50 total.
+The combined API had 46 implemented and 4 planned operations at that point; it now has
+50 implemented.
 Tests after the latest fixes, migration application and real worker/download
 verification remain operator-controlled gates.
 

@@ -14,7 +14,7 @@ from backend.app.models.export import (
 )
 from backend.app.models.audit import AuditRun
 from backend.app.models.audit_submission import AuditPage, AuditRequest, AuditStarted
-from backend.app.models.audit_read import AuditSamplePage, SampleAudit, SampleAuditSummary
+from backend.app.models.audit_read import AuditSamplePage, FindingPage, SampleAudit, SampleAuditSummary
 from backend.app.models.job import ApiError, ErrorDetail, Job, Progress, ResultReference
 from backend.app.models.review import (
     FindingReviewPage, FindingReviewRecord, FindingReviewRequest,
@@ -28,7 +28,7 @@ from backend.app.models.rule_extraction import RuleExtractionRequest
 from .common import (
     BOOLEAN, COUNT, FRACTION, INTEGER, JOB_STATUS, SAMPLE_REVIEW_STATUS,
     TEXT, TIME, VERSION, JsonObject, array, choice, nullable,
-    obj, page_schema, ref, replace_model_refs,
+    obj, ref, replace_model_refs,
 )
 
 def build_schemas() -> JsonObject:
@@ -38,7 +38,7 @@ def build_schemas() -> JsonObject:
         RuleExtractionRequest, Rulebook, RulebookPage, RulebookCreate, RulebookCreateRule, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
         RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage,
         SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
-        AuditSamplePage, SampleAudit, SampleAuditSummary,
+        AuditSamplePage, FindingPage, SampleAudit, SampleAuditSummary,
         ErrorDetail, ApiError, Progress, ResultReference, Job, AuditRun, AuditPage, AuditRequest, AuditStarted,
         Dataset, DatasetPage, Sample, SamplePage, DatasetImportStarted, DatasetUpload,
         ExportRequest, Export, ExportStarted, ExportPage, ExportManifestEntry, ExportManifest,
@@ -80,6 +80,6 @@ def build_schemas() -> JsonObject:
         "checks": {"type": "object", "additionalProperties": ref("CheckEnvelope")},
         "objects": array(ref("ObjectMeasurements")),
     })
-    schemas["FindingPage"] = page_schema(ref("Finding"))
+    # FindingPage comes from the live Pydantic model exported in the loop above.
     # Health, Capabilities and SystemStatus come from the live Pydantic models; see system_contract.py.
     return schemas

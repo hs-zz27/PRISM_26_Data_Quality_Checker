@@ -10,11 +10,13 @@ from ..models.audit import AuditFailure
 from ..models.audit_read import (
     AssetReference,
     AuditSamplePage,
+    FindingPage,
     SampleAssets,
     SampleAudit,
     SampleAuditSummary,
     ToolStatus,
 )
+from ..models.finding import FindingOutcome
 from ..models.measurements import ASSET_LOAD_FAILURE_DETAIL
 from ..models.review import SampleReview, SampleReviewDecision, SampleReviewRecord
 from .workflow_repository import (
@@ -28,6 +30,8 @@ from .workflow_repository import (
 # Both methods use this same view; counts and captured-asset metadata always
 # describe the same repeatable-read snapshot.
 _ASSET_CONTENT_TYPE = "image/png"
+# Largest OFFSET PostgreSQL accepts (a signed 64-bit integer).
+_MAX_OFFSET = 9_223_372_036_854_775_807
 _SAMPLE_VIEW = """
     SELECT s.audit_id, s.sample_id, s.sample_revision, s.ordinal,
            s.manifest_dataset_id,
@@ -187,6 +191,46 @@ class AuditReadRepository(_WorkflowRepository):
             ).fetchall()
             items = [_summary(row) for row in rows]
         return AuditSamplePage(
+            items=items, limit=limit, offset=offset, total=total,
+            next_offset=offset + len(items) if offset + len(items) < total else None,
+        )
+
+    def list_audit_findings(
+        self, audit_id: str, *, limit: int = 20, offset: int = 0,
+        sample_id: str | None = None, outcome: FindingOutcome | None = None,
+    ) -> FindingPage:
+        """Read one audit's findings in ascending finding_id order.
+
+        Audit existence, the filtered total, the page and each finding's latest
+        human review come from one repeatable-read snapshot. sample_id is only a
+        filter: an unknown sample gives an empty page. Machine evidence is
+        returned exactly as stored, never refreshed from current dataset heads.
+        """
+        audit_id = _require_identifier(audit_id, "audit_id")
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer between 1 and 100.")
+        if type(offset) is not int or not 0 <= offset <= _MAX_OFFSET:
+            raise ValueError(f"offset must be an integer between 0 and {_MAX_OFFSET}.")
+        filters = ["findings.audit_id = %s"]
+        parameters: list[Any] = [audit_id]
+        if sample_id is not None:
+            filters.append("findings.sample_id = %s")
+            parameters.append(_require_identifier(sample_id, "sample_id"))
+        if outcome is not None:
+            filters.append("findings.outcome = %s")
+            parameters.append(FindingOutcome(outcome).value)
+        where = " WHERE " + " AND ".join(filters)
+        with self._connection() as connection:
+            self._get_audit(connection, audit_id)
+            total = connection.execute(
+                "SELECT count(*) AS total FROM findings" + where, parameters,
+            ).fetchone()["total"]
+            rows = connection.execute(
+                _FINDINGS_WITH_REVIEWS + where + " ORDER BY findings.finding_id LIMIT %s OFFSET %s",
+                [*parameters, limit, offset],
+            ).fetchall()
+            items = [_decode_reviewed_finding(row) for row in rows]
+        return FindingPage(
             items=items, limit=limit, offset=offset, total=total,
             next_offset=offset + len(items) if offset + len(items) < total else None,
         )

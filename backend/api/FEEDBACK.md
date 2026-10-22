@@ -11,7 +11,7 @@ Finding acceptance is not sample acceptance. Corrections are not implicit truth.
 The captured baseline is `1c3c33deb9235692129b7d72cbc4c6256ff0002e`.
 The proposed inventory is **46 implemented / 4 planned / 50 total operations**,
 subject to actual route/contract verification after application. Three system
-reads and the separate audit-wide findings operation remain planned. The five
+reads and the separate audit-wide findings operation were still planned at that baseline; both are implemented now. The five
 API artifacts must be regenerated together; this source handoff did not run the
 generator, tests, database migrations, workers, inference or HTTP scenarios.
 Source availability, integrated verification and demonstrated model improvement

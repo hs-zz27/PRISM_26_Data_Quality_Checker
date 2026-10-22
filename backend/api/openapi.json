@@ -3,7 +3,7 @@
   "info": {
     "title": "PRISM Data Quality Checker — API contract",
     "version": "0.1.0",
-    "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Liveness, capabilities and local readiness reads are implemented. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
+    "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Liveness, capabilities and local readiness reads and the audit-wide finding list are implemented. No operations are currently planned; x-implementation-status remains on every operation. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
   },
   "servers": [
     {
@@ -7557,9 +7557,9 @@
           "Audits"
         ],
         "summary": "List findings with rule sources and review state",
-        "description": "List findings with rule sources and review state",
-        "x-implementation-status": "planned",
-        "x-backing-service-status": "planned",
+        "description": "List every machine finding of one audit across all of its samples, in ascending finding_id order (text order, not creation order). Each item is the stored finding, including its pinned sample_revision, rulebook version, rule parameters, origin, source sentence and evidence, with the latest human review in review; a finding nobody has reviewed shows resolution pending. Omit the filters to include all four outcomes (pass, fail, unsure, unavailable) and every review resolution. sample_id and outcome combine with AND. total counts all matching findings before paging, and next_offset is offset plus the number of items only when more matching findings remain, otherwise null (an empty page, an offset past the end and the final page all return null). An unknown audit returns HTTP 404; an existing audit with no matching findings returns HTTP 200 with an empty page. Audit existence, the total, the page and the latest reviews are read from one database snapshot. Reading never starts a worker, runs inference, reads asset files or changes a finding or its review. Findings are machine evidence: a reviewer's decision is separate, and an accepted or rejected finding does not decide the sample. Use getAuditSample for one sample's full detail.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "AuditReadRepository.list_audit_findings and FastAPI route implemented.",
         "responses": {
           "200": {
             "description": "List findings with rule sources and review state",
@@ -7568,76 +7568,212 @@
                 "schema": {
                   "$ref": "#/components/schemas/FindingPage"
                 },
-                "example": {
-                  "items": [
-                    {
-                      "finding_id": "finding_demo",
-                      "audit_id": "audit_demo",
-                      "sample_id": "sample_001",
-                      "sample_revision": 1,
-                      "object_id": 2,
-                      "rulebook_id": "rulebook_demo",
-                      "rulebook_version": 3,
-                      "rule_id": "LBL-1",
-                      "description": "Use an allowed label.",
-                      "check_name": "allowed_labels",
-                      "outcome": "fail",
-                      "reason": "label_not_allowed",
-                      "parameters": {
-                        "allowed_labels": [
-                          "person"
-                        ]
-                      },
-                      "origin": "extracted",
-                      "source_sentence": "Allowed labels are person.",
-                      "evidence": {
-                        "image_url": null,
-                        "mask_preview_url": null,
-                        "crop_url": null,
-                        "measurements": {
-                          "actual_label": "vehicle",
-                          "allowed_labels": [
-                            "person"
-                          ]
+                "examples": {
+                  "first_page_with_more": {
+                    "summary": "First page of five matching findings; follow next_offset",
+                    "value": {
+                      "items": [
+                        {
+                          "finding_id": "finding_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 2,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "fail",
+                          "reason": "label_not_allowed",
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "vehicle",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 0,
+                            "resolution": "pending",
+                            "reviewer_id": null,
+                            "comment": null,
+                            "updated_at": null
+                          }
+                        },
+                        {
+                          "finding_id": "finding_pass_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 1,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "pass",
+                          "reason": null,
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "person",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 1,
+                            "resolution": "accepted",
+                            "reviewer_id": "reviewer_demo",
+                            "comment": "Confirmed the label is allowed.",
+                            "updated_at": "2026-10-14T10:00:00Z"
+                          }
                         }
-                      },
-                      "review": {
-                        "revision": 0,
-                        "resolution": "pending",
-                        "reviewer_id": null,
-                        "comment": null,
-                        "updated_at": null
-                      }
+                      ],
+                      "limit": 2,
+                      "offset": 0,
+                      "total": 5,
+                      "next_offset": 2
                     }
-                  ],
-                  "limit": 20,
-                  "offset": 0,
-                  "total": 1,
-                  "next_offset": null
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request could not be processed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "The request could not be processed.",
-                    "details": [],
-                    "request_id": "request_demo"
+                  },
+                  "last_page": {
+                    "summary": "Final page; next_offset is null",
+                    "value": {
+                      "items": [
+                        {
+                          "finding_id": "finding_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 2,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "fail",
+                          "reason": "label_not_allowed",
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "vehicle",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 0,
+                            "resolution": "pending",
+                            "reviewer_id": null,
+                            "comment": null,
+                            "updated_at": null
+                          }
+                        }
+                      ],
+                      "limit": 2,
+                      "offset": 4,
+                      "total": 5,
+                      "next_offset": null
+                    }
+                  },
+                  "filtered_by_sample_and_outcome": {
+                    "summary": "sample_id=sample_001&outcome=fail; total counts only matches",
+                    "value": {
+                      "items": [
+                        {
+                          "finding_id": "finding_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 2,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "fail",
+                          "reason": "label_not_allowed",
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "vehicle",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 0,
+                            "resolution": "pending",
+                            "reviewer_id": null,
+                            "comment": null,
+                            "updated_at": null
+                          }
+                        }
+                      ],
+                      "limit": 20,
+                      "offset": 0,
+                      "total": 1,
+                      "next_offset": null
+                    }
+                  },
+                  "empty": {
+                    "summary": "An existing audit, or a filter that matches nothing",
+                    "value": {
+                      "items": [],
+                      "limit": 20,
+                      "offset": 0,
+                      "total": 0,
+                      "next_offset": null
+                    }
                   }
                 }
               }
             }
           },
           "404": {
-            "description": "The requested resource does not exist.",
+            "description": "The requested audit, sample, or finding does not exist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7646,7 +7782,7 @@
                 "example": {
                   "error": {
                     "code": "NOT_FOUND",
-                    "message": "The requested resource does not exist.",
+                    "message": "The requested audit, sample, or finding does not exist.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7673,7 +7809,7 @@
             }
           },
           "503": {
-            "description": "A required local model or service is unavailable.",
+            "description": "Audit storage is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7682,7 +7818,7 @@
                 "example": {
                   "error": {
                     "code": "DEPENDENCY_UNAVAILABLE",
-                    "message": "A required local model or service is unavailable.",
+                    "message": "Audit storage is unavailable.",
                     "details": [],
                     "request_id": "request_demo"
                   }
@@ -7721,7 +7857,7 @@
               "default": 20
             },
             "example": 20,
-            "description": ""
+            "description": "Page size, from 1 to 100."
           },
           {
             "name": "offset",
@@ -7730,37 +7866,49 @@
             "schema": {
               "type": "integer",
               "minimum": 0,
+              "maximum": 9223372036854775807,
               "default": 0
             },
             "example": 0,
-            "description": ""
+            "description": "Zero-based position in the filtered list, up to PostgreSQL's largest integer."
           },
           {
             "name": "sample_id",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "minLength": 1
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "example": "sample_001",
-            "description": ""
+            "description": "Optional filter. A sample with no findings in this audit, including a sample that is not in it, returns an empty page rather than HTTP 404."
           },
           {
             "name": "outcome",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "enum": [
-                "pass",
-                "fail",
-                "unsure",
-                "unavailable"
-              ]
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FindingOutcome"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "example": "fail",
-            "description": ""
+            "description": "Optional machine outcome filter. It combines with sample_id using AND and never filters by the reviewer's decision."
           },
           {
             "name": "audit_id",
@@ -13563,6 +13711,56 @@
         "title": "AuditSamplePage",
         "type": "object"
       },
+      "FindingPage": {
+        "additionalProperties": false,
+        "description": "One page of an audit's findings, ordered by ascending finding_id.\n\nFindings are the stored machine snapshots with their latest human review\napplied. total counts every finding that matches the filters before paging.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total",
+          "next_offset"
+        ],
+        "title": "FindingPage",
+        "type": "object"
+      },
       "AssetReference": {
         "additionalProperties": false,
         "properties": {
@@ -17019,48 +17217,6 @@
           "errors",
           "checks",
           "objects"
-        ],
-        "additionalProperties": false
-      },
-      "FindingPage": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Finding"
-            }
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "offset": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "total": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "next_offset": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "items",
-          "limit",
-          "offset",
-          "total",
-          "next_offset"
         ],
         "additionalProperties": false
       },

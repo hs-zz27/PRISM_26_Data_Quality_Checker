@@ -30,7 +30,7 @@ def create_app(*, dataset_upload_settings_factory=None, correction_settings_fact
             "Annotation/mask correction, revision history and linked snapshot rechecks are implemented; rechecks use the explicit audit worker. "
             "Reviewed-example policies, adjudicated truth, held-out comparison jobs and explicit activation are implemented in source. "
             "Liveness, capabilities and local readiness reads are implemented. "
-            "Other operations in backend/api remain planned."
+            "The audit-wide finding list is implemented, so every operation in backend/api is implemented."
         ),
     )
     register_error_handlers(app)

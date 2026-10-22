@@ -97,6 +97,49 @@ Poll `GET /jobs/{job_id}`, read `GET /audits/{audit_id}`, then use the existing
 sample queue/detail and finding/sample review routes. Completion is processing
 status, not reviewer approval. Include apparently correct samples in review.
 
+## Audit-wide finding list
+
+`GET /api/v1/audits/{audit_id}/findings` (`listAuditFindings`) lists the machine
+findings of one audit across all of its samples, so a reviewer can scan every
+`fail`, `unsure` or `unavailable` result without opening samples one by one. It
+returns `FindingPage`: `items`, `limit`, `offset`, `total` and nullable `next_offset`.
+
+```http
+GET /api/v1/audits/audit_demo/findings?outcome=fail&limit=20&offset=0
+```
+
+| Query | Meaning |
+| --- | --- |
+| `limit` | 1 to 100, default 20. |
+| `offset` | 0 up to 9223372036854775807, default 0. |
+| `sample_id` | Optional. Only findings of that sample; blank values are rejected with 422. |
+| `outcome` | Optional: `pass`, `fail`, `unsure` or `unavailable`. |
+
+- Omit both filters to include every outcome and every review resolution. The two
+  filters combine with AND. Neither filters by the reviewer's decision.
+- Order is ascending `finding_id` (text order, not creation order), so unchanged data
+  pages in the same order with no duplicates or gaps.
+- `total` counts every matching finding before paging. `next_offset` is
+  `offset + items.length` only when more matching findings remain; otherwise it is
+  null, including for an empty page, an offset past the end and the final page.
+  Follow it until it is null.
+- An unknown `audit_id` returns 404. An existing audit with no findings, or a
+  `sample_id` that matches nothing (including a sample that is not in this audit),
+  returns 200 with an empty page, so an empty list never means the audit is missing.
+- Each item is the stored finding: its pinned `sample_revision`, rulebook version,
+  description, parameters, origin, source sentence, evidence and machine `outcome`,
+  exactly as saved. `review` is the latest human decision, or `pending` when nobody
+  has reviewed the finding. Machine evidence does not change when a reviewer decides.
+- The audit check, the total, the page and the latest reviews come from one database
+  snapshot. Reading starts no worker, runs no inference, reads no asset files and
+  changes nothing. Evidence links are the ones stored with each finding; this route
+  creates none.
+- Errors use the normal envelope: 404 (audit not found), 422 (invalid query), 503
+  (storage unavailable) and 500. There is no 409 for this read.
+- Accepting a finding confirms the tool's conclusion for that finding, not the sample.
+  Use `GET /audits/{audit_id}/samples/{sample_id}` for one sample's measurements,
+  assets, failures and sample decision.
+
 ## Detection and matching evidence
 
 When person detection is enabled on the server, each sample processed by a **new** audit gets a
@@ -196,3 +239,5 @@ Coverage is authored for request validation, safe HTTP errors, catalogue-head
 selection, durable pins, atomic rollback, public pagination, contracts and worker
 dispatch. Tests and PostgreSQL scenarios have not been run during implementation.
 Generated OpenAPI and examples are source-level contracts, not runtime test proof.
+The audit-wide finding list adds PostgreSQL repository, HTTP and contract tests that
+are authored and have not been run.
