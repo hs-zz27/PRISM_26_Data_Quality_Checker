@@ -8,10 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+from io import BytesIO
 import json
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
+
+from backend.app.datasets.penn_fudan import parse_annotations
 from backend.app.models.feedback import EvidenceLimits
 
 DEVELOPMENT = "development"
@@ -106,8 +110,23 @@ def load_case(root: Path, entry: dict[str, Any], guideline: str, limits: Evidenc
         raise ScopeError(f"Prepared image bytes differ from the scope hash: {name}")
     if sha256(annotation).hexdigest() != inputs["annotation_sha256"]:
         raise ScopeError(f"Prepared annotation bytes differ from the scope hash: {name}")
-    if annotation.decode("utf-8", errors="strict") != inputs["annotation_text"]:
+    annotation_text = annotation.decode("utf-8", errors="strict")
+    if annotation_text != inputs["annotation_text"]:
         raise ScopeError(f"Annotation text differs from the prepared file: {name}")
+    try:
+        objects = json.loads(json.dumps(parse_annotations(annotation_text)))
+    except ValueError as error:
+        raise ScopeError(f"Prepared annotation could not be parsed: {name}") from error
+    # Hashing the annotation file alone does not bind the copied object list.
+    # Both arms must use exactly the facts represented by the verified bytes.
+    if objects != inputs["objects"]:
+        raise ScopeError(f"Object facts differ from the prepared annotation: {name}")
+    with Image.open(BytesIO(image)) as opened:
+        if opened.format != "PNG" or getattr(opened, "n_frames", 1) != 1:
+            raise ScopeError(f"Prepared image must be a single-frame PNG: {name}")
+        if list(opened.size) != inputs["image_size"]:
+            raise ScopeError(f"Image dimensions differ from the prepared file: {name}")
+        opened.verify()
     expected_id = case_identity(name, inputs["image_sha256"], inputs["annotation_sha256"], guideline)
     if entry["case_id"] != expected_id:
         raise ScopeError(f"Case identity does not match its evidence: {name}")

@@ -1,0 +1,2127 @@
+{
+  "schema": "box-grounding-paired-reference-v1",
+  "date": "2026-10-22",
+  "source_run_name": "paired-crop-v2-mac",
+  "verification": "All 16 planned units, 30 calls, code fingerprints, 22 saved crop hashes, metric counts and duration sums independently checked against the saved records.",
+  "source_sha256": {
+    "run.json": "3cd30b17ad3f39ebd568ad330d5ce113ce4e91afa43cf0464dfacf75860d6660",
+    "summary.json": "925bec155c8bd0fd00c8c943359b299e4b234f7e0f79ff863ad33bbe794bb4f9",
+    "score.json": "55e8f9fc9111c76f498185aef03f6be8f8180fb07dcc982f3b1c43d7ac2768e7",
+    "results.jsonl": "10e111a18c9ee21f3129cae83bda2b6bd19020bd5dff3e8df0cadef755a3af0f"
+  },
+  "run": {
+    "schema": "box-grounding-run-v1",
+    "experiment_version": "box-grounding-per-box-v1",
+    "created_at": "2026-10-22T13:53:24.002119+00:00",
+    "run_name": "paired-crop-v2-mac",
+    "arms": [
+      "raw-image-v1",
+      "box-crop-v2"
+    ],
+    "order": "interleaved",
+    "cases": [
+      "case-02",
+      "case-03",
+      "case-04",
+      "case-05",
+      "case-09",
+      "case-10",
+      "case-11",
+      "case-12"
+    ],
+    "planned_units": 16,
+    "variants": {
+      "raw-image-v1": {
+        "preprocessing": "original-png-no-transform-v1",
+        "output_schema": "prediction-v1",
+        "requests_per_case": 1,
+        "per_box_wording": false,
+        "examples": 0
+      },
+      "box-crop-v1": {
+        "preprocessing": "box-crop-png-v1",
+        "output_schema": "box-prediction-v1",
+        "requests_per_case": "one per annotation box",
+        "per_box_wording": true,
+        "examples": 0,
+        "instruction_version": "per-box-instruction-v1",
+        "instruction_sha256": "0defcdac731216400b5047c53443ba869fae27456bd6fc49658e31778c6df173",
+        "crop_padding_pixels": 0,
+        "crop_resize": "none",
+        "surrounding_context": "none",
+        "source_geometry_in_model_input": true
+      },
+      "box-crop-v2": {
+        "preprocessing": "box-crop-png-v1",
+        "output_schema": "box-prediction-v1",
+        "requests_per_case": "one per annotation box",
+        "per_box_wording": true,
+        "examples": 0,
+        "instruction_version": "per-box-instruction-v1",
+        "instruction_sha256": "0defcdac731216400b5047c53443ba869fae27456bd6fc49658e31778c6df173",
+        "crop_padding_pixels": 0,
+        "crop_resize": "none",
+        "surrounding_context": "none",
+        "source_geometry_in_model_input": false,
+        "source_geometry_in_local_records": true
+      }
+    },
+    "execution": {
+      "max_image_bytes": 8388608,
+      "max_annotation_bytes": 131072,
+      "max_pixels": 16000000,
+      "host": "http://127.0.0.1:11434",
+      "model": "qwen3-vl:4b-instruct",
+      "model_digest": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+      "temperature": 0,
+      "num_ctx": 16384,
+      "num_predict": 2048,
+      "num_thread": 10,
+      "timeout_seconds": 600,
+      "max_request_bytes": 67108864,
+      "max_response_bytes": 65536,
+      "keep_alive_seconds": 300
+    },
+    "digest": {
+      "requested": "installed",
+      "installed": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+      "historical": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+      "pinned": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+      "installed_matches_historical": true
+    },
+    "ollama_version": "0.33.3",
+    "environment": {
+      "platform": "macOS-26.5.1-arm64-arm-64bit",
+      "system": "Darwin",
+      "release": "25.5.0",
+      "machine": "arm64",
+      "processor": "arm",
+      "cpu_count": 10,
+      "total_memory_bytes": 17179869184,
+      "python_version": "3.12.13",
+      "python_implementation": "CPython",
+      "packages": {
+        "numpy": "2.5.4",
+        "pillow": "12.3.0",
+        "pydantic": "2.14.1",
+        "httpx": "0.28.1",
+        "pytest": "9.1.1"
+      }
+    },
+    "provenance": {
+      "scope_sha256": "92b615f050093ad99a3917ae90cb96973e78abac1704a1e4843923af408ccb8f",
+      "corpus_version": "reviewed-box-development-v1",
+      "manifest_sha256": "e9852c7f01ba164e98968cd23bdf2b6377d54d10be5df62b34a34d0c02ec726e",
+      "system_prompt_version": "annotation-guideline-v1",
+      "system_prompt_sha256": "1c8ef6e29dd4b52133d9cdb19722b8396571e9a5032ee709ecba107b514edbab",
+      "rule": {
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "description": "Each annotation box must enclose a visible pedestrian; a box entirely on background is a violation.",
+        "check_name": null,
+        "parameters": {},
+        "origin": "reviewer",
+        "source_sentence": null,
+        "confirmation_state": "confirmed"
+      },
+      "schema_sha256": {
+        "prediction-v1": "8910b3c5d2b8d8ba046a8e448848f1c910aebe002ff42565fd995023b4e82edf",
+        "box-prediction-v1": "6c201c94a00c7406356aad4a4828af1dbd108cf02045f8a00f5bb6f251cdf1ed"
+      },
+      "code_sha256": {
+        "__init__.py": "c1ee7333452a3286b84dee79ecfd040491a8a8b883280d6a7892b7a31a2b7bed",
+        "client.py": "6a9fe3ef6605b4a3262650d090d4c701718627996b4cc4660e2f6d512103fb73",
+        "crops.py": "7fe51de886e2e296be5f6780db699bfcd4edd38ddd5cdafa29358145605c7ff0",
+        "per_box_instruction_v1.txt": "0defcdac731216400b5047c53443ba869fae27456bd6fc49658e31778c6df173",
+        "prepare.py": "4493fc086b85d890fd56df5504f0b5c469727c6b8f2bc30c538eb80badeb3785",
+        "prompts.py": "6ed3ae0954f559cb9b27b66466462e8fa82e63e1d06a9523a7c578d52f4f2160",
+        "reporting.py": "3b24aa7bdcef9c4fba94e71d3d79f6ab949872dbe05121cc298c9085012c5302",
+        "requirements.txt": "aa047bdcf96c80f3f47521685e3b3fe6962f417058d7e1070cf05325ff866701",
+        "run_experiment.py": "af04ff0d9bb994ab351b4d347b9b90d363a24fac319e6ade826e458e8c4cf882",
+        "run_files.py": "60446a8efbd29a8485bb508a5b152e63fadecbebd7beba350f3d1cc50058aa99",
+        "runner.py": "541cb9129f0f0eb58a8a792f1d464dfaf79771ff8f4878641a7762c44e02ff96",
+        "scope.py": "6a0495b4348080e56e628f0958c4acb3e1d2d486a5d79280d32ccf134fc761f2",
+        "scoring.py": "9fa32c09ee9e5480824f3888557645c3acb589146b88035539a666dbb132db87",
+        "settings.py": "02f4a9fc53a6b065b4cbcb3bf1b8927a87ce9271306a17d3bb9dd071aaf9d39e",
+        "system_prompt_v1.txt": "1c8ef6e29dd4b52133d9cdb19722b8396571e9a5032ee709ecba107b514edbab",
+        "views.py": "51226bf795a8545957bf98f90b8627c8b99fef681197da0af908311b8a346800"
+      }
+    },
+    "sequential": true,
+    "retries": "none",
+    "resume": "not supported",
+    "labels_read_during_inference": false,
+    "max_consecutive_failures": 3,
+    "timing_caveats": [
+      "Requests run one at a time on one machine. Ollama may keep the model and its prompt prefix warm, so the first request and the arm that runs first can differ in timing.",
+      "Interleaved order alternates which arm runs first for each case; blocked order runs one arm completely before the other. Neither removes thermal or background-load effects.",
+      "Durations are model-call time including the verification requests, as in the historical records; they exclude rendering, preparation and any overhead outside the call."
+    ]
+  },
+  "summary": {
+    "schema": "box-grounding-summary-v1",
+    "stage": "completed",
+    "reason": null,
+    "started_at": "2026-10-22T13:53:23.998447+00:00",
+    "finished_at": "2026-10-22T14:52:38.128057+00:00",
+    "planned_units": 16,
+    "completed_units": 16,
+    "not_run": [],
+    "model_calls": 30,
+    "arms": {
+      "raw-image-v1": {
+        "units": 8,
+        "outcomes": {
+          "pass": 4,
+          "unavailable": 1,
+          "fail": 3
+        },
+        "model_calls": 8,
+        "duration_ms": 951894.4741260057
+      },
+      "box-crop-v2": {
+        "units": 8,
+        "outcomes": {
+          "fail": 4,
+          "pass": 3,
+          "unavailable": 1
+        },
+        "model_calls": 22,
+        "duration_ms": 2601627.650418988
+      }
+    },
+    "source_files_changed": [],
+    "labels_read_during_inference": false
+  },
+  "score": {
+    "schema": "box-grounding-score-v1",
+    "run_name": "paired-crop-v2-mac",
+    "complete_paired_comparison": true,
+    "intended_development_cases": [
+      "case-02",
+      "case-03",
+      "case-04",
+      "case-05",
+      "case-09",
+      "case-10",
+      "case-11",
+      "case-12"
+    ],
+    "cases_scored": [
+      "case-02",
+      "case-03",
+      "case-04",
+      "case-05",
+      "case-09",
+      "case-10",
+      "case-11",
+      "case-12"
+    ],
+    "missing_cases_by_arm": {
+      "raw-image-v1": [],
+      "box-crop-v2": []
+    },
+    "arms": {
+      "raw-image-v1": {
+        "intended": 8,
+        "tp": 2,
+        "fp": 1,
+        "fn": 1,
+        "tn": 3,
+        "negative_abstentions": 1,
+        "unsure": 0,
+        "unavailable": 1,
+        "coverage": 0.875,
+        "precision": 0.6666666666666666,
+        "recall": 0.6666666666666666,
+        "f1": 0.6666666666666666,
+        "total_duration_ms": 951894.4741260057
+      },
+      "box-crop-v2": {
+        "intended": 8,
+        "tp": 3,
+        "fp": 1,
+        "fn": 0,
+        "tn": 3,
+        "negative_abstentions": 1,
+        "unsure": 0,
+        "unavailable": 1,
+        "coverage": 0.875,
+        "precision": 0.75,
+        "recall": 1.0,
+        "f1": 0.8571428571428571,
+        "total_duration_ms": 2601627.650418988
+      }
+    },
+    "assessment_crops_vs_raw_control": "inconclusive",
+    "candidate_arm": "box-crop-v2",
+    "errors": {
+      "raw-image-v1": {
+        "false_negatives": [
+          "case-02"
+        ],
+        "false_positives": [
+          "case-10"
+        ]
+      },
+      "box-crop-v2": {
+        "false_negatives": [],
+        "false_positives": [
+          "case-04"
+        ]
+      }
+    },
+    "cases": [
+      {
+        "case_name": "case-02",
+        "expected": "fail",
+        "arms": {
+          "raw-image-v1": {
+            "outcome": "pass",
+            "reason": "All annotated bounding boxes enclose visible pedestrians on the stairs or standing nearby, with no box entirely on background.",
+            "duration_ms": 78204.89725000516,
+            "model_calls": 1,
+            "boxes": []
+          },
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "supported_failing_box: boxes 1",
+            "duration_ms": 563378.8310849777,
+            "model_calls": 6,
+            "boxes": [
+              {
+                "box_number": 1,
+                "object_id": 1,
+                "outcome": "fail",
+                "reason": "The crop shows only blurred green foliage and tree trunks with no discernible pedestrian.",
+                "duration_ms": 63310.579750002944
+              },
+              {
+                "box_number": 2,
+                "object_id": 2,
+                "outcome": "pass",
+                "reason": "The crop shows a person standing, wearing a light blue shirt and dark pants, with their hand in their pocket, clearly a visible pedestrian.",
+                "duration_ms": 65210.06433399452
+              },
+              {
+                "box_number": 3,
+                "object_id": 3,
+                "outcome": "pass",
+                "reason": "The crop shows the back of a person walking up stairs, wearing a dark jacket and pants, with bare feet and sandals, clearly a visible pedestrian.",
+                "duration_ms": 70326.42283399764
+              },
+              {
+                "box_number": 4,
+                "object_id": 4,
+                "outcome": "pass",
+                "reason": "The crop shows the back of a person walking up stairs, wearing a green jacket and khaki pants, which constitutes a visible pedestrian.",
+                "duration_ms": 96390.88954198814
+              },
+              {
+                "box_number": 5,
+                "object_id": 5,
+                "outcome": "pass",
+                "reason": "The crop shows the back of a person wearing a blue jacket and green pants, walking away, which constitutes a visible pedestrian.",
+                "duration_ms": 128743.22737500188
+              },
+              {
+                "box_number": 6,
+                "object_id": 6,
+                "outcome": "pass",
+                "reason": "The crop shows the back of a person wearing a dark vest and light-colored pants, walking up stairs, which is a visible pedestrian.",
+                "duration_ms": 139397.6472499926
+              }
+            ]
+          }
+        }
+      },
+      {
+        "case_name": "case-03",
+        "expected": "pass",
+        "arms": {
+          "raw-image-v1": {
+            "outcome": "pass",
+            "reason": "The image contains a visible pedestrian walking on the street, fully enclosed within the frame and not overlapped by background elements.",
+            "duration_ms": 83410.47366699786,
+            "model_calls": 1,
+            "boxes": []
+          },
+          "box-crop-v2": {
+            "outcome": "pass",
+            "reason": "all_boxes_pass",
+            "duration_ms": 116890.95104200533,
+            "model_calls": 1,
+            "boxes": [
+              {
+                "box_number": 1,
+                "object_id": 1,
+                "outcome": "pass",
+                "reason": "The crop shows a person in a dark suit walking, with visible limbs and clothing, confirming a visible pedestrian.",
+                "duration_ms": 116890.95104200533
+              }
+            ]
+          }
+        }
+      },
+      {
+        "case_name": "case-04",
+        "expected": "pass",
+        "arms": {
+          "raw-image-v1": {
+            "outcome": "pass",
+            "reason": "The image contains two clearly visible pedestrians crossing the street: an adult and a child, both fully within the frame and not occluded by background elements.",
+            "duration_ms": 90653.79108401248,
+            "model_calls": 1,
+            "boxes": []
+          },
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "supported_failing_box: boxes 3",
+            "duration_ms": 223281.13708400633,
+            "model_calls": 3,
+            "boxes": [
+              {
+                "box_number": 1,
+                "object_id": 1,
+                "outcome": "pass",
+                "reason": "The crop shows a person walking, identifiable by their posture, clothing, and movement across the pavement, consistent with a visible pedestrian.",
+                "duration_ms": 74968.96533400286
+              },
+              {
+                "box_number": 2,
+                "object_id": 2,
+                "outcome": "pass",
+                "reason": "The crop shows a visible pedestrian in a dark jacket and pants, walking on a street with a crosswalk, confirming a visible pedestrian is enclosed.",
+                "duration_ms": 74854.20154199528
+              },
+              {
+                "box_number": 3,
+                "object_id": 3,
+                "outcome": "fail",
+                "reason": "The crop shows only blurred background pixels with no discernible pedestrian.",
+                "duration_ms": 73457.97020800819
+              }
+            ]
+          }
+        }
+      },
+      {
+        "case_name": "case-05",
+        "expected": "pass",
+        "arms": {
+          "raw-image-v1": {
+            "outcome": "unavailable",
+            "reason": "identity_mismatch",
+            "duration_ms": 84128.58499999857,
+            "model_calls": 1,
+            "boxes": []
+          },
+          "box-crop-v2": {
+            "outcome": "unavailable",
+            "reason": "unavailable_box: boxes 1, 2",
+            "duration_ms": 151566.9375409925,
+            "model_calls": 2,
+            "boxes": [
+              {
+                "box_number": 1,
+                "object_id": 1,
+                "outcome": "unavailable",
+                "reason": "identity_mismatch",
+                "duration_ms": 75790.87633300514
+              },
+              {
+                "box_number": 2,
+                "object_id": 2,
+                "outcome": "unavailable",
+                "reason": "identity_mismatch",
+                "duration_ms": 75776.06120798737
+              }
+            ]
+          }
+        }
+      },
+      {
+        "case_name": "case-09",
+        "expected": "pass",
+        "arms": {
+          "raw-image-v1": {
+            "outcome": "pass",
+            "reason": "The image contains a visible pedestrian walking in the foreground, not obscured or entirely on background.",
+            "duration_ms": 81392.45495799696,
+            "model_calls": 1,
+            "boxes": []
+          },
+          "box-crop-v2": {
+            "outcome": "pass",
+            "reason": "all_boxes_pass",
+            "duration_ms": 81283.89716600941,
+            "model_calls": 1,
+            "boxes": [
+              {
+                "box_number": 1,
+                "object_id": 1,
+                "outcome": "pass",
+                "reason": "The crop shows a person walking, identifiable as a pedestrian, with visible upper body and legs, holding an object, and standing on a paved surface.",
+                "duration_ms": 81283.89716600941
+              }
+            ]
+          }
+        }
+      },
+      {
+        "case_name": "case-10",
+        "expected": "pass",
+        "arms": {
+          "raw-image-v1": {
+            "outcome": "fail",
+            "reason": "The image shows a person wearing a hard hat and work clothes, walking away from the camera, and is clearly visible as a pedestrian. The annotation box provided in the target is not applicable to this image, as it refers to a different image (PennFudanPed/PNGImages/PennPed00040.png) with a different bounding box. The current image does not contain the object described in the target annotation, so the annotation is not valid for this image.",
+            "duration_ms": 93478.85354199389,
+            "model_calls": 1,
+            "boxes": []
+          },
+          "box-crop-v2": {
+            "outcome": "pass",
+            "reason": "all_boxes_pass",
+            "duration_ms": 82393.72966700466,
+            "model_calls": 1,
+            "boxes": [
+              {
+                "box_number": 1,
+                "object_id": 1,
+                "outcome": "pass",
+                "reason": "The crop shows a person walking, wearing a hard hat and long-sleeved shirt, with legs in motion, clearly a visible pedestrian.",
+                "duration_ms": 82393.72966700466
+              }
+            ]
+          }
+        }
+      },
+      {
+        "case_name": "case-11",
+        "expected": "fail",
+        "arms": {
+          "raw-image-v1": {
+            "outcome": "fail",
+            "reason": "Annotation boxes for objects 1, 2, and 3 are all entirely on background or contain no visible pedestrian; no pedestrian is enclosed in any annotation box.",
+            "duration_ms": 88961.62258299591,
+            "model_calls": 1,
+            "boxes": []
+          },
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "supported_failing_box: boxes 1",
+            "duration_ms": 299578.7232510047,
+            "model_calls": 3,
+            "boxes": [
+              {
+                "box_number": 1,
+                "object_id": 1,
+                "outcome": "fail",
+                "reason": "The crop shows only dark, blurry background with no discernible pedestrian.",
+                "duration_ms": 98355.77200000989
+              },
+              {
+                "box_number": 2,
+                "object_id": 2,
+                "outcome": "pass",
+                "reason": "The crop shows a person from behind, wearing dark clothing and walking on a paved surface, which constitutes a visible pedestrian.",
+                "duration_ms": 104856.7162919935
+              },
+              {
+                "box_number": 3,
+                "object_id": 3,
+                "outcome": "pass",
+                "reason": "The crop shows the back of a person wearing a dark coat and pants, walking on a paved surface, which constitutes a visible pedestrian.",
+                "duration_ms": 96366.2349590013
+              }
+            ]
+          }
+        }
+      },
+      {
+        "case_name": "case-12",
+        "expected": "fail",
+        "arms": {
+          "raw-image-v1": {
+            "outcome": "fail",
+            "reason": "Annotation boxes for objects 1, 2, 3 are entirely on background or non-pedestrian areas; only objects 4 and 5 are valid pedestrians.",
+            "duration_ms": 351663.79604200483,
+            "model_calls": 1,
+            "boxes": []
+          },
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "supported_failing_box: boxes 1",
+            "duration_ms": 1083253.4435829874,
+            "model_calls": 5,
+            "boxes": [
+              {
+                "box_number": 1,
+                "object_id": 1,
+                "outcome": "fail",
+                "reason": "The crop shows only a blurry, indistinct area with no discernible pedestrian; it appears to be background texture or a non-person object.",
+                "duration_ms": 88804.57700000261
+              },
+              {
+                "box_number": 2,
+                "object_id": 2,
+                "outcome": "pass",
+                "reason": "The crop shows a person walking, wearing a light-colored t-shirt and dark pants, with visible legs and feet, confirming a visible pedestrian.",
+                "duration_ms": 281584.0895000001
+              },
+              {
+                "box_number": 3,
+                "object_id": 3,
+                "outcome": "pass",
+                "reason": "The crop shows a person walking, identifiable by their posture and clothing, which is a visible pedestrian.",
+                "duration_ms": 95304.11945800006
+              },
+              {
+                "box_number": 4,
+                "object_id": 4,
+                "outcome": "pass",
+                "reason": "The crop shows a person standing, wearing a patterned dress and a white jacket, with visible limbs and torso, confirming a visible pedestrian.",
+                "duration_ms": 253689.75895899348
+              },
+              {
+                "box_number": 5,
+                "object_id": 5,
+                "outcome": "pass",
+                "reason": "The crop shows a full human figure standing on a sidewalk, wearing a cap, jacket, jeans, and sneakers, clearly a visible pedestrian.",
+                "duration_ms": 363870.89866599126
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "model": {
+      "digest": {
+        "requested": "installed",
+        "installed": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+        "historical": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+        "pinned": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+        "installed_matches_historical": true
+      },
+      "execution": {
+        "model": "qwen3-vl:4b-instruct",
+        "num_ctx": 16384,
+        "num_predict": 2048,
+        "num_thread": 10,
+        "timeout_seconds": 600
+      }
+    },
+    "order": "interleaved",
+    "environment": {
+      "platform": "macOS-26.5.1-arm64-arm-64bit",
+      "processor": "arm",
+      "cpu_count": 10,
+      "total_memory_bytes": 17179869184,
+      "python_version": "3.12.13"
+    },
+    "ollama_version": "0.33.3",
+    "timing_caveats": [
+      "Requests run one at a time on one machine. Ollama may keep the model and its prompt prefix warm, so the first request and the arm that runs first can differ in timing.",
+      "Interleaved order alternates which arm runs first for each case; blocked order runs one arm completely before the other. Neither removes thermal or background-load effects.",
+      "Durations are model-call time including the verification requests, as in the historical records; they exclude rendering, preparation and any overhead outside the call."
+    ],
+    "historical_reference_not_a_paired_control": {
+      "historical_raw_baseline": {
+        "intended": 8,
+        "tp": 2,
+        "fp": 0,
+        "fn": 1,
+        "tn": 5,
+        "negative_abstentions": 0,
+        "unsure": 0,
+        "unavailable": 0,
+        "coverage": 1.0,
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "total_duration_ms": 856960.4264169902
+      },
+      "historical_one_example_candidate": {
+        "intended": 8,
+        "tp": 1,
+        "fp": 0,
+        "fn": 2,
+        "tn": 5,
+        "negative_abstentions": 0,
+        "unsure": 0,
+        "unavailable": 0,
+        "coverage": 1.0,
+        "precision": 1.0,
+        "recall": 0.3333333333333333,
+        "f1": 0.5,
+        "total_duration_ms": 1122674.3689569703
+      },
+      "historical_numbered_overview": {
+        "intended": 8,
+        "tp": 1,
+        "fp": 0,
+        "fn": 2,
+        "tn": 5,
+        "negative_abstentions": 0,
+        "unsure": 0,
+        "unavailable": 0,
+        "coverage": 1.0,
+        "precision": 1.0,
+        "recall": 0.3333333333333333,
+        "f1": 0.5,
+        "total_duration_ms": 803993.6553739826
+      }
+    },
+    "limitations": [
+      "Eight already-exposed development images with one human reviewer and controlled annotation changes.",
+      "Only three violations: one case changes recall by 0.33. No significance or generalization claim is possible.",
+      "A candidate that is not strictly better than the fresh control is not evidence of improvement."
+    ]
+  },
+  "results": [
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "raw-image-v1",
+      "case_name": "case-02",
+      "case_id": "a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d",
+      "partition": "development",
+      "preprocessing": "original-png-no-transform-v1",
+      "boxes_in_source": 6,
+      "started_at": "2026-10-22T13:53:24.027721+00:00",
+      "render_ms": 12.818917006370611,
+      "prediction": {
+        "case_id": "a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "outcome": "pass",
+        "reason": "All annotated bounding boxes enclose visible pedestrians on the stairs or standing nearby, with no box entirely on background.",
+        "evidence_references": [
+          "image",
+          "annotations"
+        ]
+      },
+      "boxes": [],
+      "request_sha256": "6d71de0ce9516fe0030ec387be03b9194da23fdebec6ff70ebc1b75a5ca3240b",
+      "model_calls": 1,
+      "duration_ms": 78204.89725000516,
+      "chat_ms": 78196.53129200742,
+      "metrics": {
+        "total_duration": 78193588333,
+        "load_duration": 6353997583,
+        "prompt_eval_count": 2124,
+        "prompt_eval_duration": 63890080000,
+        "eval_count": 125,
+        "eval_duration": 7910847000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"outcome\": \"pass\", \"reason\": \"All annotated bounding boxes enclose visible pedestrians on the stairs or standing nearby, with no box entirely on background.\", \"evidence_references\": [\"image\", \"annotations\"]}",
+      "model_verified": true,
+      "outcome": "pass",
+      "reason": "All annotated bounding boxes enclose visible pedestrians on the stairs or standing nearby, with no box entirely on background.",
+      "aggregate_reason": "single_request",
+      "finished_at": "2026-10-22T13:54:42.233285+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "box-crop-v2",
+      "case_name": "case-02",
+      "case_id": "a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d",
+      "partition": "development",
+      "preprocessing": "box-crop-png-v1",
+      "boxes_in_source": 6,
+      "started_at": "2026-10-22T13:54:42.234102+00:00",
+      "render_ms": 12.818917006370611,
+      "prediction": null,
+      "boxes": [
+        {
+          "box_number": 1,
+          "annotation_index": 0,
+          "object_id": 1,
+          "label": "PASpersonStanding",
+          "bbox": [
+            1,
+            1,
+            80,
+            55
+          ],
+          "pil_box": [
+            0,
+            0,
+            80,
+            55
+          ],
+          "crop_size": [
+            80,
+            55
+          ],
+          "crop_sha256": "bf66a72839da76f67b67d24648030b365005b467fddeda320f0fff0e7122f8c0",
+          "crop_file": "crops/case-02/box-01.png",
+          "request_sha256": "5208184e1551d4ef3aac89f1bb0739ba50f43515740dedf21579eebdea17ca01",
+          "outcome": "fail",
+          "reason": "The crop shows only blurred green foliage and tree trunks with no discernible pedestrian.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 63310.579750002944,
+          "chat_ms": 63304.08583399549,
+          "metrics": {
+            "total_duration": 63303334375,
+            "load_duration": 849916,
+            "prompt_eval_count": 1640,
+            "prompt_eval_duration": 55775728000,
+            "eval_count": 130,
+            "eval_duration": 7432607000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"fail\", \"reason\": \"The crop shows only blurred green foliage and tree trunks with no discernible pedestrian.\", \"evidence_references\": []}"
+        },
+        {
+          "box_number": 2,
+          "annotation_index": 1,
+          "object_id": 2,
+          "label": "PASpersonStanding",
+          "bbox": [
+            186,
+            56,
+            262,
+            337
+          ],
+          "pil_box": [
+            185,
+            55,
+            262,
+            337
+          ],
+          "crop_size": [
+            77,
+            282
+          ],
+          "crop_sha256": "60c77342be24eb609c63a0faca5496bbc669d683051fde8f7eae9edc952bbe72",
+          "crop_file": "crops/case-02/box-02.png",
+          "request_sha256": "9d49e1c54058d4062703900e0eb075523628c6260a74fb32b69e681d67fc27e4",
+          "outcome": "pass",
+          "reason": "The crop shows a person standing, wearing a light blue shirt and dark pants, with their hand in their pocket, clearly a visible pedestrian.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 65210.06433399452,
+          "chat_ms": 65193.49637501,
+          "metrics": {
+            "total_duration": 65192599708,
+            "load_duration": 814500,
+            "prompt_eval_count": 1642,
+            "prompt_eval_duration": 56967062000,
+            "eval_count": 146,
+            "eval_duration": 8143342000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"pass\", \"reason\": \"The crop shows a person standing, wearing a light blue shirt and dark pants, with their hand in their pocket, clearly a visible pedestrian.\", \"evidence_references\": [\"image\", \"annotations\"]}"
+        },
+        {
+          "box_number": 3,
+          "annotation_index": 2,
+          "object_id": 3,
+          "label": "PASpersonWalking",
+          "bbox": [
+            309,
+            141,
+            437,
+            493
+          ],
+          "pil_box": [
+            308,
+            140,
+            437,
+            493
+          ],
+          "crop_size": [
+            129,
+            353
+          ],
+          "crop_sha256": "b70804366df182919684744a59c5a07381f216858847dac4eb6e4500af9fc0e3",
+          "crop_file": "crops/case-02/box-03.png",
+          "request_sha256": "6a9ad4ba9ed6a819480a5adb012fe42be7e22ebeae81d7b5b95b30bf0ab7bb08",
+          "outcome": "pass",
+          "reason": "The crop shows the back of a person walking up stairs, wearing a dark jacket and pants, with bare feet and sandals, clearly a visible pedestrian.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 70326.42283399764,
+          "chat_ms": 70319.34037499013,
+          "metrics": {
+            "total_duration": 70317571292,
+            "load_duration": 850167,
+            "prompt_eval_count": 1649,
+            "prompt_eval_duration": 61083026000,
+            "eval_count": 143,
+            "eval_duration": 8662623000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 3, \"object_id\": 3, \"outcome\": \"pass\", \"reason\": \"The crop shows the back of a person walking up stairs, wearing a dark jacket and pants, with bare feet and sandals, clearly a visible pedestrian.\", \"evidence_references\": []}"
+        },
+        {
+          "box_number": 4,
+          "annotation_index": 3,
+          "object_id": 4,
+          "label": "PASpersonWalking",
+          "bbox": [
+            475,
+            76,
+            619,
+            451
+          ],
+          "pil_box": [
+            474,
+            75,
+            619,
+            451
+          ],
+          "crop_size": [
+            145,
+            376
+          ],
+          "crop_sha256": "60fb856c7044cb56ea5f552d557ace0b0ed0f36563f801145bf2b260ac4da970",
+          "crop_file": "crops/case-02/box-04.png",
+          "request_sha256": "46a368349ac5614558ba337d475e258e8b6fea9de6e43467b499fb063ca51bdb",
+          "outcome": "pass",
+          "reason": "The crop shows the back of a person walking up stairs, wearing a green jacket and khaki pants, which constitutes a visible pedestrian.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 96390.88954198814,
+          "chat_ms": 96381.27108299523,
+          "metrics": {
+            "total_duration": 96373915708,
+            "load_duration": 1098791,
+            "prompt_eval_count": 1629,
+            "prompt_eval_duration": 71777016000,
+            "eval_count": 140,
+            "eval_duration": 24279568000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 4, \"object_id\": 4, \"outcome\": \"pass\", \"reason\": \"The crop shows the back of a person walking up stairs, wearing a green jacket and khaki pants, which constitutes a visible pedestrian.\", \"evidence_references\": []}"
+        },
+        {
+          "box_number": 5,
+          "annotation_index": 4,
+          "object_id": 5,
+          "label": "PASpersonWalking",
+          "bbox": [
+            392,
+            58,
+            485,
+            421
+          ],
+          "pil_box": [
+            391,
+            57,
+            485,
+            421
+          ],
+          "crop_size": [
+            94,
+            364
+          ],
+          "crop_sha256": "03011de7e9a05114fcd7ea739a1e07ebcb34187313f32e33bc07bea2e67a3efe",
+          "crop_file": "crops/case-02/box-05.png",
+          "request_sha256": "131ff1300962edd751ea7b10e784bd6c06ffba5b68d238a17bc6a6dd35d651ae",
+          "outcome": "pass",
+          "reason": "The crop shows the back of a person wearing a blue jacket and green pants, walking away, which constitutes a visible pedestrian.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 128743.22737500188,
+          "chat_ms": 128732.09995799698,
+          "metrics": {
+            "total_duration": 128728485125,
+            "load_duration": 3184500,
+            "prompt_eval_count": 1659,
+            "prompt_eval_duration": 103044103000,
+            "eval_count": 138,
+            "eval_duration": 25598098000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 5, \"object_id\": 5, \"outcome\": \"pass\", \"reason\": \"The crop shows the back of a person wearing a blue jacket and green pants, walking away, which constitutes a visible pedestrian.\", \"evidence_references\": []}"
+        },
+        {
+          "box_number": 6,
+          "annotation_index": 5,
+          "object_id": 6,
+          "label": "PASpersonWalking",
+          "bbox": [
+            563,
+            36,
+            681,
+            394
+          ],
+          "pil_box": [
+            562,
+            35,
+            681,
+            394
+          ],
+          "crop_size": [
+            119,
+            359
+          ],
+          "crop_sha256": "b16637f3073b5a2787c5e6686987736cc5515e32dd483fb946941d0d8acb6b5e",
+          "crop_file": "crops/case-02/box-06.png",
+          "request_sha256": "08511f82460a97a3b333b9e4390da307073204ad8c78c19a2e3d7f05ad1d48cc",
+          "outcome": "pass",
+          "reason": "The crop shows the back of a person wearing a dark vest and light-colored pants, walking up stairs, which is a visible pedestrian.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 139397.6472499926,
+          "chat_ms": 139386.95108299726,
+          "metrics": {
+            "total_duration": 139380776625,
+            "load_duration": 1457208,
+            "prompt_eval_count": 1653,
+            "prompt_eval_duration": 111675336000,
+            "eval_count": 140,
+            "eval_duration": 27573002000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"a93f135c44e40092d7a95c552ff6b56a9809b5a7d63167ebe8693859ccf6041d\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 6, \"object_id\": 6, \"outcome\": \"pass\", \"reason\": \"The crop shows the back of a person wearing a dark vest and light-colored pants, walking up stairs, which is a visible pedestrian.\", \"evidence_references\": []}"
+        }
+      ],
+      "request_sha256": null,
+      "model_calls": 6,
+      "duration_ms": 563378.8310849777,
+      "chat_ms": 563317.2447079851,
+      "outcome": "fail",
+      "reason": "supported_failing_box: boxes 1",
+      "aggregate_reason": "supported_failing_box",
+      "finished_at": "2026-10-22T14:04:05.622602+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "box-crop-v2",
+      "case_name": "case-03",
+      "case_id": "dbaa3d8a56c02e08dda3cc915970e64280d83898c3017ca04ed95a09a41e8e31",
+      "partition": "development",
+      "preprocessing": "box-crop-png-v1",
+      "boxes_in_source": 1,
+      "started_at": "2026-10-22T14:04:05.623646+00:00",
+      "render_ms": 2.612500000395812,
+      "prediction": null,
+      "boxes": [
+        {
+          "box_number": 1,
+          "annotation_index": 0,
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            48,
+            40,
+            139,
+            332
+          ],
+          "pil_box": [
+            47,
+            39,
+            139,
+            332
+          ],
+          "crop_size": [
+            92,
+            293
+          ],
+          "crop_sha256": "e3e1ab1463978bc3057c53b03c18e9505b0283cf6490dd45e2119bc3e9916b05",
+          "crop_file": "crops/case-03/box-01.png",
+          "request_sha256": "b859f5dbbe0b124101dcb55678d93bc67fc1a32b902320234435cd47a143d0ae",
+          "outcome": "pass",
+          "reason": "The crop shows a person in a dark suit walking, with visible limbs and clothing, confirming a visible pedestrian.",
+          "evidence_references": [
+            "image",
+            "annotations",
+            "guideline"
+          ],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 116890.95104200533,
+          "chat_ms": 116881.19966699742,
+          "metrics": {
+            "total_duration": 116878160416,
+            "load_duration": 1738125,
+            "prompt_eval_count": 1628,
+            "prompt_eval_duration": 94445641000,
+            "eval_count": 140,
+            "eval_duration": 22054427000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"dbaa3d8a56c02e08dda3cc915970e64280d83898c3017ca04ed95a09a41e8e31\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"pass\", \"reason\": \"The crop shows a person in a dark suit walking, with visible limbs and clothing, confirming a visible pedestrian.\", \"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+        }
+      ],
+      "request_sha256": null,
+      "model_calls": 1,
+      "duration_ms": 116890.95104200533,
+      "chat_ms": 116881.19966699742,
+      "outcome": "pass",
+      "reason": "all_boxes_pass",
+      "aggregate_reason": "all_boxes_pass",
+      "finished_at": "2026-10-22T14:06:02.516644+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "raw-image-v1",
+      "case_name": "case-03",
+      "case_id": "dbaa3d8a56c02e08dda3cc915970e64280d83898c3017ca04ed95a09a41e8e31",
+      "partition": "development",
+      "preprocessing": "original-png-no-transform-v1",
+      "boxes_in_source": 1,
+      "started_at": "2026-10-22T14:06:02.517231+00:00",
+      "render_ms": 2.612500000395812,
+      "prediction": {
+        "case_id": "dbaa3d8a56c02e08dda3cc915970e64280d83898c3017ca04ed95a09a41e8e31",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "outcome": "pass",
+        "reason": "The image contains a visible pedestrian walking on the street, fully enclosed within the frame and not overlapped by background elements.",
+        "evidence_references": []
+      },
+      "boxes": [],
+      "request_sha256": "1330f51164d8bf40ac8bc67940ec79a9eeb31043af6aa6f4c1e927b979f96485",
+      "model_calls": 1,
+      "duration_ms": 83410.47366699786,
+      "chat_ms": 83402.52683298604,
+      "metrics": {
+        "total_duration": 83401407542,
+        "load_duration": 2474083,
+        "prompt_eval_count": 1865,
+        "prompt_eval_duration": 74983113000,
+        "eval_count": 119,
+        "eval_duration": 8310278000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"dbaa3d8a56c02e08dda3cc915970e64280d83898c3017ca04ed95a09a41e8e31\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"outcome\": \"pass\", \"reason\": \"The image contains a visible pedestrian walking on the street, fully enclosed within the frame and not overlapped by background elements.\", \"evidence_references\": []}",
+      "model_verified": true,
+      "outcome": "pass",
+      "reason": "The image contains a visible pedestrian walking on the street, fully enclosed within the frame and not overlapped by background elements.",
+      "aggregate_reason": "single_request",
+      "finished_at": "2026-10-22T14:07:25.928043+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "raw-image-v1",
+      "case_name": "case-04",
+      "case_id": "b964fbc36af6f1d99f3eecca86c8436fec843ee062560c46e0559fef55afd8e5",
+      "partition": "development",
+      "preprocessing": "original-png-no-transform-v1",
+      "boxes_in_source": 3,
+      "started_at": "2026-10-22T14:07:25.928837+00:00",
+      "render_ms": 3.767041998798959,
+      "prediction": {
+        "case_id": "b964fbc36af6f1d99f3eecca86c8436fec843ee062560c46e0559fef55afd8e5",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "outcome": "pass",
+        "reason": "The image contains two clearly visible pedestrians crossing the street: an adult and a child, both fully within the frame and not occluded by background elements.",
+        "evidence_references": []
+      },
+      "boxes": [],
+      "request_sha256": "5ac6c3c31f4a61e46a7d1b1c8de5f7fa246a6c4af6aabf8ca2aa8473b0bb9daa",
+      "model_calls": 1,
+      "duration_ms": 90653.79108401248,
+      "chat_ms": 90646.76029101247,
+      "metrics": {
+        "total_duration": 90645933000,
+        "load_duration": 1945250,
+        "prompt_eval_count": 2207,
+        "prompt_eval_duration": 82102392000,
+        "eval_count": 120,
+        "eval_duration": 8352910000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"b964fbc36af6f1d99f3eecca86c8436fec843ee062560c46e0559fef55afd8e5\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"outcome\": \"pass\", \"reason\": \"The image contains two clearly visible pedestrians crossing the street: an adult and a child, both fully within the frame and not occluded by background elements.\", \"evidence_references\": []}",
+      "model_verified": true,
+      "outcome": "pass",
+      "reason": "The image contains two clearly visible pedestrians crossing the street: an adult and a child, both fully within the frame and not occluded by background elements.",
+      "aggregate_reason": "single_request",
+      "finished_at": "2026-10-22T14:08:56.592549+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "box-crop-v2",
+      "case_name": "case-04",
+      "case_id": "b964fbc36af6f1d99f3eecca86c8436fec843ee062560c46e0559fef55afd8e5",
+      "partition": "development",
+      "preprocessing": "box-crop-png-v1",
+      "boxes_in_source": 3,
+      "started_at": "2026-10-22T14:08:56.593352+00:00",
+      "render_ms": 3.767041998798959,
+      "prediction": null,
+      "boxes": [
+        {
+          "box_number": 1,
+          "annotation_index": 0,
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            72,
+            34,
+            216,
+            310
+          ],
+          "pil_box": [
+            71,
+            33,
+            216,
+            310
+          ],
+          "crop_size": [
+            145,
+            277
+          ],
+          "crop_sha256": "3cc2eb3743b637638e8626feb168b3307efb525ded34f6b918d0d1e888c705ef",
+          "crop_file": "crops/case-04/box-01.png",
+          "request_sha256": "56dc59a6cdd2b5fbd6c60c14eaa6936e7e6f3dcfc16afc8fe156836f683a3613",
+          "outcome": "pass",
+          "reason": "The crop shows a person walking, identifiable by their posture, clothing, and movement across the pavement, consistent with a visible pedestrian.",
+          "evidence_references": [
+            "image",
+            "annotations",
+            "guideline"
+          ],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 74968.96533400286,
+          "chat_ms": 74960.6588339957,
+          "metrics": {
+            "total_duration": 74959337334,
+            "load_duration": 1121292,
+            "prompt_eval_count": 1660,
+            "prompt_eval_duration": 66491979999,
+            "eval_count": 139,
+            "eval_duration": 7917081000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"b964fbc36af6f1d99f3eecca86c8436fec843ee062560c46e0559fef55afd8e5\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"pass\", \"reason\": \"The crop shows a person walking, identifiable by their posture, clothing, and movement across the pavement, consistent with a visible pedestrian.\", \"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+        },
+        {
+          "box_number": 2,
+          "annotation_index": 1,
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            189,
+            151,
+            276,
+            304
+          ],
+          "pil_box": [
+            188,
+            150,
+            276,
+            304
+          ],
+          "crop_size": [
+            88,
+            154
+          ],
+          "crop_sha256": "30faa3c04c35971220ff7dd0ec75aff48c5626343a531b71e185ca936fe9921d",
+          "crop_file": "crops/case-04/box-02.png",
+          "request_sha256": "a11e220d05b5676daa66e4a48ccfd7b12a1b85cbd99e554bb262b2ba759ed178",
+          "outcome": "pass",
+          "reason": "The crop shows a visible pedestrian in a dark jacket and pants, walking on a street with a crosswalk, confirming a visible pedestrian is enclosed.",
+          "evidence_references": [
+            "image",
+            "annotations",
+            "guideline"
+          ],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 74854.20154199528,
+          "chat_ms": 74846.26241600199,
+          "metrics": {
+            "total_duration": 74845419917,
+            "load_duration": 901959,
+            "prompt_eval_count": 1654,
+            "prompt_eval_duration": 65958028999,
+            "eval_count": 142,
+            "eval_duration": 8764955000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"b964fbc36af6f1d99f3eecca86c8436fec843ee062560c46e0559fef55afd8e5\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"pass\", \"reason\": \"The crop shows a visible pedestrian in a dark jacket and pants, walking on a street with a crosswalk, confirming a visible pedestrian is enclosed.\", \"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+        },
+        {
+          "box_number": 3,
+          "annotation_index": 2,
+          "object_id": 3,
+          "label": "PASpersonWalking",
+          "bbox": [
+            390,
+            2,
+            421,
+            71
+          ],
+          "pil_box": [
+            389,
+            1,
+            421,
+            71
+          ],
+          "crop_size": [
+            32,
+            70
+          ],
+          "crop_sha256": "5a3595d5a5008879da9d2e8b2f714d14ac06f21fc44ac2f2a5d2b338ebf6462f",
+          "crop_file": "crops/case-04/box-03.png",
+          "request_sha256": "9dc5efa4b1a97579f823479ff617d29d8024cb7306911d5cbd2e239af37b3d32",
+          "outcome": "fail",
+          "reason": "The crop shows only blurred background pixels with no discernible pedestrian.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 73457.97020800819,
+          "chat_ms": 73449.92800000182,
+          "metrics": {
+            "total_duration": 73448431000,
+            "load_duration": 752459,
+            "prompt_eval_count": 1634,
+            "prompt_eval_duration": 65874115000,
+            "eval_count": 117,
+            "eval_duration": 7225209000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"b964fbc36af6f1d99f3eecca86c8436fec843ee062560c46e0559fef55afd8e5\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 3, \"object_id\": 3, \"outcome\": \"fail\", \"reason\": \"The crop shows only blurred background pixels with no discernible pedestrian.\", \"evidence_references\": []}"
+        }
+      ],
+      "request_sha256": null,
+      "model_calls": 3,
+      "duration_ms": 223281.13708400633,
+      "chat_ms": 223256.8492499995,
+      "outcome": "fail",
+      "reason": "supported_failing_box: boxes 3",
+      "aggregate_reason": "supported_failing_box",
+      "finished_at": "2026-10-22T14:12:39.880698+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "box-crop-v2",
+      "case_name": "case-05",
+      "case_id": "84b1f9de4d23da967aee0766a5a8bcb415ba5a2f9777a9c72c2baa40fef988e9",
+      "partition": "development",
+      "preprocessing": "box-crop-png-v1",
+      "boxes_in_source": 2,
+      "started_at": "2026-10-22T14:12:39.881569+00:00",
+      "render_ms": 4.421999998157844,
+      "prediction": null,
+      "boxes": [
+        {
+          "box_number": 1,
+          "annotation_index": 0,
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            89,
+            27,
+            200,
+            302
+          ],
+          "pil_box": [
+            88,
+            26,
+            200,
+            302
+          ],
+          "crop_size": [
+            112,
+            276
+          ],
+          "crop_sha256": "65bb7d05a4e11aa09e03748c8640adb3b826ba2ad6f143184ec728bd76d8ccf7",
+          "crop_file": "crops/case-05/box-01.png",
+          "request_sha256": "5ffcc36fa7094cc1fde9aff83ced9cb49cff7fded3cc5d92484b378f7abfb902",
+          "outcome": "unavailable",
+          "reason": "identity_mismatch",
+          "evidence_references": [],
+          "model_verified": false,
+          "chat_attempted": true,
+          "duration_ms": 75790.87633300514,
+          "chat_ms": 75787.4324160075,
+          "metrics": {
+            "total_duration": 75785403833,
+            "load_duration": 1261417,
+            "prompt_eval_count": 1655,
+            "prompt_eval_duration": 66959690000,
+            "eval_count": 141,
+            "eval_duration": 8488037000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"84b1f9de4d23da967aee0766a5a8bcb415ba5a2f977a9c72c2baa40fef988e91\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"pass\", \"reason\": \"The crop shows a person walking, identifiable as a pedestrian, with visible torso and limbs against a background of brick and foliage.\",\"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+        },
+        {
+          "box_number": 2,
+          "annotation_index": 1,
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            245,
+            38,
+            368,
+            329
+          ],
+          "pil_box": [
+            244,
+            37,
+            368,
+            329
+          ],
+          "crop_size": [
+            124,
+            292
+          ],
+          "crop_sha256": "2b8ca902df26ea21f820ebe24a2590adf9dbede9dc88e80a06d68def9d4fa14b",
+          "crop_file": "crops/case-05/box-02.png",
+          "request_sha256": "1e96fb1ee4090f9cda828347534e85bc75b7aefa193bd1e5f2a715e745b46e28",
+          "outcome": "unavailable",
+          "reason": "identity_mismatch",
+          "evidence_references": [],
+          "model_verified": false,
+          "chat_attempted": true,
+          "duration_ms": 75776.06120798737,
+          "chat_ms": 75771.23025000037,
+          "metrics": {
+            "total_duration": 75768298167,
+            "load_duration": 1332750,
+            "prompt_eval_count": 1634,
+            "prompt_eval_duration": 66748162000,
+            "eval_count": 134,
+            "eval_duration": 8679946000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"84b1f9de4d23da967aee0766a5a8bcb415ba5a2f977a9c72c2baa40fef988e91\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"pass\", \"reason\": \"The crop shows a person walking, identifiable as a pedestrian, with visible limbs and clothing.\",\"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+        }
+      ],
+      "request_sha256": null,
+      "model_calls": 2,
+      "duration_ms": 151566.9375409925,
+      "chat_ms": 151558.66266600788,
+      "outcome": "unavailable",
+      "reason": "unavailable_box: boxes 1, 2",
+      "aggregate_reason": "unavailable_box",
+      "finished_at": "2026-10-22T14:15:11.451856+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "raw-image-v1",
+      "case_name": "case-05",
+      "case_id": "84b1f9de4d23da967aee0766a5a8bcb415ba5a2f9777a9c72c2baa40fef988e9",
+      "partition": "development",
+      "preprocessing": "original-png-no-transform-v1",
+      "boxes_in_source": 2,
+      "started_at": "2026-10-22T14:15:11.452624+00:00",
+      "render_ms": 4.421999998157844,
+      "prediction": null,
+      "boxes": [],
+      "request_sha256": "1b5837acb6149c7b538cde35769c44a3ed877f551f8f116cdee2caff1a2c58b4",
+      "model_calls": 1,
+      "duration_ms": 84128.58499999857,
+      "chat_ms": 84124.04520799464,
+      "metrics": {
+        "total_duration": 84122818375,
+        "load_duration": 4948500,
+        "prompt_eval_count": 2027,
+        "prompt_eval_duration": 75662470000,
+        "eval_count": 126,
+        "eval_duration": 8286459999,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"84b1f9de4d23da967aee0766a5a8bcb415ba5a2f977a9c72c2baa40fef988e91\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"outcome\": \"pass\", \"reason\": \"Two pedestrians are clearly visible in the image, walking on a path in front of a brick building, with no annotation box entirely on background.\", \"evidence_references\": [\"image\", \"annotations\"]}",
+      "model_verified": false,
+      "outcome": "unavailable",
+      "reason": "identity_mismatch",
+      "aggregate_reason": "single_request",
+      "finished_at": "2026-10-22T14:16:35.581658+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "raw-image-v1",
+      "case_name": "case-09",
+      "case_id": "3a49e113d2761584720927cadbc5033755b5f7f87b7a16a6ff494f65d3558a6c",
+      "partition": "development",
+      "preprocessing": "original-png-no-transform-v1",
+      "boxes_in_source": 1,
+      "started_at": "2026-10-22T14:16:35.582716+00:00",
+      "render_ms": 4.294583006412722,
+      "prediction": {
+        "case_id": "3a49e113d2761584720927cadbc5033755b5f7f87b7a16a6ff494f65d3558a6c",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "outcome": "pass",
+        "reason": "The image contains a visible pedestrian walking in the foreground, not obscured or entirely on background.",
+        "evidence_references": []
+      },
+      "boxes": [],
+      "request_sha256": "475c018c9ce571d6627b692359c546675f1daea02eea7b2769dcc814dacee814",
+      "model_calls": 1,
+      "duration_ms": 81392.45495799696,
+      "chat_ms": 81381.42254200648,
+      "metrics": {
+        "total_duration": 81378668125,
+        "load_duration": 5106083,
+        "prompt_eval_count": 1865,
+        "prompt_eval_duration": 73218249000,
+        "eval_count": 116,
+        "eval_duration": 7556623000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"3a49e113d2761584720927cadbc5033755b5f7f87b7a16a6ff494f65d3558a6c\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"outcome\": \"pass\", \"reason\": \"The image contains a visible pedestrian walking in the foreground, not obscured or entirely on background.\", \"evidence_references\": []}",
+      "model_verified": true,
+      "outcome": "pass",
+      "reason": "The image contains a visible pedestrian walking in the foreground, not obscured or entirely on background.",
+      "aggregate_reason": "single_request",
+      "finished_at": "2026-10-22T14:17:56.975728+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "box-crop-v2",
+      "case_name": "case-09",
+      "case_id": "3a49e113d2761584720927cadbc5033755b5f7f87b7a16a6ff494f65d3558a6c",
+      "partition": "development",
+      "preprocessing": "box-crop-png-v1",
+      "boxes_in_source": 1,
+      "started_at": "2026-10-22T14:17:56.977749+00:00",
+      "render_ms": 4.294583006412722,
+      "prediction": null,
+      "boxes": [
+        {
+          "box_number": 1,
+          "annotation_index": 0,
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            206,
+            189,
+            308,
+            492
+          ],
+          "pil_box": [
+            205,
+            188,
+            308,
+            492
+          ],
+          "crop_size": [
+            103,
+            304
+          ],
+          "crop_sha256": "17c8e9cda5bc7f2c7a93d1fb5b0204877bae01dc9deef198d59b83fa41d5def5",
+          "crop_file": "crops/case-09/box-01.png",
+          "request_sha256": "c0d98d0f5aace012113056d232dcfd6d3b3ae384ddf64f4a5572932b64cc41a7",
+          "outcome": "pass",
+          "reason": "The crop shows a person walking, identifiable as a pedestrian, with visible upper body and legs, holding an object, and standing on a paved surface.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 81283.89716600941,
+          "chat_ms": 81270.31433299999,
+          "metrics": {
+            "total_duration": 81267597000,
+            "load_duration": 2327250,
+            "prompt_eval_count": 1633,
+            "prompt_eval_duration": 70301686000,
+            "eval_count": 142,
+            "eval_duration": 10392998000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"3a49e113d2761584720927cadbc5033755b5f7f87b7a16a6ff494f65d3558a6c\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"pass\", \"reason\": \"The crop shows a person walking, identifiable as a pedestrian, with visible upper body and legs, holding an object, and standing on a paved surface.\", \"evidence_references\": []}"
+        }
+      ],
+      "request_sha256": null,
+      "model_calls": 1,
+      "duration_ms": 81283.89716600941,
+      "chat_ms": 81270.31433299999,
+      "outcome": "pass",
+      "reason": "all_boxes_pass",
+      "aggregate_reason": "all_boxes_pass",
+      "finished_at": "2026-10-22T14:19:18.263836+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "box-crop-v2",
+      "case_name": "case-10",
+      "case_id": "ccadc98f996c73ca2697286038255afaf831ef7af6da70fe5e100c1ee95e131e",
+      "partition": "development",
+      "preprocessing": "box-crop-png-v1",
+      "boxes_in_source": 1,
+      "started_at": "2026-10-22T14:19:18.264555+00:00",
+      "render_ms": 4.102417005924508,
+      "prediction": null,
+      "boxes": [
+        {
+          "box_number": 1,
+          "annotation_index": 0,
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            203,
+            42,
+            318,
+            330
+          ],
+          "pil_box": [
+            202,
+            41,
+            318,
+            330
+          ],
+          "crop_size": [
+            116,
+            289
+          ],
+          "crop_sha256": "81915cf5dc4d4658ef94e2a6c1e6e92f00c5abc3c93ab24644967e321683dac7",
+          "crop_file": "crops/case-10/box-01.png",
+          "request_sha256": "6e8a13d07f48da23a9c1677cdaa8fc53504ac11b27e9059a4f7c7bf5617076be",
+          "outcome": "pass",
+          "reason": "The crop shows a person walking, wearing a hard hat and long-sleeved shirt, with legs in motion, clearly a visible pedestrian.",
+          "evidence_references": [
+            "image",
+            "annotations",
+            "guideline"
+          ],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 82393.72966700466,
+          "chat_ms": 82384.71437500266,
+          "metrics": {
+            "total_duration": 82383188375,
+            "load_duration": 1351209,
+            "prompt_eval_count": 1652,
+            "prompt_eval_duration": 72867279000,
+            "eval_count": 142,
+            "eval_duration": 9277066000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"ccadc98f996c73ca2697286038255afaf831ef7af6da70fe5e100c1ee95e131e\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"pass\", \"reason\": \"The crop shows a person walking, wearing a hard hat and long-sleeved shirt, with legs in motion, clearly a visible pedestrian.\", \"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+        }
+      ],
+      "request_sha256": null,
+      "model_calls": 1,
+      "duration_ms": 82393.72966700466,
+      "chat_ms": 82384.71437500266,
+      "outcome": "pass",
+      "reason": "all_boxes_pass",
+      "aggregate_reason": "all_boxes_pass",
+      "finished_at": "2026-10-22T14:20:40.659669+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "raw-image-v1",
+      "case_name": "case-10",
+      "case_id": "ccadc98f996c73ca2697286038255afaf831ef7af6da70fe5e100c1ee95e131e",
+      "partition": "development",
+      "preprocessing": "original-png-no-transform-v1",
+      "boxes_in_source": 1,
+      "started_at": "2026-10-22T14:20:40.660486+00:00",
+      "render_ms": 4.102417005924508,
+      "prediction": {
+        "case_id": "ccadc98f996c73ca2697286038255afaf831ef7af6da70fe5e100c1ee95e131e",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "outcome": "fail",
+        "reason": "The image shows a person wearing a hard hat and work clothes, walking away from the camera, and is clearly visible as a pedestrian. The annotation box provided in the target is not applicable to this image, as it refers to a different image (PennFudanPed/PNGImages/PennPed00040.png) with a different bounding box. The current image does not contain the object described in the target annotation, so the annotation is not valid for this image.",
+        "evidence_references": []
+      },
+      "boxes": [],
+      "request_sha256": "69eafff7ca3ede0fd85c11e03b0a62bd569ed26b60458fff5539e96c3e701a2f",
+      "model_calls": 1,
+      "duration_ms": 93478.85354199389,
+      "chat_ms": 93468.63908300293,
+      "metrics": {
+        "total_duration": 93464206667,
+        "load_duration": 2561333,
+        "prompt_eval_count": 1850,
+        "prompt_eval_duration": 78254842000,
+        "eval_count": 188,
+        "eval_duration": 14651468000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"ccadc98f996c73ca2697286038255afaf831ef7af6da70fe5e100c1ee95e131e\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"outcome\": \"fail\", \"reason\": \"The image shows a person wearing a hard hat and work clothes, walking away from the camera, and is clearly visible as a pedestrian. The annotation box provided in the target is not applicable to this image, as it refers to a different image (PennFudanPed/PNGImages/PennPed00040.png) with a different bounding box. The current image does not contain the object described in the target annotation, so the annotation is not valid for this image.\", \"evidence_references\": []}",
+      "model_verified": true,
+      "outcome": "fail",
+      "reason": "The image shows a person wearing a hard hat and work clothes, walking away from the camera, and is clearly visible as a pedestrian. The annotation box provided in the target is not applicable to this image, as it refers to a different image (PennFudanPed/PNGImages/PennPed00040.png) with a different bounding box. The current image does not contain the object described in the target annotation, so the annotation is not valid for this image.",
+      "aggregate_reason": "single_request",
+      "finished_at": "2026-10-22T14:22:14.139962+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "raw-image-v1",
+      "case_name": "case-11",
+      "case_id": "7c6ad0f3c41297be224e98284108c91311f656b446b612865688fc52a3cf5c0b",
+      "partition": "development",
+      "preprocessing": "original-png-no-transform-v1",
+      "boxes_in_source": 3,
+      "started_at": "2026-10-22T14:22:14.141797+00:00",
+      "render_ms": 12.921000001369976,
+      "prediction": {
+        "case_id": "7c6ad0f3c41297be224e98284108c91311f656b446b612865688fc52a3cf5c0b",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "outcome": "fail",
+        "reason": "Annotation boxes for objects 1, 2, and 3 are all entirely on background or contain no visible pedestrian; no pedestrian is enclosed in any annotation box.",
+        "evidence_references": [
+          "annotations",
+          "image"
+        ]
+      },
+      "boxes": [],
+      "request_sha256": "2728631b60d0e707215fcf2292fb28a9e4289a2afbe515561a1d5b6adb62a674",
+      "model_calls": 1,
+      "duration_ms": 88961.62258299591,
+      "chat_ms": 88946.6983750026,
+      "metrics": {
+        "total_duration": 88936045250,
+        "load_duration": 3665666,
+        "prompt_eval_count": 1872,
+        "prompt_eval_duration": 79321237000,
+        "eval_count": 136,
+        "eval_duration": 9197981000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"7c6ad0f3c41297be224e98284108c91311f656b446b612865688fc52a3cf5c0b\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"outcome\": \"fail\", \"reason\": \"Annotation boxes for objects 1, 2, and 3 are all entirely on background or contain no visible pedestrian; no pedestrian is enclosed in any annotation box.\", \"evidence_references\": [\"annotations\", \"image\"]}",
+      "model_verified": true,
+      "outcome": "fail",
+      "reason": "Annotation boxes for objects 1, 2, and 3 are all entirely on background or contain no visible pedestrian; no pedestrian is enclosed in any annotation box.",
+      "aggregate_reason": "single_request",
+      "finished_at": "2026-10-22T14:23:43.104016+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "box-crop-v2",
+      "case_name": "case-11",
+      "case_id": "7c6ad0f3c41297be224e98284108c91311f656b446b612865688fc52a3cf5c0b",
+      "partition": "development",
+      "preprocessing": "box-crop-png-v1",
+      "boxes_in_source": 3,
+      "started_at": "2026-10-22T14:23:43.106658+00:00",
+      "render_ms": 12.921000001369976,
+      "prediction": null,
+      "boxes": [
+        {
+          "box_number": 1,
+          "annotation_index": 0,
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            1,
+            1,
+            80,
+            55
+          ],
+          "pil_box": [
+            0,
+            0,
+            80,
+            55
+          ],
+          "crop_size": [
+            80,
+            55
+          ],
+          "crop_sha256": "10e0a40c52db9ed41f6ba7f5f9546ff1f702779aeaabb9d48cc0c10c3f598ccd",
+          "crop_file": "crops/case-11/box-01.png",
+          "request_sha256": "ffd58764740f9604685f9df6280b231c82f155e01a4e809ed3d04d3cd5521910",
+          "outcome": "fail",
+          "reason": "The crop shows only dark, blurry background with no discernible pedestrian.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 98355.77200000989,
+          "chat_ms": 98343.24583299167,
+          "metrics": {
+            "total_duration": 98339852333,
+            "load_duration": 960458,
+            "prompt_eval_count": 1639,
+            "prompt_eval_duration": 81371400000,
+            "eval_count": 126,
+            "eval_duration": 16439557000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"7c6ad0f3c41297be224e98284108c91311f656b446b612865688fc52a3cf5c0b\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"fail\", \"reason\": \"The crop shows only dark, blurry background with no discernible pedestrian.\", \"evidence_references\": []}"
+        },
+        {
+          "box_number": 2,
+          "annotation_index": 1,
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            343,
+            86,
+            429,
+            381
+          ],
+          "pil_box": [
+            342,
+            85,
+            429,
+            381
+          ],
+          "crop_size": [
+            87,
+            296
+          ],
+          "crop_sha256": "54aaadd7b58802435c90e095ab27c5cc52dc054860e87f2dc436edf57df6a2cf",
+          "crop_file": "crops/case-11/box-02.png",
+          "request_sha256": "86d5982880c7d622cd1f525ff14f3ec048c2a681d6730114ebda3a98c845dd17",
+          "outcome": "pass",
+          "reason": "The crop shows a person from behind, wearing dark clothing and walking on a paved surface, which constitutes a visible pedestrian.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 104856.7162919935,
+          "chat_ms": 104845.31295800116,
+          "metrics": {
+            "total_duration": 104841343708,
+            "load_duration": 1432083,
+            "prompt_eval_count": 1667,
+            "prompt_eval_duration": 91304229000,
+            "eval_count": 136,
+            "eval_duration": 13314508000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"7c6ad0f3c41297be224e98284108c91311f656b446b612865688fc52a3cf5c0b\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"pass\", \"reason\": \"The crop shows a person from behind, wearing dark clothing and walking on a paved surface, which constitutes a visible pedestrian.\", \"evidence_references\": []}"
+        },
+        {
+          "box_number": 3,
+          "annotation_index": 2,
+          "object_id": 3,
+          "label": "PASpersonWalking",
+          "bbox": [
+            406,
+            85,
+            531,
+            387
+          ],
+          "pil_box": [
+            405,
+            84,
+            531,
+            387
+          ],
+          "crop_size": [
+            126,
+            303
+          ],
+          "crop_sha256": "3268741814f658f13c3d3f2dc9c1fddda76b1299c9628a34d53fd3dd418b506f",
+          "crop_file": "crops/case-11/box-03.png",
+          "request_sha256": "eb8186226251d579441b433b438eac3b0eea75a8de5e5f4c526a1e5afb06556c",
+          "outcome": "pass",
+          "reason": "The crop shows the back of a person wearing a dark coat and pants, walking on a paved surface, which constitutes a visible pedestrian.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 96366.2349590013,
+          "chat_ms": 96356.22720800166,
+          "metrics": {
+            "total_duration": 96354403458,
+            "load_duration": 2296625,
+            "prompt_eval_count": 1638,
+            "prompt_eval_duration": 85414742000,
+            "eval_count": 139,
+            "eval_duration": 10786112000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"7c6ad0f3c41297be224e98284108c91311f656b446b612865688fc52a3cf5c0b\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 3, \"object_id\": 3, \"outcome\": \"pass\", \"reason\": \"The crop shows the back of a person wearing a dark coat and pants, walking on a paved surface, which constitutes a visible pedestrian.\", \"evidence_references\": []}"
+        }
+      ],
+      "request_sha256": null,
+      "model_calls": 3,
+      "duration_ms": 299578.7232510047,
+      "chat_ms": 299544.7859989945,
+      "outcome": "fail",
+      "reason": "supported_failing_box: boxes 1",
+      "aggregate_reason": "supported_failing_box",
+      "finished_at": "2026-10-22T14:28:42.706684+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "box-crop-v2",
+      "case_name": "case-12",
+      "case_id": "659f3760ed8f9340efdf507b435a6197890656aa7d3919ea646539614ae787fb",
+      "partition": "development",
+      "preprocessing": "box-crop-png-v1",
+      "boxes_in_source": 5,
+      "started_at": "2026-10-22T14:28:42.709158+00:00",
+      "render_ms": 10.74004199472256,
+      "prediction": null,
+      "boxes": [
+        {
+          "box_number": 1,
+          "annotation_index": 0,
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            1,
+            1,
+            80,
+            55
+          ],
+          "pil_box": [
+            0,
+            0,
+            80,
+            55
+          ],
+          "crop_size": [
+            80,
+            55
+          ],
+          "crop_sha256": "3a74dde481d985f3ac357fbc43cdb5d6bd30d682a71e59ef5db0747d6fb05c22",
+          "crop_file": "crops/case-12/box-01.png",
+          "request_sha256": "bcb678a2d2f42ce261f428f3aae10d3af5d1a5deb191e9aa4c41a341e7331d72",
+          "outcome": "fail",
+          "reason": "The crop shows only a blurry, indistinct area with no discernible pedestrian; it appears to be background texture or a non-person object.",
+          "evidence_references": [],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 88804.57700000261,
+          "chat_ms": 88795.19045900088,
+          "metrics": {
+            "total_duration": 88792419833,
+            "load_duration": 931667,
+            "prompt_eval_count": 1636,
+            "prompt_eval_duration": 78639845000,
+            "eval_count": 138,
+            "eval_duration": 10082670000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"659f3760ed8f9340efdf507b435a6197890656aa7d3919ea646539614ae787fb\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"fail\", \"reason\": \"The crop shows only a blurry, indistinct area with no discernible pedestrian; it appears to be background texture or a non-person object.\", \"evidence_references\": []}"
+        },
+        {
+          "box_number": 2,
+          "annotation_index": 1,
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            189,
+            21,
+            283,
+            230
+          ],
+          "pil_box": [
+            188,
+            20,
+            283,
+            230
+          ],
+          "crop_size": [
+            95,
+            210
+          ],
+          "crop_sha256": "3f17564c4dbc3242bada359b0ca32886b4c255ef02c0cd316abe5e1699171feb",
+          "crop_file": "crops/case-12/box-02.png",
+          "request_sha256": "7ba4f5de017e4336054804b5ba27dfc70b1977ace9d14f11dab9a6f2af5d763a",
+          "outcome": "pass",
+          "reason": "The crop shows a person walking, wearing a light-colored t-shirt and dark pants, with visible legs and feet, confirming a visible pedestrian.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 281584.0895000001,
+          "chat_ms": 281562.08625000727,
+          "metrics": {
+            "total_duration": 281538707916,
+            "load_duration": 2303958,
+            "prompt_eval_count": 1640,
+            "prompt_eval_duration": 81212979000,
+            "eval_count": 142,
+            "eval_duration": 200208502000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"659f3760ed8f9340efdf507b435a6197890656aa7d3919ea646539614ae787fb\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"pass\", \"reason\": \"The crop shows a person walking, wearing a light-colored t-shirt and dark pants, with visible legs and feet, confirming a visible pedestrian.\", \"evidence_references\": [\"image\", \"annotations\"]}"
+        },
+        {
+          "box_number": 3,
+          "annotation_index": 2,
+          "object_id": 3,
+          "label": "PASpersonWalking",
+          "bbox": [
+            117,
+            28,
+            191,
+            226
+          ],
+          "pil_box": [
+            116,
+            27,
+            191,
+            226
+          ],
+          "crop_size": [
+            75,
+            199
+          ],
+          "crop_sha256": "e31f1fbf1b1faed6b64f438a67deb8c193e5c8f4a258c63113e4d31f295f0879",
+          "crop_file": "crops/case-12/box-03.png",
+          "request_sha256": "21729714c63ad732d1f7eb598e5e2c02ea8e2a5eac1e58388df93fe0ec595520",
+          "outcome": "pass",
+          "reason": "The crop shows a person walking, identifiable by their posture and clothing, which is a visible pedestrian.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 95304.11945800006,
+          "chat_ms": 95292.93195799983,
+          "metrics": {
+            "total_duration": 95288736166,
+            "load_duration": 4645583,
+            "prompt_eval_count": 1644,
+            "prompt_eval_duration": 84040219000,
+            "eval_count": 134,
+            "eval_duration": 11049266000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"659f3760ed8f9340efdf507b435a6197890656aa7d3919ea646539614ae787fb\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 3, \"object_id\": 3, \"outcome\": \"pass\", \"reason\": \"The crop shows a person walking, identifiable by their posture and clothing, which is a visible pedestrian.\", \"evidence_references\": [\"image\", \"annotations\"]}"
+        },
+        {
+          "box_number": 4,
+          "annotation_index": 3,
+          "object_id": 4,
+          "label": "PASpersonStanding",
+          "bbox": [
+            273,
+            81,
+            389,
+            327
+          ],
+          "pil_box": [
+            272,
+            80,
+            389,
+            327
+          ],
+          "crop_size": [
+            117,
+            247
+          ],
+          "crop_sha256": "49f0eb9f2430eda97e2d0cc65635e88de554af008773f349ff48b3a538e6ed5a",
+          "crop_file": "crops/case-12/box-04.png",
+          "request_sha256": "2f4b90330f0cbea9db61a3e4e67e838d66c07f8ae1c63414e1988763f95bd569",
+          "outcome": "pass",
+          "reason": "The crop shows a person standing, wearing a patterned dress and a white jacket, with visible limbs and torso, confirming a visible pedestrian.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 253689.75895899348,
+          "chat_ms": 253673.8807090005,
+          "metrics": {
+            "total_duration": 253665778042,
+            "load_duration": 2065417,
+            "prompt_eval_count": 1666,
+            "prompt_eval_duration": 86782469000,
+            "eval_count": 142,
+            "eval_duration": 167141278000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"659f3760ed8f9340efdf507b435a6197890656aa7d3919ea646539614ae787fb\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 4, \"object_id\": 4, \"outcome\": \"pass\", \"reason\": \"The crop shows a person standing, wearing a patterned dress and a white jacket, with visible limbs and torso, confirming a visible pedestrian.\", \"evidence_references\": [\"image\", \"annotations\"]}"
+        },
+        {
+          "box_number": 5,
+          "annotation_index": 4,
+          "object_id": 5,
+          "label": "PASpersonStanding",
+          "bbox": [
+            378,
+            31,
+            476,
+            330
+          ],
+          "pil_box": [
+            377,
+            30,
+            476,
+            330
+          ],
+          "crop_size": [
+            99,
+            300
+          ],
+          "crop_sha256": "4a3b6f486fba40dd3eae97e1c45e4332d50df7f72336a20d73179bd535bb2631",
+          "crop_file": "crops/case-12/box-05.png",
+          "request_sha256": "6156390d6999eed178d3cd861e90f95cda9bfe1ea98eb177e94feb7b6ad73309",
+          "outcome": "pass",
+          "reason": "The crop shows a full human figure standing on a sidewalk, wearing a cap, jacket, jeans, and sneakers, clearly a visible pedestrian.",
+          "evidence_references": [
+            "image",
+            "annotations",
+            "guideline"
+          ],
+          "model_verified": true,
+          "chat_attempted": true,
+          "duration_ms": 363870.89866599126,
+          "chat_ms": 363857.50791599276,
+          "metrics": {
+            "total_duration": 363853828041,
+            "load_duration": 2714666,
+            "prompt_eval_count": 1648,
+            "prompt_eval_duration": 105993252000,
+            "eval_count": 146,
+            "eval_duration": 257553254000,
+            "done_reason": "stop"
+          },
+          "content": "{\"case_id\": \"659f3760ed8f9340efdf507b435a6197890656aa7d3919ea646539614ae787fb\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 5, \"object_id\": 5, \"outcome\": \"pass\", \"reason\": \"The crop shows a full human figure standing on a sidewalk, wearing a cap, jacket, jeans, and sneakers, clearly a visible pedestrian.\", \"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+        }
+      ],
+      "request_sha256": null,
+      "model_calls": 5,
+      "duration_ms": 1083253.4435829874,
+      "chat_ms": 1083181.5972920014,
+      "outcome": "fail",
+      "reason": "supported_failing_box: boxes 1",
+      "aggregate_reason": "supported_failing_box",
+      "finished_at": "2026-10-22T14:46:46.456803+00:00"
+    },
+    {
+      "schema": "box-grounding-result-v1",
+      "arm": "raw-image-v1",
+      "case_name": "case-12",
+      "case_id": "659f3760ed8f9340efdf507b435a6197890656aa7d3919ea646539614ae787fb",
+      "partition": "development",
+      "preprocessing": "original-png-no-transform-v1",
+      "boxes_in_source": 5,
+      "started_at": "2026-10-22T14:46:46.458833+00:00",
+      "render_ms": 10.74004199472256,
+      "prediction": {
+        "case_id": "659f3760ed8f9340efdf507b435a6197890656aa7d3919ea646539614ae787fb",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "outcome": "fail",
+        "reason": "Annotation boxes for objects 1, 2, 3 are entirely on background or non-pedestrian areas; only objects 4 and 5 are valid pedestrians.",
+        "evidence_references": [
+          "annotations",
+          "image"
+        ]
+      },
+      "boxes": [],
+      "request_sha256": "09bb53712ceb1e75787b9dc96a55849c34b9d5dc438b92a974838bb45dfd6d07",
+      "model_calls": 1,
+      "duration_ms": 351663.79604200483,
+      "chat_ms": 351648.4870419954,
+      "metrics": {
+        "total_duration": 351644466083,
+        "load_duration": 5593792,
+        "prompt_eval_count": 2038,
+        "prompt_eval_duration": 128450566000,
+        "eval_count": 135,
+        "eval_duration": 223044667000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"659f3760ed8f9340efdf507b435a6197890656aa7d3919ea646539614ae787fb\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"outcome\": \"fail\", \"reason\": \"Annotation boxes for objects 1, 2, 3 are entirely on background or non-pedestrian areas; only objects 4 and 5 are valid pedestrians.\", \"evidence_references\": [\"annotations\", \"image\"]}",
+      "model_verified": true,
+      "outcome": "fail",
+      "reason": "Annotation boxes for objects 1, 2, 3 are entirely on background or non-pedestrian areas; only objects 4 and 5 are valid pedestrians.",
+      "aggregate_reason": "single_request",
+      "finished_at": "2026-10-22T14:52:38.123229+00:00"
+    }
+  ],
+  "limits": [
+    "Eight exposed development cases; no unseen-set/generalization claim.",
+    "Historical Windows v1 used a different model digest and runtime; it is not a paired v1 comparison.",
+    "Existing identity mismatches remain unavailable. Original responses and reviewer labels were not repaired.",
+    "CPU timings are from one interleaved run, without measurements attributing late slowdown to thermals or system load."
+  ]
+}

@@ -56,6 +56,29 @@ def test_a_tampered_case_identity_is_refused(corpus):
         load_scope(corpus.scope_path)
 
 
+@pytest.mark.parametrize("field,value", [
+    ("bbox", [1, 1, 8, 6]), ("object_id", 99), ("label", "different-label"),
+])
+def test_copied_object_facts_must_match_verified_annotation_bytes(corpus, field, value):
+    # Keep image/annotation bytes and their hashes unchanged. A modified scope
+    # must not redirect crop generation while retaining the original identity.
+    edit_scope(corpus, lambda d: d["cases"][1]["inputs"]["objects"][0].update({field: value}))
+    with pytest.raises(ScopeError, match="Object facts differ"):
+        load_scope(corpus.scope_path)
+
+
+def test_removing_an_object_from_scope_does_not_silently_omit_a_box(corpus):
+    edit_scope(corpus, lambda d: d["cases"][0]["inputs"]["objects"].pop())
+    with pytest.raises(ScopeError, match="Object facts differ"):
+        load_scope(corpus.scope_path)
+
+
+def test_copied_image_dimensions_must_match_actual_image_bytes(corpus):
+    edit_scope(corpus, lambda d: d["cases"][1]["inputs"].update(image_size=[100, 100]))
+    with pytest.raises(ScopeError, match="Image dimensions differ"):
+        load_scope(corpus.scope_path)
+
+
 def test_paths_cannot_leave_the_prepared_directory(corpus):
     edit_scope(corpus, lambda d: d["cases"][0].update(image="../dataset/PNGImages/case-02.png"))
     with pytest.raises(ScopeError, match="leaves the prepared directory"):

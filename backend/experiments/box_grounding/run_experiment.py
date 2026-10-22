@@ -22,7 +22,7 @@ import httpx
 from pydantic import ValidationError
 
 from .crops import render_box_crops, validate_scope
-from .prompts import PACKET, VARIANTS, load_prompt_texts
+from .prompts import DEFAULT_ARMS, PACKET, VARIANTS, load_prompt_texts
 from .reporting import ReportError, build_score, build_status, format_score, write_score
 from .run_files import DEFAULT_RUNS_ROOT, RunFilesError
 from .runner import RunConfig, RunError, Say, ascii_text, case_origin, print_line, run_experiment
@@ -58,7 +58,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--run-name", required=True, help="New directory name under --runs-root; existing runs are never reused.")
     run.add_argument("--runs-root", type=Path, default=DEFAULT_RUNS_ROOT)
     run.add_argument("--cases", type=comma_list, default=None, help="Comma-separated development cases. Default: all.")
-    run.add_argument("--arms", type=comma_list, default=VARIANTS, help=f"Comma-separated, from {list(VARIANTS)}.")
+    run.add_argument("--arms", type=comma_list, default=DEFAULT_ARMS,
+                     help=f"Comma-separated, from {list(VARIANTS)}. Choose at most one crop version.")
     run.add_argument("--order", choices=("interleaved", "blocked"), default="interleaved")
     run.add_argument("--host", default=DEFAULT_HOST, help="Loopback Ollama URL.")
     run.add_argument("--model", default=DEFAULT_MODEL)
@@ -93,6 +94,8 @@ def check_scope(scope_path: Path, say: Say) -> int:
     say("Label-free: yes (no expected labels, reviewer fields or training answers were found).")
     say(f"System prompt hash matches the scope: {scope.document.get('system_prompt_sha256') == texts.system_sha256}.")
     problems = []
+    if scope.document.get("system_prompt_sha256") != texts.system_sha256:
+        problems.append("System prompt hash differs from the prepared scope.")
     if counts != EXPECTED_CASES or any(case.case_name == "case-01" for case in scope.cases):
         problems.append("Expected exactly three training and eight development cases, without case-01.")
     limits = ViewLimits()

@@ -1,6 +1,7 @@
 """Command-line behavior: check-scope, run, status, score and exit codes."""
 
 import httpx
+import json
 import pytest
 
 from backend.experiments.box_grounding import run_experiment as cli
@@ -41,6 +42,17 @@ def test_check_scope_flags_a_corpus_of_the_wrong_shape_and_shows_repeated_ids(co
     code, text = invoke(["check-scope", "--scope", str(corpus.scope_path)])
     assert code == 1 and "Expected exactly three training and eight development cases" in text
     assert "case-13" in text and "REJECTED" in text and "'case-02': [1]" in text
+
+
+def test_check_scope_fails_when_the_system_prompt_fingerprint_differs(tmp_path, monkeypatch):
+    corpus = build_corpus(tmp_path / "c", eleven_cases())
+    monkeypatch.setattr(cli, "PACKET", corpus.packet)
+    document = json.loads(corpus.scope_path.read_bytes())
+    document["system_prompt_sha256"] = "0" * 64
+    corpus.scope_path.write_text(json.dumps(document), encoding="utf-8")
+    code, text = invoke(["check-scope", "--scope", str(corpus.scope_path)])
+    assert code == 1 and "System prompt hash differs" in text
+    assert "Scope check passed" not in text
 
 
 def test_dry_run_through_the_cli_exits_zero_and_writes_nothing(corpus, tmp_path):

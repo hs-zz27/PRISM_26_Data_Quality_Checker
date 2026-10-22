@@ -25,7 +25,8 @@ from backend.app.models.feedback import EvidenceLimits, Prediction
 from .client import INFRASTRUCTURE_REASONS, InferenceUnavailable, ModelCall, OllamaClient
 from .crops import CROP_PREPROCESSING, BoxCrop, render_box_crops, validate_scope
 from .prompts import (
-    BOX_SCHEMA_VERSION, CROP_VARIANT, PACKET, PER_BOX_INSTRUCTION_VERSION, PREPROCESSING, RAW_SCHEMA_VERSION,
+    BOX_SCHEMA_VERSION, CROP_VARIANT, CROP_VARIANTS, CROP_V2_VARIANT, DEFAULT_ARMS, PACKET,
+    PER_BOX_INSTRUCTION_VERSION, PREPROCESSING, RAW_SCHEMA_VERSION,
     RAW_VARIANT, SYSTEM_PROMPT_VERSION, VARIANTS, BoxPrediction, ContextNotRepresentable, PreparedRequest,
     PromptTexts, crop_identity, crop_request, load_prompt_texts, raw_identity, raw_request, rule_document,
 )
@@ -70,7 +71,7 @@ def ascii_text(text: str) -> str:
 class RunConfig:
     scope_path: Path
     run_dir: Path
-    arms: tuple[str, ...] = VARIANTS
+    arms: tuple[str, ...] = DEFAULT_ARMS
     order: Order = "interleaved"
     cases: tuple[str, ...] | None = None
     host: str = DEFAULT_HOST
@@ -89,6 +90,8 @@ class RunConfig:
     def __post_init__(self) -> None:
         if not self.arms or len(set(self.arms)) != len(self.arms) or not set(self.arms) <= set(VARIANTS):
             raise RunError(f"Arms must be a non-empty, duplicate-free subset of {list(VARIANTS)}.")
+        if len(set(self.arms) & set(CROP_VARIANTS)) > 1:
+            raise RunError("Choose one crop version per run, optionally paired with the raw control.")
         if self.order not in ("interleaved", "blocked"):
             raise RunError("Order must be interleaved or blocked.")
         if self.digest_request not in ("installed", "historical") and not DIGEST_PATTERN.fullmatch(self.digest_request):
@@ -171,7 +174,8 @@ def preflight_case(scope: Scope, case: ScopeCase, arms: tuple[str, ...], texts: 
             raw = raw_request(scope, case, texts, execution)
         except ContextNotRepresentable as error:
             raw_error = error.code
-    if CROP_VARIANT in arms:
+    crop_variant = next((arm for arm in arms if arm in CROP_VARIANTS), None)
+    if crop_variant is not None:
         start = time.monotonic()
         try:
             crops = render_box_crops(case.image_bytes, case.objects, case_origin(case), limits)
@@ -180,7 +184,7 @@ def preflight_case(scope: Scope, case: ScopeCase, arms: tuple[str, ...], texts: 
         render_ms = (time.monotonic() - start) * 1000
         for crop in crops:
             try:
-                requests.append(crop_request(scope, case, crop, texts, execution))
+                requests.append(crop_request(scope, case, crop, texts, execution, variant=crop_variant))
                 errors.append(None)
             except ContextNotRepresentable as error:
                 requests.append(None)
@@ -256,7 +260,7 @@ def schema_hash(schema: dict[str, Any]) -> str:
 
 
 def variant_descriptions(texts: PromptTexts) -> dict[str, Any]:
-    return {
+    descriptions = {
         RAW_VARIANT: {"preprocessing": PREPROCESSING[RAW_VARIANT], "output_schema": RAW_SCHEMA_VERSION,
                       "requests_per_case": 1, "per_box_wording": False, "examples": 0},
         CROP_VARIANT: {"preprocessing": CROP_PREPROCESSING, "output_schema": BOX_SCHEMA_VERSION,
@@ -265,6 +269,12 @@ def variant_descriptions(texts: PromptTexts) -> dict[str, Any]:
                        "instruction_sha256": texts.per_box_instruction_sha256,
                        "crop_padding_pixels": 0, "crop_resize": "none", "surrounding_context": "none"},
     }
+    descriptions[CROP_VARIANT]["source_geometry_in_model_input"] = True
+    descriptions[CROP_V2_VARIANT] = {
+        **descriptions[CROP_VARIANT], "source_geometry_in_model_input": False,
+        "source_geometry_in_local_records": True,
+    }
+    return descriptions
 
 
 # --- the run ------------------------------------------------------------------------------------
@@ -312,14 +322,14 @@ class Runner:
             "metrics": call.metrics if call else {}, "content": call.content if call else None,
         }
 
-    def run_crops(self, item: CasePreflight) -> dict[str, Any]:
+    def run_crops(self, item: CasePreflight, arm: str) -> dict[str, Any]:
         boxes: list[dict[str, Any]] = []
         total = len(item.crops)
         for position, crop in enumerate(item.crops):
             request, error = item.box_requests[position], item.box_errors[position]
             saved = self.files.save_crop(item.case.case_name, crop.box_number, crop.png)
             label = f"    box {crop.box_number}/{total} (object {crop.object_id})"
-            self.files.event("box_started", arm=CROP_VARIANT, case_name=item.case.case_name, box_number=crop.box_number)
+            self.files.event("box_started", arm=arm, case_name=item.case.case_name, box_number=crop.box_number)
             call = None
             if request is None:
                 self.say(f"{label}: not sent ({error}); retained as unavailable")
@@ -330,7 +340,7 @@ class Runner:
                 self.model_calls += call.chat_attempted
             record = self.box_record(crop, saved, request, call, error)
             boxes.append(record)
-            self.files.event("box_finished", arm=CROP_VARIANT, case_name=item.case.case_name,
+            self.files.event("box_finished", arm=arm, case_name=item.case.case_name,
                              box_number=crop.box_number, outcome=record["outcome"], reason=record["reason"],
                              duration_ms=record["duration_ms"])
             self.say(f"{label}: {record['outcome']} in {record['duration_ms'] / 1000:.1f} s"
@@ -381,7 +391,7 @@ class Runner:
             reason = raw["prediction"]["reason"] if raw["prediction"] else raw["failure"]
             aggregate = "single_request"
         else:
-            result = self.run_crops(item)
+            result = self.run_crops(item, arm)
             boxes = result["boxes"]
             verdicts = [BoxVerdict(b["outcome"], b["model_verified"]) for b in boxes]
             if len(boxes) < len(item.crops):  # stopped by the safety abort; never aggregate a partial sample

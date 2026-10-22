@@ -25,6 +25,41 @@ def refuse_network(request):
 
 # --- retention and provenance ----------------------------------------------------------------------
 
+
+def test_v2_keeps_geometry_locally_and_labels_requests_events_and_scores(corpus, fake, tmp_path):
+    from backend.experiments.box_grounding.reporting import build_score, format_score
+
+    run_dir = tmp_path / "v2"
+    summary, _ = run_with(corpus, fake, run_dir, arms=("raw-image-v1", "box-crop-v2"))
+    assert summary["stage"] == "completed" and summary["model_calls"] == 9
+    cases = {case.case_name: case for case in corpus.scope().cases}
+    for record in read_results(run_dir):
+        assert record["arm"] in {"raw-image-v1", "box-crop-v2"}
+        for box in record["boxes"]:
+            source = cases[record["case_name"]].objects[box["annotation_index"]]
+            assert box["bbox"] == source["bbox"]
+            assert box["object_id"] == source["object_id"]
+            assert sha256((run_dir / box["crop_file"]).read_bytes()).hexdigest() == box["crop_sha256"]
+    crop_inputs = [json.loads(body["messages"][1]["content"]) for body in fake.chat_bodies]
+    crop_inputs = [content for content in crop_inputs if "box" in content]
+    assert len(crop_inputs) == 6
+    for content in crop_inputs:
+        assert content["task"]["variant"] == "box-crop-v2"
+        assert not {"bbox", "bbox_convention", "source_image_size"} & content["box"].keys()
+    events = [e for e in read_events(run_dir) if e["event"] in {"box_started", "box_finished"}]
+    assert len(events) == 12 and all(e["arm"] == "box-crop-v2" for e in events)
+    run = json.loads((run_dir / "run.json").read_bytes())
+    assert run["variants"]["box-crop-v2"]["source_geometry_in_model_input"] is False
+    assert run["variants"]["box-crop-v2"]["source_geometry_in_local_records"] is True
+    score = build_score(run_dir, corpus.labels_path, corpus.packet)
+    assert score["candidate_arm"] == "box-crop-v2" and score["complete_paired_comparison"]
+    assert "Assessment of box-crop-v2 against" in format_score(score)
+
+
+def test_two_crop_versions_require_separate_paired_runs(corpus, tmp_path):
+    with pytest.raises(RunError, match="Choose one crop version"):
+        make_config(corpus, tmp_path / "invalid", arms=("box-crop-v1", "box-crop-v2"))
+
 def test_every_case_arm_and_box_is_retained_in_the_results(corpus, fake, tmp_path):
     summary, _ = run_with(corpus, fake, tmp_path / "run")
     results = read_results(tmp_path / "run")

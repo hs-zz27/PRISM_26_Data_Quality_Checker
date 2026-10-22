@@ -173,3 +173,23 @@ precede any production change or policy activation. Nothing here activates a pol
 - 2026-10-22: run `paired-1` executed under this plan with no change to prompts, settings, cases or rules after
   seeing results. Installed model digest differed from the historical one (reported in the results). Outcome and
   analysis are in [PER_BOX_RESULTS.md](PER_BOX_RESULTS.md).
+
+## Versioned follow-up: box-crop-v2 (22 October 2026)
+
+The original box-crop-v1 run and its negative result remain part of the record.
+After the source-geometry diagnostic documented in PER_BOX_RESULTS.md, the owner
+authorized a separately selectable v2. It removes the source bbox, coordinate
+convention and source image dimensions from model input; the variant identifier
+also changes to box-crop-v2. The original instruction text, pixels, schema and
+other request fields are retained. Geometry remains in local provenance.
+
+Use the same eight exposed development cases and the same frozen labels, with a
+fresh raw-image-v1 control on the same model digest and execution settings. Keep
+one crop version per run, alternate arm order as before, and make all 22 crop
+requests. Preserve every unavailable outcome and do not silently retry, relabel,
+stop after finding a failing box, or substitute historical raw results. Existing
+aggregation, completeness and assessment rules apply unchanged. Score and inspect
+false positives as well as recall: an all-fail candidate is not useful. This is
+still development investigation; confirmation on unseen, independently reviewed
+images is required before claiming generalization. No production activation is
+part of this plan. RUNNER.md provides the explicit v2 commands.

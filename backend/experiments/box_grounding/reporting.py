@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .prompts import CROP_VARIANT, PACKET, RAW_VARIANT
+from .prompts import CROP_VARIANT, CROP_VARIANTS, PACKET, RAW_VARIANT
 from .run_files import PROGRESS_FILE, RESULTS_FILE, RUN_FILE, SCORE_FILE, SUMMARY_FILE, RunFiles, read_json, read_lines
 from .scope import DEVELOPMENT
 from .scoring import ScoredRow, assess, score_arm
@@ -79,6 +79,8 @@ def build_status(run_dir: Path) -> str:
 def load_labels(path: Path) -> dict[str, dict[str, Any]]:
     labels = read_json(path)
     cases = {entry["case_id"]: entry for entry in labels["cases"]}
+    if len(cases) != len(labels["cases"]):
+        raise ReportError("Duplicate case identifiers in the label file.")
     for name, entry in cases.items():
         if entry["decision"] not in ("pass", "fail"):
             raise ReportError(f"Unsupported label decision for {name}.")
@@ -116,32 +118,52 @@ def build_score(run_dir: Path, labels_path: Path, packet: Path = PACKET) -> dict
     intended = sorted(name for name, entry in labels.items() if entry["partition"] == DEVELOPMENT)
     by_arm: dict[str, dict[str, dict[str, Any]]] = {arm: {} for arm in run["arms"]}
     for record in results:
-        by_arm[record["arm"]][record["case_name"]] = record
+        arm, name = record["arm"], record["case_name"]
+        if arm not in by_arm or name not in run["cases"]:
+            raise ReportError(f"Result is outside the saved run plan: {arm}/{name}.")
+        if name in by_arm[arm]:
+            raise ReportError(f"Duplicate result for {arm}/{name}.")
+        by_arm[arm][name] = record
     for arm, records in by_arm.items():
         unlabeled = [name for name in records if name not in labels or labels[name]["partition"] != DEVELOPMENT]
         if unlabeled:
             raise ReportError(f"{arm} has results without a development label: {unlabeled}")
-    metrics = {arm: score_arm([ScoredRow(name, labels[name]["decision"], rec["outcome"], rec["duration_ms"])
-                               for name, rec in sorted(records.items())])
-               for arm, records in by_arm.items() if records}
-    complete = all(set(records) == set(intended) for records in by_arm.values())
+    if not intended:
+        raise ReportError("The label file contains no intended development cases.")
+    # A stopped or subset run must not shrink its denominator to completed work.
+    # Keep missing cases visible as unavailable, while retaining None in the
+    # case table so an unexecuted case is distinguishable from a failed request.
+    metrics = {arm: score_arm([
+        ScoredRow(name, labels[name]["decision"],
+                  records[name]["outcome"] if name in records else "unavailable",
+                  records[name]["duration_ms"] if name in records else 0.0)
+        for name in intended
+    ]) for arm, records in by_arm.items()}
+    summary = read_json(run_dir / SUMMARY_FILE) if (run_dir / SUMMARY_FILE).exists() else None
+    complete = (all(set(records) == set(intended) for records in by_arm.values())
+                and summary is not None and summary["stage"] == "completed"
+                and not summary.get("source_files_changed"))
     cases = sorted({name for records in by_arm.values() for name in records})
     table = [{"case_name": name, "expected": labels[name]["decision"],
-              "arms": {arm: case_row(records.get(name)) for arm, records in by_arm.items()}} for name in cases]
+              "arms": {arm: case_row(records.get(name)) for arm, records in by_arm.items()}} for name in intended]
     errors = {arm: {"false_negatives": [r["case_name"] for r in table if r["expected"] == "fail"
-                                        and r["arms"][arm] and r["arms"][arm]["outcome"] != "fail"],
+                                        and (r["arms"][arm] is None or r["arms"][arm]["outcome"] != "fail")],
                     "false_positives": [r["case_name"] for r in table if r["expected"] == "pass"
                                         and r["arms"][arm] and r["arms"][arm]["outcome"] == "fail"]}
               for arm in by_arm}
     comparison = None
-    if RAW_VARIANT in metrics and CROP_VARIANT in metrics:
-        comparison = assess(metrics[RAW_VARIANT], metrics[CROP_VARIANT])
+    candidates = [arm for arm in metrics if arm in CROP_VARIANTS]
+    candidate = candidates[0] if len(candidates) == 1 else None
+    if RAW_VARIANT in metrics and candidate is not None:
+        comparison = assess(metrics[RAW_VARIANT], metrics[candidate]) if complete else "inconclusive"
     return {
         "schema": "box-grounding-score-v1", "run_name": run["run_name"],
         "complete_paired_comparison": complete and len(by_arm) == 2 and bool(comparison),
         "intended_development_cases": intended, "cases_scored": cases,
+        "missing_cases_by_arm": {arm: sorted(set(intended) - set(records)) for arm, records in by_arm.items()},
         "arms": {arm: m.model_dump(mode="json") for arm, m in metrics.items()},
-        "assessment_crops_vs_raw_control": comparison, "errors": errors, "cases": table,
+        "assessment_crops_vs_raw_control": comparison, "candidate_arm": candidate,
+        "errors": errors, "cases": table,
         "model": {"digest": run["digest"], "execution": {k: run["execution"][k] for k in (
             "model", "num_ctx", "num_predict", "num_thread", "timeout_seconds")}},
         "order": run["order"], "environment": {k: run["environment"][k] for k in ("platform", "processor", "cpu_count", "total_memory_bytes", "python_version")},
@@ -172,7 +194,7 @@ def format_score(score: dict[str, Any]) -> str:
                      f"{m['unsure']:>4}{m['unavailable']:>5}{pct(m['coverage']):>6}{pct(m['precision']):>6}"
                      f"{pct(m['recall']):>6}{pct(m['f1']):>6}{calls:>6}{m['total_duration_ms'] / 1000:>8.0f}")
     if score["assessment_crops_vs_raw_control"]:
-        lines.append(f"Assessment of {CROP_VARIANT} against the fresh {RAW_VARIANT} control: "
+        lines.append(f"Assessment of {score.get('candidate_arm', CROP_VARIANT)} against the fresh {RAW_VARIANT} control: "
                      f"{score['assessment_crops_vs_raw_control']}")
     lines += ["", "Per case (expected | " + " | ".join(score["arms"]) + "):"]
     for row in score["cases"]:

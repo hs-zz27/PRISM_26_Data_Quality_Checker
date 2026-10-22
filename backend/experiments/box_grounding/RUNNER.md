@@ -1,7 +1,7 @@
 # Running the box-grounding experiment
 
 Portable, offline-testable commands for the raw-image control (`raw-image-v1`) and
-the per-box crop candidate (`box-crop-v1`). Read [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md)
+the per-box crop candidates (`box-crop-v1` and `box-crop-v2`). Read [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md)
 first: it fixes what is compared and how results may be interpreted.
 
 Run every command from the repository root. The examples use the Windows venv from
@@ -95,12 +95,18 @@ The report keeps unsure, unavailable and worse outcomes visible, prints per-case
 per-box results, and labels an incomplete run as incomplete. It is saved once as
 `score.json` and never overwritten.
 
+Unexecuted development cases remain in each arm's denominator as unavailable,
+with zero model-call duration. Their case-table entries remain `not run`.
+A subset, interrupted, unfinished or source-changed run cannot claim an improved
+paired comparison, even if its completed cases look favorable. Completed earlier
+run records are preserved; these reporting corrections do not rewrite old scores.
+
 ## Options
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--cases` | all development | Comma-separated development cases. Training cases are refused. |
-| `--arms` | both | `raw-image-v1`, `box-crop-v1` or both. |
+| `--arms` | raw + v1 | `raw-image-v1`, `box-crop-v1`, `box-crop-v2`. Choose one crop version, optionally paired with raw. |
 | `--order` | `interleaved` | `blocked` runs one arm completely, then the other. |
 | `--threads` | `auto` | CPU threads; fixed within a run. |
 | `--num-ctx` / `--num-predict` | 16384 / 2048 | Same in both arms. |
@@ -137,3 +143,53 @@ interruption or failure, keep the partial run and start a new `--run-name`.
 | `response_limit` / `invalid_response` / `invalid_proposal` | Oversized, malformed, duplicate-field or schema-invalid output. |
 | `identity_mismatch` | The model echoed the wrong case, rule, box or object. It is not repaired. |
 | `unsupported_origin_or_box_count`, `invalid_box_coordinates`, `box_outside_source_or_inverted`, `invalid_object_fields`, `source_byte_limit`, `source_pixel_limit`, `rendered_byte_limit` | The case or box was rejected before any request. |
+
+## Crop v2: omit source geometry from model input
+
+`box-crop-v2` removes `bbox`, `bbox_convention` and `source_image_size` from the
+model-facing box object. Source coordinates, annotation index, object ID, PIL
+crop bounds and crop hash remain in `results.jsonl`. Pixels, instruction text,
+system prompt, output schema and inference safeguards stay the same. The request
+also identifies its new variant as `box-crop-v2`; the earlier diagnostic used the
+v1 identifier while removing geometry. Evaluate this version rather than assuming
+its results from that diagnostic. No padding, resizing or threshold changes.
+
+The default remains raw + v1 for reproducibility. Select v2 explicitly and use a
+new run name. Only one crop version is allowed per run; each can be paired with
+its own fresh raw control. Original run folders and scores are never overwritten.
+
+Windows, using the environment and prepared scope above:
+
+```powershell
+& $py -B -m $exp run --scope .cache/box-grounding/inputs/scope.json --run-name paired-crop-v2 --arms raw-image-v1,box-crop-v2 --threads auto --timeout-seconds 1800 --dry-run
+& $py -B -m $exp run --scope .cache/box-grounding/inputs/scope.json --run-name paired-crop-v2 --arms raw-image-v1,box-crop-v2 --threads auto --timeout-seconds 1800
+& $py -B -m $exp score --run-dir .cache/box-grounding/runs/paired-crop-v2 --labels backend/experiments/box_grounding/reviewed_labels.json
+```
+
+Owner's Mac, using the already verified local scope:
+
+```bash
+.venv/bin/python -B -m backend.experiments.box_grounding.run_experiment run --scope .cache/box-grounding/handoff-verification/scope.json --run-name paired-crop-v2-mac --arms raw-image-v1,box-crop-v2 --threads 10 --timeout-seconds 600
+.venv/bin/python -B -m backend.experiments.box_grounding.run_experiment score --run-dir .cache/box-grounding/runs/paired-crop-v2-mac --labels backend/experiments/box_grounding/reviewed_labels.json
+```
+
+Ten threads is the owner's M4 Air setting, not a portable performance default.
+Both commands run sequentially on CPU; keep Ollama running. This experiment does
+not use PostgreSQL or Docker. The full paired run makes 30 model requests across
+8 development cases: 8 raw requests and 22 crop requests. Progress prints before
+and after each box; a slow request can leave its start message visible for minutes.
+
+For saved progress in a second terminal:
+
+```bash
+.venv/bin/python -B -m backend.experiments.box_grounding.run_experiment status --run-dir .cache/box-grounding/runs/paired-crop-v2-mac
+```
+
+Completion means all 16 case/arm units are durably recorded, all 22 candidate
+boxes remain visible, and scoring reports coverage, unavailable outcomes, false
+positives and false negatives against the fresh raw control. It does not mean
+accuracy improved. Inspect background and pedestrian boxes separately; preserve
+identity mismatches and other unavailable outcomes. A candidate that still flags
+every box fails the investigation even with perfect violation recall. Do not
+activate this experiment or claim generalization from these exposed cases; any
+accuracy improvement requires a fresh, independently reviewed set.

@@ -115,5 +115,38 @@ From the repository root, on a branch such as `experiment/per-box-grounding`:
 ## 7. Not done, by design
 
 No production code, API contract, migration, dependency pin, worker or policy was
-changed. No model was fine-tuned. Nothing was committed or pushed. No real-model
-results were produced or estimated.
+changed. No model was fine-tuned or feedback policy activated. The experiment
+implementation and first real-model results are committed on this experiment
+branch; the paired-run report is in PER_BOX_RESULTS.md. The branch has not been
+merged into production.
+
+## 8. Owner review corrections — 22 October 2026
+
+The owner received the four saved paired-run records and independently checked
+their counts, durations, source-code fingerprints and all 22 reconstructed crop
+hashes. They support the reported negative result. The full installed digest is
+`sha256:84f7ed8042fa7cdbd902f7dcb7d0370e032095047cc3244179f263b77b5bc318`.
+
+Follow-up source corrections keep unexecuted development cases in the scoring
+denominator as unavailable, suppress an improvement assessment for incomplete
+or source-changed runs, reject duplicate/unplanned result rows, and compare
+scope object facts/dimensions against the verified annotation/image bytes.
+Old run records and score files remain unchanged. New regression coverage is
+authored but has not been run, following the owner's no-tests instruction.
+
+## Crop v2 implementation
+
+The owner added explicit `box-crop-v2` selection after a repeated local diagnostic
+isolated interference from original-image geometry in case-03. It omits source
+geometry only from model-facing crop input and preserves geometry in saved box
+records. v1 and the default raw + v1 pair remain available. Progress, provenance
+and score descriptions identify v2 correctly. See RUNNER.md for Mac and Windows
+commands and PER_BOX_RESULTS.md for the diagnostic's limitations.
+
+A real-corpus, network-free dry run prepared all 30 requests successfully.
+New prompt/runner/reporting integration regressions were authored but not run.
+The full v2 comparison was subsequently completed by the owner. The fresh raw
+control scored F1 0.667 and v2 scored 0.857, both with 7/8 coverage. The assessment
+remains inconclusive due to identity-copy failures; v2 also retains one small-crop
+false positive. See PER_BOX_RESULTS.md and
+reference_results/paired_crop_v2_mac.json. No production activation follows.

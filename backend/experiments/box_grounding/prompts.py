@@ -30,9 +30,12 @@ from .views import MAX_BOXES
 PACKET = Path(__file__).resolve().parent
 RAW_VARIANT = "raw-image-v1"
 CROP_VARIANT = "box-crop-v1"
-VARIANTS = (RAW_VARIANT, CROP_VARIANT)
+CROP_V2_VARIANT = "box-crop-v2"
+CROP_VARIANTS = (CROP_VARIANT, CROP_V2_VARIANT)
+DEFAULT_ARMS = (RAW_VARIANT, CROP_VARIANT)
+VARIANTS = (RAW_VARIANT, *CROP_VARIANTS)
 RAW_PREPROCESSING = "original-png-no-transform-v1"
-PREPROCESSING = {RAW_VARIANT: RAW_PREPROCESSING, CROP_VARIANT: CROP_PREPROCESSING}
+PREPROCESSING = {RAW_VARIANT: RAW_PREPROCESSING, **{arm: CROP_PREPROCESSING for arm in CROP_VARIANTS}}
 RAW_SCHEMA_VERSION = "prediction-v1"
 BOX_SCHEMA_VERSION = "box-prediction-v1"
 PER_BOX_INSTRUCTION_VERSION = "per-box-instruction-v1"
@@ -131,18 +134,24 @@ def raw_request(scope: Scope, case: ScopeCase, texts: PromptTexts,
 
 
 def crop_request(scope: Scope, case: ScopeCase, crop: BoxCrop, texts: PromptTexts,
-                 execution: ExecutionSettings) -> PreparedRequest:
-    """The candidate: one raw crop and that box's own facts. Other boxes are not described."""
-    content = json.dumps({
+                 execution: ExecutionSettings, *, variant: str = CROP_VARIANT) -> PreparedRequest:
+    """One crop; v2 omits source geometry from model input, retaining it in local records."""
+    if variant not in CROP_VARIANTS:
+        raise ValueError(f"Unsupported crop variant: {variant}")
+    document = {
         "case_id": case.case_id, "rule_id": scope.rule_id, "guideline": rule_document(scope),
-        "task": {"variant": CROP_VARIANT, "instruction_version": PER_BOX_INSTRUCTION_VERSION,
+        "task": {"variant": variant, "instruction_version": PER_BOX_INSTRUCTION_VERSION,
                  "instruction": texts.per_box_instruction},
         "box": {"box_number": crop.box_number, "object_id": crop.object_id, "label": crop.label,
                 "bbox": list(crop.bbox),
                 "bbox_convention": "one-based inclusive source pixels (xmin, ymin, xmax, ymax)",
                 "crop_size": [crop.width, crop.height], "source_image_size": case.image_size},
         "target": {"image_attachment": 1},
-    }, ensure_ascii=False, allow_nan=False)
+    }
+    if variant == CROP_V2_VARIANT:
+        for field in ("bbox", "bbox_convention", "source_image_size"):
+            del document["box"][field]
+    content = json.dumps(document, ensure_ascii=False, allow_nan=False)
     return prepare(texts, content, [crop.png], BoxPrediction.model_json_schema(), execution)
 
 

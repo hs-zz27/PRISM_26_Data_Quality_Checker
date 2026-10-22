@@ -72,14 +72,56 @@ def test_scoring_reads_labels_and_reports_the_paired_comparison(finished, corpus
     assert score["model"]["digest"]["installed"].startswith("sha256:") and score["order"] == "interleaved"
 
 
-def test_without_unavailable_results_better_recall_is_assessed_as_improved_but_flagged_partial(corpus, tmp_path):
+def test_subset_run_cannot_claim_improvement_and_keeps_unexecuted_cases_in_denominator(corpus, tmp_path):
     def decide(content):
         caught = "box" in content and tuple(content["box"]["bbox"]) == (5, 4, 8, 6)
         return ("fail", "Only background is visible.") if caught else ("pass", "All boxes enclose a pedestrian.")
     run_with(corpus, FakeOllama(decide=decide), tmp_path / "run", cases=("case-02", "case-03", "case-04"))
     score = build_score(tmp_path / "run", corpus.labels_path, corpus.packet)
-    assert score["assessment_crops_vs_raw_control"] == "improved"
+    assert score["assessment_crops_vs_raw_control"] == "inconclusive"
     assert score["complete_paired_comparison"] is False  # case-13 was intended but not run
+    for arm, metrics in score["arms"].items():
+        assert metrics["intended"] == 4
+        assert metrics["unavailable"] == 1 and metrics["coverage"] == 0.75
+        assert score["missing_cases_by_arm"][arm] == ["case-13"]
+    missing = next(row for row in score["cases"] if row["case_name"] == "case-13")
+    assert all(value is None for value in missing["arms"].values())
+
+
+def test_missing_violation_is_counted_as_unavailable_and_false_negative(corpus, tmp_path):
+    run_with(corpus, FakeOllama(), tmp_path / "run", cases=("case-03",))
+    score = build_score(tmp_path / "run", corpus.labels_path, corpus.packet)
+    for arm, metrics in score["arms"].items():
+        assert metrics["intended"] == 4 and metrics["fn"] == 1
+        assert metrics["unavailable"] == 3 and metrics["coverage"] == 0.25
+        assert score["errors"][arm]["false_negatives"] == ["case-02"]
+
+
+@pytest.mark.parametrize("stage,changed", [("interrupted", []), ("failed", []), ("completed", ["case-02"])])
+def test_incomplete_or_changed_source_summary_blocks_complete_assessment(finished, corpus, stage, changed):
+    path = finished / "summary.json"
+    summary = json.loads(path.read_bytes())
+    summary.update(stage=stage, source_files_changed=changed)
+    path.write_text(json.dumps(summary), encoding="utf-8")
+    score = build_score(finished, corpus.labels_path, corpus.packet)
+    assert score["complete_paired_comparison"] is False
+    assert score["assessment_crops_vs_raw_control"] == "inconclusive"
+
+
+def test_scoring_refuses_duplicate_results_instead_of_silently_selecting_one(finished, corpus):
+    path = finished / "results.jsonl"
+    with path.open("ab") as stream:
+        stream.write(path.read_bytes().splitlines()[0] + b"\n")
+    with pytest.raises(ReportError, match="Duplicate result"):
+        build_score(finished, corpus.labels_path, corpus.packet)
+
+
+def test_scoring_refuses_duplicate_labels(finished, corpus):
+    labels = json.loads(corpus.labels_path.read_bytes())
+    labels["cases"].append(labels["cases"][0])
+    corpus.labels_path.write_text(json.dumps(labels), encoding="utf-8")
+    with pytest.raises(ReportError, match="Duplicate case"):
+        build_score(finished, corpus.labels_path, corpus.packet)
 
 
 def test_a_partial_run_is_labelled_incomplete_not_presented_as_the_full_comparison(corpus, tmp_path):

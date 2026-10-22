@@ -156,5 +156,32 @@ def test_the_box_schema_is_strict(change):
 
 
 def test_schema_versions_and_variant_identities_are_explicit():
-    assert prompts.PREPROCESSING == {"raw-image-v1": "original-png-no-transform-v1", "box-crop-v1": "box-crop-png-v1"}
-    assert prompts.BOX_SCHEMA_VERSION == "box-prediction-v1" and prompts.VARIANTS == ("raw-image-v1", "box-crop-v1")
+    assert prompts.PREPROCESSING == {"raw-image-v1": "original-png-no-transform-v1",
+                                     "box-crop-v1": "box-crop-png-v1", "box-crop-v2": "box-crop-png-v1"}
+    assert prompts.BOX_SCHEMA_VERSION == "box-prediction-v1"
+    assert prompts.DEFAULT_ARMS == ("raw-image-v1", "box-crop-v1")
+    assert prompts.VARIANTS == ("raw-image-v1", "box-crop-v1", "box-crop-v2")
+
+
+def test_v2_changes_only_variant_identity_and_source_geometry(parts):
+    scope, case, crops, texts = parts
+    crop = crops[0]
+    original = crop_request(scope, case, crop, texts, execution())
+    revised = crop_request(scope, case, crop, texts, execution(), variant="box-crop-v2")
+    before, after = user_content(original), user_content(revised)
+    before["task"]["variant"] = "box-crop-v2"
+    for key in ("bbox", "bbox_convention", "source_image_size"):
+        del before["box"][key]
+        assert key not in after["box"]
+    assert before == after
+    left, right = json.loads(original.body), json.loads(revised.body)
+    left["messages"][1]["content"] = right["messages"][1]["content"]
+    assert left == right  # identical pixels, options, system prompt and schema
+    assert b64decode(right["messages"][1]["images"][0]) == crop.png
+    assert revised.sha256 == sha256(revised.body).hexdigest()
+
+
+def test_unknown_crop_version_is_rejected(parts):
+    scope, case, crops, texts = parts
+    with pytest.raises(ValueError, match="Unsupported crop variant"):
+        crop_request(scope, case, crops[0], texts, execution(), variant="box-crop-typo")
