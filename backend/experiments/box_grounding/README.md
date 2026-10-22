@@ -1,9 +1,10 @@
 # Box-grounding development handoff
 
-This folder is the teammate's independent accuracy investigation. The owner is
-testing numbered full-image overviews separately. This assignment investigates
-cropped annotation regions and per-box decisions. It does not change the audit
-application, feedback policies, detector integration or HTTP contracts.
+This folder is the teammate's independent accuracy investigation. The owner has
+completed a numbered full-image overview run, recorded in RESULTS.md. This
+assignment investigates cropped annotation regions and per-box decisions. It
+does not change the audit application, feedback policies, detector integration
+or HTTP contracts.
 
 Start with [TEAMMATE_PROMPT.md](TEAMMATE_PROMPT.md). It defines the four phases,
 scope, evaluation rules and completion criteria. [RESULTS.md](RESULTS.md) explains
@@ -91,7 +92,10 @@ Run one request at a time; these experiments do not need Docker.
 ## Current scientific status
 
 The old example-based candidate regressed. Case 12 gained a missed violation;
-both arms missed case 02. Those observations motivate this investigation but do
-not establish the root cause. The current eight cases are exposed development
-data. Any promising strategy requires new, independently reviewed held-out
-images before an accuracy-improvement claim or production adoption.
+both arms missed case 02. A separate numbered-overview run also missed cases 02
+and 12, with F1 0.50 versus the historical raw baseline's 0.80. Its complete
+results are in `reference_results/numbered_overview.json`. These observations
+motivate the crop investigation but do not establish the root cause.
+The current eight cases are exposed development data. Any promising strategy
+requires new, independently reviewed held-out images before an
+accuracy-improvement claim or production adoption.

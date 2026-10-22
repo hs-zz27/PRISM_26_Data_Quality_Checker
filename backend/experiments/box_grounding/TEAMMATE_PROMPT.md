@@ -10,10 +10,11 @@ model and independently reviewed human labels.
 ## Goal and ownership
 
 Investigate whether showing individual annotation-box regions helps the model
-recognize background-only boxes. The owner is separately testing numbered
-full-image overviews. Your work must be independent of that experiment and must
-not change production behavior. Produce clean, readable, typed code with small
-functions and focused tests; reuse suitable existing models rather than
+recognize background-only boxes. The owner completed a separate numbered
+full-image overview experiment; its results are included here. Your work must
+remain independent of that experiment and must not change production behavior.
+Produce clean, readable, typed code with small functions and focused tests;
+reuse suitable existing models rather than
 duplicating their contracts or introducing a new framework.
 
 Allowed implementation scope is `backend/experiments/box_grounding/`. Put new
@@ -30,7 +31,8 @@ pushes are authorized by this assignment.
 
 1. This folder's README.md, RESULTS.md and DATA_PROVENANCE.md.
 2. manifest.json, reviewed_labels.json and system_prompt_v1.txt.
-3. reference_results/reviewed_comparison.json and the other two reference files.
+3. All four reference_results/ files, including numbered_overview.json and
+   reviewed_comparison.json.
 4. prepare.py, views.py and their synthetic tests.
 5. For existing contracts and safeguards, read:
    - backend/app/models/feedback.py
@@ -58,6 +60,13 @@ took about 31% longer. It was not activated. Its failure motivates the new
 experiment, but does not prove the cause. Current images are a small mixture of
 original and controlled copied annotations, not representative deployment data.
 They are now development cases and cannot establish unseen-data improvement.
+
+The separate numbered-overview/no-example run also produced F1 0.50 and missed
+cases 02 and 12. It completed all eight cases in 803.99 seconds of model-call
+time with no unsure/unavailable outcomes. It reuses a historical raw baseline,
+so it is not a controlled timing comparison. Read the complete results and
+reasons in reference_results/numbered_overview.json. Do not repeat numbering
+alone as the proposed new feature or assume that crops will improve accuracy.
 
 Use the same installed local `qwen3-vl:4b-instruct` for both arms of a paired
 comparison. Record its exact digest. The historical digest is in the reference

@@ -48,6 +48,33 @@ Some explanations describe pedestrians anywhere in the image rather than
 checking each annotation region. That suggests a grounding problem; it is a
 hypothesis to test, not an established diagnosis.
 
+## Numbered full-image overview — 22 October 2026
+
+The owner completed all eight development cases with numbered red annotation
+rectangles and explicit visualization metadata. The model/settings and system
+prompt were retained, with no training examples. This is a separate input
+experiment from the earlier one-example candidate.
+
+- Overview: 1 true positive, 0 false positives, 2 false negatives and 5 true
+  negatives. It matched 6/8 labels, recall 1/3 and F1 0.50, versus the historical
+  raw baseline's 7/8 labels and F1 0.80. The assessment was `regressed`.
+- Cases 02 and 12 incorrectly passed. Case 11 correctly failed; the five
+  compliant cases correctly passed. These are the same sample decisions as
+  the earlier one-example candidate, despite using a different intervention.
+- All eight responses were model-verified, with full coverage and zero
+  unsure/unavailable responses. Verification establishes response provenance,
+  not correctness.
+- Model-call time totaled 803.99 seconds (about 13 minutes 24 seconds), versus
+  856.96 seconds for the historical baseline. This was not a fresh paired
+  timing benchmark; the difference does not establish a speed improvement.
+
+Exact per-case outcomes, reasons, durations and experiment fingerprints are in
+`reference_results/numbered_overview.json`. Numbering alone did not improve
+violation detection on this small set. Cropped regions and per-box judgments
+remain a separate experiment; this result does not show whether they will help.
+No policy or production preprocessing was changed or activated. A fresh,
+independently reviewed test set is still needed before an improvement claim.
+
 ## Combined detector/Ollama integration
 
 Real sequential audit jobs of 1, 2 and 4 samples completed in 82.65, 84.63 and
