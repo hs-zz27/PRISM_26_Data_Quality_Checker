@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from fastapi.routing import APIRoute, iter_route_contexts
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -82,11 +83,25 @@ def test_the_live_constraints_match_the_documented_semantics():
         0, 9_223_372_036_854_775_807, 0,
     )
     text = next(branch for branch in live["sample_id"]["anyOf"] if branch.get("type") == "string")
-    assert text["minLength"] == 1 and text["pattern"] == r"\S"
+    assert text["minLength"] == 1 and text["pattern"] == r"^[^\x00]*[^\s\x00][^\x00]*$"
+    assert live["audit_id"]["pattern"] == text["pattern"]
     assert {"type": "null"} in live["sample_id"]["anyOf"] and {"type": "null"} in live["outcome"]["anyOf"]
     outcome = next(branch for branch in live["outcome"]["anyOf"] if "$ref" in branch)
     assert outcome == {"$ref": "#/components/schemas/FindingOutcome"}
     assert IMPLEMENTED["components"]["schemas"]["FindingOutcome"]["enum"] == ["pass", "fail", "unsure", "unavailable"]
+
+
+@pytest.mark.parametrize("identifier,valid", [
+    ("audit_1", True), (" sample_1 ", True), ("sample\n1", True), ("人物_1", True),
+    ("sample%00_1", True), ("", False), (" \t\n", False), ("\x00", False),
+    ("\x00sample_1", False), ("sample\x00_1", False), ("sample_1\x00", False),
+    ("sample_1\x00\n", False),
+])
+def test_identifier_contracts_reject_nul_without_rejecting_ordinary_text(identifier, valid):
+    for document, path in ((SPEC, PATH), (IMPLEMENTED, LIVE_PATH)):
+        parameters = {item["name"]: item["schema"] for item in operation(document, path)["parameters"]}
+        for name in ("audit_id", "sample_id"):
+            assert Draft202012Validator(parameters[name]).is_valid(identifier) is valid
 
 
 # --- schema fidelity -----------------------------------------------------------------------------------------

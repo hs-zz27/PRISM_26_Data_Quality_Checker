@@ -88,6 +88,17 @@ def test_explicit_pagination_and_filters_are_forwarded(api):
     assert repository.list_audit_findings.call_args.kwargs["outcome"] is FindingOutcome.FAIL
 
 
+@pytest.mark.parametrize("sample_id", [" sample_1 ", "sample\n1", "人物_1", "sample%00_1"])
+def test_valid_sample_identifiers_are_forwarded_unchanged(api, sample_id):
+    client, repository, _ = api
+    repository.list_audit_findings.return_value = page([])
+
+    response = client.get(URL, params={"sample_id": sample_id})
+
+    assert response.status_code == 200
+    assert repository.list_audit_findings.call_args.kwargs["sample_id"] == sample_id
+
+
 @pytest.mark.parametrize("outcome", [value.value for value in FindingOutcome])
 def test_every_outcome_filter_is_supported(api, outcome):
     client, repository, _ = api
@@ -152,6 +163,8 @@ def test_the_largest_supported_offset_is_accepted(api):
     "offset=-1", "offset=1.5", "offset=abc", "offset=", f"offset={MAX_OFFSET + 1}",
     "outcome=failed", "outcome=FAIL", "outcome=", "outcome=accepted",
     "sample_id=", "sample_id=%20", "sample_id=%20%20%09",
+    "sample_id=%00", "sample_id=%00sample_1", "sample_id=sample%00_1", "sample_id=sample_1%00",
+    "sample_id=sample_1%00%0A",
 ])
 def test_invalid_queries_are_rejected_without_reading_storage(api, query):
     client, repository, _ = api
@@ -164,8 +177,10 @@ def test_invalid_queries_are_rejected_without_reading_storage(api, query):
     repository.list_audit_findings.assert_not_called()
 
 
-@pytest.mark.parametrize("audit_id", ["%20", "%20%20"])
-def test_a_blank_audit_identifier_is_rejected_without_reading_storage(api, audit_id):
+@pytest.mark.parametrize("audit_id", [
+    "%20", "%20%20", "%00", "%00audit_1", "audit%00_1", "audit_1%00", "audit_1%00%0A",
+])
+def test_an_invalid_audit_identifier_is_rejected_without_reading_storage(api, audit_id):
     client, repository, _ = api
     response = client.get(f"/api/v1/audits/{audit_id}/findings")
     assert response.status_code == 422 and response.json()["error"]["code"] == "VALIDATION_ERROR"

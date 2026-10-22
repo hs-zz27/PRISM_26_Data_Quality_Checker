@@ -326,11 +326,12 @@ def build_contract() -> JsonObject:
     }
     add("GET", "/audits/{audit_id}/findings", "listAuditFindings", "Audits", "List findings with rule sources and review state", "FindingPage", page([examples["finding"]]),
         parameters=[
+            parameter("audit_id", "path", {"type": "string", "minLength": 1, "pattern": r"^[^\x00]*[^\s\x00][^\x00]*$"}, "audit_demo"),
             parameter("limit", "query", {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, 20,
                       description="Page size, from 1 to 100."),
             parameter("offset", "query", {"type": "integer", "minimum": 0, "maximum": 9223372036854775807, "default": 0}, 0,
                       description="Zero-based position in the filtered list, up to PostgreSQL's largest integer."),
-            parameter("sample_id", "query", {"anyOf": [{"type": "string", "minLength": 1, "pattern": r"\S"}, {"type": "null"}], "default": None}, "sample_001",
+            parameter("sample_id", "query", {"anyOf": [{"type": "string", "minLength": 1, "pattern": r"^[^\x00]*[^\s\x00][^\x00]*$"}, {"type": "null"}], "default": None}, "sample_001",
                       description="Optional filter. A sample with no findings in this audit, including a sample that is not in it, returns an empty page rather than HTTP 404."),
             parameter("outcome", "query", {"anyOf": [ref("FindingOutcome"), {"type": "null"}], "default": None}, "fail",
                       description="Optional machine outcome filter. It combines with sample_id using AND and never filters by the reviewer's decision."),

@@ -108,11 +108,11 @@ def get_audit_sample(
     responses=NOT_FOUND,
 )
 def list_audit_findings(
-    audit_id: Identifier,
+    audit_id: Annotated[str, Path(min_length=1, pattern=r"^[^\x00]*[^\s\x00][^\x00]*$")],
     repository: Repository,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0, le=9_223_372_036_854_775_807)] = 0,
-    sample_id: Annotated[str | None, Query(min_length=1, pattern=r"\S")] = None,
+    sample_id: Annotated[str | None, Query(min_length=1, pattern=r"^[^\x00]*[^\s\x00][^\x00]*$")] = None,
     outcome: FindingOutcome | None = None,
 ) -> FindingPage:
     """Read an audit's machine findings with their latest human reviews, in finding_id order."""

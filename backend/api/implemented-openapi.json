@@ -3663,7 +3663,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "pattern": "\\S",
+              "pattern": "^[^\\x00]*[^\\s\\x00][^\\x00]*$",
               "title": "Audit Id"
             },
             "example": "audit_demo",
@@ -3706,7 +3706,7 @@
                 {
                   "type": "string",
                   "minLength": 1,
-                  "pattern": "\\S"
+                  "pattern": "^[^\\x00]*[^\\s\\x00][^\\x00]*$"
                 },
                 {
                   "type": "null"
