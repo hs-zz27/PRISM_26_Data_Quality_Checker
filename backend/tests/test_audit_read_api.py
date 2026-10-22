@@ -573,6 +573,9 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
     client, _ = api
     spec = client.get("/openapi.json").json()
     assert set(spec["paths"]) == {
+        "/api/v1/health",
+        "/api/v1/capabilities",
+        "/api/v1/system/status",
         "/api/v1/rulebooks/extractions",
         "/api/v1/rulebooks",
         "/api/v1/rulebooks/{rulebook_id}",
@@ -585,6 +588,7 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "/api/v1/audits/{audit_id}",
         "/api/v1/audits/{audit_id}/samples",
         "/api/v1/audits/{audit_id}/samples/{sample_id}",
+        "/api/v1/audits/{audit_id}/findings",
         "/api/v1/audits/{audit_id}/rechecks",
         "/api/v1/datasets/{dataset_id}/samples/{sample_id}/assets/{asset_kind}",
         "/api/v1/datasets",
@@ -613,9 +617,10 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "/api/v1/feedback/evaluations/{evaluation_id}",
     }
     assert {operation["operationId"] for path in spec["paths"].values() for operation in path.values()} == {
+        "getHealth", "getCapabilities", "getSystemStatus",
         "extractRulebook", "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
         "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
-        "startAudit", "listAudits", "getAudit", "listAuditSamples", "getAuditSample", "getSampleAsset", "reviewFinding", "listFindingReviews", "getJob", "cancelJob",
+        "startAudit", "listAudits", "getAudit", "listAuditSamples", "getAuditSample", "listAuditFindings", "getSampleAsset", "reviewFinding", "listFindingReviews", "getJob", "cancelJob",
         "importDataset", "listDatasets", "getDataset", "listDatasetSamples", "getDatasetSample",
         "reviewSample", "listSampleReviews",
         "startExport", "listExports", "getExport", "getExportManifest", "downloadExport",

@@ -17,6 +17,11 @@ def load_execution_pin() -> ExecutionPin:
     try:
         settings = load_ollama_settings()
         values = {**dotenv_values(DEFAULT_ENV_PATH, interpolate=False), **os.environ}
-        return ExecutionPin(model=settings.model, model_digest=values['FEEDBACK_MODEL_DIGEST'], num_ctx=settings.context_length, num_predict=min(settings.max_output_tokens, 2048), timeout_seconds=min(600, max(1, int(settings.timeout_seconds))))
+        return ExecutionPin(
+            model=settings.model, model_digest=values['FEEDBACK_MODEL_DIGEST'],
+            num_ctx=settings.context_length, num_predict=min(settings.max_output_tokens, 2048),
+            num_thread=settings.cpu_threads,
+            timeout_seconds=min(600, max(1, int(settings.timeout_seconds))),
+        )
     except (KeyError, ValueError, TypeError, OSError) as error:
         raise FeedbackError('DEPENDENCY_UNAVAILABLE') from error

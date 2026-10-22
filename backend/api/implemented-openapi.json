@@ -3647,6 +3647,386 @@
         "x-backing-service-status": "AuditReadRepository.get_sample and FastAPI route implemented."
       }
     },
+    "/api/v1/audits/{audit_id}/findings": {
+      "get": {
+        "tags": [
+          "Audits"
+        ],
+        "summary": "List findings with rule sources and review state",
+        "description": "List every machine finding of one audit across all of its samples, in ascending finding_id order (text order, not creation order). Each item is the stored finding, including its pinned sample_revision, rulebook version, rule parameters, origin, source sentence and evidence, with the latest human review in review; a finding nobody has reviewed shows resolution pending. Omit the filters to include all four outcomes (pass, fail, unsure, unavailable) and every review resolution. sample_id and outcome combine with AND. total counts all matching findings before paging, and next_offset is offset plus the number of items only when more matching findings remain, otherwise null (an empty page, an offset past the end and the final page all return null). An unknown audit returns HTTP 404; an existing audit with no matching findings returns HTTP 200 with an empty page. Audit existence, the total, the page and the latest reviews are read from one database snapshot. Reading never starts a worker, runs inference, reads asset files or changes a finding or its review. Findings are machine evidence: a reviewer's decision is separate, and an accepted or rejected finding does not decide the sample. Use getAuditSample for one sample's full detail.",
+        "operationId": "listAuditFindings",
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "title": "Audit Id"
+            },
+            "example": "audit_demo",
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            },
+            "example": 20,
+            "description": "Page size, from 1 to 100."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            },
+            "example": 0,
+            "description": "Zero-based position in the filtered list, up to PostgreSQL's largest integer."
+          },
+          {
+            "name": "sample_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sample Id"
+            },
+            "example": "sample_001",
+            "description": "Optional filter. A sample with no findings in this audit, including a sample that is not in it, returns an empty page rather than HTTP 404."
+          },
+          {
+            "name": "outcome",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FindingOutcome"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Outcome"
+            },
+            "example": "fail",
+            "description": "Optional machine outcome filter. It combines with sample_id using AND and never filters by the reviewer's decision."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingPage"
+                },
+                "examples": {
+                  "first_page_with_more": {
+                    "summary": "First page of five matching findings; follow next_offset",
+                    "value": {
+                      "items": [
+                        {
+                          "finding_id": "finding_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 2,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "fail",
+                          "reason": "label_not_allowed",
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "vehicle",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 0,
+                            "resolution": "pending",
+                            "reviewer_id": null,
+                            "comment": null,
+                            "updated_at": null
+                          }
+                        },
+                        {
+                          "finding_id": "finding_pass_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 1,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "pass",
+                          "reason": null,
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "person",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 1,
+                            "resolution": "accepted",
+                            "reviewer_id": "reviewer_demo",
+                            "comment": "Confirmed the label is allowed.",
+                            "updated_at": "2026-10-14T10:00:00Z"
+                          }
+                        }
+                      ],
+                      "limit": 2,
+                      "offset": 0,
+                      "total": 5,
+                      "next_offset": 2
+                    }
+                  },
+                  "last_page": {
+                    "summary": "Final page; next_offset is null",
+                    "value": {
+                      "items": [
+                        {
+                          "finding_id": "finding_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 2,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "fail",
+                          "reason": "label_not_allowed",
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "vehicle",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 0,
+                            "resolution": "pending",
+                            "reviewer_id": null,
+                            "comment": null,
+                            "updated_at": null
+                          }
+                        }
+                      ],
+                      "limit": 2,
+                      "offset": 4,
+                      "total": 5,
+                      "next_offset": null
+                    }
+                  },
+                  "filtered_by_sample_and_outcome": {
+                    "summary": "sample_id=sample_001&outcome=fail; total counts only matches",
+                    "value": {
+                      "items": [
+                        {
+                          "finding_id": "finding_demo",
+                          "audit_id": "audit_demo",
+                          "sample_id": "sample_001",
+                          "sample_revision": 1,
+                          "object_id": 2,
+                          "rulebook_id": "rulebook_demo",
+                          "rulebook_version": 3,
+                          "rule_id": "LBL-1",
+                          "description": "Use an allowed label.",
+                          "check_name": "allowed_labels",
+                          "outcome": "fail",
+                          "reason": "label_not_allowed",
+                          "parameters": {
+                            "allowed_labels": [
+                              "person"
+                            ]
+                          },
+                          "origin": "extracted",
+                          "source_sentence": "Allowed labels are person.",
+                          "evidence": {
+                            "image_url": null,
+                            "mask_preview_url": null,
+                            "crop_url": null,
+                            "measurements": {
+                              "actual_label": "vehicle",
+                              "allowed_labels": [
+                                "person"
+                              ]
+                            }
+                          },
+                          "review": {
+                            "revision": 0,
+                            "resolution": "pending",
+                            "reviewer_id": null,
+                            "comment": null,
+                            "updated_at": null
+                          }
+                        }
+                      ],
+                      "limit": 20,
+                      "offset": 0,
+                      "total": 1,
+                      "next_offset": null
+                    }
+                  },
+                  "empty": {
+                    "summary": "An existing audit, or a filter that matches nothing",
+                    "value": {
+                      "items": [],
+                      "limit": 20,
+                      "offset": 0,
+                      "total": 0,
+                      "next_offset": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Audit storage unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "DEPENDENCY_UNAVAILABLE",
+                    "message": "Audit storage is unavailable.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "The requested audit, sample, or finding does not exist.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "AuditReadRepository.list_audit_findings and FastAPI route implemented."
+      }
+    },
     "/api/v1/feedback/examples": {
       "get": {
         "tags": [
@@ -11878,6 +12258,224 @@
         "x-implementation-status": "implemented",
         "x-backing-service-status": "revise_rulebook service and transactional PostgreSQL review history and FastAPI route implemented."
       }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Check HTTP server liveness",
+        "description": "Liveness only. Returns ok while the HTTP server is running. It never touches PostgreSQL, Ollama, the detector checkpoint or inference, so an offline optional service cannot make it fail.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                },
+                "example": {
+                  "status": "ok",
+                  "api_version": "v1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "FastAPI route; no dependencies."
+      }
+    },
+    "/api/v1/capabilities": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "List supported checks and evidence features",
+        "description": "Describes what this backend build supports: dataset and guideline input formats, the annotation coordinate convention, executable guideline checks taken from the real registry, and detection and matching evidence features, which are listed separately because they are not guideline checks. Installed files do not change it. It starts no service and runs no inference. Planned posture, mask or person-count checks and detection-mask coverage are not listed because they do not exist.",
+        "operationId": "getCapabilities",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                },
+                "example": {
+                  "dataset_formats": [
+                    "penn_fudan"
+                  ],
+                  "guideline_input_formats": [
+                    "plain_text"
+                  ],
+                  "coordinate_convention": "one_based_inclusive",
+                  "checks": [
+                    {
+                      "name": "allowed_labels",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "annotation_guideline",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "annotation_ids",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "annotation_metadata",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "box_mask_alignment",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "box_overlaps",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "box_validity",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "mask_box_fill",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "mask_components",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "mask_dimensions",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "mask_ids",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "mask_outside_box",
+                      "implementation": "implemented"
+                    }
+                  ],
+                  "evidence_features": [
+                    {
+                      "name": "person_detection",
+                      "implementation": "implemented",
+                      "description": "CPU person detector run inside audit sample processing when enabled for an audit. Stored as the detection_evidence measurement; not a guideline check and creates no findings."
+                    },
+                    {
+                      "name": "detection_annotation_matching",
+                      "implementation": "implemented",
+                      "description": "Conservative matching of detections to person annotations, stored inside detection_evidence. Ambiguity is reported for review, never resolved automatically."
+                    }
+                  ],
+                  "execution_device": "cpu"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "CHECK_REGISTRY and a static evidence feature list; FastAPI route."
+      }
+    },
+    "/api/v1/system/status": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Inspect local model readiness",
+        "description": "Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.",
+        "operationId": "getSystemStatus",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatus"
+                },
+                "example": {
+                  "ollama": {
+                    "configuration": "valid",
+                    "reachable": true,
+                    "model": "example-local-model:latest",
+                    "model_available": true
+                  },
+                  "detector": {
+                    "integration_supported": true,
+                    "configuration": "enabled",
+                    "checkpoint_file": "present",
+                    "validation": "unknown",
+                    "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"
+                  },
+                  "execution_device": "cpu"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "SystemStatusService: bounded Ollama model-list probe, detection settings and a checkpoint file-existence check; FastAPI route."
+      }
     }
   },
   "components": {
@@ -12625,6 +13223,62 @@
         "title": "AuditStarted",
         "type": "object"
       },
+      "Capabilities": {
+        "additionalProperties": false,
+        "description": "What this backend build can do. It never reflects which files are installed.",
+        "properties": {
+          "dataset_formats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dataset Formats",
+            "type": "array"
+          },
+          "guideline_input_formats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Guideline Input Formats",
+            "type": "array"
+          },
+          "coordinate_convention": {
+            "const": "one_based_inclusive",
+            "description": "Annotation boxes. Detection evidence documents its own zero-based pixel-edge convention inside each evidence record.",
+            "title": "Coordinate Convention",
+            "type": "string"
+          },
+          "checks": {
+            "description": "Executable guideline checks. Detection evidence is listed separately. A listed check can still report unavailable results for a sample when its inputs are missing; model-assisted checks, for example, need the configured local model (see system status).",
+            "items": {
+              "$ref": "#/components/schemas/CheckCapability"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "evidence_features": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceFeature"
+            },
+            "title": "Evidence Features",
+            "type": "array"
+          },
+          "execution_device": {
+            "const": "cpu",
+            "title": "Execution Device",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_formats",
+          "guideline_input_formats",
+          "coordinate_convention",
+          "checks",
+          "evidence_features",
+          "execution_device"
+        ],
+        "title": "Capabilities",
+        "type": "object"
+      },
       "CapturedAvailability": {
         "additionalProperties": false,
         "properties": {
@@ -12855,6 +13509,28 @@
           "image_url"
         ],
         "title": "CaseView",
+        "type": "object"
+      },
+      "CheckCapability": {
+        "additionalProperties": false,
+        "description": "An executable guideline check that rules may name, taken from the real registry.",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "implementation": {
+            "const": "implemented",
+            "title": "Implementation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "implementation"
+        ],
+        "title": "CheckCapability",
         "type": "object"
       },
       "ComparisonMetrics": {
@@ -13190,6 +13866,61 @@
         "title": "DatasetStatus",
         "type": "string"
       },
+      "DetectorStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "integration_supported": {
+            "description": "Whether this environment has the packages the CPU detector needs.",
+            "title": "Integration Supported",
+            "type": "boolean"
+          },
+          "configuration": {
+            "description": "Detection settings for new audits; invalid means enabled but unusable.",
+            "enum": [
+              "disabled",
+              "enabled",
+              "invalid"
+            ],
+            "title": "Configuration",
+            "type": "string"
+          },
+          "checkpoint_file": {
+            "description": "Whether a file exists at the configured location. A present file is not verified: it is not hashed, loaded or run.",
+            "enum": [
+              "not_configured",
+              "present",
+              "missing",
+              "unreadable"
+            ],
+            "title": "Checkpoint File",
+            "type": "string"
+          },
+          "validation": {
+            "description": "Whether the checkpoint was actually loaded and checked. 'unknown' means no validation has been recorded; it never means the model works.",
+            "enum": [
+              "unknown",
+              "validated",
+              "failed"
+            ],
+            "title": "Validation",
+            "type": "string"
+          },
+          "architecture": {
+            "minLength": 1,
+            "title": "Architecture",
+            "type": "string"
+          }
+        },
+        "required": [
+          "integration_supported",
+          "configuration",
+          "checkpoint_file",
+          "validation",
+          "architecture"
+        ],
+        "title": "DetectorStatus",
+        "type": "object"
+      },
       "ErrorDetail": {
         "additionalProperties": false,
         "properties": {
@@ -13288,6 +14019,34 @@
         "title": "Evidence",
         "type": "object"
       },
+      "EvidenceFeature": {
+        "additionalProperties": false,
+        "description": "Evidence stored with audited samples. It is not an executable guideline check.",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "implementation": {
+            "const": "implemented",
+            "title": "Implementation",
+            "type": "string"
+          },
+          "description": {
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "implementation",
+          "description"
+        ],
+        "title": "EvidenceFeature",
+        "type": "object"
+      },
       "ExclusionReason": {
         "enum": [
           "pending_review",
@@ -13382,6 +14141,21 @@
             "minimum": 128,
             "title": "Num Predict",
             "type": "integer"
+          },
+          "num_thread": {
+            "anyOf": [
+              {
+                "maximum": 1024,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Pinned CPU threads; omitted or null retains automatic selection.",
+            "title": "Num Thread"
           },
           "timeout_seconds": {
             "default": 120,
@@ -14502,6 +15276,56 @@
         "title": "FindingOutcome",
         "type": "string"
       },
+      "FindingPage": {
+        "additionalProperties": false,
+        "description": "One page of an audit's findings, ordered by ascending finding_id.\n\nFindings are the stored machine snapshots with their latest human review\napplied. total counts every finding that matches the filters before paging.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total",
+          "next_offset"
+        ],
+        "title": "FindingPage",
+        "type": "object"
+      },
       "FindingResolution": {
         "description": "Accepting a finding confirms its conclusion, not acceptance of the sample.",
         "enum": [
@@ -14789,6 +15613,28 @@
         "title": "GroundTruthCreate",
         "type": "object"
       },
+      "Health": {
+        "additionalProperties": false,
+        "description": "HTTP liveness only. It says nothing about Ollama, the detector or storage.",
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "api_version": {
+            "const": "v1",
+            "title": "Api Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "api_version"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
       "ImportedAnnotationObject": {
         "additionalProperties": false,
         "description": "Keep order, duplicate/negative IDs and invalid boxes for later auditing.",
@@ -15003,6 +15849,57 @@
           "expires_at"
         ],
         "title": "MaskUpload",
+        "type": "object"
+      },
+      "OllamaStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration": {
+            "description": "Whether the local Ollama settings could be read.",
+            "enum": [
+              "valid",
+              "invalid"
+            ],
+            "title": "Configuration",
+            "type": "string"
+          },
+          "reachable": {
+            "description": "Whether a short metadata request to the server succeeded.",
+            "title": "Reachable",
+            "type": "boolean"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Configured language model name; null when settings are invalid.",
+            "title": "Model"
+          },
+          "model_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the configured model is installed; null when that is unknown.",
+            "title": "Model Available"
+          }
+        },
+        "required": [
+          "configuration",
+          "reachable",
+          "model",
+          "model_available"
+        ],
+        "title": "OllamaStatus",
         "type": "object"
       },
       "Prediction": {
@@ -16300,6 +17197,30 @@
           "comment"
         ],
         "title": "SampleReviewRequest",
+        "type": "object"
+      },
+      "SystemStatus": {
+        "additionalProperties": false,
+        "description": "Read-only readiness. Reading it starts nothing and downloads nothing.",
+        "properties": {
+          "ollama": {
+            "$ref": "#/components/schemas/OllamaStatus"
+          },
+          "detector": {
+            "$ref": "#/components/schemas/DetectorStatus"
+          },
+          "execution_device": {
+            "const": "cpu",
+            "title": "Execution Device",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ollama",
+          "detector",
+          "execution_device"
+        ],
+        "title": "SystemStatus",
         "type": "object"
       },
       "ToolStatus": {

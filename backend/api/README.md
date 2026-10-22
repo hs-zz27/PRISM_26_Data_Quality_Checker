@@ -9,14 +9,14 @@
 
 This folder gives the frontend developer endpoint templates, request bodies,
 response schemas and synthetic examples for the implemented and planned workflow.
-**46 HTTP operations are implemented in source after this handoff is applied:** dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
+**50 HTTP operations are implemented in source after this handoff is applied:** the audit-wide finding list (see [AUDITS.md](AUDITS.md)), health, capabilities and system status reads (see [SYSTEM.md](SYSTEM.md)), dataset import and four catalogue reads, extraction submission, manual rulebook creation/read/review, audit creation/listing/metadata
 and sample reads, revision-pinned assets, job polling/cancellation, and
 finding/sample decisions with history, five reviewed-export operations and four correction/recheck operations.
 All five API artifacts now include these four operations.
-All other operations remain planned. Check `x-implementation-status` in OpenAPI
-and `implementation` in each fixture. Server setup
+No operation remains planned; `x-implementation-status` in OpenAPI
+and `implementation` in each fixture mark every operation implemented. Server setup
 includes the launch command. The running server's `/docs` and `/openapi.json`
-include only real routes; this folder also documents the remaining planned workflow.
+include only real routes; this folder adds frontend examples and workflow guidance.
 
 The development base address is `http://127.0.0.1:8000/api/v1`.
 Keep the base URL configurable in the frontend.
@@ -50,14 +50,14 @@ when API models or routes change.
 - AUDITS.md: catalogue-backed audit creation, listing and explicit worker commands.
 - EXPORTS.md: frozen reviewed selections, managed export jobs, manifests and downloads.
 - dataset_contract.py / dataset_examples.py: live-aligned dataset shapes and model-validated lifecycle snapshots.
-- PLANNED_ENDPOINTS.md: all 4 remaining future operations, with
-  parameters, request/response examples, proposed errors and referenced schemas.
+- PLANNED_ENDPOINTS.md: future operations, with parameters, request/response examples,
+  proposed errors and referenced schemas. It currently states that none are planned.
 - FRONTEND_WORKFLOW.md: screen flows, mock setup, jobs,
   correction/recheck pins and export/feedback interactions.
 - implemented-openapi.json: callable endpoints only,
   with actual FastAPI transport schemas and frontend examples; use for client generation.
-- openapi.json: combined implementation/planning reference; the
-  4 remaining planned operations are not available on the running server.
+- openapi.json: combined implementation/planning reference; every operation is
+  implemented now, and a future planned design would be marked in x-implementation-status.
 - examples.json: frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
@@ -164,7 +164,7 @@ human acceptance.
 This is the target workflow. Planned steps are mock/UI design references, not
 actions the running backend currently supports.
 
-1. **Planned:** inspect health, capabilities and system status. Liveness is separate from
+1. **Implemented:** inspect health, capabilities and system status ([SYSTEM.md](SYSTEM.md)). Liveness is separate from
    model readiness; these endpoints do not start services or download models.
 2. **Implemented:** submit plain text through `POST /rulebooks/extractions`, poll the job, then
    follow its version-pinned `result.href` to the saved draft. **Implemented:**
@@ -513,7 +513,7 @@ Delivered extraction mocks are in
 `examples.extraction_job_scenarios.states` and `.failures`. Completed extraction links pin rulebook version 1.
 `examples.check_catalog` comes from the
 current registry and includes supported check names, meanings, scopes and parameter
-schemas. These are bundled reference data, not a live `/capabilities` endpoint.
+schemas. These are bundled reference data; the live `GET /capabilities` lists the executable checks from the same registry.
 Do not invent default thresholds for vague rules.
 
 Fixtures are independent synthetic snapshots, not a mutable mock server. Example
@@ -573,6 +573,14 @@ All five artifacts are regenerated for the correction/recheck source as well.
 A fresh test pass, the required migrations and real
 worker/download verification remain pending; source availability and schema
 generation are not runtime validation.
+
+## System readiness
+
+See [SYSTEM.md](SYSTEM.md). `GET /health`, `GET /capabilities` and `GET /system/status` are implemented. Before the audit-wide finding list the inventory was 49 implemented and 1 planned.
+
+## Audit-wide finding list
+
+See [AUDITS.md](AUDITS.md). `GET /audits/{audit_id}/findings` is implemented, so the inventory is 50 implemented, 0 planned, 50 total.
 
 ## Correction/recheck application gate
 

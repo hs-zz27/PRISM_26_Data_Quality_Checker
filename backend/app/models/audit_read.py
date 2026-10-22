@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .audit import AuditFailure
 from .finding import Finding
@@ -70,6 +70,32 @@ class AuditSamplePage(BaseModel):
     offset: int = Field(ge=0)
     total: int = Field(ge=0)
     next_offset: int | None = Field(ge=0)
+
+
+class FindingPage(BaseModel):
+    """One page of an audit's findings, ordered by ascending finding_id.
+
+    Findings are the stored machine snapshots with their latest human review
+    applied. total counts every finding that matches the filters before paging.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    items: list[Finding]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+    next_offset: int | None = Field(ge=0)
+
+    @model_validator(mode="after")
+    def require_consistent_paging(self):
+        if len(self.items) > self.limit:
+            raise ValueError("A page cannot hold more items than its limit.")
+        if self.next_offset is not None and (
+            self.next_offset != self.offset + len(self.items) or self.next_offset >= self.total
+        ):
+            raise ValueError("next_offset must follow this page and point at a remaining finding.")
+        return self
 
 
 class SampleAudit(BaseModel):
