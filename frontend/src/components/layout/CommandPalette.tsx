@@ -7,6 +7,7 @@ import { queryKeys } from '../../api/queryClient';
 
 interface PaletteItem { label: string; detail: string; path: string; kind: 'screen' | 'audit' | 'dataset' | 'rulebook' }
 const screens: PaletteItem[] = [
+  { label: 'Overview', detail: 'Workflow steps and next action', path: '/', kind: 'screen' },
   { label: 'Audits', detail: 'All audit runs', path: '/audits', kind: 'screen' },
   { label: 'Rulebooks', detail: 'Guidelines and checks', path: '/rulebooks', kind: 'screen' },
   { label: 'Datasets', detail: 'Imported catalogues', path: '/datasets', kind: 'screen' },

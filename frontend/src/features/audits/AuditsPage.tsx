@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   SearchCode,
@@ -17,6 +17,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { useJobPolling } from '../../hooks/useJobPolling';
 import { formatCount, formatTimestamp } from '../../lib/format';
+import { jobStatusLabel } from '../../lib/labels';
 import { unwrapAuditStarted } from '../../lib/audit';
 
 export const AuditsPage: React.FC = () => {
@@ -28,6 +29,7 @@ export const AuditsPage: React.FC = () => {
   const [selectedDatasetId, setSelectedDatasetId] = useState('');
   const [selectedRulebookId, setSelectedRulebookId] = useState('');
   const [selectedRulebookVersion, setSelectedRulebookVersion] = useState<number>(1);
+  const [selectedPolicyId, setSelectedPolicyId] = useState('');
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
 
@@ -48,6 +50,14 @@ export const AuditsPage: React.FC = () => {
     queryKey: queryKeys.rulebooks(),
     queryFn: () => apiGetAllPages('/rulebooks', { query: { limit: 100, offset: 0 } }),
   });
+
+  // Activated feedback policies can be applied to new audits (the "Improve" step).
+  const { data: policies } = useQuery({
+    queryKey: queryKeys.feedbackPolicies(),
+    queryFn: () => apiGetAllPages('/feedback/policies', { query: { limit: 100, offset: 0 } }),
+    enabled: isLaunchModalOpen,
+  });
+  const activePolicies = policies?.items.filter((policy) => policy.status === 'active') ?? [];
 
   const readyDatasets = datasets?.items.filter((d) => d.status === 'ready') ?? [];
   const confirmedRulebooks = rulebooks?.items.filter((r) => r.confirmation_state === 'confirmed') ?? [];
@@ -74,7 +84,7 @@ export const AuditsPage: React.FC = () => {
           rulebook_id: selectedRulebookId,
           rulebook_version: selectedRulebookVersion,
           sample_ids: null,
-          feedback_policy_id: null,
+          feedback_policy_id: selectedPolicyId || null,
         },
       });
     },
@@ -188,6 +198,7 @@ export const AuditsPage: React.FC = () => {
                   <th className="py-2.5 px-4 font-medium">Rulebook</th>
                   <th className="py-2.5 px-4 font-medium">Status</th>
                   <th className="py-2.5 px-4 font-medium">Samples</th>
+                  <th className="py-2.5 px-4 font-medium">Processed</th>
                   <th className="py-2.5 px-4 font-medium">Created</th>
                   <th className="py-2.5 px-4 font-medium text-right">Actions</th>
                 </tr>
@@ -220,16 +231,28 @@ export const AuditsPage: React.FC = () => {
                           }
                           size="sm"
                         >
-                          {audit.status}
+                          {jobStatusLabel(audit.status)}
                         </Badge>
                       </td>
                       <td className="py-3 px-4 font-mono text-text">
                         {formatCount(audit.sample_count ?? null)}
                       </td>
+                      <td className="py-3 px-4 font-mono text-text-muted">
+                        {formatCount(audit.processed_count)}
+                        {audit.failed_count > 0 && <span className="text-status-fail"> · {audit.failed_count} failed</span>}
+                        {audit.incomplete_count > 0 && <span className="text-status-unsure"> · {audit.incomplete_count} incomplete</span>}
+                      </td>
                       <td className="py-3 px-4 text-text-faint font-mono text-2xs">
                         {audit.created_at ? formatTimestamp(audit.created_at) : '—'}
                       </td>
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <Link
+                          to={`/audits/${audit.audit_id}/report`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mr-3 text-2xs text-text-muted hover:text-accent"
+                        >
+                          Report
+                        </Link>
                         <Button
                           variant="primary"
                           size="sm"
@@ -239,7 +262,7 @@ export const AuditsPage: React.FC = () => {
                             navigate(`/audits/${audit.audit_id}/review`);
                           }}
                         >
-                          Review Workstation
+                          Review
                         </Button>
                       </td>
                     </tr>
@@ -325,6 +348,27 @@ export const AuditsPage: React.FC = () => {
                     ))}
                   </select>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+                  Feedback policy (optional)
+                </label>
+                <select
+                  value={selectedPolicyId}
+                  onChange={(e) => setSelectedPolicyId(e.target.value)}
+                  className="w-full bg-surface-high border border-border rounded px-3 py-2 text-xs font-mono text-text focus:outline-none focus:border-accent"
+                >
+                  <option value="">None — baseline checks only</option>
+                  {activePolicies.map((policy) => (
+                    <option key={policy.policy_id} value={policy.policy_id}>
+                      {policy.name} ({policy.policy_id})
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-2xs text-text-faint">
+                  Only policies activated after a held-out evaluation are listed. They add reviewer examples to AI-assisted checks.
+                </p>
               </div>
 
               <div className="p-3 rounded bg-base border border-border text-2xs text-text-muted space-y-1">

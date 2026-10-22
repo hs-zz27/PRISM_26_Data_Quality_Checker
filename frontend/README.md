@@ -95,14 +95,27 @@ All API requests go through `src/api/client.ts` (`/api/v1` base URL).
 
 ---
 
-## 3. Keyboard Ergonomics
+## 3. Reviewer workflow
+
+The screens follow the worklet's human-in-the-loop flow. The **Overview** (`/`) shows the five steps and highlights the next one.
+
+- **Rulebook editor.** Citations are highlighted wherever their exact text appears in the guideline. Reviewers can confirm or reject each rule, edit a rule's description, check, parameters or citation, add a missed rule (highlight a sentence to use it as the citation), and **Re-check document** to list extraction proposals that are not already in the draft. **Confirm rulebook** stays disabled until every rule has a decision; rejected rules are saved out of the draft before confirmation, because the backend only confirms books whose retained rules are all confirmed.
+- **Review workstation.** Each finding shows the five explainability fields: the rule, the result (in plain language), the check and its threshold, the measured evidence, and the guideline citation (or a note that the rule was reviewer-authored). Findings are grouped into *Needs attention*, *Pre-ticked by the tool* and *Rules with no result for this sample*. Overriding a finding, rejecting a sample, or sending it for correction requires a reason; the UI blocks the write until one is typed. The header shows review progress and a **Next unreviewed** jump. **Correct** opens the sample in the correction editor.
+- **Audit report** (`/audits/:id/report`). Summary tiles, tool-result breakdown, per-rule pass/fail with reviewer agreement, and a per-sample table. Exports to CSV (formula-safe) and JSON, and prints cleanly. “Reviewer agreed” is agreement within the audit, not a measured accuracy.
+- **Corrections.** Deep-linkable via `?dataset=&sample=&audit=`. Boxes can be moved or resized from their corners, objects are validated against the correction contract before saving, and the source audit is recorded only when it pinned the same revision (avoiding `SOURCE_AUDIT_MISMATCH`). A re-check links straight to the result.
+- **Exports.** Choose a completed audit and the selection (`accepted_only` or `all_reviewed`). The manifest is shown as a table with plain-language exclusion reasons.
+- **Feedback.** Pick up to four approved examples, then build held-out ground truth from an audit's reviewer decisions (agree keeps the tool's result, override flips it; every case is editable). Evaluate baseline against candidate in a metrics table and activate explicitly. Activated policies can be selected when launching an audit.
+
+Plain-language labels for backend codes live in `src/lib/labels.ts`.
+
+## 4. Keyboard Ergonomics
 
 The Review Workstation is keyboard-first. Press `?` anywhere to bring up the interactive help dialog:
 
 | Key | Action | Context |
 |---|---|---|
-| `A` / `R` / `U` | **Finding decision** | Accept, reject, or mark the selected finding proposal unsure |
-| `Shift+A` / `Shift+R` / `Shift+N` | **Sample verdict** | Records accepted, rejected, or needs-correction sample verdict |
+| `A` / `R` / `U` | **Finding decision** | Agree with, override (reason required), or mark the selected finding unsure |
+| `Shift+A` / `Shift+R` / `Shift+N` | **Sample verdict** | Accept, reject (reason required), or send the sample for correction (reason required) |
 | `→` / `J` | **Next Sample** | Advances to next sample in queue |
 | `←` / `K` | **Previous Sample** | Returns to previous sample in queue |
 | `M` | **Toggle Mask** | Toggles segmentation mask overlay |
@@ -116,7 +129,7 @@ The Review Workstation is keyboard-first. Press `?` anywhere to bring up the int
 
 ---
 
-## 4. Coordinate System Convention
+## 5. Coordinate System Convention
 
 The backend contract requires **1-based inclusive** bounding box coordinates `[xmin, ymin, xmax, ymax]`.
 CSS rendering uses zero-based canvas pixel coordinates:
@@ -129,7 +142,7 @@ All coordinate math is isolated and tested in `src/lib/coords.ts` (`coords.test.
 
 ---
 
-## 5. Folder Map
+## 6. Folder Map
 
 ```
 frontend/
@@ -152,7 +165,8 @@ frontend/
     ├── features/
     │   ├── rulebooks/           # RulebooksPage & RulebookEditorPage (citations & freeze)
     │   ├── datasets/            # DatasetsPage & DatasetDetailPage (ZIP upload & sample cards)
-    │   ├── audits/              # AuditsPage, ReviewCanvas (high-DPI) & AuditReviewWorkspace (3-pane)
+    │   ├── overview/            # OverviewPage — workflow steps and next action
+    │   ├── audits/              # AuditsPage, AuditReviewWorkspace (3-pane), FindingCard, AuditReportPage
     │   ├── corrections/         # CorrectionsPage (annotation revisions & rechecks)
     │   ├── exports/             # ExportsPage (filtered packaging & manifests)
     │   └── feedback/            # FeedbackPage (ground-truth benchmarks & F1 metrics)

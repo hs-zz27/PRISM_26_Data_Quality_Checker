@@ -92,6 +92,40 @@ export function translateBboxOnCanvas(
   return cssToBbox({ ...box, left, top });
 }
 
+export type ResizeHandle = 'nw' | 'ne' | 'sw' | 'se';
+
+/**
+ * Drag one corner of a 1-based inclusive box by a screen-pixel delta.
+ * The opposite corner stays fixed; the box stays inside the image and at least 1px wide.
+ */
+export function resizeBboxOnCanvas(
+  bbox: BBox1Based,
+  handle: ResizeHandle,
+  deltaClientX: number,
+  deltaClientY: number,
+  displayedSize: ImageSize,
+  imageSize: ImageSize,
+): BBox1Based {
+  const dx = Math.round((deltaClientX / displayedSize[0]) * imageSize[0]);
+  const dy = Math.round((deltaClientY / displayedSize[1]) * imageSize[1]);
+  let [xmin, ymin, xmax, ymax] = bbox;
+  const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
+  if (handle === 'nw' || handle === 'sw') xmin = clamp(xmin + dx, 1, xmax);
+  else xmax = clamp(xmax + dx, xmin, imageSize[0]);
+  if (handle === 'nw' || handle === 'ne') ymin = clamp(ymin + dy, 1, ymax);
+  else ymax = clamp(ymax + dy, ymin, imageSize[1]);
+  return [xmin, ymin, xmax, ymax];
+}
+
+/** A new box centred in the image, covering half of each dimension. */
+export function defaultNewBbox(imageSize: ImageSize | null | undefined): BBox1Based {
+  if (!imageSize) return [1, 1, 50, 50];
+  const [w, h] = imageSize;
+  const xmin = Math.max(1, Math.round(w / 4));
+  const ymin = Math.max(1, Math.round(h / 4));
+  return [xmin, ymin, Math.max(xmin, Math.round((3 * w) / 4)), Math.max(ymin, Math.round((3 * h) / 4))];
+}
+
 /**
  * Scale a CSS box by a zoom factor (for canvas viewport rendering).
  *

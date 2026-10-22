@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { BookOpen, Database, SearchCode, Wrench, DownloadCloud, TrendingUp, Pin } from 'lucide-react';
+import { BookOpen, Database, SearchCode, Wrench, DownloadCloud, TrendingUp, Pin, LayoutDashboard } from 'lucide-react';
 
 const NAV_ITEMS = [
+  { to: '/', label: 'Overview', icon: LayoutDashboard },
   { to: '/rulebooks', label: 'Rulebooks', icon: BookOpen },
   { to: '/datasets', label: 'Datasets', icon: Database },
   { to: '/audits', label: 'Audits', icon: SearchCode },
@@ -26,7 +27,7 @@ export const Sidebar: React.FC = () => {
       </div>
       <nav className="rail-nav">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} title={label} aria-label={label}
+          <NavLink key={to} to={to} end={to === '/'} title={label} aria-label={label}
             className={({ isActive }) => `rail-link${isActive ? ' is-active' : ''}`}>
             <Icon size={17} strokeWidth={1.6} aria-hidden="true" />
             {pinned && <span>{label}</span>}
