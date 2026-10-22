@@ -1,0 +1,315 @@
+{
+  "date": "2026-10-22",
+  "source_commit": "8fd4fa2c022bc6b095369030853f5474530a4656",
+  "machine": "Owner-reported Apple M4 MacBook Air; CPU-only Ollama.",
+  "execution": {
+    "max_image_bytes": 8388608,
+    "max_annotation_bytes": 131072,
+    "max_pixels": 16000000,
+    "model": "qwen3-vl:4b-instruct",
+    "model_digest": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+    "prompt_version": "annotation-guideline-v1",
+    "preprocessing": "original-png-no-transform-v1",
+    "schema_version": 1,
+    "identity_assurance": "local-server-reported-pre-post-v1",
+    "temperature": 0,
+    "num_ctx": 16384,
+    "num_predict": 2048,
+    "num_thread": 10,
+    "timeout_seconds": 600,
+    "max_request_bytes": 67108864,
+    "max_response_bytes": 65536
+  },
+  "historical_sample_usage": "Eight model-blinded human labels when first evaluated; now exposed development cases.",
+  "selected_training_case": "case-06",
+  "candidate_strategy": "One approved negative training example; baseline had no examples.",
+  "metrics": {
+    "baseline": {
+      "intended": 8,
+      "tp": 2,
+      "fp": 0,
+      "fn": 1,
+      "tn": 5,
+      "negative_abstentions": 0,
+      "unsure": 0,
+      "unavailable": 0,
+      "coverage": 1.0,
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "f1": 0.8,
+      "total_duration_ms": 856960.4264169902
+    },
+    "candidate": {
+      "intended": 8,
+      "tp": 1,
+      "fp": 0,
+      "fn": 2,
+      "tn": 5,
+      "negative_abstentions": 0,
+      "unsure": 0,
+      "unavailable": 0,
+      "coverage": 1.0,
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1": 0.5,
+      "total_duration_ms": 1122674.3689569703
+    },
+    "assessment": "regressed"
+  },
+  "results": [
+    {
+      "case_name": "case-02",
+      "expected": "fail",
+      "baseline": {
+        "prediction": {
+          "case_id": "87e2c7cb8c692bc23c77cba9cc21d7b39cd9c0a098422cdb0c15363b02fc5223",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "All annotated bounding boxes enclose visible pedestrians on the stairs or standing nearby, with no box entirely on background.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 79362.64650001249,
+        "model_verified": true
+      },
+      "candidate": {
+        "prediction": {
+          "case_id": "87e2c7cb8c692bc23c77cba9cc21d7b39cd9c0a098422cdb0c15363b02fc5223",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "All annotated bounding boxes enclose visible pedestrians walking or standing in the image, with no box entirely on background.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 120720.39083299751,
+        "model_verified": true
+      }
+    },
+    {
+      "case_name": "case-03",
+      "expected": "pass",
+      "baseline": {
+        "prediction": {
+          "case_id": "837d245114010aea73bb3e8e7466fade9dc6a36299f158e2b775dfad56227064",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The annotation box encloses a visible pedestrian walking on the street, meeting the guideline requirement.",
+          "evidence_references": []
+        },
+        "duration_ms": 87092.6119999931,
+        "model_verified": true
+      },
+      "candidate": {
+        "prediction": {
+          "case_id": "837d245114010aea73bb3e8e7466fade9dc6a36299f158e2b775dfad56227064",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The annotation box encloses a visible pedestrian walking on the pavement, meeting the guideline requirement.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 114980.75716599124,
+        "model_verified": true
+      }
+    },
+    {
+      "case_name": "case-04",
+      "expected": "pass",
+      "baseline": {
+        "prediction": {
+          "case_id": "bacc2b03a055e342927ccadefde0b715e948fe2a76fb45faa5217c6688e10673",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The image contains two clearly visible pedestrians crossing the street: an adult and a child, both fully within the frame and not occluded by background elements.",
+          "evidence_references": []
+        },
+        "duration_ms": 102049.59558301198,
+        "model_verified": true
+      },
+      "candidate": {
+        "prediction": {
+          "case_id": "bacc2b03a055e342927ccadefde0b715e948fe2a76fb45faa5217c6688e10673",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The image contains visible pedestrians walking on a street, with no annotation boxes entirely on background.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 138909.2784159875,
+        "model_verified": true
+      }
+    },
+    {
+      "case_name": "case-05",
+      "expected": "pass",
+      "baseline": {
+        "prediction": {
+          "case_id": "07ad479c917023d90e36c983412067a9a3dbf59821275821e79e32b890b4b7c8",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The image contains two clearly visible pedestrians walking in the foreground, fully enclosed within the image frame and not overlapping with background elements.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 92364.6170830034,
+        "model_verified": true
+      },
+      "candidate": {
+        "prediction": {
+          "case_id": "07ad479c917023d90e36c983412067a9a3dbf59821275821e79e32b890b4b7c8",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The annotation boxes fully enclose visible pedestrians walking in the image, with no box entirely on background.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 141950.35404199734,
+        "model_verified": true
+      }
+    },
+    {
+      "case_name": "case-09",
+      "expected": "pass",
+      "baseline": {
+        "prediction": {
+          "case_id": "229ed89c537bb71e1d931e7bc20d5af7c1865cbeec42ad354449ff9f095d7b4e",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The annotation box encloses a visible pedestrian walking in the image, meeting the guideline requirement.",
+          "evidence_references": []
+        },
+        "duration_ms": 100622.9667919979,
+        "model_verified": true
+      },
+      "candidate": {
+        "prediction": {
+          "case_id": "229ed89c537bb71e1d931e7bc20d5af7c1865cbeec42ad354449ff9f095d7b4e",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The annotation box encloses a visible pedestrian walking in the image, meeting the guideline requirement.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 127640.84662499954,
+        "model_verified": true
+      }
+    },
+    {
+      "case_name": "case-10",
+      "expected": "pass",
+      "baseline": {
+        "prediction": {
+          "case_id": "b4ebad7b6c1a6becd0ab02be8b064b0567a243bd8d4c1cfbdc9b5394dbc1f663",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The image shows a visible pedestrian wearing a white hard hat and long-sleeved shirt, walking away from the camera, fully enclosed within the frame and not on background.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 102899.55904199451,
+        "model_verified": true
+      },
+      "candidate": {
+        "prediction": {
+          "case_id": "b4ebad7b6c1a6becd0ab02be8b064b0567a243bd8d4c1cfbdc9b5394dbc1f663",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The annotation box encloses a visible pedestrian walking on a sidewalk, meeting the guideline requirement.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 139710.1417919912,
+        "model_verified": true
+      }
+    },
+    {
+      "case_name": "case-11",
+      "expected": "fail",
+      "baseline": {
+        "prediction": {
+          "case_id": "0c63f4ab552255e6a10edc363f7d9c92059ef8624735d46f33d407f0aa5e5a4d",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "fail",
+          "reason": "Annotation boxes are entirely on background; no visible pedestrian enclosed.",
+          "evidence_references": [
+            "annotations",
+            "image"
+          ]
+        },
+        "duration_ms": 140354.91970898875,
+        "model_verified": true
+      },
+      "candidate": {
+        "prediction": {
+          "case_id": "0c63f4ab552255e6a10edc363f7d9c92059ef8624735d46f33d407f0aa5e5a4d",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "fail",
+          "reason": "The annotation box for object 1 is entirely on background and does not enclose a visible pedestrian.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 179164.37395800313,
+        "model_verified": true
+      }
+    },
+    {
+      "case_name": "case-12",
+      "expected": "fail",
+      "baseline": {
+        "prediction": {
+          "case_id": "b2872bb673fcfed49c237aecadbcedbd43b143f1722044af707cb6ba4c09cc73",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "fail",
+          "reason": "Annotation boxes for objects 1, 2, 3 are entirely on background or non-pedestrian areas; only objects 4 and 5 are valid pedestrians.",
+          "evidence_references": [
+            "annotations",
+            "image"
+          ]
+        },
+        "duration_ms": 152213.50970798812,
+        "model_verified": true
+      },
+      "candidate": {
+        "prediction": {
+          "case_id": "b2872bb673fcfed49c237aecadbcedbd43b143f1722044af707cb6ba4c09cc73",
+          "rule_id": "VISIBLE-PEDESTRIAN",
+          "outcome": "pass",
+          "reason": "The image contains visible pedestrians walking or standing on the sidewalk, and all annotation boxes enclose these individuals, not background elements.",
+          "evidence_references": [
+            "image",
+            "annotations"
+          ]
+        },
+        "duration_ms": 159598.22612500284,
+        "model_verified": true
+      }
+    }
+  ],
+  "activation_performed": false,
+  "limitations": [
+    "One reviewer with guideline clarification.",
+    "Original images mixed with controlled annotation perturbations.",
+    "No general deployment accuracy or statistical-significance claim.",
+    "Timing totals exclude job overhead and describe this machine."
+  ]
+}

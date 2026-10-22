@@ -260,7 +260,11 @@ def test_existence_total_page_and_reviews_come_from_one_snapshot(repository, set
 
 @pytest.mark.parametrize("arguments", [
     {"audit_id": ""}, {"audit_id": "   "}, {"audit_id": None}, {"audit_id": 5},
+    {"audit_id": "\x00"}, {"audit_id": "\x00audit_1"}, {"audit_id": "audit\x00_1"},
+    {"audit_id": "audit_1\x00"}, {"audit_id": "audit_1\x00\n"},
     {"sample_id": ""}, {"sample_id": "  "}, {"sample_id": 5},
+    {"sample_id": "\x00"}, {"sample_id": "\x00sample_1"}, {"sample_id": "sample\x00_1"},
+    {"sample_id": "sample_1\x00"}, {"sample_id": "sample_1\x00\n"},
     {"outcome": "failed"}, {"outcome": ""}, {"outcome": 5}, {"outcome": True},
     {"limit": 0}, {"limit": 101}, {"limit": -1}, {"limit": "5"}, {"limit": 5.0}, {"limit": True}, {"limit": None},
     {"offset": -1}, {"offset": MAX_OFFSET + 1}, {"offset": "0"}, {"offset": 1.5}, {"offset": True}, {"offset": None},

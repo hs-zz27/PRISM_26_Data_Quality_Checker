@@ -7847,6 +7847,18 @@
         },
         "parameters": [
           {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\x00]*[^\\s\\x00][^\\x00]*$"
+            },
+            "example": "audit_demo",
+            "description": ""
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -7881,7 +7893,7 @@
                 {
                   "type": "string",
                   "minLength": 1,
-                  "pattern": "\\S"
+                  "pattern": "^[^\\x00]*[^\\s\\x00][^\\x00]*$"
                 },
                 {
                   "type": "null"
@@ -7909,18 +7921,6 @@
             },
             "example": "fail",
             "description": "Optional machine outcome filter. It combines with sample_id using AND and never filters by the reviewer's decision."
-          },
-          {
-            "name": "audit_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "\\S"
-            },
-            "example": "audit_demo",
-            "description": ""
           }
         ]
       }

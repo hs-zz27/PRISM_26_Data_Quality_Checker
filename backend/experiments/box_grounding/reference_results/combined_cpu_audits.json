@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-22",
+  "machine": "Apple M4 MacBook Air",
+  "model": "qwen3-vl:4b-instruct",
+  "cpu_threads": 10,
+  "detector": "fasterrcnn_mobilenet_v3_large_320_fpn COCO_V1",
+  "runs": [
+    {
+      "batch_size": 1,
+      "wall_seconds": 82.64575779199367,
+      "samples": [
+        {
+          "sample_id": "FudanPed00018",
+          "detection_status": "compared",
+          "outcome": "pass",
+          "model_seconds": 80.06490316599957,
+          "model_verified": true
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "wall_seconds": 84.63067379200947,
+      "samples": [
+        {
+          "sample_id": "FudanPed00018",
+          "detection_status": "compared",
+          "outcome": "pass",
+          "model_seconds": 8.7335427920043,
+          "model_verified": true
+        },
+        {
+          "sample_id": "FudanPed00024",
+          "detection_status": "compared",
+          "outcome": "pass",
+          "model_seconds": 71.60905837500468,
+          "model_verified": true
+        }
+      ]
+    },
+    {
+      "batch_size": 4,
+      "wall_seconds": 194.8906691250013,
+      "samples": [
+        {
+          "sample_id": "FudanPed00018",
+          "detection_status": "compared",
+          "outcome": "pass",
+          "model_seconds": 8.613051124993945,
+          "model_verified": true
+        },
+        {
+          "sample_id": "FudanPed00024",
+          "detection_status": "compared",
+          "outcome": "pass",
+          "model_seconds": 8.800995291996514,
+          "model_verified": true
+        },
+        {
+          "sample_id": "FudanPed00031",
+          "detection_status": "compared",
+          "outcome": "pass",
+          "model_seconds": 77.36123500000394,
+          "model_verified": true
+        },
+        {
+          "sample_id": "FudanPed00042",
+          "detection_status": "compared",
+          "outcome": "unavailable",
+          "model_seconds": 91.01340266699845,
+          "model_verified": true
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Single run per batch size; repeated images and later batches benefit from warm caches.",
+    "Sequential actual audit jobs, not concurrent throughput or tensor batching.",
+    "Four source images on one machine; no production capacity or accuracy claim.",
+    "Model loads in each supervised child, as in the current implementation.",
+    "Detector scores and matching are evidence, not independent human ground truth.",
+    "Later runs repeat images; cache reuse prevents treating these timings as a clean batch-size scaling comparison.",
+    "The ten-thread choice is specific to the measured Mac; start with automatic selection elsewhere."
+  ]
+}
