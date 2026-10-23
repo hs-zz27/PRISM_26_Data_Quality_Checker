@@ -12377,6 +12377,10 @@
                     {
                       "name": "mask_outside_box",
                       "implementation": "implemented"
+                    },
+                    {
+                      "name": "pedestrian_box_enclosure",
+                      "implementation": "implemented"
                     }
                   ],
                   "evidence_features": [

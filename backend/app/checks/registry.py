@@ -107,6 +107,10 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
         "annotation_guideline", "sample", EmptyParameters,
         "Model-assisted judgment of one explicit visual annotation guideline against an image and parsed annotations. Not a fallback for numeric checks, motion, unseen facts or unsupported evidence.",
     ),
+    "pedestrian_box_enclosure": CheckDefinition(
+        "pedestrian_box_enclosure", "sample", EmptyParameters,
+        "Model-assisted judgment that each annotation box encloses a visible pedestrian, using one marked context view per box. Opt-in; a box entirely on background is a violation. Not a tightness, size or completeness check.",
+    ),
     "allowed_labels": CheckDefinition(
         "allowed_labels", "object", AllowedLabelsParameters,
         "Each annotation label must be one of the explicitly configured allowed labels.",

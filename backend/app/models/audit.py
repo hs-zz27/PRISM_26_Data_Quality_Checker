@@ -15,6 +15,7 @@ from pydantic import (
 
 from .detection_evidence import DetectorConfiguration
 from .job import JobStatus
+from .enclosure import EnclosureRuntime
 from .feedback import FeedbackRuntime
 
 
@@ -53,6 +54,7 @@ class BatchAuditRequest(BaseModel):
     feedback_policy_id: NonBlank | None = None
     feedback_runtime: FeedbackRuntime | None = None
     detector: DetectorConfiguration | None = None
+    enclosure_runtime: EnclosureRuntime | None = None
     source_mode: AuditSourceMode = Field(default=AuditSourceMode.LEGACY, strict=False)
 
     @field_validator("sample_ids")
