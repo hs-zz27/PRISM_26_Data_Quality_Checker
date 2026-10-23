@@ -8,6 +8,8 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  resizeBboxOnCanvas,
+  defaultNewBbox,
   bboxToCss,
   cssToBbox,
   scaleCssBox,
@@ -173,5 +175,27 @@ describe('translateBboxOnCanvas', () => {
   it('moves in image coordinates and clamps to image bounds', () => {
     expect(translateBboxOnCanvas([10, 10, 20, 20], 10, 0, [100, 100], [100, 100])).toEqual([20, 10, 30, 20]);
     expect(translateBboxOnCanvas([90, 90, 100, 100], 20, 20, [100, 100], [100, 100])).toEqual([90, 90, 100, 100]);
+  });
+});
+
+describe('resizeBboxOnCanvas', () => {
+  it('moves only the dragged corner, scaled from screen to image pixels', () => {
+    // Displayed at half size, so 5 screen px = 10 image px.
+    expect(resizeBboxOnCanvas([10, 10, 50, 50], 'se', 5, 5, [50, 50], [100, 100])).toEqual([10, 10, 60, 60]);
+    expect(resizeBboxOnCanvas([10, 10, 50, 50], 'nw', -5, -5, [50, 50], [100, 100])).toEqual([1, 1, 50, 50]);
+    expect(resizeBboxOnCanvas([10, 10, 50, 50], 'ne', 0, 10, [100, 100], [100, 100])).toEqual([10, 20, 50, 50]);
+  });
+
+  it('never inverts the box or leaves the image', () => {
+    expect(resizeBboxOnCanvas([10, 10, 50, 50], 'nw', 200, 200, [100, 100], [100, 100])).toEqual([50, 50, 50, 50]);
+    expect(resizeBboxOnCanvas([10, 10, 50, 50], 'se', 500, 500, [100, 100], [100, 100])).toEqual([10, 10, 100, 100]);
+  });
+});
+
+describe('defaultNewBbox', () => {
+  it('centres a valid box in the image', () => {
+    expect(defaultNewBbox([200, 100])).toEqual([50, 25, 150, 75]);
+    expect(isBboxValid(defaultNewBbox([3, 3]), [3, 3])).toBe(true);
+    expect(defaultNewBbox(null)).toEqual([1, 1, 50, 50]);
   });
 });

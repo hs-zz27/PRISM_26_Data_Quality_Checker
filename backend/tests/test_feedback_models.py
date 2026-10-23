@@ -1,4 +1,4 @@
-"""Authored, unexecuted strict snapshot/selection regressions."""
+"""Strict snapshot, execution and example-selection regressions."""
 from copy import deepcopy
 import json
 import pytest
@@ -10,6 +10,45 @@ from backend.tests.feedback_fixtures import case, inputs
 def test_execution_rejects_invalid_original_values(field, value):
     with pytest.raises(ValidationError):
         ExecutionPin.model_validate(dict(model='vision', model_digest='sha256:' + 'a' * 64) | {field: value})
+
+
+@pytest.mark.parametrize('value', [True, 1.0, '10', 0, -1, 1025])
+def test_execution_rejects_invalid_cpu_threads(value):
+    with pytest.raises(ValidationError):
+        ExecutionPin(model='vision', model_digest='sha256:' + 'a' * 64, num_thread=value)
+
+
+def test_legacy_evaluation_fingerprints_and_json_survive_optional_threads(tmp_path):
+    original = inputs(tmp_path)
+    legacy = original.model_dump(mode='json')
+    legacy['runtime'].pop('num_thread', None)
+    restored = EvaluationInput.model_validate_json(json.dumps(legacy))
+    assert restored.runtime.num_thread is None
+    assert restored.model_dump(mode='json') == legacy
+    assert fingerprint(restored) == fingerprint(legacy)
+    # Explicit automatic selection also serializes as the historical shape.
+    legacy['runtime']['num_thread'] = None
+    assert fingerprint(EvaluationInput.model_validate_json(json.dumps(legacy))) == fingerprint(original)
+    tuned = EvaluationInput.model_validate(original.model_dump())
+    tuned.runtime.num_thread = 10
+    assert fingerprint(tuned) != fingerprint(original)
+    assert EvaluationInput.model_validate_json(tuned.model_dump_json()).runtime.num_thread == 10
+
+
+def test_new_execution_pins_keep_the_accepted_thread_count(monkeypatch):
+    from backend.app.core import feedback
+    from backend.app.core.config import OllamaSettings
+
+    settings = OllamaSettings(
+        model='vision', host='http://127.0.0.1:11434', timeout_seconds=120.0,
+        context_length=16384, max_output_tokens=512, cpu_threads=10,
+    )
+    monkeypatch.setattr(feedback, 'load_ollama_settings', lambda: settings)
+    monkeypatch.setenv('FEEDBACK_MODEL_DIGEST', 'sha256:' + 'a' * 64)
+    accepted = feedback.load_execution_pin()
+    settings = settings.model_copy(update={'cpu_threads': 4})
+    assert feedback.load_execution_pin().num_thread == 4
+    assert accepted.num_thread == 10
 
 @pytest.mark.parametrize('revision', [True, 0, '1', 2 ** 31])
 def test_case_reference_rejects_boolean_or_invalid_revision(revision):

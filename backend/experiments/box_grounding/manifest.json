@@ -1,0 +1,515 @@
+{
+  "schema_version": 1,
+  "corpus_version": "reviewed-box-development-v1",
+  "purpose": "Eleven human-reviewed development/training cases. The previous eight held-out cases are now development data, not a fresh test set.",
+  "dataset": {
+    "name": "Penn-Fudan Pedestrian Database",
+    "website": "https://www.cis.upenn.edu/~jshi/ped_html/",
+    "download": "https://www.cis.upenn.edu/~jshi/ped_html/PennFudanPed.zip",
+    "credit": "Liming Wang, Jianbo Shi, Gang Song and I-fan Shen; Object Detection Combining Recognition and Segmentation, ACCV 2007."
+  },
+  "guideline": "Each annotation box must enclose a visible pedestrian; a box entirely on background is a violation.",
+  "excluded_practice_cases": [
+    "case-01"
+  ],
+  "cases": [
+    {
+      "case_name": "case-02",
+      "partition": "development",
+      "sample_name": "PennPed00010",
+      "image": "PNGImages/PennPed00010.png",
+      "image_sha256": "1269fc6c4ebd9ad51953de3e6a1a3c3f8735138d3c5b4e29598b0357a5d3e688",
+      "image_size": [
+        750,
+        495
+      ],
+      "original_annotation": "Annotation/PennPed00010.txt",
+      "original_annotation_sha256": "62239c81e2db26fe79d7dde57b69e2d2834bee21858ced2fee34fcc1aa3f85b5",
+      "evaluation_annotation_sha256": "4c1f6847a68862b29398b5f54e3808e28024cabc9960750562fb2bf267f0a1a4",
+      "annotation_override": "generated_annotations/case-02.txt",
+      "controlled_perturbation": true,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonStanding",
+          "bbox": [
+            1,
+            1,
+            80,
+            55
+          ]
+        },
+        {
+          "object_id": 2,
+          "label": "PASpersonStanding",
+          "bbox": [
+            186,
+            56,
+            262,
+            337
+          ]
+        },
+        {
+          "object_id": 3,
+          "label": "PASpersonWalking",
+          "bbox": [
+            309,
+            141,
+            437,
+            493
+          ]
+        },
+        {
+          "object_id": 4,
+          "label": "PASpersonWalking",
+          "bbox": [
+            475,
+            76,
+            619,
+            451
+          ]
+        },
+        {
+          "object_id": 5,
+          "label": "PASpersonWalking",
+          "bbox": [
+            392,
+            58,
+            485,
+            421
+          ]
+        },
+        {
+          "object_id": 6,
+          "label": "PASpersonWalking",
+          "bbox": [
+            563,
+            36,
+            681,
+            394
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-03",
+      "partition": "development",
+      "sample_name": "FudanPed00072",
+      "image": "PNGImages/FudanPed00072.png",
+      "image_sha256": "22f05a6aa65f248f0cf122fb9ea842aa6d55ae73d67216f69686c830c7d913a8",
+      "image_size": [
+        375,
+        349
+      ],
+      "original_annotation": "Annotation/FudanPed00072.txt",
+      "original_annotation_sha256": "f11519b71ae6da161fa854770e1f040bc0f6bec7b0200b70b61999896d1c1235",
+      "evaluation_annotation_sha256": "f11519b71ae6da161fa854770e1f040bc0f6bec7b0200b70b61999896d1c1235",
+      "annotation_override": null,
+      "controlled_perturbation": false,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            48,
+            40,
+            139,
+            332
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-04",
+      "partition": "development",
+      "sample_name": "PennPed00025",
+      "image": "PNGImages/PennPed00025.png",
+      "image_sha256": "1d0a05b83c4915b2264a5528fbfe5dc82274113f07a07151e489c90357a527ae",
+      "image_size": [
+        450,
+        334
+      ],
+      "original_annotation": "Annotation/PennPed00025.txt",
+      "original_annotation_sha256": "0f01ed72170d7b0ddfbdc81d86a399d714c8c30dcf6ac683743e216da2c121a1",
+      "evaluation_annotation_sha256": "0f01ed72170d7b0ddfbdc81d86a399d714c8c30dcf6ac683743e216da2c121a1",
+      "annotation_override": null,
+      "controlled_perturbation": false,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            72,
+            34,
+            216,
+            310
+          ]
+        },
+        {
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            189,
+            151,
+            276,
+            304
+          ]
+        },
+        {
+          "object_id": 3,
+          "label": "PASpersonWalking",
+          "bbox": [
+            390,
+            2,
+            421,
+            71
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-05",
+      "partition": "development",
+      "sample_name": "PennPed00085",
+      "image": "PNGImages/PennPed00085.png",
+      "image_sha256": "0e9a2f0210b3f1de793ac00b5d8e3a2accfee2e4c15d97c1d4460c651c0890fd",
+      "image_size": [
+        403,
+        341
+      ],
+      "original_annotation": "Annotation/PennPed00085.txt",
+      "original_annotation_sha256": "685431b674540e1f82fc25d555e1e2c03c050e39f9523affe52bea14ed56013d",
+      "evaluation_annotation_sha256": "685431b674540e1f82fc25d555e1e2c03c050e39f9523affe52bea14ed56013d",
+      "annotation_override": null,
+      "controlled_perturbation": false,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            89,
+            27,
+            200,
+            302
+          ]
+        },
+        {
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            245,
+            38,
+            368,
+            329
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-06",
+      "partition": "training",
+      "sample_name": "FudanPed00037",
+      "image": "PNGImages/FudanPed00037.png",
+      "image_sha256": "25b65868cf25c4279bcf9550567023f4a44cd349930ddc119fdd3f83f2ed3d0c",
+      "image_size": [
+        423,
+        361
+      ],
+      "original_annotation": "Annotation/FudanPed00037.txt",
+      "original_annotation_sha256": "253c5957bce8afd4695f3051182f1978124e81d1bace4f862b70ecd3dbe5a063",
+      "evaluation_annotation_sha256": "d011e923c7ac3b1e560f763e79538f6c48337c537bc5640cf2f4e101201d7f0c",
+      "annotation_override": "generated_annotations/case-06.txt",
+      "controlled_perturbation": true,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            1,
+            1,
+            80,
+            55
+          ]
+        },
+        {
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            190,
+            98,
+            209,
+            170
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-07",
+      "partition": "training",
+      "sample_name": "FudanPed00026",
+      "image": "PNGImages/FudanPed00026.png",
+      "image_sha256": "7a108cfe65ba5c2c89ea0400095685811854d78c618a39cd6298d183666c8780",
+      "image_size": [
+        440,
+        427
+      ],
+      "original_annotation": "Annotation/FudanPed00026.txt",
+      "original_annotation_sha256": "c687d4be44cb587158f9f35b05cc2434cc95aad963ee30e720a9d3fcdd6c9d63",
+      "evaluation_annotation_sha256": "c687d4be44cb587158f9f35b05cc2434cc95aad963ee30e720a9d3fcdd6c9d63",
+      "annotation_override": null,
+      "controlled_perturbation": false,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            44,
+            78,
+            150,
+            389
+          ]
+        },
+        {
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            185,
+            89,
+            279,
+            373
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-08",
+      "partition": "training",
+      "sample_name": "FudanPed00048",
+      "image": "PNGImages/FudanPed00048.png",
+      "image_sha256": "805008af783d085a18edf81b3ba02d460844717ebba21058b4fd87aa9ebdf01f",
+      "image_size": [
+        585,
+        559
+      ],
+      "original_annotation": "Annotation/FudanPed00048.txt",
+      "original_annotation_sha256": "002be68e5c777a428559e741ae5b871cd54f381337cf2e33e0c556c1fe3750b2",
+      "evaluation_annotation_sha256": "002be68e5c777a428559e741ae5b871cd54f381337cf2e33e0c556c1fe3750b2",
+      "annotation_override": null,
+      "controlled_perturbation": false,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            6,
+            242,
+            84,
+            535
+          ]
+        },
+        {
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            79,
+            231,
+            144,
+            455
+          ]
+        },
+        {
+          "object_id": 3,
+          "label": "PASpersonWalking",
+          "bbox": [
+            158,
+            219,
+            251,
+            507
+          ]
+        },
+        {
+          "object_id": 4,
+          "label": "PASpersonWalking",
+          "bbox": [
+            460,
+            263,
+            580,
+            544
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-09",
+      "partition": "development",
+      "sample_name": "FudanPed00052",
+      "image": "PNGImages/FudanPed00052.png",
+      "image_sha256": "afe9b8fc9bf30d6dad10103565c1d899b36bc42d000bfa5206d9d0d17f5079dd",
+      "image_size": [
+        461,
+        504
+      ],
+      "original_annotation": "Annotation/FudanPed00052.txt",
+      "original_annotation_sha256": "341bcdae95acca2a690c471cf7ff5c18925c32dd46f52521394bd3511ce84580",
+      "evaluation_annotation_sha256": "341bcdae95acca2a690c471cf7ff5c18925c32dd46f52521394bd3511ce84580",
+      "annotation_override": null,
+      "controlled_perturbation": false,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            206,
+            189,
+            308,
+            492
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-10",
+      "partition": "development",
+      "sample_name": "PennPed00040",
+      "image": "PNGImages/PennPed00040.png",
+      "image_sha256": "6fb46eb5e99d6df95e76b483e7b6205760f5e97907a85f3eff1507c5f875da50",
+      "image_size": [
+        406,
+        342
+      ],
+      "original_annotation": "Annotation/PennPed00040.txt",
+      "original_annotation_sha256": "df5ddb05ba35f367e4628918bc43fc7863319d9debf4815adcb29f89cafca441",
+      "evaluation_annotation_sha256": "df5ddb05ba35f367e4628918bc43fc7863319d9debf4815adcb29f89cafca441",
+      "annotation_override": null,
+      "controlled_perturbation": false,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            203,
+            42,
+            318,
+            330
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-11",
+      "partition": "development",
+      "sample_name": "FudanPed00061",
+      "image": "PNGImages/FudanPed00061.png",
+      "image_sha256": "2bf5b3ea03d46520f7c789ae0d2cf6da5b131da921ab242e58c7e572e9b5ffbf",
+      "image_size": [
+        547,
+        407
+      ],
+      "original_annotation": "Annotation/FudanPed00061.txt",
+      "original_annotation_sha256": "1f4829f778304210f1c3b144c94c389aa9694d1c1e5b3bf4b6f232a345753448",
+      "evaluation_annotation_sha256": "a749709e78f80380d7575a39f462c4de2bfe1b94bee6d2d0d4f62edf8797a1a1",
+      "annotation_override": "generated_annotations/case-11.txt",
+      "controlled_perturbation": true,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            1,
+            1,
+            80,
+            55
+          ]
+        },
+        {
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            343,
+            86,
+            429,
+            381
+          ]
+        },
+        {
+          "object_id": 3,
+          "label": "PASpersonWalking",
+          "bbox": [
+            406,
+            85,
+            531,
+            387
+          ]
+        }
+      ]
+    },
+    {
+      "case_name": "case-12",
+      "partition": "development",
+      "sample_name": "PennPed00060",
+      "image": "PNGImages/PennPed00060.png",
+      "image_sha256": "939cd2ab0d63c3cb15bd1155071fe4e117140172893156e6b8b9c05a0c4a1cb8",
+      "image_size": [
+        505,
+        351
+      ],
+      "original_annotation": "Annotation/PennPed00060.txt",
+      "original_annotation_sha256": "fc3b86f3928479ac289f87a7e272d81784207690a8ac435157fb5445b488a264",
+      "evaluation_annotation_sha256": "4a382287e6c24a21b2fd79857d885b0072cd323e5ced6245c5b336c67b18bee1",
+      "annotation_override": "generated_annotations/case-12.txt",
+      "controlled_perturbation": true,
+      "objects": [
+        {
+          "object_id": 1,
+          "label": "PASpersonWalking",
+          "bbox": [
+            1,
+            1,
+            80,
+            55
+          ]
+        },
+        {
+          "object_id": 2,
+          "label": "PASpersonWalking",
+          "bbox": [
+            189,
+            21,
+            283,
+            230
+          ]
+        },
+        {
+          "object_id": 3,
+          "label": "PASpersonWalking",
+          "bbox": [
+            117,
+            28,
+            191,
+            226
+          ]
+        },
+        {
+          "object_id": 4,
+          "label": "PASpersonStanding",
+          "bbox": [
+            273,
+            81,
+            389,
+            327
+          ]
+        },
+        {
+          "object_id": 5,
+          "label": "PASpersonStanding",
+          "bbox": [
+            378,
+            31,
+            476,
+            330
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,8 @@
 import type { Config } from 'tailwindcss';
 
+/** Token-backed colour that still supports Tailwind opacity modifiers (e.g. `bg-status-fail/10`). */
+const tokenColor = (token: string) => `color-mix(in srgb, var(${token}) calc(<alpha-value> * 100%), transparent)`;
+
 const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   darkMode: 'class',
@@ -12,6 +15,18 @@ const config: Config = {
           DEFAULT: 'var(--color-base)',
           canvas: 'var(--color-base-canvas)',
           sunken: 'var(--color-sunken)',
+          pure: 'var(--color-base-canvas)',
+        },
+        // Status colours used by badges, alerts and decision buttons.
+        status: {
+          pass: tokenColor('--color-pass'),
+          fail: tokenColor('--color-fail'),
+          unsure: tokenColor('--color-unsure'),
+          unavailable: tokenColor('--color-unavailable'),
+          accepted: tokenColor('--color-accepted'),
+          rejected: tokenColor('--color-rejected'),
+          pending: tokenColor('--color-pending'),
+          'needs-fix': tokenColor('--color-needs-fix'),
         },
         surface: {
           DEFAULT: 'var(--color-surface)',
@@ -30,7 +45,7 @@ const config: Config = {
         },
         // Accent / interactive
         accent: {
-          DEFAULT: 'var(--color-accent)',
+          DEFAULT: tokenColor('--color-accent'),
           dim: 'var(--color-accent-dim)',
         },
         // Machine finding outcomes
@@ -73,6 +88,7 @@ const config: Config = {
         mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
       },
       fontSize: {
+        '3xs': ['9px', { lineHeight: '12px' }],
         '2xs': ['10px', { lineHeight: '14px' }],
         xs: ['11px', { lineHeight: '16px' }],
         sm: ['12px', { lineHeight: '18px' }],

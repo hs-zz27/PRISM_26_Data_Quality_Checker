@@ -29,12 +29,12 @@ decisions; it is not authentication or a permission mechanism.
 
 ## 1. Start screen and service readiness
 
-**Planned:** `GET /health`, `GET /capabilities`, `GET /system/status`.
+**Implemented:** `GET /health`, `GET /capabilities`, `GET /system/status` (see [SYSTEM.md](SYSTEM.md)).
 
 Design separate HTTP liveness and model-readiness indicators. A reachable API
-does not imply that Ollama or detector weights are available. These planned reads
-will report readiness rather than start services or download models. Capabilities
-may include implemented checks even while the capabilities HTTP route is planned.
+does not imply that Ollama or detector weights are available. These reads
+report readiness rather than start services or download models. Capabilities
+lists executable checks and, separately, detection evidence features.
 For mocks, use `examples.check_catalog` for check meanings and parameter schemas;
 do not infer runtime model readiness from synthetic fixtures.
 
@@ -151,8 +151,11 @@ Review counters start at zero, independently of source revisions and book versio
 Only completed/failed sample rows are currently reviewable, including incomplete
 evidence; queued/running/cancelled rows reject decisions.
 
-**Planned:** `/audits/{audit_id}/findings` adds a cross-sample finding list.
-Use existing detail responses for live per-sample findings meanwhile.
+**Implemented:** `GET /audits/{audit_id}/findings` lists the findings of an audit across all of
+its samples (see [AUDITS.md](AUDITS.md)). Filter with `sample_id` and `outcome`, page with
+`limit` and `offset` until `next_offset` is null, and read the latest human decision in each
+item's `review`. It lists tool findings only; open `GET /audits/{audit_id}/samples/{sample_id}`
+for assets, measurements and the sample decision.
 
 ## 7. Assets and annotation correction
 
@@ -260,6 +263,6 @@ safe errors, selection snapshot cutoff, omitted images and storage limitations.
 ## Correction/recheck contract gate
 
 The correction/recheck source is applied and all five API artifacts are
-regenerated: 46 implemented and 4 planned operations, 50 total. Use the updated
-implemented-only contract for client generation. Migration 012 and regression
+regenerated (46 implemented and 4 planned at that point; all 50 operations are implemented now).
+Use the updated implemented-only contract for client generation. Migration 012 and regression
 execution after the latest integration fixes remain separate runtime gates.

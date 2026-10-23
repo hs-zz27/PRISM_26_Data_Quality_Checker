@@ -241,6 +241,11 @@ class ExecutionPin(EvidenceLimits):
     temperature: Literal[0] = 0
     num_ctx: int = Field(default=16384, ge=1024, le=131072)
     num_predict: int = Field(default=512, ge=128, le=2048)
+    # Omit automatic selection so old immutable snapshot fingerprints stay valid.
+    num_thread: int | None = Field(
+        default=None, ge=1, le=1024, exclude_if=lambda value: value is None,
+        description="Pinned CPU threads; omitted or null retains automatic selection.",
+    )
     timeout_seconds: int = Field(default=120, ge=1, le=600)
     max_request_bytes: int = Field(default=64 * 1024 ** 2, ge=1024, le=128 * 1024 ** 2)
     max_response_bytes: int = Field(default=65536, ge=1024, le=65536)

@@ -9,6 +9,10 @@ from ..core.feedback import FeedbackError
 from ..models.feedback import Prediction, RecordedPrediction, ExecutionPin, checked, unit_id
 from ..services.feedback_prompt import prepare_payload
 
+# Model descriptions can include licenses and tensor metadata. Keep their
+# finite transport bound separate from the much smaller prediction envelope.
+_METADATA_RESPONSE_LIMIT = 1024 * 1024
+
 def unique_object(pairs):
     result = {}
     for key, value in pairs:
@@ -31,7 +35,8 @@ class GuidelineClient:
     def close(self):
         self.client.close()
 
-    def request(self, method, path, payload=None):
+    def request(self, method, path, payload=None, *, response_limit=None):
+        limit = self.execution.max_response_bytes if response_limit is None else response_limit
         data = None if payload is None else json.dumps(payload, ensure_ascii=False, allow_nan=False).encode()
         if data is not None and len(data) > self.execution.max_request_bytes:
             raise InferenceUnavailable('context_limit')
@@ -42,7 +47,7 @@ class GuidelineClient:
                 total = 0
                 for part in response.iter_bytes():
                     total += len(part)
-                    if total > self.execution.max_response_bytes:
+                    if total > limit:
                         raise InferenceUnavailable('response_limit')
                     parts.append(part)
                 result = json.loads(b''.join(parts), object_pairs_hook=unique_object)
@@ -54,7 +59,7 @@ class GuidelineClient:
 
     def verify(self):
         tag = self.execution.model
-        models = self.request('GET', '/api/tags').get('models')
+        models = self.request('GET', '/api/tags', response_limit=_METADATA_RESPONSE_LIMIT).get('models')
         if not isinstance(models, list):
             raise InferenceUnavailable('identity_unavailable')
         matched = [m for m in models if isinstance(m, dict) and m.get('name') in {tag, tag + ':latest'}]
@@ -63,7 +68,7 @@ class GuidelineClient:
             digest = 'sha256:' + digest
         if digest != self.execution.model_digest:
             raise InferenceUnavailable('model_identity_changed')
-        metadata = self.request('POST', '/api/show', {'model': tag})
+        metadata = self.request('POST', '/api/show', {'model': tag}, response_limit=_METADATA_RESPONSE_LIMIT)
         if metadata.get('remote_host') or metadata.get('remote_model') or (not isinstance(metadata.get('capabilities'), list)) or ('vision' not in metadata['capabilities']):
             raise InferenceUnavailable('local_vision_unverified')
 

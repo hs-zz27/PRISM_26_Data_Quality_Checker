@@ -3,6 +3,9 @@
 [ollama]
 model = "qwen3-vl:4b-instruct"
 host = "http://127.0.0.1:11434"
-timeout_seconds = 120.0
-context_length = 8192
+timeout_seconds = 600.0
+context_length = 16384
 max_output_tokens = 4096
+# Optional positive CPU thread count; omit to let Ollama choose for this machine.
+# Ten threads was benchmarked only on the maintainer's M4 MacBook Air; benchmark your setup.
+# cpu_threads = 10

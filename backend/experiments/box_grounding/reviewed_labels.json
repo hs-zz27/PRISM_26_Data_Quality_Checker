@@ -1,0 +1,131 @@
+{
+  "protocol": "Human judgments blind to model predictions, with guideline clarification recorded; case 01 is excluded guided practice.",
+  "limitations": "Small mixed original/controlled-perturbation set, not a deployment-representative sample or inter-rater study.",
+  "cases": [
+    {
+      "case_id": "case-02",
+      "decision": "fail",
+      "reason": "Owner selected Fail after the enclosure-only guideline was clarified.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:28:20.172551+00:00",
+      "history": [
+        {
+          "decision": "unsure",
+          "reason": "It passes for most cases but the top left pedestrian is not covered."
+        },
+        {
+          "clarification": "Judge existing boxes, not missing annotations; one background-only box violates the rule."
+        },
+        {
+          "decision": "fail",
+          "original_reply": "Fail"
+        }
+      ],
+      "partition": "development",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-03",
+      "decision": "pass",
+      "reason": "Correctly encloses a pedestrian.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:28:57.316501+00:00",
+      "partition": "development",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-04",
+      "decision": "pass",
+      "reason": "Every red box contains a visible pedestrian.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:30:54.870362+00:00",
+      "history": [
+        {
+          "decision": "fail",
+          "reason": "A visible pedestrian is missing a bounding box."
+        },
+        {
+          "clarification": "Inspect only existing red boxes; unboxed pedestrians are a separate completeness requirement."
+        },
+        {
+          "decision": "pass",
+          "original_reply": "Every red box contains a visible pedestrian"
+        }
+      ],
+      "partition": "development",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-05",
+      "decision": "pass",
+      "reason": "Every red box contains a visible pedestrian.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:30:54.870465+00:00",
+      "partition": "development",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-06",
+      "decision": "fail",
+      "reason": "At least one red box contains only background.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:32:11.448824+00:00",
+      "partition": "training",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-07",
+      "decision": "pass",
+      "reason": "Every red box contains a visible pedestrian.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:32:11.448887+00:00",
+      "partition": "training",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-08",
+      "decision": "pass",
+      "reason": "Every red box contains a visible pedestrian.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:32:11.448891+00:00",
+      "partition": "training",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-09",
+      "decision": "pass",
+      "reason": "Every red box contains a visible pedestrian.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:32:11.448894+00:00",
+      "partition": "development",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-10",
+      "decision": "pass",
+      "reason": "Every red box contains a visible pedestrian.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:32:11.448897+00:00",
+      "partition": "development",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-11",
+      "decision": "fail",
+      "reason": "At least one red box contains only background.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:32:11.448900+00:00",
+      "partition": "development",
+      "model_predictions_hidden": true
+    },
+    {
+      "case_id": "case-12",
+      "decision": "fail",
+      "reason": "At least one red box contains only background.",
+      "reviewer_id": "hs-zz27",
+      "reviewed_at": "2026-10-22T04:32:11.448903+00:00",
+      "partition": "development",
+      "model_predictions_hidden": true
+    }
+  ]
+}

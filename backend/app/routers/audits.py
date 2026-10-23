@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, Path, Query
 
 from ..models.audit import AuditRun
 from ..models.audit_submission import AuditPage, AuditRequest, AuditStarted
-from ..models.audit_read import AuditSamplePage, ErrorResponse, SampleAudit, ToolStatus
+from ..models.audit_read import AuditSamplePage, ErrorResponse, FindingPage, SampleAudit, ToolStatus
+from ..models.finding import FindingOutcome
 from ..models.review import SampleReviewDecision
 from ..services.audit_submission import AuditSubmissionService
 from ..services.batch_audit import BatchAuditService
@@ -100,3 +101,21 @@ def get_audit_sample(
 ) -> SampleAudit:
     """Read stored evidence and current reviews for the sample's audited revision."""
     return repository.get_sample(audit_id, sample_id)
+
+
+@router.get(
+    "/{audit_id}/findings", response_model=FindingPage, operation_id="listAuditFindings",
+    responses=NOT_FOUND,
+)
+def list_audit_findings(
+    audit_id: Annotated[str, Path(min_length=1, pattern=r"^[^\x00]*[^\s\x00][^\x00]*$")],
+    repository: Repository,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0, le=9_223_372_036_854_775_807)] = 0,
+    sample_id: Annotated[str | None, Query(min_length=1, pattern=r"^[^\x00]*[^\s\x00][^\x00]*$")] = None,
+    outcome: FindingOutcome | None = None,
+) -> FindingPage:
+    """Read an audit's machine findings with their latest human reviews, in finding_id order."""
+    return repository.list_audit_findings(
+        audit_id, limit=limit, offset=offset, sample_id=sample_id, outcome=outcome,
+    )

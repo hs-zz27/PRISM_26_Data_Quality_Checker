@@ -21,7 +21,7 @@ from backend.app.core import config
 @pytest.fixture(autouse=True)
 def isolated_ollama_environment(tmp_path, monkeypatch):
     for name in (
-        "OLLAMA_MODEL", "OLLAMA_BASE_URL", "AUDIT_SAMPLE_MAX_SECONDS", "ASSET_STORAGE_ROOT",
+        "OLLAMA_MODEL", "OLLAMA_BASE_URL", "OLLAMA_CPU_THREADS", "AUDIT_SAMPLE_MAX_SECONDS", "ASSET_STORAGE_ROOT",
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(config, "DEFAULT_ENV_PATH", tmp_path / ".env")
@@ -128,6 +128,8 @@ def test_missing_or_unknown_settings_are_rejected(tmp_path, contents):
     {"context_length": True},
     {"max_output_tokens": -1},
     {"max_output_tokens": "512"},
+    {"cpu_threads": True}, {"cpu_threads": 1.0}, {"cpu_threads": "10"},
+    {"cpu_threads": 0}, {"cpu_threads": 1025},
 ])
 def test_invalid_settings_are_rejected(changes):
     values = {**load_ollama_settings().model_dump(), **changes}
@@ -139,6 +141,34 @@ def test_shared_settings_cannot_be_modified():
     settings = load_ollama_settings()
     with pytest.raises(ValidationError, match="frozen"):
         settings.model = "replacement:latest"
+
+
+def test_cpu_threads_follow_configuration_precedence_and_allow_explicit_auto(tmp_path, monkeypatch):
+    path = tmp_path / "ollama.toml"
+    path.write_text(OLLAMA_CONFIG_PATH.read_text() + "\ncpu_threads = 4\n", encoding="utf-8")
+    assert load_ollama_settings(path).cpu_threads == 4
+    config.DEFAULT_ENV_PATH.write_text("OLLAMA_CPU_THREADS=10\n", encoding="utf-8")
+    assert load_ollama_settings(path).cpu_threads == 10
+    monkeypatch.setenv("OLLAMA_CPU_THREADS", "6")
+    before = dict(os.environ)
+    assert load_ollama_settings(path).cpu_threads == 6
+    assert dict(os.environ) == before
+    monkeypatch.setenv("OLLAMA_CPU_THREADS", "auto")
+    assert load_ollama_settings(path).cpu_threads is None
+
+
+@pytest.mark.parametrize("value", ["", " ", "0", "-1", "1025", "true", "1.5", "ten"])
+def test_invalid_cpu_thread_overrides_fail_before_inference(monkeypatch, value):
+    monkeypatch.setenv("OLLAMA_CPU_THREADS", value)
+    with pytest.raises(ValueError):
+        load_ollama_settings()
+
+
+def test_automatic_threads_preserve_legacy_settings_serialization():
+    settings = load_ollama_settings()
+    assert settings.cpu_threads is None
+    assert "cpu_threads" not in settings.model_dump()
+    assert OllamaSettings.model_validate_json(settings.model_dump_json()) == settings
 
 
 def test_dotenv_overrides_model_and_port_from_any_working_directory(tmp_path, monkeypatch):

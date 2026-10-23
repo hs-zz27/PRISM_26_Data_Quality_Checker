@@ -134,7 +134,13 @@ class FeedbackJobRepository(FeedbackRepository):
             if row['attempt'] != 0 or any(row[key] is not None for key in ('claimed_by', 'claim_token', 'lease_until')) or resource['deadline'] is not None or public.results:
                 raise FeedbackError('DEPENDENCY_UNAVAILABLE')
             now = connection.execute('SELECT clock_timestamp() AS now').fetchone()['now']
-            connection.execute("UPDATE jobs SET status='running',claimed_by=%s,claim_token=%s,lease_until=%s,attempt=attempt+1,updated_at=%s WHERE job_id=%s", (worker_id, token, now + timedelta(seconds=30), now, row['job_id']))
+            progress = Progress(phase='comparing', processed=0, total=len(inputs.truth.cases), fraction=0.0)
+            connection.execute(
+                "UPDATE jobs SET status='running',progress=%s,claimed_by=%s,claim_token=%s,"
+                "lease_until=%s,attempt=attempt+1,updated_at=%s WHERE job_id=%s",
+                (Jsonb(progress.model_dump(mode='json')), worker_id, token,
+                 now + timedelta(seconds=30), now, row['job_id']),
+            )
             connection.execute('UPDATE feedback_evaluations SET deadline=%s WHERE evaluation_id=%s', (now + timedelta(seconds=3600), resource['evaluation_id']))
         return (row['job_id'], worker_id, token, inputs)
 

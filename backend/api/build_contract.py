@@ -4,6 +4,7 @@ Run from the project root with python -m backend.api.build_contract.
 Schema generation imports the app without serving requests or connecting to storage.
 """
 
+from backend.app.models.audit_read import FindingPage
 from .feedback_contract import align_feedback_contract,feedback_job_scenarios
 from .feedback_examples import feedback_examples
 
@@ -26,6 +27,7 @@ from .fixtures import EXAMPLE_MODEL, SOURCE, TIMESTAMP, build_examples, job, pag
 from .schemas import build_schemas
 from .dataset_contract import align_dataset_contract
 from .export_contract import align_export_contract
+from .system_contract import align_system_contract
 from .planned_endpoints import render_planned_endpoints
 
 API_DIRECTORY = Path(__file__).resolve().parent
@@ -52,7 +54,7 @@ def build_contract() -> JsonObject:
     contract: JsonObject = {
         "openapi": "3.1.0",
         "info": {"title": "PRISM Data Quality Checker — API contract", "version": "0.1.0",
-                 "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Other operations remain planned; inspect x-implementation-status. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
+                 "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Liveness, capabilities and local readiness reads and the audit-wide finding list are implemented. No operations are currently planned; x-implementation-status remains on every operation. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
         "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Local development server; only implemented operations are callable."}],
         "tags": [{"name": name} for name in ("System", "Rulebooks", "Datasets", "Jobs", "Audits", "Reviews", "Corrections", "Exports", "Feedback")],
         "paths": {}, "components": {"schemas": schemas},
@@ -323,7 +325,38 @@ def build_contract() -> JsonObject:
         for name, value in examples["review_scenarios"].items()
     }
     add("GET", "/audits/{audit_id}/findings", "listAuditFindings", "Audits", "List findings with rule sources and review state", "FindingPage", page([examples["finding"]]),
-        parameters=pagination_parameters() + [parameter("sample_id", "query", TEXT, "sample_001"), parameter("outcome", "query", choice("pass", "fail", "unsure", "unavailable"), "fail")])
+        parameters=[
+            parameter("audit_id", "path", {"type": "string", "minLength": 1, "pattern": r"^[^\x00]*[^\s\x00][^\x00]*$"}, "audit_demo"),
+            parameter("limit", "query", {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, 20,
+                      description="Page size, from 1 to 100."),
+            parameter("offset", "query", {"type": "integer", "minimum": 0, "maximum": 9223372036854775807, "default": 0}, 0,
+                      description="Zero-based position in the filtered list, up to PostgreSQL's largest integer."),
+            parameter("sample_id", "query", {"anyOf": [{"type": "string", "minLength": 1, "pattern": r"^[^\x00]*[^\s\x00][^\x00]*$"}, {"type": "null"}], "default": None}, "sample_001",
+                      description="Optional filter. A sample with no findings in this audit, including a sample that is not in it, returns an empty page rather than HTTP 404."),
+            parameter("outcome", "query", {"anyOf": [ref("FindingOutcome"), {"type": "null"}], "default": None}, "fail",
+                      description="Optional machine outcome filter. It combines with sample_id using AND and never filters by the reviewer's decision."),
+        ],
+        implementation="implemented", backing="AuditReadRepository.list_audit_findings and FastAPI route implemented.",
+        description="List every machine finding of one audit across all of its samples, in ascending finding_id order (text order, not creation order). Each item is the stored finding, including its pinned sample_revision, rulebook version, rule parameters, origin, source sentence and evidence, with the latest human review in review; a finding nobody has reviewed shows resolution pending. Omit the filters to include all four outcomes (pass, fail, unsure, unavailable) and every review resolution. sample_id and outcome combine with AND. total counts all matching findings before paging, and next_offset is offset plus the number of items only when more matching findings remain, otherwise null (an empty page, an offset past the end and the final page all return null). An unknown audit returns HTTP 404; an existing audit with no matching findings returns HTTP 200 with an empty page. Audit existence, the total, the page and the latest reviews are read from one database snapshot. Reading never starts a worker, runs inference, reads asset files or changes a finding or its review. Findings are machine evidence: a reviewer's decision is separate, and an accepted or rejected finding does not decide the sample. Use getAuditSample for one sample's full detail.")
+    findings_media = contract["paths"]["/audits/{audit_id}/findings"]["get"]["responses"]["200"]["content"]["application/json"]
+    findings_media.pop("example")
+    reviewed_finding = {**deepcopy(examples["passing"]), "review": {
+        "revision": 1, "resolution": "accepted", "reviewer_id": "reviewer_demo",
+        "comment": "Confirmed the label is allowed.", "updated_at": TIMESTAMP,
+    }}
+    findings_media["examples"] = {
+        name: {"summary": summary, "value": FindingPage.model_validate_json(json.dumps(document)).model_dump(mode="json")}
+        for name, summary, document in (
+            ("first_page_with_more", "First page of five matching findings; follow next_offset",
+             {"items": [examples["finding"], reviewed_finding], "limit": 2, "offset": 0, "total": 5, "next_offset": 2}),
+            ("last_page", "Final page; next_offset is null",
+             {"items": [examples["finding"]], "limit": 2, "offset": 4, "total": 5, "next_offset": None}),
+            ("filtered_by_sample_and_outcome", "sample_id=sample_001&outcome=fail; total counts only matches",
+             {"items": [examples["finding"]], "limit": 20, "offset": 0, "total": 1, "next_offset": None}),
+            ("empty", "An existing audit, or a filter that matches nothing",
+             {"items": [], "limit": 20, "offset": 0, "total": 0, "next_offset": None}),
+        )
+    }
     add("POST", "/audits/{audit_id}/rechecks", "recheckSamples", "Audits", "Audit corrected sample revisions again", "AuditStarted",
         {"audit": {**examples["audit"], "audit_id": "audit_recheck_demo", "status": "queued", "processed_count": 0, "job_id": "job_recheck_demo"},
          "job": {**job("audit", "audit", "audit_recheck_demo"), "job_id": "job_recheck_demo"}, "parent_audit_id": "audit_demo", "feedback_policy_id": None}, status=202,
@@ -417,6 +450,7 @@ def build_contract() -> JsonObject:
     align_dataset_contract(contract, create_app().openapi())
     align_export_contract(contract, create_app().openapi(), operations)
     align_correction_contract(contract, create_app().openapi(), operations)
+    align_system_contract(contract, create_app().openapi(), operations)
     align_feedback_contract(contract, create_app().openapi(), operations)
     contract["x-feedback-job-scenarios"] = feedback_job_scenarios()
     contract["x-recheck-job-scenarios"] = recheck_job_scenarios()
@@ -492,7 +526,7 @@ def render_artifacts() -> dict[str, str]:
     recheck_job_scenarios = contract.pop("x-recheck-job-scenarios")
     feedback_job_states = contract.pop("x-feedback-job-scenarios")
     documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
-        "notice": "Synthetic frontend fixtures, not stored resources, measured model accuracy or a stateful server. Feedback policies, adjudicated truth, comparisons and explicit activation are implemented in source. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+        "notice": "Synthetic frontend fixtures, not stored resources, measured model accuracy or a stateful server. Feedback policies, adjudicated truth, comparisons and explicit activation are implemented in source. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, the audit-wide finding list, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,
@@ -510,12 +544,15 @@ def render_artifacts() -> dict[str, str]:
     }
     lines = [
         "# Endpoint index", "", "Generated from `build_contract.py`. Paths include `/api/v1`.", "",
-        "Use [implemented-openapi.json for callable endpoint schemas and client generation. "
-        "openapi.json also includes planned designs. examples.json contains synthetic fixtures.", "",
+        "Use implemented-openapi.json for callable endpoint schemas and client generation. "
+        "openapi.json is the combined reference and marks each operation with x-implementation-status. "
+        "examples.json contains synthetic fixtures.", "",
     ]
     for status, heading in (("implemented", "Implemented"), ("planned", "Planned — unavailable on the running server")):
         matching = [operation for operation in fixtures if operation["implementation"] == status]
         lines.extend([f"## {heading} ({len(matching)} operations)", ""])
+        if not matching:
+            lines.extend(["None.", ""])
         for tag in contract["tags"]:
             grouped = [operation for operation in matching if operation["tag"] == tag["name"]]
             if not grouped:

@@ -13,7 +13,7 @@ import { MockBadge } from '../ui/MockBadge';
 import { CommandPalette } from './CommandPalette';
 
 function breadcrumbName(part: string): string {
-  const labels: Record<string, string> = { audits: 'Audits', review: 'Review', datasets: 'Datasets', rulebooks: 'Rulebooks', corrections: 'Corrections', exports: 'Exports', feedback: 'Feedback', dev: 'Developer', styleguide: 'Styleguide' };
+  const labels: Record<string, string> = { audits: 'Audits', review: 'Review', report: 'Report', datasets: 'Datasets', rulebooks: 'Rulebooks', corrections: 'Corrections', exports: 'Exports', feedback: 'Feedback', dev: 'Developer', styleguide: 'Styleguide' };
   return labels[part] ?? part;
 }
 
@@ -45,7 +45,7 @@ export const Navbar: React.FC = () => {
           {index > 0 && <ChevronRight size={13} className="breadcrumb-separator" />}
           <span className={index === parts.length - 1 ? 'breadcrumb-current' : ''}>{breadcrumbName(part)}</span>
         </React.Fragment>)}
-        {parts.length === 0 && <span className="breadcrumb-current">Audits</span>}
+        {parts.length === 0 && <span className="breadcrumb-current">Overview</span>}
       </div>
       <div className="topbar-tools">
         <button className="palette-trigger" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))} aria-label="Open command palette"><Search size={13} /><span>Go to…</span><kbd>⌘ / Ctrl K</kbd></button>

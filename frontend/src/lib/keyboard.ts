@@ -21,12 +21,12 @@ export interface Shortcut {
 /** All registered shortcuts for the Help modal. */
 export const SHORTCUTS: Shortcut[] = [
   // Review
-  { key: 'a', display: 'A', description: 'Accept selected finding proposal', category: 'review' },
-  { key: 'r', display: 'R', description: 'Reject selected finding proposal', category: 'review' },
+  { key: 'a', display: 'A', description: 'Agree with the selected finding', category: 'review' },
+  { key: 'r', display: 'R', description: 'Override the selected finding (reason required)', category: 'review' },
   { key: 'u', display: 'U', description: 'Mark selected finding unsure', category: 'review' },
-  { key: 'Shift+A', display: 'Shift+A', description: 'Accept sample verdict', category: 'review' },
-  { key: 'Shift+R', display: 'Shift+R', description: 'Reject sample verdict', category: 'review' },
-  { key: 'Shift+N', display: 'Shift+N', description: 'Mark sample needs correction', category: 'review' },
+  { key: 'Shift+A', display: 'Shift+A', description: 'Accept sample', category: 'review' },
+  { key: 'Shift+R', display: 'Shift+R', description: 'Reject sample (reason required)', category: 'review' },
+  { key: 'Shift+N', display: 'Shift+N', description: 'Send sample for correction (reason required)', category: 'review' },
   // Navigation
   { key: 'ArrowLeft',  display: '←',   description: 'Previous sample', category: 'navigation' },
   { key: 'ArrowRight', display: '→',   description: 'Next sample',     category: 'navigation' },

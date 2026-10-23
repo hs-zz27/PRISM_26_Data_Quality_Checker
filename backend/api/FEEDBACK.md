@@ -11,7 +11,7 @@ Finding acceptance is not sample acceptance. Corrections are not implicit truth.
 The captured baseline is `1c3c33deb9235692129b7d72cbc4c6256ff0002e`.
 The proposed inventory is **46 implemented / 4 planned / 50 total operations**,
 subject to actual route/contract verification after application. Three system
-reads and the separate audit-wide findings operation remain planned. The five
+reads and the separate audit-wide findings operation were still planned at that baseline; both are implemented now. The five
 API artifacts must be regenerated together; this source handoff did not run the
 generator, tests, database migrations, workers, inference or HTTP scenarios.
 Source availability, integrated verification and demonstrated model improvement
@@ -139,8 +139,28 @@ of a transient tag change between observations, model correctness, complete visi
 tokenization fidelity or deterministic generations across runtimes. Validate the
 specific installed model's image ordering/context behavior before relying on it.
 
+Local requests use a five-minute model keep-alive to avoid unloading between
+consecutive calls. This retains model memory while idle; it does not append chat
+history or skip either request's identity checks. Ollama may reuse prompt caches,
+so compare cold and warm timings separately when measuring performance.
+
+`OLLAMA_CPU_THREADS` (or TOML `cpu_threads`) selects a positive thread count for
+new executions; `auto` or an omitted setting lets Ollama choose. Feedback
+execution records pin it as optional `num_thread`, and both comparison arms use
+that saved value. Activation carries the evaluated execution into later audits
+and linked rechecks. Changing the machine setting does not retune existing
+policies or jobs; evaluate a policy again to use a different setting. Legacy
+records omit this field, retain automatic selection and preserve their hashes.
+The ten-thread setting was benchmarked only on the maintainer's M4 MacBook Air
+with the 4B model and two controlled images. Other machines should start with
+automatic selection and measure before choosing a count; see the
+[machine-specific tuning note](../README.md#ollama-configuration).
+
 Default finite bounds: four example images plus target; 8 MiB/image, 16 million
 pixels/image, 128 KiB annotation, 64 MiB serialized request, 64 KiB response.
+Model identity/capability metadata has a separate 1 MiB response bound because
+Ollama includes licenses and tensor descriptions; prediction responses retain
+their stricter 64 KiB bound.
 Execution pins record these bounds and context/output/time settings. Output tokens
 are at most 2048; request timeout at most 600 seconds. No silent annotation/rule
 truncation occurs. Conservative text/image reservations are checked before job

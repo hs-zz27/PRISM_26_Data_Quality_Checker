@@ -10,10 +10,12 @@ import { DatasetsPage } from './features/datasets/DatasetsPage';
 import { DatasetDetailPage } from './features/datasets/DatasetDetailPage';
 import { AuditsPage } from './features/audits/AuditsPage';
 import { AuditReviewWorkspace } from './features/audits/AuditReviewWorkspace';
+import { AuditReportPage } from './features/audits/AuditReportPage';
 import { CorrectionsPage } from './features/corrections/CorrectionsPage';
 import { ExportsPage } from './features/exports/ExportsPage';
 import { FeedbackPage } from './features/feedback/FeedbackPage';
 import { StyleguidePage } from './features/dev/StyleguidePage';
+import { OverviewPage } from './features/overview/OverviewPage';
 
 export const App: React.FC = () => {
   return (
@@ -21,18 +23,19 @@ export const App: React.FC = () => {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<AppLayout />}>
-            <Route index element={<Navigate to="/audits" replace />} />
+            <Route index element={<OverviewPage />} />
             <Route path="rulebooks" element={<RulebooksPage />} />
             <Route path="rulebooks/:rulebookId" element={<RulebookEditorPage />} />
             <Route path="datasets" element={<DatasetsPage />} />
             <Route path="datasets/:datasetId" element={<DatasetDetailPage />} />
             <Route path="audits" element={<AuditsPage />} />
             <Route path="audits/:auditId/review" element={<AuditReviewWorkspace />} />
+            <Route path="audits/:auditId/report" element={<AuditReportPage />} />
             <Route path="corrections" element={<CorrectionsPage />} />
             <Route path="exports" element={<ExportsPage />} />
             <Route path="feedback" element={<FeedbackPage />} />
             {import.meta.env.DEV && <Route path="dev/styleguide" element={<StyleguidePage />} />}
-            <Route path="*" element={<Navigate to="/audits" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

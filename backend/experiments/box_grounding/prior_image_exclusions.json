@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "purpose": "Exclude these source images, including all annotation revisions, from a new blind test set. This list covers the documented runs in this packet; record further development exposure before selecting any future test set.",
+  "images": [
+    {
+      "sample_name": "FudanPed00002",
+      "image_sha256": "42f94e40ca5857687be170ecdebef0ee41094e5386160e0c756f0c94a735d39e",
+      "prior_uses": [
+        "earlier-controlled-smoke"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00003",
+      "image_sha256": "b03d3033f65a03c20476479d2ae76cf8d3156550da005e92fb101dcd413ec75f",
+      "prior_uses": [
+        "earlier-controlled-smoke"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00010",
+      "image_sha256": "651f9c4ce9ab056f3ce94c2b1159218a385ab45f33bc124ab2e5d29115dd0315",
+      "prior_uses": [
+        "earlier-controlled-smoke"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00011",
+      "image_sha256": "51dab61023b536510ba333c181384e2e41fcaf270a964889efbfc96ee79d72db",
+      "prior_uses": [
+        "earlier-controlled-smoke"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00013",
+      "image_sha256": "b3e23ae41d57b2fb4803b0202ba384f556d2b2eadca71d97b03000867a79bd6d",
+      "prior_uses": [
+        "earlier-controlled-smoke"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00014",
+      "image_sha256": "462eff93c4c491fb20e1e01e5949dcc27b93d6421507a6454356578040c73ce6",
+      "prior_uses": [
+        "earlier-controlled-smoke"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00018",
+      "image_sha256": "503db5cbf8a4d2f68e7a191656320163a74b0d0a7e7a0de0bc7645c7330379e6",
+      "prior_uses": [
+        "combined-detector-ollama-benchmark"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00024",
+      "image_sha256": "90a68f6a089628fd1dac8b15c931a3030a5c6f9eed32a5283c8ae08a31c3271e",
+      "prior_uses": [
+        "combined-detector-ollama-benchmark"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00026",
+      "image_sha256": "7a108cfe65ba5c2c89ea0400095685811854d78c618a39cd6298d183666c8780",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00031",
+      "image_sha256": "07895e88c4b37891f1e10581deef07760649ef806b7e50943b85920ba8e6ac05",
+      "prior_uses": [
+        "combined-detector-ollama-benchmark"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00037",
+      "image_sha256": "25b65868cf25c4279bcf9550567023f4a44cd349930ddc119fdd3f83f2ed3d0c",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00042",
+      "image_sha256": "257169d70d4b46d3ecc64bdc7287af287ed43bdeec48e1ae95e17506e63548bb",
+      "prior_uses": [
+        "combined-detector-ollama-benchmark"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00048",
+      "image_sha256": "805008af783d085a18edf81b3ba02d460844717ebba21058b4fd87aa9ebdf01f",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00052",
+      "image_sha256": "afe9b8fc9bf30d6dad10103565c1d899b36bc42d000bfa5206d9d0d17f5079dd",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00061",
+      "image_sha256": "2bf5b3ea03d46520f7c789ae0d2cf6da5b131da921ab242e58c7e572e9b5ffbf",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "FudanPed00072",
+      "image_sha256": "22f05a6aa65f248f0cf122fb9ea842aa6d55ae73d67216f69686c830c7d913a8",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "PennPed00010",
+      "image_sha256": "1269fc6c4ebd9ad51953de3e6a1a3c3f8735138d3c5b4e29598b0357a5d3e688",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "PennPed00012",
+      "image_sha256": "4f22a9e5d708bd17ee68ca7ffcd7e4630ad94fee53ea95b65d9664ae7489e0c0",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "PennPed00025",
+      "image_sha256": "1d0a05b83c4915b2264a5528fbfe5dc82274113f07a07151e489c90357a527ae",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "PennPed00040",
+      "image_sha256": "6fb46eb5e99d6df95e76b483e7b6205760f5e97907a85f3eff1507c5f875da50",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "PennPed00060",
+      "image_sha256": "939cd2ab0d63c3cb15bd1155071fe4e117140172893156e6b8b9c05a0c4a1cb8",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    },
+    {
+      "sample_name": "PennPed00085",
+      "image_sha256": "0e9a2f0210b3f1de793ac00b5d8e3a2accfee2e4c15d97c1d4460c651c0890fd",
+      "prior_uses": [
+        "reviewed-development-or-guided-practice"
+      ]
+    }
+  ]
+}

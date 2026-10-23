@@ -133,9 +133,11 @@ export const RulebooksPage: React.FC = () => {
             </div>
           </div>
 
-          <p className="text-xs text-text-muted leading-relaxed">
-            Paste or author natural language annotation guidelines. PRISM's Ollama extraction engine parses sentences, binds checks, and extracts parameters into structured rule proposals with exact citation source tracking.
-          </p>
+          <ol className="text-xs text-text-muted leading-relaxed list-decimal pl-5 space-y-0.5">
+            <li>Open the guideline document in your usual authorised viewer — PRISM never opens the protected file.</li>
+            <li>Copy the guideline text and paste it below as plain text.</li>
+            <li>PRISM proposes rules, each citing the exact sentence it came from. You then confirm, reject, edit or add rules before any data is checked.</li>
+          </ol>
 
           <textarea
             value={guidelineText}
@@ -252,7 +254,7 @@ export const RulebooksPage: React.FC = () => {
                           }
                           size="sm"
                         >
-                          {state}
+                          {state === 'draft' ? 'draft — needs review' : state}
                         </Badge>
                       </td>
                       <td className="py-3 px-4 text-text-muted">

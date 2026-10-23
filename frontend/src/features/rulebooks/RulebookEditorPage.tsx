@@ -11,15 +11,37 @@ import {
   History,
   FileText,
   Layers,
+  Plus,
+  RefreshCw,
+  Pencil,
+  Trash2,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
-import { apiGet, apiPut, apiPost, isVersionConflict } from '../../api/client';
+import { ApiError, apiGet, apiPut, apiPost, isVersionConflict } from '../../api/client';
 import { queryKeys } from '../../api/queryClient';
 import { useReviewerStore } from '../../store/reviewerStore';
+import { useJobPolling } from '../../hooks/useJobPolling';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { checkLabel, describeRequirement } from '../../lib/labels';
+import { formatTimestamp } from '../../lib/format';
+import { RuleForm } from './RuleForm';
+import {
+  CHECK_PARAMETER_TEMPLATES,
+  confirmationBlockers,
+  newProposals,
+  rulesWithMissingCitations,
+  segmentGuideline,
+  suggestRuleId,
+} from './rulebookEditing';
 import type { components } from '../../api/generated/openapi';
 
 type Rule = components['schemas']['Rule'];
+type Rulebook = components['schemas']['Rulebook'];
+
+// Used when the capability catalogue is unavailable (it is a planned endpoint).
+const FALLBACK_CHECKS = Object.keys(CHECK_PARAMETER_TEMPLATES).map((name) => ({ name, implementation: 'implemented' }));
 
 export const RulebookEditorPage: React.FC = () => {
   const { rulebookId } = useParams<{ rulebookId: string }>();
@@ -28,464 +50,465 @@ export const RulebookEditorPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { reviewerId, openPrompt } = useReviewerStore();
 
-  const requestedVersion = searchParams.get('version')
-    ? parseInt(searchParams.get('version')!, 10)
-    : undefined;
+  const requestedVersion = searchParams.get('version') ? parseInt(searchParams.get('version')!, 10) : undefined;
 
-  // Selected rule or sentence for bidirectional citation linking
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
-
-  // Local draft state for editing
   const [localRules, setLocalRules] = useState<Rule[]>([]);
   const [localGuidelineText, setLocalGuidelineText] = useState<string>('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
-  const [conflictError, setConflictError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [isAddingRule, setIsAddingRule] = useState(false);
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [highlightedText, setHighlightedText] = useState('');
+  const [extractionJobId, setExtractionJobId] = useState<string | null>(null);
+  const [proposals, setProposals] = useState<Rule[] | null>(null);
   const citationsPaneRef = useRef<HTMLDivElement>(null);
   const rulesPaneRef = useRef<HTMLDivElement>(null);
+  const loadedKeyRef = useRef<string | null>(null);
 
-  // Fetch current rulebook
-  const { data: rulebook } = useQuery({
+  const { data: rulebook, error: rulebookError, isLoading } = useQuery({
     queryKey: queryKeys.rulebook(rulebookId!, requestedVersion),
-    queryFn: () =>
-      apiGet('/rulebooks/{rulebook_id}', { path: { rulebook_id: rulebookId! }, query: requestedVersion ? { version: requestedVersion } : {} }),
+    queryFn: () => apiGet('/rulebooks/{rulebook_id}', { path: { rulebook_id: rulebookId! }, query: requestedVersion ? { version: requestedVersion } : {} }),
     enabled: Boolean(rulebookId),
   });
-  const { data: capabilities } = useQuery({ queryKey: queryKeys.capabilities(), queryFn: () => apiGet('/capabilities') });
+  const { data: capabilities } = useQuery({ queryKey: queryKeys.capabilities(), queryFn: () => apiGet('/capabilities'), retry: false });
+  const checks = capabilities?.checks ?? FALLBACK_CHECKS;
 
-  // Fetch version history
   const { data: versionPage } = useQuery({
     queryKey: queryKeys.rulebookVersions(rulebookId!),
     queryFn: () => apiGet('/rulebooks/{rulebook_id}/versions', { path: { rulebook_id: rulebookId! }, query: { limit: 100, offset: 0 } }),
     enabled: Boolean(rulebookId),
   });
-
   const versions = versionPage?.items ?? [];
-  const { data: reviewHistory, error: reviewHistoryError } = useQuery({
-    queryKey: ['rulebook-reviews', rulebookId],
+  const { data: reviewHistory } = useQuery({
+    queryKey: queryKeys.rulebookReviews(rulebookId!),
     queryFn: () => apiGet('/rulebooks/{rulebook_id}/reviews', { path: { rulebook_id: rulebookId! }, query: { limit: 100, offset: 0 } }),
     enabled: Boolean(rulebookId),
   });
 
-  // Sync server data to local editor state
+  // Load server state into the editor only when a different version is opened,
+  // so background refetches never wipe unsaved edits.
   useEffect(() => {
-    if (rulebook) {
-      setLocalRules(rulebook.rules ?? []);
-      setLocalGuidelineText(rulebook.guideline_text ?? '');
-      setHasUnsavedChanges(false);
-      setConflictError(null);
-    }
+    if (!rulebook) return;
+    const key = `${rulebook.rulebook_id}:${rulebook.version}`;
+    if (loadedKeyRef.current === key) return;
+    loadedKeyRef.current = key;
+    setLocalRules(rulebook.rules ?? []);
+    setLocalGuidelineText(rulebook.guideline_text ?? '');
+    setHasUnsavedChanges(false);
+    setActionError(null);
+    setEditingRuleId(null);
+    setIsAddingRule(false);
+    setIsEditingText(false);
   }, [rulebook]);
 
   const isConfirmed = rulebook?.confirmation_state === 'confirmed';
   const isRejected = rulebook?.confirmation_state === 'rejected';
   const isReadOnly = isConfirmed || isRejected;
+  const latestVersion = versions.reduce((max, v) => Math.max(max, v.version), rulebook?.version ?? 0);
+  const isLatest = !rulebook || rulebook.version >= latestVersion;
+  const canEdit = !isReadOnly && isLatest;
 
   useEffect(() => {
     if (!selectedRuleId) return;
-    const citation = localRules.find((rule) => rule.rule_id === selectedRuleId)?.source_sentence?.trim();
-    const ruleNode = Array.from(rulesPaneRef.current?.querySelectorAll<HTMLElement>('[data-rule-id]') ?? []).find((node) => node.dataset.ruleId === selectedRuleId);
-    const citationNode = Array.from(citationsPaneRef.current?.querySelectorAll<HTMLElement>('[data-citation]') ?? []).find((node) => node.dataset.citation === citation);
-    ruleNode?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    citationNode?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [selectedRuleId, localRules]);
+    rulesPaneRef.current?.querySelector<HTMLElement>(`[data-rule-id="${CSS.escape(selectedRuleId)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    citationsPaneRef.current?.querySelector<HTMLElement>(`[data-cites~="${CSS.escape(selectedRuleId)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedRuleId]);
 
-  // Save draft mutation (PUT)
+  const openVersion = (book: Rulebook) => {
+    loadedKeyRef.current = null;
+    setSearchParams({ version: String(book.version) });
+    queryClient.setQueryData(queryKeys.rulebook(book.rulebook_id, book.version), book);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.rulebooks() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.rulebookVersions(book.rulebook_id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.rulebookReviews(book.rulebook_id) });
+  };
+
+  const requireReviewer = (): string => {
+    const activeReviewer = reviewerId?.trim();
+    if (!activeReviewer) {
+      openPrompt();
+      throw new Error('Set your reviewer name first (top right).');
+    }
+    return activeReviewer;
+  };
+
+  const describeError = (err: unknown): string => {
+    if (isVersionConflict(err)) return 'Someone else changed this rulebook since you opened it. Your edits are still here — open the latest version to compare, then reapply them.';
+    if (err instanceof ApiError && err.details?.length) return `${err.message} ${err.details.map((d) => `${d.field}: ${d.message}`).join('; ')}`;
+    return err instanceof Error ? err.message : String(err);
+  };
+
+  const saveDraft = (rules: Rule[]) => apiPut('/rulebooks/{rulebook_id}', {
+    path: { rulebook_id: rulebookId! },
+    body: { expected_version: rulebook!.version, reviewer_id: requireReviewer(), guideline_text: localGuidelineText, rules },
+  });
+
   const saveDraftMutation = useMutation({
-    mutationFn: () => {
-      const activeReviewer = reviewerId?.trim();
-      if (!activeReviewer) {
-        openPrompt();
-        throw new Error('Reviewer ID required');
-      }
-      return apiPut('/rulebooks/{rulebook_id}', { path: { rulebook_id: rulebookId! }, body: { expected_version: rulebook?.version ?? 1, reviewer_id: activeReviewer, guideline_text: localGuidelineText, rules: localRules } });
-    },
-    onSuccess: () => {
-      setHasUnsavedChanges(false);
-      setConflictError(null);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rulebooks() });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rulebook(rulebookId!) });
-    },
-    onError: (err) => {
-      if (isVersionConflict(err)) {
-        setConflictError(
-          'Version Conflict (409): Another reviewer updated this rulebook. Reload or revise to get the latest draft.',
-        );
-      }
-    },
+    mutationFn: () => saveDraft(localRules),
+    onSuccess: (saved) => { setNotice(`Draft saved as version ${saved.version}.`); openVersion(saved); },
+    onError: (err) => setActionError(describeError(err)),
   });
 
-  // Confirm rulebook mutation
+  // Confirmation needs every retained rule confirmed; rejected rules are removed first.
   const confirmMutation = useMutation({
-    mutationFn: () => {
-      const activeReviewer = reviewerId?.trim();
-      if (!activeReviewer) {
-        openPrompt();
-        throw new Error('Reviewer ID required');
+    mutationFn: async () => {
+      const activeReviewer = requireReviewer();
+      const { undecided, rejected, retained } = confirmationBlockers(localRules);
+      if (undecided.length) throw new Error(`Decide on every rule first — still pending: ${undecided.map((r) => r.rule_id).join(', ')}.`);
+      if (!retained.length) throw new Error('A confirmed rulebook needs at least one rule.');
+      if (rulesWithMissingCitations(retained, localGuidelineText).length) throw new Error('Some citations no longer appear in the guideline text. Fix them before confirming.');
+      if (rejected.length && !window.confirm(`Rejected rules (${rejected.map((r) => r.rule_id).join(', ')}) will be left out of the confirmed version. They remain in this version's history. Continue?`)) {
+        throw new Error('Confirmation cancelled.');
       }
-      return apiPost('/rulebooks/{rulebook_id}/confirm', { path: { rulebook_id: rulebookId! }, body: { expected_version: rulebook?.version ?? 1, reviewer_id: activeReviewer } });
+      let expectedVersion = rulebook!.version;
+      if (hasUnsavedChanges || rejected.length) {
+        const saved = await saveDraft(retained);
+        expectedVersion = saved.version;
+      }
+      return apiPost('/rulebooks/{rulebook_id}/confirm', { path: { rulebook_id: rulebookId! }, body: { expected_version: expectedVersion, reviewer_id: activeReviewer } });
     },
-    onSuccess: () => {
-      setHasUnsavedChanges(false);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rulebooks() });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rulebook(rulebookId!) });
-    },
+    onSuccess: (confirmed) => { setNotice(`Rulebook confirmed as version ${confirmed.version}. It is now locked and can be used for audits.`); openVersion(confirmed); },
+    onError: (err) => { if (!(err instanceof Error && err.message === 'Confirmation cancelled.')) setActionError(describeError(err)); },
   });
 
-  // Reject rulebook mutation
   const rejectMutation = useMutation({
     mutationFn: () => {
-      const activeReviewer = reviewerId?.trim();
-      if (!activeReviewer) {
-        openPrompt();
-        throw new Error('Reviewer ID required');
-      }
-      return apiPost('/rulebooks/{rulebook_id}/reject', { path: { rulebook_id: rulebookId! }, body: { expected_version: rulebook?.version ?? 1, reviewer_id: activeReviewer } });
+      if (!window.confirm('Reject this whole draft? It will be locked; you can start a new draft from it later.')) throw new Error('cancelled');
+      return apiPost('/rulebooks/{rulebook_id}/reject', { path: { rulebook_id: rulebookId! }, body: { expected_version: rulebook!.version, reviewer_id: requireReviewer() } });
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rulebooks() });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rulebook(rulebookId!) });
-    },
+    onSuccess: (rejected) => openVersion(rejected),
+    onError: (err) => { if (!(err instanceof Error && err.message === 'cancelled')) setActionError(describeError(err)); },
   });
 
-  // Revise rulebook mutation (creates new draft version)
   const reviseMutation = useMutation({
-    mutationFn: () => {
-      const activeReviewer = reviewerId?.trim();
-      if (!activeReviewer) {
-        openPrompt();
-        throw new Error('Reviewer ID required');
-      }
-      return apiPost('/rulebooks/{rulebook_id}/revisions', { path: { rulebook_id: rulebookId! }, body: { expected_version: rulebook?.version ?? 1, reviewer_id: activeReviewer } });
-    },
-    onSuccess: (newDraft) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rulebooks() });
-      setSearchParams({ version: String(newDraft.version) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rulebook(rulebookId!, newDraft.version) });
-    },
+    mutationFn: () => apiPost('/rulebooks/{rulebook_id}/revisions', { path: { rulebook_id: rulebookId! }, body: { expected_version: rulebook!.version, reviewer_id: requireReviewer() } }),
+    onSuccess: (draft) => { setNotice(`Started draft version ${draft.version}. All rules are back to pending for review.`); openVersion(draft); },
+    onError: (err) => setActionError(describeError(err)),
   });
 
-  // Split guidelines into sentences for exact citation matching
-  const sentences = useMemo(() => {
-    if (!localGuidelineText) return [];
-    return localGuidelineText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
-  }, [localGuidelineText]);
+  // Re-check document: run extraction again on the current text and offer only new proposals.
+  const extraction = useJobPolling(extractionJobId, {
+    onSuccess: (job) => {
+      setExtractionJobId(null);
+      if (!job.result?.id) { setActionError('Extraction finished without a result.'); return; }
+      void apiGet('/rulebooks/{rulebook_id}', { path: { rulebook_id: job.result.id }, query: job.result.version ? { version: job.result.version } : {} })
+        .then((extracted) => {
+          const fresh = newProposals(localRules, extracted.rules ?? []);
+          setProposals(fresh);
+          setNotice(fresh.length ? null : 'Re-check found no rules that are not already in this draft.');
+        })
+        .catch((err: unknown) => setActionError(describeError(err)));
+    },
+    onError: (job) => { setExtractionJobId(null); setActionError(job.error?.message ?? 'Re-check failed.'); },
+    onCancelled: () => setExtractionJobId(null),
+  });
+  const recheckMutation = useMutation({
+    mutationFn: () => {
+      requireReviewer();
+      return apiPost('/rulebooks/extractions', { body: { guideline_text: localGuidelineText } });
+    },
+    onSuccess: (job) => { setProposals(null); setExtractionJobId(job.job_id); },
+    onError: (err) => setActionError(describeError(err)),
+  });
 
-  // Find cited sentence for the currently selected rule
-  const selectedRule = localRules.find((r) => r.rule_id === selectedRuleId);
+  const updateRules = (next: (rules: Rule[]) => Rule[]) => {
+    setLocalRules(next);
+    setHasUnsavedChanges(true);
+    setNotice(null);
+  };
+  const setRuleState = (ruleId: string, state: Rule['confirmation_state']) =>
+    updateRules((rules) => rules.map((r) => (r.rule_id === ruleId ? { ...r, confirmation_state: state } : r)));
+
+  const segments = useMemo(() => segmentGuideline(localGuidelineText, localRules), [localGuidelineText, localRules]);
+  const missingCitations = useMemo(() => rulesWithMissingCitations(localRules, localGuidelineText), [localRules, localGuidelineText]);
+  const blockers = useMemo(() => confirmationBlockers(localRules), [localRules]);
+  const ruleIds = localRules.map((r) => r.rule_id);
+
+  const captureSelection = () => {
+    const text = window.getSelection()?.toString().trim() ?? '';
+    if (text && localGuidelineText.includes(text)) setHighlightedText(text);
+  };
+
+  if (isLoading) return <div className="p-6 text-xs text-text-muted"><Loader2 className="inline w-4 h-4 animate-spin" /> Loading rulebook…</div>;
+  if (rulebookError) return <div role="alert" className="p-6 text-xs text-status-fail">Could not load rulebook: {describeError(rulebookError)}</div>;
 
   return (
     <div className="workstation-page rulebook-editor flex flex-col h-full bg-base overflow-hidden">
-      {/* Top Action Bar */}
-      <div className="h-14 border-b border-border bg-surface px-6 flex items-center justify-between shrink-0 select-none">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            leftIcon={<ArrowLeft className="w-4 h-4" />}
-            onClick={() => navigate('/rulebooks')}
-          >
-            Rulebooks
-          </Button>
-
+      <div className="h-14 border-b border-border bg-surface px-6 flex items-center justify-between shrink-0 select-none gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />} onClick={() => navigate('/rulebooks')}>Rulebooks</Button>
           <div className="h-4 w-px bg-border" />
-
-          <div className="flex items-center gap-2">
-            <span className="font-mono font-semibold text-text text-sm">
-              {rulebookId}
-            </span>
-            <span className="font-mono text-xs text-text-muted">
-              v{rulebook?.version ?? 1}
-            </span>
-            <Badge
-              variant={
-                isConfirmed ? 'pass' : isRejected ? 'fail' : 'pending'
-              }
-              size="sm"
-            >
-              {rulebook?.confirmation_state ?? 'draft'}
-            </Badge>
-          </div>
-
-          {/* Version Selector */}
-          {reviewHistoryError && <span role="alert" className="text-status-fail">Review history unavailable</span>}
-          {reviewHistory?.items?.length ? <span title={reviewHistory.items.map((entry) => `${entry.reviewer_id}: ${entry.action}`).join('\n')} className="text-2xs font-mono text-text-muted">{reviewHistory.items.length} review records</span> : null}
+          <span className="font-mono font-semibold text-text text-sm truncate">{rulebookId}</span>
+          <span className="font-mono text-xs text-text-muted">v{rulebook?.version ?? 1}</span>
+          <Badge variant={isConfirmed ? 'pass' : isRejected ? 'fail' : 'pending'} size="sm">{rulebook?.confirmation_state ?? 'draft'}</Badge>
           {versions.length > 1 && (
-            <div className="flex items-center gap-1.5 ml-2">
+            <label className="flex items-center gap-1.5 ml-2 text-xs">
               <History className="w-3.5 h-3.5 text-text-muted" />
+              <span className="sr-only">Version</span>
               <select
                 value={rulebook?.version ?? 1}
-                onChange={(e) => setSearchParams({ version: e.target.value })}
-                className="bg-surface-high border border-border rounded px-2 py-1 text-xs font-mono text-text focus:outline-none focus:border-accent"
+                onChange={(e) => {
+                  if (hasUnsavedChanges && !window.confirm('Discard unsaved edits and open another version?')) return;
+                  loadedKeyRef.current = null;
+                  setSearchParams({ version: e.target.value });
+                }}
+                className="bg-surface-high border border-border rounded px-2 py-1 text-xs font-mono text-text"
               >
-                {versions.map((v) => (
-                  <option key={v.version} value={v.version}>
-                    v{v.version} ({v.confirmation_state})
-                  </option>
-                ))}
+                {versions.map((v) => <option key={v.version} value={v.version}>v{v.version} ({v.confirmation_state})</option>)}
               </select>
-            </div>
+            </label>
           )}
+          {hasUnsavedChanges && <span className="text-2xs font-mono text-status-unsure">● unsaved changes</span>}
         </div>
 
-        {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          {isConfirmed ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<RotateCcw className="w-4 h-4 text-accent" />}
-              isLoading={reviseMutation.isPending}
-              onClick={() => reviseMutation.mutate()}
-            >
-              Revise Rulebook (New Draft)
-            </Button>
-          ) : (
+          {isReadOnly ? (
+            isLatest && (
+              <Button variant="secondary" size="sm" leftIcon={<RotateCcw className="w-4 h-4 text-accent" />} isLoading={reviseMutation.isPending} onClick={() => reviseMutation.mutate()}>
+                Start new draft from this
+              </Button>
+            )
+          ) : canEdit && (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                leftIcon={<XCircle className="w-4 h-4 text-status-fail" />}
-                isLoading={rejectMutation.isPending}
-                onClick={() => rejectMutation.mutate()}
-              >
-                Reject Rulebook
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Save className="w-4 h-4" />}
-                isLoading={saveDraftMutation.isPending}
-                disabled={!hasUnsavedChanges}
-                onClick={() => saveDraftMutation.mutate()}
-              >
-                Save Draft
-              </Button>
+              <Button variant="ghost" size="sm" leftIcon={<XCircle className="w-4 h-4 text-status-fail" />} isLoading={rejectMutation.isPending} onClick={() => rejectMutation.mutate()}>Reject draft</Button>
+              <Button variant="secondary" size="sm" leftIcon={<Save className="w-4 h-4" />} isLoading={saveDraftMutation.isPending} disabled={!hasUnsavedChanges} onClick={() => saveDraftMutation.mutate()}>Save draft</Button>
               <Button
                 variant="primary"
                 size="sm"
                 leftIcon={<CheckCircle2 className="w-4 h-4" />}
                 isLoading={confirmMutation.isPending}
+                disabled={blockers.undecided.length > 0 || blockers.retained.length === 0}
+                title={blockers.undecided.length ? `${blockers.undecided.length} rule(s) still need Confirm or Reject` : 'Lock this rulebook for audits'}
                 onClick={() => confirmMutation.mutate()}
               >
-                Confirm Rulebook
+                Confirm rulebook
               </Button>
             </>
           )}
         </div>
       </div>
 
-      {/* Conflict Alert Banner if 409 occurs */}
-      {conflictError && (
-        <div className="bg-status-fail/15 border-b border-status-fail/30 px-6 py-2.5 flex items-center justify-between text-xs text-status-fail">
-          <span>{conflictError}</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              void queryClient.invalidateQueries({
-                queryKey: queryKeys.rulebook(rulebookId!),
-              });
-            }}
-          >
-            Reload Latest
-          </Button>
+      {actionError && (
+        <div role="alert" className="editor-banner is-error">
+          <AlertTriangle size={14} /> <span>{actionError}</span>
+          <button onClick={() => setActionError(null)}>Dismiss</button>
         </div>
       )}
-
-      {/* Frozen Alert Banner if confirmed */}
+      {notice && <div role="status" className="editor-banner is-info"><span>{notice}</span><button onClick={() => setNotice(null)}>Dismiss</button></div>}
+      {!isLatest && <div className="editor-banner is-info"><span>You are viewing an older version (v{rulebook?.version}). Latest is v{latestVersion}.</span><button onClick={() => { loadedKeyRef.current = null; setSearchParams({ version: String(latestVersion) }); }}>Open latest</button></div>}
       {isConfirmed && (
-        <div className="bg-surface-high border-b border-border px-6 py-2 flex items-center justify-between text-xs text-text-muted">
-          <div className="flex items-center gap-2">
-            <Lock className="w-3.5 h-3.5 text-accent" />
-            <span>
-              This rulebook version is <strong>confirmed and frozen</strong> for audits. Edits are disabled.
-            </span>
-          </div>
-          <span className="font-mono text-2xs text-text-faint">
-            Click &quot;Revise Rulebook&quot; to spawn a mutable draft version.
-          </span>
+        <div className="editor-banner is-locked">
+          <Lock className="w-3.5 h-3.5 text-accent" />
+          <span>This version is <strong>confirmed and locked</strong>. Audits pin it exactly. To change rules, start a new draft.</span>
+        </div>
+      )}
+      {canEdit && (
+        <div className="editor-banner is-progress">
+          <span><b>{localRules.length - blockers.undecided.length}</b> of <b>{localRules.length}</b> rules decided</span>
+          {blockers.undecided.length > 0 && (
+            <button onClick={() => updateRules((rules) => rules.map((r) => ((r.confirmation_state ?? 'draft') === 'draft' ? { ...r, confirmation_state: 'confirmed' } : r)))}>
+              Confirm all {blockers.undecided.length} pending
+            </button>
+          )}
+          {blockers.rejected.length > 0 && <span className="text-text-faint">{blockers.rejected.length} rejected rule(s) will be left out on confirm</span>}
         </div>
       )}
 
-      {/* Split Workspace */}
       <div className="flex-1 flex min-h-0">
-        {/* Left Pane: Guidelines & Exact Citation Highlighting */}
+        {/* Left pane: guideline text with exact citations highlighted */}
         <div className="w-1/2 border-r border-border flex flex-col min-h-0 bg-base-pure">
-          <div className="p-3 border-b border-border bg-surface flex items-center justify-between">
+          <div className="p-3 border-b border-border bg-surface flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-medium text-text">
               <FileText className="w-4 h-4 text-accent" />
-              <span>Natural Language Guidelines (Citations)</span>
+              <span>Guideline text</span>
             </div>
-            <span className="text-2xs font-mono text-text-muted">
-              Click sentence to link rule
-            </span>
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <>
+                  <Button size="sm" variant="ghost" leftIcon={<Pencil className="w-3.5 h-3.5" />} onClick={() => setIsEditingText((v) => !v)}>{isEditingText ? 'Done editing' : 'Edit text'}</Button>
+                  <Button size="sm" variant="secondary" leftIcon={<RefreshCw className="w-3.5 h-3.5" />} isLoading={recheckMutation.isPending || extraction.isActive} disabled={!localGuidelineText.trim()} onClick={() => recheckMutation.mutate()} title="Run rule extraction again on this text and list any rules not already here">
+                    Re-check document
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
-          <div ref={citationsPaneRef} className="flex-1 p-6 overflow-y-auto font-mono text-xs leading-relaxed space-y-2">
-            {sentences.map((sentence, idx) => {
-              const matchingRules = localRules.filter(
-                (r) => r.source_sentence?.trim() === sentence.trim(),
-              );
-              const isSelected =
-                selectedRule?.source_sentence?.trim() === sentence.trim();
-              const hasRule = matchingRules.length > 0;
+          {extraction.isActive && (
+            <div className="editor-inline-status">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" /> Re-checking the guideline… ({extraction.progress?.phase ?? 'queued'})
+              <button onClick={() => extraction.cancel()}>Cancel</button>
+            </div>
+          )}
 
-              return (
-                <div
-                  key={idx}
-                  data-citation={sentence.trim()}
-                  onClick={() => {
-                    if (matchingRules.length > 0 && matchingRules[0]) {
-                      setSelectedRuleId(matchingRules[0].rule_id);
-                    }
-                  }}
-                  className={`p-2 rounded cursor-pointer transition-all border ${
-                    isSelected
-                      ? 'bg-accent/15 border-accent text-accent font-medium shadow-sm'
-                      : hasRule
-                      ? 'bg-surface/60 border-border/60 text-text hover:border-accent/40'
-                      : 'border-transparent text-text-faint hover:text-text-muted'
-                  }`}
+          {missingCitations.length > 0 && (
+            <div className="editor-inline-status is-warning">
+              <AlertTriangle size={13} /> Citations not found in the text for: {missingCitations.map((r) => r.rule_id).join(', ')}. Edit those rules or restore the text before saving.
+            </div>
+          )}
+
+          {isEditingText ? (
+            <textarea
+              aria-label="Guideline text"
+              className="flex-1 m-3 p-3 bg-base border border-border rounded font-mono text-xs leading-relaxed resize-none"
+              value={localGuidelineText}
+              onChange={(e) => { setLocalGuidelineText(e.target.value); setHasUnsavedChanges(true); }}
+            />
+          ) : (
+            <div ref={citationsPaneRef} className="guideline-text flex-1 p-6 overflow-y-auto" onMouseUp={captureSelection}>
+              {segments.length === 0 && <p className="text-text-faint">No guideline text.</p>}
+              {segments.map((segment, index) => segment.ruleIds.length ? (
+                <mark
+                  key={index}
+                  data-cites={segment.ruleIds.join(' ')}
+                  className={segment.ruleIds.includes(selectedRuleId ?? '') ? 'is-selected' : ''}
+                  title={`Cited by ${segment.ruleIds.join(', ')}`}
+                  onClick={() => setSelectedRuleId(segment.ruleIds[0] ?? null)}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <span>{sentence}</span>
-                    {hasRule && (
-                      <span className="shrink-0 px-1.5 py-0.2 rounded bg-surface-high border border-border text-2xs font-mono text-accent">
-                        {matchingRules.map((r) => r.rule_id).join(', ')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  {segment.text}
+                </mark>
+              ) : <span key={index}>{segment.text}</span>)}
+            </div>
+          )}
+          {canEdit && !isEditingText && <p className="guideline-hint">Tip: highlight any sentence above, then use it as the citation when you add a missed rule.</p>}
         </div>
 
-        {/* Right Pane: Rule Cards & Validation */}
+        {/* Right pane: rule checklist */}
         <div className="w-1/2 flex flex-col min-h-0 bg-base">
           <div className="p-3 border-b border-border bg-surface flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-medium text-text">
               <Layers className="w-4 h-4 text-accent" />
-              <span>Extracted & Authored Rules ({localRules.length})</span>
+              <span>Rules ({localRules.length})</span>
             </div>
-            <span className="text-2xs font-mono text-text-muted">
-              {localRules.filter((r) => r.confirmation_state === 'confirmed').length} confirmed
-            </span>
+            {canEdit && (
+              <Button size="sm" variant="primary" leftIcon={<Plus className="w-3.5 h-3.5" />} onClick={() => { setIsAddingRule(true); setEditingRuleId(null); }}>
+                Add missed rule
+              </Button>
+            )}
           </div>
 
-          <div ref={rulesPaneRef} className="flex-1 p-6 overflow-y-auto space-y-4">
+          <div ref={rulesPaneRef} className="flex-1 p-4 overflow-y-auto space-y-3">
+            {proposals && proposals.length > 0 && (
+              <section className="proposal-panel">
+                <header>
+                  <b>Re-check found {proposals.length} new proposal{proposals.length === 1 ? '' : 's'}</b>
+                  <span className="flex gap-2">
+                    <button onClick={() => { updateRules((rules) => [...rules, ...proposals]); setProposals(null); }}>Add all</button>
+                    <button onClick={() => setProposals(null)}>Dismiss</button>
+                  </span>
+                </header>
+                {proposals.map((proposal) => (
+                  <div key={proposal.rule_id} className="proposal-row">
+                    <div>
+                      <b className="font-mono">{proposal.rule_id}</b> {proposal.description}
+                      {proposal.source_sentence && <small>“{proposal.source_sentence}”</small>}
+                    </div>
+                    <button onClick={() => { updateRules((rules) => [...rules, proposal]); setProposals((list) => list?.filter((p) => p.rule_id !== proposal.rule_id) ?? null); }}>Add</button>
+                  </div>
+                ))}
+                <p className="text-2xs text-text-faint">The re-check also saved its own draft in the rulebook list; you can ignore it.</p>
+              </section>
+            )}
+
+            {isAddingRule && (
+              <RuleForm
+                suggestedId={suggestRuleId(localRules)}
+                guidelineText={localGuidelineText}
+                otherRuleIds={ruleIds}
+                selectedText={highlightedText}
+                checks={checks}
+                onCancel={() => setIsAddingRule(false)}
+                onSave={(rule) => { updateRules((rules) => [...rules, rule]); setIsAddingRule(false); setSelectedRuleId(rule.rule_id); }}
+              />
+            )}
+
+            {localRules.length === 0 && !isAddingRule && (
+              <p className="text-xs text-text-muted">No rules yet. {canEdit ? 'Add one by hand, or use “Re-check document” to extract rules from the text.' : ''}</p>
+            )}
+
             {localRules.map((rule) => {
               const isSelected = selectedRuleId === rule.rule_id;
+              const state = rule.confirmation_state ?? 'draft';
+              const requirement = describeRequirement(rule.check_name, rule.parameters as Record<string, unknown>);
+              const checkKnown = rule.check_name ? checks.find((check) => check.name === rule.check_name) : undefined;
+              if (editingRuleId === rule.rule_id) {
+                return (
+                  <RuleForm
+                    key={rule.rule_id}
+                    initial={rule}
+                    suggestedId={rule.rule_id}
+                    guidelineText={localGuidelineText}
+                    otherRuleIds={ruleIds.filter((id) => id !== rule.rule_id)}
+                    selectedText={highlightedText}
+                    checks={checks}
+                    onCancel={() => setEditingRuleId(null)}
+                    onSave={(updated) => { updateRules((rules) => rules.map((r) => (r.rule_id === rule.rule_id ? updated : r))); setEditingRuleId(null); }}
+                  />
+                );
+              }
               return (
                 <div
                   key={rule.rule_id}
                   data-rule-id={rule.rule_id}
                   onClick={() => setSelectedRuleId(rule.rule_id)}
-                  className={`p-4 rounded-lg border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-surface border-accent shadow-md ring-1 ring-accent'
-                      : 'bg-surface border-border hover:border-border-muted'
-                  }`}
+                  className={`rule-card is-${state}${isSelected ? ' is-selected' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-semibold text-xs text-text">
-                        {rule.rule_id}
-                      </span>
-                      <Badge
-                        variant={
-                          rule.confirmation_state === 'confirmed'
-                            ? 'pass'
-                            : rule.confirmation_state === 'rejected'
-                            ? 'fail'
-                            : 'pending'
-                        }
-                        size="sm"
-                      >
-                        {rule.confirmation_state ?? 'draft'}
-                      </Badge>
-                      <span className="text-2xs font-mono text-text-faint uppercase">
-                        {rule.origin}
-                      </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-semibold text-xs text-text">{rule.rule_id}</span>
+                      <Badge variant={state === 'confirmed' ? 'pass' : state === 'rejected' ? 'fail' : 'pending'} size="sm">{state === 'draft' ? 'needs decision' : state}</Badge>
+                      <span className="text-2xs font-mono text-text-faint">{rule.origin === 'reviewer' ? 'added by reviewer' : 'extracted'}</span>
                     </div>
-
-                    {!isReadOnly && (
+                    {canEdit && (
                       <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocalRules((prev) =>
-                              prev.map((r) =>
-                                r.rule_id === rule.rule_id
-                                  ? { ...r, confirmation_state: 'confirmed' }
-                                  : r,
-                              ),
-                            );
-                            setHasUnsavedChanges(true);
-                          }}
-                          className="px-2 py-0.5 rounded text-2xs font-mono bg-status-pass/10 text-status-pass border border-status-pass/30 hover:bg-status-pass/20"
-                        >
-                          Confirm
+                        <button type="button" className="rule-action is-confirm" aria-pressed={state === 'confirmed'} onClick={(e) => { e.stopPropagation(); setRuleState(rule.rule_id, state === 'confirmed' ? 'draft' : 'confirmed'); }}>
+                          {state === 'confirmed' ? 'Confirmed ✓' : 'Confirm'}
                         </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocalRules((prev) =>
-                              prev.map((r) =>
-                                r.rule_id === rule.rule_id
-                                  ? { ...r, confirmation_state: 'rejected' }
-                                  : r,
-                              ),
-                            );
-                            setHasUnsavedChanges(true);
-                          }}
-                          className="px-2 py-0.5 rounded text-2xs font-mono bg-status-fail/10 text-status-fail border border-status-fail/30 hover:bg-status-fail/20"
-                        >
-                          Reject
+                        <button type="button" className="rule-action is-reject" aria-pressed={state === 'rejected'} onClick={(e) => { e.stopPropagation(); setRuleState(rule.rule_id, state === 'rejected' ? 'draft' : 'rejected'); }}>
+                          {state === 'rejected' ? 'Rejected ✕' : 'Reject'}
                         </button>
+                        <button type="button" className="rule-action" title="Edit rule" aria-label={`Edit ${rule.rule_id}`} onClick={(e) => { e.stopPropagation(); setEditingRuleId(rule.rule_id); setIsAddingRule(false); }}><Pencil size={12} /></button>
+                        {rule.origin === 'reviewer' && (
+                          <button type="button" className="rule-action is-reject" title="Remove reviewer-added rule" aria-label={`Remove ${rule.rule_id}`} onClick={(e) => { e.stopPropagation(); updateRules((rules) => rules.filter((r) => r.rule_id !== rule.rule_id)); }}><Trash2 size={12} /></button>
+                        )}
                       </div>
                     )}
                   </div>
 
-                  <p className="text-xs text-text mb-3 leading-normal">
-                    {rule.description}
-                  </p>
+                  <p className="text-xs text-text mb-2 leading-normal">{rule.description}</p>
 
-                  {/* Bound Check & Parameters */}
-                  <div className="bg-surface-high/60 border border-border/50 rounded p-2.5 space-y-2 text-2xs font-mono">
-                    <div className="flex items-center justify-between">
-                      <span className="text-text-muted">Bound Check:</span>
-                      <span className={rule.check_name && capabilities?.checks.some((check) => check.name === rule.check_name && check.implementation === 'implemented') ? 'text-status-pass' : 'text-status-unsure'} title="Check availability comes from the capabilities catalogue">
-                        {rule.check_name ? `${rule.check_name} · ${capabilities?.checks.find((check) => check.name === rule.check_name)?.implementation ?? 'not in catalogue'}` : 'None (Unbound)'}
-                      </span>
+                  <dl className="rule-facts">
+                    <div>
+                      <dt>Check</dt>
+                      <dd className={rule.check_name && checkKnown?.implementation !== 'implemented' ? 'text-status-unsure' : ''}>
+                        {rule.check_name
+                          ? `${checkLabel(rule.check_name)}${checkKnown ? (checkKnown.implementation === 'implemented' ? '' : ' (planned — will report “could not check”)') : ' (not in catalogue — will report “could not check”)'}`
+                          : 'None — reviewers check this by eye'}
+                      </dd>
                     </div>
-
-                    {rule.parameters && Object.keys(rule.parameters).length > 0 && (
-                      <div className="pt-1.5 border-t border-border/40">
-                        <span className="text-text-muted block mb-1">Parameters:</span>
-                        <pre className="text-text font-mono overflow-x-auto text-3xs p-1.5 bg-base rounded">
-                          {JSON.stringify(rule.parameters, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-
-                    {rule.source_sentence && (
-                      <div className="pt-1.5 border-t border-border/40 text-text-muted">
-                        <span className="text-text-faint block">Cited Sentence:</span>
-                        <span className="text-text italic">
-                          &quot;{rule.source_sentence}&quot;
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                    {requirement && <div><dt>Requires</dt><dd>{requirement}</dd></div>}
+                    <div>
+                      <dt>Source</dt>
+                      <dd>{rule.source_sentence ? <em>“{rule.source_sentence}”</em> : <span className="text-text-faint">No citation (reviewer-authored)</span>}</dd>
+                    </div>
+                  </dl>
                 </div>
               );
             })}
+
+            {reviewHistory?.items?.length ? (
+              <details className="rule-history">
+                <summary>Review history ({reviewHistory.items.length})</summary>
+                <ol>
+                  {reviewHistory.items.map((entry) => (
+                    <li key={`${entry.version}-${entry.action}`}>v{entry.version} · {entry.action} · {entry.reviewer_id}{entry.created_at ? ` · ${formatTimestamp(entry.created_at)}` : ''}</li>
+                  ))}
+                </ol>
+              </details>
+            ) : null}
           </div>
         </div>
       </div>

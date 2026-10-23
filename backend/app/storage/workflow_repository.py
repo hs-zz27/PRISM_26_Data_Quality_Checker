@@ -217,6 +217,8 @@ class JobClaim:
 def _require_identifier(value: object, name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be a non-empty string.")
+    if "\x00" in value:
+        raise ValueError(f"{name} must not contain NUL characters.")
     return value
 
 def _require_positive_integer(value: object, name: str) -> int:
