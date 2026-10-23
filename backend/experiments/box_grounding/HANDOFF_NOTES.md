@@ -150,3 +150,38 @@ control scored F1 0.667 and v2 scored 0.857, both with 7/8 coverage. The assessm
 remains inconclusive due to identity-copy failures; v2 also retains one small-crop
 false positive. See PER_BOX_RESULTS.md and
 reference_results/paired_crop_v2_mac.json. No production activation follows.
+
+## Latest status — 23 October 2026
+
+The prior identity-copy blocker was absent in the bound-v1 diagnostic and fresh
+24-image evaluation. Frozen labels and run records verify image F1 .500 raw
+versus .818 crop v2, with full coverage. Crop box-level performance is 50/61;
+11 false-positive boxes remain, predominantly small pedestrians but including
+two clearly visible large crops. Crops cost 2.42 times the raw call duration.
+See PER_BOX_RESULTS.md and reference_results/paired_fresh_v1.json for details.
+This supersedes the earlier inconclusive run as the latest evidence without
+changing historical results. No production adoption or feedback-policy accuracy
+claim. A context-preserving marked-target crop is the next proposed diagnostic,
+not an implemented or validated improvement. Owner runs all tests/inference.
+
+## Context probe outcome — 23 October 2026
+
+The owner-run marked-context diagnostic completed. Context was correct on all
+8 selected boxes versus 4/8 for the fresh tight-crop control; all three background
+controls remained correct. No unavailable responses. This is selected development
+evidence, not a general 100% accuracy claim. Freeze the combined context/marker/
+instruction variant and evaluate new untouched cases before adoption. See
+PER_BOX_RESULTS.md and reference_results/context_probe_v1_mac.json.
+
+## Latest: fresh context validation completed
+
+Context 49/49 boxes versus tight 48/49; both 24/24 images. One corrected false
+flag, no missed background boxes. See PER_BOX_RESULTS.md and
+reference_results/context_validation_v1_mac.json. Small positive targets remain
+insufficiently covered; no production promotion or inference performed.
+
+## Targeted validation complete
+
+Context-v1 12/12; tight-v2 10/12. Context corrected two false flags and preserved
+all four violation detections, at similar summed duration. See PER_BOX_RESULTS.md
+and reference_results/targeted_context_v1_mac.json. No production changes.

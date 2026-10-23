@@ -212,3 +212,135 @@ pedestrian crop. New variants must preserve these results and use explicit
 versions. Fresh independently reviewed images remain necessary for any broader
 accuracy claim. No additional model run, activation or production change was
 performed while reviewing these records.
+
+## Fresh blind evaluation — 23 October 2026
+
+The owner reviewed 24 fresh images / 61 boxes before inference: 15 compliant
+images and 9 violating images, derived from 52 passing and 9 failing boxes.
+Sources are hash-disjoint from recorded previous local experiments; similar
+scenes and undocumented exposure remain possible. Labels, evidence hashes and
+experiment code were sealed before prediction and verified against run records.
+The runner's legacy `development` partition selector does not describe this
+cohort's evaluation role. Stock report prose assuming eight cases was replaced
+in the saved held-out report; calculations use the existing metric functions.
+
+`paired-fresh-v1` completed 48/48 units and 85 calls on the pinned Mac model
+with `bound-v1`, ten CPU threads and 3600-second keep-alive. No source changes,
+unsure outcomes or unavailable outcomes were recorded. Raw: TP7 FP12 FN2 TN3,
+10/24 correct, precision .368, recall .778, F1 .500. Crop v2: TP9 FP4 FN0 TN11,
+20/24 correct, precision .692, recall 1.000, F1 .818. Scorer assessment: improved.
+
+Crop box judgments were 50/61 correct: TP9 FP11 FN0 TN41. Image aggregation
+hides extra false box flags in already-failing images. Crop false-positive
+images are fresh-13, fresh-14, fresh-20 and fresh-23. Exploratory analysis:
+8/12 human-positive boxes <=100 pixels tall were falsely flagged, versus 3/40
+taller boxes. This supports size-related difficulty but not scale as a sole
+cause. Inspection of fresh-10 box 2 (152x302) and fresh-20 box 2 (152x279)
+confirmed visible pedestrians despite model claims of background only.
+
+Wall time: 127.48 minutes. Raw calls: 37.22 minutes; crop calls: 90.25 minutes,
+about 2.42 times the raw total. These are observed sequential-run timings,
+not isolated cold-start benchmarks. This small, single-reviewer, controlled
+cohort supports an enclosure-method improvement, not general deployment accuracy
+or learned feedback-policy improvement. No production activation is implied.
+
+Shareable text records, labels, hashes and scores are in
+`reference_results/paired_fresh_v1.json`. Original run data remain preserved.
+The owner previously reported focused experiment tests passed; this review
+performed offline scoring and integrity checks only, with no pytest or inference.
+
+Next proposed experiment (not implemented): provide surrounding context while
+marking the exact original target box, preserve box coordinates/provenance,
+and explicitly disallow counting pedestrians outside the target box as a pass.
+First use a small diagnostic set of known failure and background-control cases.
+Any tuning based on this cohort makes it development data for that new variant;
+subsequent final validation requires another untouched human-reviewed set.
+
+## Marked context probe — 23 October 2026
+
+The owner completed context-probe-v1: eight selected boxes, both arms, 16 model
+requests. All results were verified against frozen per-box labels. Scope and
+label seals, saved image hashes, request hashes from pre-run preparation and
+run implementation fingerprints matched. No unavailable or unsure results.
+
+Tight crop v2: 4/8 correct (TP3 FP4 FN0 TN1). Marked context v1: 8/8 correct
+(TP3 FP0 FN0 TN5). All four selected pedestrian errors changed to correct passes,
+including the 7x20 target and both large crops. All three background controls
+remained fail, and the previously correct small pedestrian remained pass. This
+meets the pre-recorded useful-diagnostic criterion for this selected set.
+
+Total wall time was 20.22 minutes. Tight calls totaled 526.91 seconds; context
+calls totaled 685.95 seconds. Two tight responses took approximately 11–12 seconds;
+cache reuse is plausible but not proven from the recorded metrics. Do not claim
+a controlled speed ratio or a reduction in latency from this run.
+
+These boxes were selected using prior outcomes, so 8/8 is not population accuracy
+or a whole-image evaluation. Context, marker and wording changed together; their
+individual causal contributions remain unknown. The result supports freezing
+this combined variant for a new untouched validation set, especially including
+background targets adjacent to pedestrians and small/occluded pedestrians. It
+does not justify automatic production decisions or feedback-learning claims.
+
+Detailed text-only provenance and responses are saved in
+reference_results/context_probe_v1_mac.json. The separate diagnostic-score.json
+is preserved in the local run folder. No tests or inference were executed by the
+assistant while scoring these records.
+
+## Fresh context validation — 23 October 2026
+
+Run `paired-context-validation-v1` completed all 98 sequential requests across
+49 boxes in 24 independently owner-labeled images. Labels were sealed before
+inference. Verified all unique planned records, pre-adaptation request hashes,
+saved image hashes, code hashes, execution settings and returned identities.
+No unavailable or unsure responses occurred. Text evidence is preserved in
+`reference_results/context_validation_v1_mac.json`; local scoring is in the run's
+`validation-score.json`.
+
+Tight crops: 48/49 boxes correct (TP 10, FP 1, FN 0, TN 38; F1 0.9524).
+Context crops: 49/49 boxes correct (TP 10, FP 0, FN 0, TN 39; F1 1.0).
+The single corrected false flag was validation-23 box 4. Both methods correctly
+classified all 24 images (TP 10, FP 0, FN 0, TN 14), because that image also has
+a genuine violation in box 5. Image aggregation therefore hides the box-4 error.
+
+Summed request duration: tight 68.17 minutes; context 69.81 minutes, approximately
+2.4% longer. Total wall time was 138.02 minutes. These are observed paired-run
+timings, not an isolated hardware benchmark.
+
+The preregistered directional criterion is met: one fewer box error, no increase
+in background misses, and no coverage loss. One discordant box is insufficient
+to establish general superiority or population accuracy. This cohort contains
+no tiny positive boxes comparable to earlier 7x20 failures, so it does not validate
+that difficult subgroup. Padding, target marker and wording changed together;
+this experiment cannot attribute benefit to one component alone.
+
+Next: retain context-v1 as an experimental option and validate difficult small,
+partially visible targets and backgrounds near people before making it a default.
+Production behavior has not been changed. No pytest or model inference was run
+during scoring.
+
+## Targeted context validation — 23 October 2026
+
+Run `paired-targeted-context-v1`: 12 new source images, one box each, 24 paired
+requests. Owner labels frozen before inference: eight pass, four fail. Verified
+label seal and timestamps, frozen/run code, scope/plan hashes, regenerated request
+hashes, saved images and returned identities. No unavailable or unsure outputs.
+
+Tight-v2: 10/12 correct, TP 4, FP 2, FN 0, TN 6; F1 0.8.
+Context-v1: 12/12 correct, TP 4, FP 0, FN 0, TN 8; F1 1.0.
+Context corrected targeted-02 (45x118, smallest-available subgroup) and targeted-08
+(111x138, synthetic partial box). Both arms detected all four owner-labeled
+violations near pedestrians. One box per image makes image and box scores equal.
+
+Summed request duration: tight 1004.74 seconds; context 1007.01 seconds (about
+16.8 minutes each). Wall time: 33.53 minutes. Timing is observational.
+
+This provides additional evidence for the combined context/marker/instruction
+variant. It does not establish general superiority: the challenge set is small,
+partial annotations are synthetic, and the smallest positive is 106 pixels tall.
+Truly tiny pedestrians and natural occlusion remain unvalidated. Frozen prompt
+was not tuned between the preceding fresh validation and this targeted run.
+
+Record: `reference_results/targeted_context_v1_mac.json`. Production behavior
+remains unchanged. A scoped, optional integration for this enclosure rule is a
+reasonable next implementation step, retaining human review and the original
+image/box evidence. Do not apply the crop approach indiscriminately to other rules.
