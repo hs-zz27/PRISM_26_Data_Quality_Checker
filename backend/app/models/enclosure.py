@@ -58,9 +58,9 @@ class EnclosureExecutionPin(EnclosureModel):
     max_request_bytes: int = Field(ge=1024, le=128 * 1024**2)
     max_response_bytes: int = Field(ge=1024, le=65_536)
     keep_alive_seconds: int = Field(ge=0, le=3600)
-    max_image_bytes: int = Field(default=8 * 1024**2, ge=1, le=64 * 1024**2)
-    max_annotation_bytes: int = Field(default=131_072, ge=1, le=1024**2)
-    max_pixels: int = Field(default=16_000_000, ge=1, le=100_000_000)
+    max_image_bytes: int = Field(default=8 * 1024**2, ge=1024, le=16 * 1024**2)
+    max_annotation_bytes: int = Field(default=131_072, ge=1024, le=262_144)
+    max_pixels: int = Field(default=16_000_000, ge=1, le=32_000_000)
 
     @field_validator("host")
     @classmethod

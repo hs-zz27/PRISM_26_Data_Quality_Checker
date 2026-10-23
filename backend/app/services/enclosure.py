@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -28,7 +29,8 @@ from .feedback_evidence import evidence as read_evidence
 
 
 def prepare_enclosure_runtime(request: Any, book: Any,
-                              loader: Callable[[], EnclosureRuntime | None] = load_enclosure_runtime) -> Any:
+                              loader: Callable[[], EnclosureRuntime | None] = load_enclosure_runtime, *,
+                              preserve_runtime: bool = False) -> Any:
     """Freeze the pin at acceptance. No inference; absent configuration leaves the rule unavailable."""
     uses = any(rule.check_name == CHECK_NAME for rule in book.rules)
     if not uses:
@@ -39,6 +41,8 @@ def prepare_enclosure_runtime(request: Any, book: Any,
         raise FeedbackError("POLICY_INCOMPATIBLE")  # a supplied policy is never ignored for this method
     if request.source_mode.value != "snapshot":
         raise FeedbackError("POLICY_INCOMPATIBLE")
+    if preserve_runtime:
+        return request  # A disabled parent is a frozen choice too.
     runtime = request.enclosure_runtime if request.enclosure_runtime is not None else loader()
     return request if runtime is None else request.model_copy(update={"enclosure_runtime": runtime})
 
@@ -60,24 +64,28 @@ def _box_record(view: ContextView, call: Any, failure: str | None, request_sha25
 
 
 def _judge_boxes(views: tuple[ContextView, ...], rule: dict[str, Any], case_id: str, runtime: EnclosureRuntime,
-                 clock: Callable[[], float], transport: httpx.BaseTransport | None) -> list[dict[str, Any]]:
+                 clock: Callable[[], float], transport: httpx.BaseTransport | None, *,
+                 deadline: float, checkpoint: Callable[[], None] | None = None) -> list[dict[str, Any]]:
     pin = runtime.execution
-    deadline = clock() + pin.sample_budget_seconds
     records: list[dict[str, Any]] = []
-    client = EnclosureClient(pin, transport=transport)
+    client = EnclosureClient(pin, transport=transport, clock=clock)
     try:
         for view in views:  # strictly sequential; every intended box is accounted for
-            remaining = deadline - clock()
+            if checkpoint is not None:
+                checkpoint()
             try:
                 prepared = build_request(pin, rule, case_id, view)
             except ContextNotRepresentable as error:
                 records.append(_box_record(view, None, error.code, None))
                 continue
-            if remaining < 1:
+            remaining = deadline - clock()
+            if remaining <= 0:
                 records.append(_box_record(view, None, "sample_budget_exhausted", prepared.sha256))
                 continue
             call = client.chat(prepared, box_identity(case_id, rule["rule_id"], view),
                                min(float(pin.request_timeout_seconds), remaining))
+            if checkpoint is not None:
+                checkpoint()
             records.append(_box_record(view, call, None, prepared.sha256))
     finally:
         client.close()
@@ -98,7 +106,9 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
                       audit_id: str, sample_id: str, sample_revision: int,
                       clock: Callable[[], float] = time.monotonic,
                       transport: httpx.BaseTransport | None = None,
-                      evidence_reader: Callable[..., Any] = read_evidence) -> Any:
+                      evidence_reader: Callable[..., Any] = read_evidence,
+                      processing_deadline: datetime | None = None,
+                      checkpoint: Callable[[], None] | None = None) -> Any:
     """Replace each enclosure rule's placeholder with one finding holding every box's proposal."""
     if runtime is None:
         return evaluation
@@ -107,6 +117,13 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
     if not targets:
         return evaluation
     pin = runtime.execution
+    # One allowance includes evidence preparation and every rule/box in this sample.
+    allowance = float(pin.sample_budget_seconds)
+    if processing_deadline is not None:
+        from ..core.enclosure import SAMPLE_DEADLINE_MARGIN_SECONDS
+        allowance = min(allowance, (processing_deadline - datetime.now(UTC)).total_seconds()
+                        - SAMPLE_DEADLINE_MARGIN_SECONDS)
+    deadline = clock() + max(0.0, allowance)
     ids = dict(audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision,
                rulebook_id=rulebook.rulebook_id, rulebook_version=rulebook.version)
     findings = [f for f in evaluation.findings if f.check_name != CHECK_NAME]
@@ -136,7 +153,8 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
         case_id = case_identity(rulebook_id=rulebook.rulebook_id, rulebook_version=rulebook.version,
                                 rule_id=rule.rule_id, sample_id=sample_id, sample_revision=sample_revision,
                                 image_sha256=facts["image_sha256"], annotation_sha256=facts["annotation_sha256"])
-        boxes = _judge_boxes(views, rule_document, case_id, runtime, clock, transport)
+        boxes = _judge_boxes(views, rule_document, case_id, runtime, clock, transport,
+                             deadline=deadline, checkpoint=checkpoint)
         outcome, label = aggregate_sample([BoxVerdict(outcome=b["outcome"], model_verified=b["model_verified"])
                                            for b in boxes])
         marked = [str(b["box_number"]) for b in boxes if b["outcome"] == outcome and outcome != "pass"]

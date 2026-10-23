@@ -515,7 +515,8 @@ class BatchAuditService:
                 ),
                 kwargs={"snapshot_manifest": manifest, "asset_settings": asset_settings,
                         "feedback_runtime":request.feedback_runtime,
-                        "enclosure_runtime": request.enclosure_runtime},
+                        "enclosure_runtime": request.enclosure_runtime,
+                        "processing_deadline": sample_claim.processing_deadline},
                 daemon=True,
             )
             try:
@@ -747,6 +748,8 @@ class BatchAuditService:
                         from .enclosure import augment_enclosure
                         evaluation = augment_enclosure(evaluation, rulebook, self._snapshot_for_claim(request, sample_claim),
                             request.enclosure_runtime, self.manifest_repository.asset_settings,
+                            processing_deadline=sample_claim.processing_deadline,
+                            checkpoint=lambda: self._checkpoint(sample_claim, renew=False),
                             audit_id=sample_claim.audit_id, sample_id=sample_claim.sample_id,
                             sample_revision=sample_claim.sample_revision)
                 # Preserve the collector's source-processing status. The

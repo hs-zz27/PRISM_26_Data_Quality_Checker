@@ -8,6 +8,7 @@ Nothing is repaired, retried or substituted. Any failure is an explicit, safe re
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 import json
 import re
@@ -46,24 +47,34 @@ class BoxCall:
 
 
 class EnclosureClient:
-    def __init__(self, pin: EnclosureExecutionPin, *, transport: httpx.BaseTransport | None = None):
+    def __init__(self, pin: EnclosureExecutionPin, *, transport: httpx.BaseTransport | None = None,
+                 clock: Callable[[], float] = time.monotonic):
         self.pin = pin
+        self.clock = clock
         self.client = httpx.Client(base_url=pin.host, trust_env=False, follow_redirects=False,
                                    timeout=pin.request_timeout_seconds, transport=transport)
 
     def close(self) -> None:
         self.client.close()
 
-    def request(self, method: str, path: str, body: bytes | None, timeout: float, limit: int) -> dict[str, Any]:
+    def remaining(self, deadline: float) -> float:
+        remaining = deadline - self.clock()
+        if remaining <= 0:
+            raise InferenceUnavailable("request_timeout")
+        return remaining
+
+    def request(self, method: str, path: str, body: bytes | None, deadline: float, limit: int) -> dict[str, Any]:
         if body is not None and len(body) > self.pin.max_request_bytes:
             raise InferenceUnavailable("context_limit")
         try:
-            with self.client.stream(method, path, content=body, timeout=timeout,
+            with self.client.stream(method, path, content=body, timeout=self.remaining(deadline),
                                     headers={"Content-Type": "application/json"}) as response:
+                self.remaining(deadline)
                 response.raise_for_status()
                 parts: list[bytes] = []
                 total = 0
                 for part in response.iter_bytes():
+                    self.remaining(deadline)
                     total += len(part)
                     if total > limit:
                         raise InferenceUnavailable("response_limit")
@@ -77,12 +88,13 @@ class EnclosureClient:
             raise InferenceUnavailable("connection_failed") from error
         except (httpx.HTTPError, ValueError, UnicodeError, RecursionError) as error:
             raise InferenceUnavailable("invalid_response") from error
+        self.remaining(deadline)
         if not isinstance(result, dict) or result.get("error"):
             raise InferenceUnavailable("invalid_response")
         return result
 
-    def verify(self, timeout: float) -> None:
-        models = self.request("GET", "/api/tags", None, timeout, _METADATA_LIMIT).get("models")
+    def verify(self, deadline: float) -> None:
+        models = self.request("GET", "/api/tags", None, deadline, _METADATA_LIMIT).get("models")
         tag = self.pin.model
         matched = [m for m in models if isinstance(m, dict) and m.get("name") in {tag, tag + ":latest"}] \
             if isinstance(models, list) else []
@@ -93,7 +105,7 @@ class EnclosureClient:
             raise InferenceUnavailable("identity_unavailable")
         if digest != self.pin.model_digest:
             raise InferenceUnavailable("model_identity_changed")
-        shown = self.request("POST", "/api/show", json.dumps({"model": tag}).encode(), timeout, _METADATA_LIMIT)
+        shown = self.request("POST", "/api/show", json.dumps({"model": tag}).encode(), deadline, _METADATA_LIMIT)
         capabilities = shown.get("capabilities")
         if (shown.get("remote_host") or shown.get("remote_model")
                 or not isinstance(capabilities, list) or "vision" not in capabilities):
@@ -115,17 +127,18 @@ class EnclosureClient:
 
     def chat(self, prepared: PreparedRequest, identity: dict[str, Any], timeout: float) -> BoxCall:
         """Verify, request, validate and verify again, all inside one time allowance."""
-        start = time.monotonic()
+        start = self.clock()
+        deadline = start + timeout
         response_model: BoxResponse | None = None
         failure: str | None = None
         verified, chat_ms = False, None
         try:
-            self.verify(timeout)
-            chat_start = time.monotonic()
+            self.verify(deadline)
+            chat_start = self.clock()
             try:
-                reply = self.request("POST", "/api/chat", prepared.body, timeout, self.pin.max_response_bytes)
+                reply = self.request("POST", "/api/chat", prepared.body, deadline, self.pin.max_response_bytes)
             finally:
-                chat_ms = (time.monotonic() - chat_start) * 1000
+                chat_ms = (self.clock() - chat_start) * 1000
             content = self.check(reply)
             try:
                 json.loads(content, object_pairs_hook=unique_object)
@@ -135,8 +148,9 @@ class EnclosureClient:
             if any(getattr(response_model, field) != value for field, value in identity.items()):
                 response_model = None
                 raise InferenceUnavailable("identity_mismatch")
-            self.verify(timeout)
+            self.verify(deadline)
+            self.remaining(deadline)
             verified = True
         except InferenceUnavailable as error:
             response_model, failure = None, str(error)
-        return BoxCall(response_model, failure, verified, (time.monotonic() - start) * 1000, chat_ms)
+        return BoxCall(response_model, failure, verified, (self.clock() - start) * 1000, chat_ms)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pickle
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -100,6 +101,7 @@ def run_sample_child(
     asset_settings: AssetStorageSettings | None = None,
     feedback_runtime: Any = None,
     enclosure_runtime: Any = None,
+    processing_deadline: datetime | None = None,
 ) -> None:
     """Collect and evaluate one sample without opening the workflow database."""
     _clear_database_environment()
@@ -141,6 +143,7 @@ def run_sample_child(
                         raise SampleComputationError("Model checks require immutable snapshot evidence.")
                     from .enclosure import augment_enclosure
                     evaluation = augment_enclosure(evaluation, rulebook, snapshot_manifest, enclosure_runtime, asset_settings,
+                        processing_deadline=processing_deadline,
                         audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision)
                 message = (
                     "success", measurements, evaluation.findings,

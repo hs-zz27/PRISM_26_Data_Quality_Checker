@@ -261,12 +261,91 @@ def test_a_changed_model_digest_makes_the_result_unavailable():
     assert finding.outcome is FindingOutcome.UNAVAILABLE and document["boxes"][0]["reason"] == "model_identity_changed"
 
 
+class Clock:
+    def __init__(self):
+        self.value = 0.0
+
+    def __call__(self):
+        return self.value
+
+
 def test_the_sample_budget_bounds_the_work_and_unsent_boxes_stay_accounted_for():
-    ticks = iter([0.0, 0.0, 1000.0, 1000.0])  # clock reads: deadline start, box 1, box 2, box 3
-    finding, document = finding_of(run(THREE, clock=lambda: next(ticks))[0])
-    assert [b["reason"] for b in document["boxes"][1:]] == ["sample_budget_exhausted"] * 2
-    assert document["boxes"][0]["model_verified"] and finding.outcome is FindingOutcome.UNAVAILABLE
+    clock = Clock()
+    def advance(count, reply, req):
+        clock.value += 430
+    finding, document = finding_of(run(THREE, FakeOllama(behavior=advance), clock=clock)[0])
+    assert [b["outcome"] for b in document["boxes"]] == ["pass", "unavailable", "unavailable"]
+    assert document["boxes"][1]["reason"] == "request_timeout"
+    assert document["boxes"][2]["reason"] == "sample_budget_exhausted"
+    assert finding.outcome is FindingOutcome.UNAVAILABLE
     assert len(document["boxes"]) == document["boxes_intended"] == 3
+
+
+def test_budget_is_shared_between_rules_and_verified_failure_survives_exhaustion():
+    clock = Clock()
+    def advance(count, reply, req):
+        clock.value += 430
+    fake = FakeOllama(decide=lambda _: ("fail", "Background only."), behavior=advance)
+    result, _ = run(THREE[:2], fake, clock=clock, rules=[rule(rule_id="R1"), rule(rule_id="R2")])
+    first, second = result.findings
+    assert first.outcome is FindingOutcome.FAIL
+    assert second.outcome is FindingOutcome.UNAVAILABLE
+    assert len(fake.chat_bodies) == 2
+    assert all(b["reason"] == "sample_budget_exhausted"
+               for b in second.evidence.measurements["enclosure"]["boxes"])
+
+
+@pytest.mark.parametrize("preserved", [None, "enabled"])
+def test_recheck_never_loads_environment_even_when_parent_was_disabled(preserved):
+    original = request(enclosure_runtime=runtime() if preserved else None)
+    def forbidden():
+        raise AssertionError("Rechecks must not load current model settings")
+    assert prepare_enclosure_runtime(original, book(rule()), loader=forbidden,
+                                     preserve_runtime=True) is original
+
+
+def test_client_shares_allowance_between_verification_and_chat():
+    from backend.app.inference.enclosure_client import EnclosureClient
+    from backend.app.services.enclosure_prompt import build_request, box_identity
+    from backend.app.services.enclosure_views import render_views, ViewLimits
+    clock, fake, timeouts = Clock(), FakeOllama(), []
+    def handle(req):
+        timeouts.append(req.extensions["timeout"]["read"])
+        clock.value += 3
+        return fake.handle(req)
+    rt = runtime()
+    view, = render_views(png(), inputs(THREE[:1])["objects"], (1, 1), ViewLimits(), max_boxes=12)
+    prepared = build_request(rt.execution, rule().model_dump(mode="json"), "a" * 64, view)
+    client = EnclosureClient(rt.execution, clock=clock, transport=httpx.MockTransport(handle))
+    try:
+        call = client.chat(prepared, box_identity("a" * 64, rule().rule_id, view), 10)
+    finally:
+        client.close()
+    assert timeouts == [10, 7, 4, 1]
+    assert call.failure == "request_timeout" and not call.model_verified and call.response is None
+
+
+def test_expired_processing_allowance_sends_no_model_requests():
+    from datetime import UTC, datetime
+    fake = FakeOllama()
+    result = augment_enclosure(RuleEvaluationResult(findings=[], internal_check_failures=0), book(rule()),
+        MANIFEST, runtime(), object(), transport=fake.transport(), evidence_reader=reader(THREE),
+        processing_deadline=datetime(2000, 1, 1, tzinfo=UTC), **IDS)
+    assert not fake.calls
+    assert all(b["reason"] == "sample_budget_exhausted"
+               for b in finding_of(result)[1]["boxes"])
+
+
+def test_checkpoint_loss_propagates_before_any_model_call():
+    from backend.app.storage.workflow_repository import JobClaimLostError
+    fake = FakeOllama()
+    def lost():
+        raise JobClaimLostError("replaced")
+    with pytest.raises(JobClaimLostError):
+        augment_enclosure(RuleEvaluationResult(findings=[], internal_check_failures=0), book(rule()),
+            MANIFEST, runtime(), object(), transport=fake.transport(), evidence_reader=reader(THREE),
+            checkpoint=lost, **IDS)
+    assert not fake.calls
 
 
 @pytest.mark.parametrize("boxes,code", [
@@ -358,7 +437,7 @@ def test_the_spawned_child_runs_the_enclosure_step_after_evaluation(monkeypatch)
 
     monkeypatch.setattr("backend.app.services.enclosure.augment_enclosure", fake_augment)
     message, _ = child(monkeypatch, manifest=SimpleNamespace(), settings=object(), enclosure=runtime())
-    assert message[0] == "success" and message[3] == 7 and calls[0][2] == {"audit_id": "audit_1", "sample_id": "sample_1", "sample_revision": 2}
+    assert message[0] == "success" and message[3] == 7 and calls[0][2] == {"audit_id": "audit_1", "sample_id": "sample_1", "sample_revision": 2, "processing_deadline": None}
 
 
 def test_without_a_pin_the_child_is_unchanged(monkeypatch):

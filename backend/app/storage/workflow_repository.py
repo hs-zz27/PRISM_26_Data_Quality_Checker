@@ -1314,6 +1314,7 @@ class AuditRepository(_WorkflowRepository):
         audit_id: str | None = None,
         job_id: str | None = None,
         now: datetime | None = None,
+        preserve_enclosure_runtime: bool = False,
     ) -> tuple[AuditRun, Job]:
         request = self._snapshot_request(request)
         if request.source_mode is AuditSourceMode.SNAPSHOT:
@@ -1369,7 +1370,10 @@ class AuditRepository(_WorkflowRepository):
             raise FeedbackError('POLICY_INCOMPATIBLE')
         if bookrow is not None:
             from ..services.enclosure import prepare_enclosure_runtime
-            request = prepare_enclosure_runtime(request, RulebookRepository._decode(bookrow))
+            request = prepare_enclosure_runtime(
+                request, RulebookRepository._decode(bookrow),
+                preserve_runtime=preserve_enclosure_runtime,
+            )
         request_document = Jsonb(request.model_dump(mode="json"))
         connection.execute(
             """INSERT INTO jobs
