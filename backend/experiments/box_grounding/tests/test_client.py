@@ -140,11 +140,12 @@ def test_malformed_unstructured_or_duplicate_field_content_is_an_invalid_proposa
     ("crop", {"case_id": "f" * 64}), ("crop", {"rule_id": "OTHER"}),
     ("crop", {"box_number": 2}), ("crop", {"object_id": 99}),
 ])
-def test_an_incorrect_returned_identity_is_never_repaired(setup, kind, change):
+@pytest.mark.parametrize("identity_schema", ["echo-v1", "bound-v1"])
+def test_an_incorrect_returned_identity_is_never_repaired(setup, kind, change, identity_schema):
     def behavior(count, reply, request):
         prediction = json.loads(reply["message"]["content"])
         return reply_with(json.dumps({**prediction, **change}))(count, reply, request)
-    result = call(setup, FakeOllama(behavior=behavior), kind)
+    result = call(setup, FakeOllama(behavior=behavior), kind, identity_schema=identity_schema)
     assert (result.prediction, result.reason, result.model_verified) == (None, "identity_mismatch", False)
 
 

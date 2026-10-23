@@ -185,3 +185,23 @@ def test_unknown_crop_version_is_rejected(parts):
     scope, case, crops, texts = parts
     with pytest.raises(ValueError, match="Unsupported crop variant"):
         crop_request(scope, case, crops[0], texts, execution(), variant="box-crop-typo")
+
+
+def test_bound_schemas_pin_only_identity_and_do_not_mutate_other_requests(parts):
+    scope, case, crops, texts = parts
+    settings = execution(identity_schema="bound-v1")
+    raw = raw_request(scope, case, texts, settings)
+    crop_requests = [crop_request(scope, case, crop, texts, settings, variant="box-crop-v2") for crop in crops]
+    for request, model, identity in [
+        (raw, Prediction, raw_identity(scope, case)),
+        *[(request, BoxPrediction, crop_identity(scope, case, crop))
+          for crop, request in zip(crops, crop_requests)],
+    ]:
+        schema = json.loads(request.body)["format"]
+        for field, value in identity.items():
+            assert schema["properties"][field].pop("const") == value
+        assert schema == model.model_json_schema()  # no constraint on the answer
+    assert crop_requests[0].payload["format"]["properties"]["box_number"]["const"] == 1
+    assert crop_requests[1].payload["format"]["properties"]["box_number"]["const"] == 2
+    assert raw_request(scope, case, texts, execution()).payload["format"] == Prediction.model_json_schema()
+    assert crop_request(scope, case, crops[0], texts, execution()).payload["format"] == BoxPrediction.model_json_schema()

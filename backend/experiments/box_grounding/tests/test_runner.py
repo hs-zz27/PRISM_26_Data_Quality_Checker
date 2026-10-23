@@ -60,6 +60,26 @@ def test_two_crop_versions_require_separate_paired_runs(corpus, tmp_path):
     with pytest.raises(RunError, match="Choose one crop version"):
         make_config(corpus, tmp_path / "invalid", arms=("box-crop-v1", "box-crop-v2"))
 
+
+def test_bound_identity_mode_reaches_both_arms_and_saved_reports(corpus, fake, tmp_path):
+    from backend.experiments.box_grounding.reporting import build_score, format_score
+
+    run_dir = tmp_path / "bound"
+    run_with(corpus, fake, run_dir, arms=("raw-image-v1", "box-crop-v2"), identity_schema="bound-v1")
+    for body in fake.chat_bodies:
+        content = json.loads(body["messages"][1]["content"])
+        fields = body["format"]["properties"]
+        assert fields["case_id"]["const"] == content["case_id"]
+        assert fields["rule_id"]["const"] == content["rule_id"]
+        if "box" in content:
+            assert fields["box_number"]["const"] == content["box"]["box_number"]
+            assert fields["object_id"]["const"] == content["box"]["object_id"]
+    run = json.loads((run_dir / "run.json").read_bytes())
+    assert run["execution"]["identity_schema"] == run["provenance"]["identity_schema"] == "bound-v1"
+    score = build_score(run_dir, corpus.labels_path, corpus.packet)
+    assert score["identity_schema"] == "bound-v1"
+    assert "Identity schema: bound-v1" in format_score(score)
+
 def test_every_case_arm_and_box_is_retained_in_the_results(corpus, fake, tmp_path):
     summary, _ = run_with(corpus, fake, tmp_path / "run")
     results = read_results(tmp_path / "run")

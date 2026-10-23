@@ -10,7 +10,7 @@ import os
 import platform
 import sys
 from importlib import metadata
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, StringConstraints, field_validator
@@ -19,6 +19,7 @@ from backend.app.models.feedback import EvidenceLimits, Text
 
 DEFAULT_HOST = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "qwen3-vl:4b-instruct"
+IdentitySchema = Literal["echo-v1", "bound-v1"]
 ModelDigest = Annotated[str, StringConstraints(pattern="^sha256:[0-9a-f]{64}$")]
 PACKAGES = ("numpy", "pillow", "pydantic", "httpx", "pytest")
 
@@ -57,6 +58,7 @@ class ExecutionSettings(EvidenceLimits):
     host: str = DEFAULT_HOST
     model: Text = DEFAULT_MODEL
     model_digest: ModelDigest
+    identity_schema: IdentitySchema = "echo-v1"
     temperature: int = Field(default=0, ge=0, le=0)
     num_ctx: int = Field(default=16384, ge=1024, le=131072)
     num_predict: int = Field(default=2048, ge=128, le=2048)

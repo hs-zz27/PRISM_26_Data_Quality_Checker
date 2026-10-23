@@ -193,3 +193,22 @@ false positives as well as recall: an all-fail candidate is not useful. This is
 still development investigation; confirmation on unseen, independently reviewed
 images is required before claiming generalization. No production activation is
 part of this plan. RUNNER.md provides the explicit v2 commands.
+
+## Requirement fit and identity-schema diagnostic (23 October 2026)
+
+SRS.md allows implementation choices for image evidence while requiring CPU/free
+open-source operation, guideline-driven checks and reviewer control. Cropping is
+compatible as an evidence view for this particular enclosure guideline. It must
+not replace full-image evidence for completeness, relationships outside a box or
+other scene-wide rules. Original evidence and coordinate provenance must remain
+available for review. This prompt correction is not evidence that feedback has
+improved future audits; that separate SRS requirement needs its own evaluation.
+
+The next independent diagnostic addresses case-05 ID-copying failures through
+`--identity-schema bound-v1`, applied equally to raw and crop arms. Known identity
+fields are constrained with JSON Schema const values. All outcome choices remain
+available. Strict post-response validation remains mandatory; existing mismatches
+stay unavailable. First check the three case-05 requests. Do not infer accuracy
+or change old results from a transport-only subset run. Preserve the default
+schema mode echo-v1 and save new runs separately. No new crop processing, model,
+review labels or production activation is introduced with this diagnostic.

@@ -64,6 +64,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--host", default=DEFAULT_HOST, help="Loopback Ollama URL.")
     run.add_argument("--model", default=DEFAULT_MODEL)
     run.add_argument("--model-digest", default="installed", help="installed, historical or sha256:<digest>.")
+    run.add_argument("--identity-schema", choices=("echo-v1", "bound-v1"), default="echo-v1",
+                     help="bound-v1 constrains known identity fields in both arms; returned IDs are still checked.")
     run.add_argument("--threads", type=threads, default=None, help="auto (default) or a fixed CPU thread count.")
     run.add_argument("--num-ctx", type=int, default=16384)
     run.add_argument("--num-predict", type=int, default=2048)
@@ -126,6 +128,7 @@ def run_command(args: argparse.Namespace, transport: httpx.BaseTransport | None,
     config = RunConfig(
         scope_path=args.scope, run_dir=args.runs_root / args.run_name, arms=tuple(args.arms), order=args.order,
         cases=args.cases, host=args.host, model=args.model, digest_request=args.model_digest,
+        identity_schema=args.identity_schema,
         num_ctx=args.num_ctx, num_predict=args.num_predict, num_thread=args.threads,
         timeout_seconds=args.timeout_seconds, max_request_bytes=args.max_request_bytes,
         max_response_bytes=args.max_response_bytes, keep_alive_seconds=args.keep_alive_seconds,

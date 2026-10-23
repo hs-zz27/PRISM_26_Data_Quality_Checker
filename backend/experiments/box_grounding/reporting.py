@@ -163,6 +163,7 @@ def build_score(run_dir: Path, labels_path: Path, packet: Path = PACKET) -> dict
         "missing_cases_by_arm": {arm: sorted(set(intended) - set(records)) for arm, records in by_arm.items()},
         "arms": {arm: m.model_dump(mode="json") for arm, m in metrics.items()},
         "assessment_crops_vs_raw_control": comparison, "candidate_arm": candidate,
+        "identity_schema": run["execution"].get("identity_schema", "echo-v1"),
         "errors": errors, "cases": table,
         "model": {"digest": run["digest"], "execution": {k: run["execution"][k] for k in (
             "model", "num_ctx", "num_predict", "num_thread", "timeout_seconds")}},
@@ -183,6 +184,7 @@ def pct(value: float | None) -> str:
 
 def format_score(score: dict[str, Any]) -> str:
     lines = [f"Score for run {score['run_name']}",
+             f"Identity schema: {score.get('identity_schema', 'echo-v1')}",
              "COMPLETE paired comparison over the development cases." if score["complete_paired_comparison"]
              else f"INCOMPLETE: scored {score['cases_scored']} of {score['intended_development_cases']}; "
                   "this is NOT the full paired eight-case report.", ""]

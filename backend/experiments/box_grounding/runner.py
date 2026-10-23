@@ -33,7 +33,7 @@ from .prompts import (
 from .run_files import RESULTS_FILE, RUN_FILE, SUMMARY_FILE, RunFiles, utc_now
 from .scoring import BoxVerdict, aggregate_sample
 from .scope import DEVELOPMENT, Scope, ScopeCase, changed_since_load, load_scope
-from .settings import DEFAULT_HOST, DEFAULT_MODEL, ExecutionSettings, collect_environment
+from .settings import DEFAULT_HOST, DEFAULT_MODEL, ExecutionSettings, IdentitySchema, collect_environment
 from .views import RenderError, ViewLimits
 
 EXPERIMENT_VERSION = "box-grounding-per-box-v1"
@@ -77,6 +77,7 @@ class RunConfig:
     host: str = DEFAULT_HOST
     model: str = DEFAULT_MODEL
     digest_request: str = "installed"  # installed, historical, or an explicit sha256:... digest
+    identity_schema: IdentitySchema = "echo-v1"
     num_ctx: int = 16384
     num_predict: int = 2048
     num_thread: int | None = None  # None keeps automatic thread selection
@@ -105,6 +106,7 @@ class RunConfig:
             num_predict=self.num_predict, num_thread=self.num_thread, timeout_seconds=self.timeout_seconds,
             max_request_bytes=self.max_request_bytes, max_response_bytes=self.max_response_bytes,
             keep_alive_seconds=self.keep_alive_seconds,
+            identity_schema=self.identity_schema,
         )
 
 
@@ -460,6 +462,8 @@ def run_settings(config: RunConfig, scope: Scope, texts: PromptTexts, execution:
             "rule": rule_document(scope),
             "schema_sha256": {RAW_SCHEMA_VERSION: schema_hash(Prediction.model_json_schema()),
                               BOX_SCHEMA_VERSION: schema_hash(BoxPrediction.model_json_schema())},
+            "identity_schema": execution.identity_schema,
+            "schema_hash_scope": "Base schemas before per-request identity constants; request_sha256 covers the exact sent schema.",
             "code_sha256": code_fingerprints(packet),
         },
         "sequential": True, "retries": "none", "resume": "not supported",

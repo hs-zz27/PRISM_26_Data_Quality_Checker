@@ -130,7 +130,8 @@ def raw_request(scope: Scope, case: ScopeCase, texts: PromptTexts,
         "case_id": case.case_id, "rule_id": scope.rule_id, "guideline": rule_document(scope),
         "examples": [], "target": {"image_attachment": 1, "inputs": inputs},
     }, ensure_ascii=False, allow_nan=False)
-    return prepare(texts, content, [case.image_bytes], Prediction.model_json_schema(), execution)
+    schema = response_schema(Prediction, raw_identity(scope, case), execution)
+    return prepare(texts, content, [case.image_bytes], schema, execution)
 
 
 def crop_request(scope: Scope, case: ScopeCase, crop: BoxCrop, texts: PromptTexts,
@@ -152,7 +153,22 @@ def crop_request(scope: Scope, case: ScopeCase, crop: BoxCrop, texts: PromptText
         for field in ("bbox", "bbox_convention", "source_image_size"):
             del document["box"][field]
     content = json.dumps(document, ensure_ascii=False, allow_nan=False)
-    return prepare(texts, content, [crop.png], BoxPrediction.model_json_schema(), execution)
+    schema = response_schema(BoxPrediction, crop_identity(scope, case, crop), execution)
+    return prepare(texts, content, [crop.png], schema, execution)
+
+
+def response_schema(model: type[Prediction] | type[BoxPrediction], identity: dict[str, Any],
+                    execution: ExecutionSettings) -> dict[str, Any]:
+    """Constrain known IDs during generation; the client still validates the returned IDs.
+
+    Each call receives a fresh schema. Outcomes, reasons and evidence are never
+    constrained to a known answer, and no response is filled in or repaired.
+    """
+    schema = model.model_json_schema()
+    if execution.identity_schema == "bound-v1":
+        for field, value in identity.items():
+            schema["properties"][field]["const"] = value
+    return schema
 
 
 def raw_identity(scope: Scope, case: ScopeCase) -> dict[str, Any]:
