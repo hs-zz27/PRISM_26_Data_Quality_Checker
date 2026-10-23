@@ -9,7 +9,7 @@ annotation completeness. It is a model proposal for human review, not proof of a
 
 1. Confirm a rule whose check is `pedestrian_box_enclosure` (explicit name; guideline text is never matched).
 2. Enable the settings below and start a snapshot audit. The pin is frozen when the audit is accepted, so queued,
-   retried and rechecked work uses that pin, not later defaults.
+   retried and rechecked work uses that pin, not later defaults. A disabled parent remains disabled on recheck.
 3. Without the settings, or with `ENCLOSURE_ENABLED` unset, the rule stays unavailable (`model_execution_unavailable`).
 4. A supplied feedback policy is rejected (`POLICY_INCOMPATIBLE`) for a book using this check. Feedback policies
    and `annotation_guideline` behavior are unchanged.
@@ -39,18 +39,45 @@ pinned assets and recorded hashes; no mutable dataset path is used.
 ## Latency and bounds
 
 One sequential request per box. On a 16 GB Windows laptop one request took about 130 s; on the Mac validation about
-85 s. The default 900 s sample deadline therefore covers roughly 6 boxes (Windows) to 10 (Mac). Boxes not started
-within the budget are recorded `sample_budget_exhausted` and the sample is unavailable. Raise
+85 s. The default 900 s sample deadline therefore covers roughly 6 boxes (Windows) to 10 (Mac). This is an estimate, not a guaranteed capacity: collection, model verification and storage also take time.
+The single enclosure budget starts before evidence preparation and is shared by all rules and boxes.
+It is capped by the persisted sample deadline minus the 30-second finalization margin.
+Boxes not started within it are recorded `sample_budget_exhausted`. A timed-out in-flight call is
+unavailable (`request_timeout`); an already verified failing box still makes the finding fail. Raise
 `AUDIT_SAMPLE_MAX_SECONDS` deliberately for deployments that enable the check; do not raise it globally to make a
 smoke test pass.
 
-## Not verified
+## Supervision and transport
 
-No real model has run through this path. The request envelope is adapted from the validated experiment, so a later
-owner-run smoke check with the owner's model digest is required; byte-identical validation is not claimed. The
-validation cohorts were small and controlled; tiny pedestrians (under about 100 px) are unvalidated; padding, marker
-and wording changed together. Not exercised: PostgreSQL acceptance and storage, spawn on Windows, revision-aware
-rechecks, and the public read responses. The contract needs regeneration after the registry change (below).
+Production uses the existing spawned sample process. Its parent continues checking ownership,
+cancellation and the hard sample deadline while model requests run, terminating the child when
+necessary. The synchronous test seam checks ownership between boxes but cannot forcibly interrupt
+a blocked call. HTTP operations use the remaining call allowance, and expired responses are rejected;
+HTTPX timeouts alone are not a hard wall-clock interrupt for every transport phase. The parent process
+remains the hard-stop authority. No new retry or background-worker mechanism is introduced.
 
-Contract regeneration, owner-run (needs approval): `python -B -m backend.api.build_contract`. It changes only the
-capabilities check list (4, 4 and 16 lines in `openapi.json`, `implemented-openapi.json`, `examples.json`).
+The enclosure-specific client is retained for this prototype: its bound box response differs from
+the generic guideline response. Shared immutable evidence loading and the existing supervisor are
+reused. Refactoring both model clients would broaden this change; both must retain digest, context,
+response-size and identity verification.
+
+## Validation status
+
+On 2026-10-23 the owner reported the corrected test suite passing, including the
+new PostgreSQL regressions. No exact final test count was supplied. API contracts
+were regenerated with permission. Native Windows validation is outside this pass.
+
+The owner then ran a production smoke audit through the spawned worker and PostgreSQL
+using qwen3-vl:4b-instruct, digest
+`sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b`.
+The saved job completed: case-03 passed (one verified passing box); case-02 failed
+(one verified failing box and five verified passing boxes). All seven intended boxes
+have stored verified results, and both findings remain pending human review.
+Summed per-box call time was 74.09 seconds and 445.37 seconds respectively.
+
+This verifies the production adapter and durable result path on two previously reviewed
+samples. It is not a new held-out accuracy evaluation or evidence of feedback-learning
+improvement. The runner read stored results through the repository; public HTTP reads
+were covered by the automated regression suite, not this live-model run.
+No migration is needed. Request differences from the experiment are recorded in
+ENCLOSURE_INTEGRATION_TRACE.md; tiny pedestrians remain insufficiently validated.

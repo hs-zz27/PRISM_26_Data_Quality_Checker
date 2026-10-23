@@ -1,8 +1,7 @@
 # Pedestrian-box enclosure check: integration trace and open decisions
 
-Status: the check is wired end to end behind an opt-in pin and covered by offline tests. See
-[ENCLOSURE_CHECK.md](ENCLOSURE_CHECK.md) for use. Remaining gates are listed in section 4. The conflicts
-below were resolved with the recommended defaults, which are unconfirmed by the owner.
+Status: the check is wired end to end behind an opt-in pin. Original offline results are reported below; the owner subsequently reported the correction suite passing. See
+[ENCLOSURE_CHECK.md](ENCLOSURE_CHECK.md) for use. Remaining gates are listed in section 4. The correction pass retains the scoped client and policy rejection; validation gates remain explicit.
 
 Basis. Reference method: patches `9b4878d` to `5e45ca0`. Production: current `origin/main` as exported in
 `main_current.zip`; every interface below was re-checked against it before editing.
@@ -56,9 +55,9 @@ evidence are JSON); confirm against current `main`.
 - C2 policy: a feedback policy on a book using the check is rejected with `POLICY_INCOMPATIBLE`.
 - C3 configuration: explicit `ENCLOSURE_*` settings, no default model or digest, absent means unavailable.
 - C4 client: a second small client (`inference/enclosure_client.py`) with the same safeguards; `annotation_guideline.py` is untouched.
-- C5 contract: the registry entry changes `GET /capabilities`; regeneration is owner-run (see ENCLOSURE_CHECK.md).
+- C5 contract: the registry entry changes `GET /capabilities`; regeneration was completed in the correction pass with owner approval (see ENCLOSURE_CHECK.md).
 
-## 4. What exists and what is verified
+## 4. Original author validation report (before corrections)
 
 New: `models/enclosure.py`, `core/enclosure.py`, `inference/enclosure_client.py`, `services/enclosure.py`,
 `services/enclosure_views.py`, `services/enclosure_prompt.py`, tests `test_enclosure_core.py` and
@@ -69,3 +68,43 @@ code gave 1432 passed, 264 skipped (PostgreSQL), and 6 failures that are exactly
 which pass after regeneration in a throwaway copy.
 Not run: a real model, PostgreSQL, spawn on Windows, revision-aware rechecks, public read responses, contract generation in the
 repository. Not production-ready; a real-model smoke check is required.
+
+## 5. Completion corrections
+
+- Rechecks explicitly preserve the original enclosure runtime, including `None`; new audits alone load current settings.
+- All enclosure rules share one budget, including evidence preparation, bounded by the remaining persisted sample deadline.
+- Metadata verification and chat consume one decreasing call allowance; expired proposals are discarded.
+- Existing parent supervision remains responsible for cancelling or killing blocked processing. The synchronous seam checks ownership between boxes.
+- `.env.example` and API guidance now describe the opt-in behavior. Contracts were regenerated with owner approval.
+- Added PostgreSQL regressions for acceptance, corrected revisions, stored evidence and the actual sample/findings HTTP responses. The owner subsequently reported the suite passing.
+
+## 6. Exact request differences from the experiment
+
+The system prompt and context instruction text are retained. Context rendering retains the
+coordinate conversion, padding, neutral margin and external red frame. The production request
+is **not byte-identical** to a benchmark request:
+
+- Case identity is derived from immutable rulebook version, rule, sample revision and source hashes,
+  rather than the experiment case identifier. Those identities remain bound in the response schema.
+- `task.variant` is the production view identifier `box-context-png-v1`, rather than `box-context-v1`.
+- The `guideline` is the accepted production rule document, including its production check name
+  and metadata; this differs from the experiment's frozen guideline document.
+- The response schema is generated from the production BoxResponse model, with production limits
+  and titles. Identities are constrained, but verdicts and reasons remain model-generated.
+- Model, digest, context, threads, keep-alive and byte/time limits come from the accepted execution
+  pin. They match a particular experiment only when explicitly configured to the same values.
+- Neither path sends original source coordinates in the crop prompt. Production stores geometry
+  and request/view hashes as audit provenance instead.
+
+Therefore experimental accuracy cannot be asserted for this adapter without a production smoke run.
+Historical test counts above describe the author's earlier run, not the modified branch.
+
+## 7. Owner validation on 2026-10-23
+
+The owner reported the corrected suite passing, then completed production audit
+`audit_92b9dbaf1a3f47bf87f78f1497bee561`. Stored results were inspected:
+case-03 had one verified pass; case-02 had one verified fail and five verified passes.
+Both aggregate outcomes matched the prior human labels; both reviews remain pending.
+All seven intended box records were retained. See ENCLOSURE_CHECK.md for the exact
+model digest and timings. This closes the small Mac production smoke gate, not general
+accuracy validation. Historical pending gates in section 4 describe the original PR.
