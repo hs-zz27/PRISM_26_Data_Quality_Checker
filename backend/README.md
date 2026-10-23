@@ -1098,3 +1098,11 @@ See [api/CORRECTIONS.md](api/CORRECTIONS.md). All four source phases are applied
 all five API artifacts are regenerated, with 46 implemented and 4 planned
 operations. Migration 012, regression execution and runtime verification remain
 separate gates; contract generation does not establish passing tests.
+
+### Optional pedestrian-box enclosure
+
+The `pedestrian_box_enclosure` check runs the marked-context method as a pending
+human-review proposal on immutable snapshot assets. It is disabled by default and
+requires an explicitly pinned local vision model. See [ENCLOSURE_CHECK.md](ENCLOSURE_CHECK.md)
+for configuration, budget behavior, evidence and validation limits. It does not replace
+the CPU detector, annotation-completeness checks or the generic feedback workflow.

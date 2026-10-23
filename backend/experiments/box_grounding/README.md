@@ -23,11 +23,19 @@ the earlier measurements; the machine-readable records are in
 - `system_prompt_v1.txt`: the exact historical system prompt.
 - `prepare.py`: cross-platform, offline source verification and preparation.
 - `views.py`: pure reference implementations for numbered views and crop sheets.
-- `tests/`: synthetic offline checks for preparation and rendering.
+- `tests/`: synthetic offline checks for preparation, rendering and the runner.
+- `run_experiment.py` and its modules: the portable runner with `check-scope`, `run`,
+  `status` and `score` commands. See [RUNNER.md](RUNNER.md).
+- `EXPERIMENT_PLAN.md`: the comparison, settings and interpretation rules, fixed before any run.
+- `per_box_instruction_v1.txt`: the exact wording of the per-box crop candidate.
+- `HANDOFF_NOTES.md`: status, decisions, open items and how to continue.
 
-An inference runner is intentionally not claimed as implemented here. Building
-and evaluating the portable per-box experiment is the teammate's task. Local
-owner scripts under ignored directories are not dependencies of this handoff.
+The portable per-box runner is implemented in `run_experiment.py`; see
+[RUNNER.md](RUNNER.md) for commands and [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) for what
+it compares. Offline checks use synthetic data and a fake local server. What has actually
+been run against the real model, and what is still pending, is recorded only in
+[HANDOFF_NOTES.md](HANDOFF_NOTES.md). Local owner scripts under ignored directories are not
+dependencies of this handoff.
 
 ## Windows setup
 

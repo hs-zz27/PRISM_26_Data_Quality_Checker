@@ -1,0 +1,5 @@
+Judge the single annotation box described in this request against the guideline, using only the attached image.
+The attached image contains exactly the pixels inside this one annotation box, cropped from the original image. It is not the whole image, and nothing outside the box is shown.
+Decide whether this box encloses a visible pedestrian. pass means a pedestrian is visible inside the box. fail means the box contains only background and no visible pedestrian. unsure means the crop is ambiguous, for example a person may be only partly visible and you cannot tell. unavailable means the crop cannot establish the requirement.
+Do not judge any other box, any person outside this box, how tightly the box fits, or any size or overlap threshold.
+Echo case_id, rule_id, box_number and object_id exactly as given. Give a concise reason that refers only to what is visible in the attached crop.

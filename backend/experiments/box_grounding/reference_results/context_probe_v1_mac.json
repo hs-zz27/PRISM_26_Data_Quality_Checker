@@ -1,0 +1,1419 @@
+{
+  "score": {
+    "schema": "context-probe-score-v1",
+    "evaluation_role": "selected-development-diagnostic",
+    "metrics": {
+      "box-crop-v2": {
+        "total": 8,
+        "correct": 4,
+        "tp": 3,
+        "fp": 4,
+        "fn": 0,
+        "tn": 1,
+        "unavailable": 0,
+        "unsure": 0,
+        "seconds": 526.9093695000047
+      },
+      "box-context-v1": {
+        "total": 8,
+        "correct": 8,
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "tn": 5,
+        "unavailable": 0,
+        "unsure": 0,
+        "seconds": 685.9471111239691
+      }
+    },
+    "targets": [
+      {
+        "case_name": "fresh-01",
+        "box_number": 1,
+        "expected": "fail",
+        "arms": {
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "The crop shows only blurred, indistinct background pixels with no discernible pedestrian.",
+            "seconds": 67.60291583300568
+          },
+          "box-context-v1": {
+            "outcome": "fail",
+            "reason": "The red-framed area contains only pavement, tree trunks, and shadows; no visible pedestrian is inside the box.",
+            "seconds": 71.97112520801602
+          }
+        }
+      },
+      {
+        "case_name": "fresh-14",
+        "box_number": 4,
+        "expected": "pass",
+        "arms": {
+          "box-context-v1": {
+            "outcome": "pass",
+            "reason": "The red-framed box encloses a visible pedestrian wearing a yellow top, walking away, despite being blurred and partially obscured by trees.",
+            "seconds": 74.83976733399322
+          },
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "The crop is entirely blurred and indistinct, showing no discernible pedestrian or features that would identify a person; it appears to be background.",
+            "seconds": 82.83623604101012
+          }
+        }
+      },
+      {
+        "case_name": "fresh-10",
+        "box_number": 2,
+        "expected": "pass",
+        "arms": {
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "The crop shows only background; no visible pedestrian is enclosed.",
+            "seconds": 80.29624350002268
+          },
+          "box-context-v1": {
+            "outcome": "pass",
+            "reason": "The red-framed box encloses two men walking, clearly visible pedestrians despite partial occlusion and motion blur.",
+            "seconds": 81.21000512500177
+          }
+        }
+      },
+      {
+        "case_name": "fresh-01",
+        "box_number": 5,
+        "expected": "pass",
+        "arms": {
+          "box-context-v1": {
+            "outcome": "pass",
+            "reason": "The red-framed box encloses a visible pedestrian from behind, wearing a light top and dark pants, walking on a sidewalk. The pedestrian is partially obscured by other figures but is clearly identifiable as a person within the frame boundaries, meeting the definition of a visible pedestrian under the guideline. The box is not entirely on background, and the pedestrian is not occluded by the frame's edge or background elements. The context crop includes surrounding pixels, but the guideline only requires the interior of the frame to contain a visible pedestrian, which it does. The annotation is not a label or inferred from surrounding people; it is based on the visual evidence inside the frame. The image quality is low, but the pedestrian is still discernible as a person, not background. The guideline does not require a whole body, walking motion, or tightly fitting box, so partial visibility is acceptable. The pedestrian is not entirely outside the frame, so the target does not fail. The annotation is not a 'P",
+            "seconds": 96.7943784169911
+          },
+          "box-crop-v2": {
+            "outcome": "pass",
+            "reason": "The crop shows a visible pedestrian, identifiable as a person wearing a light-colored top and dark pants, standing or walking.",
+            "seconds": 93.66021891697892
+          }
+        }
+      },
+      {
+        "case_name": "fresh-03",
+        "box_number": 2,
+        "expected": "fail",
+        "arms": {
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "The crop shows only blurred, indistinct dark and greenish areas with no discernible pedestrian.",
+            "seconds": 91.12747712500277
+          },
+          "box-context-v1": {
+            "outcome": "fail",
+            "reason": "The red-framed box encloses a dark, blurry pole-like object with no discernible pedestrian; background dominates the area.",
+            "seconds": 89.71372570798849
+          }
+        }
+      },
+      {
+        "case_name": "fresh-23",
+        "box_number": 2,
+        "expected": "pass",
+        "arms": {
+          "box-context-v1": {
+            "outcome": "pass",
+            "reason": "The red-framed box encloses a visible pedestrian: a man in a white shirt and jeans, standing with arms crossed, partially obscured by motion blur but clearly identifiable as a person.",
+            "seconds": 90.18191466599819
+          },
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "The crop shows only blurred background pixels with no discernible pedestrian.",
+            "seconds": 10.757357541995589
+          }
+        }
+      },
+      {
+        "case_name": "fresh-20",
+        "box_number": 2,
+        "expected": "pass",
+        "arms": {
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "The crop shows only background elements, including a brick wall and greenery, with no visible pedestrian.",
+            "seconds": 12.341343874984886
+          },
+          "box-context-v1": {
+            "outcome": "pass",
+            "reason": "The red-framed box encloses a visible pedestrian: a woman in a pink top and blue jeans, walking and carrying items, with motion blur indicating movement.",
+            "seconds": 94.1345581659989
+          }
+        }
+      },
+      {
+        "case_name": "fresh-10",
+        "box_number": 3,
+        "expected": "fail",
+        "arms": {
+          "box-context-v1": {
+            "outcome": "fail",
+            "reason": "The red-framed area contains only blurred background; no visible pedestrian is present.",
+            "seconds": 87.1016364999814
+          },
+          "box-crop-v2": {
+            "outcome": "fail",
+            "reason": "The crop shows only blurred, indistinct background with no discernible pedestrian.",
+            "seconds": 88.28757666700403
+          }
+        }
+      }
+    ],
+    "wall_minutes": 20.215019583333333,
+    "verification": {
+      "frozen_labels_match": true,
+      "request_hashes_match_prerun_preparation": true,
+      "saved_images_match_hashes": true,
+      "current_code_matches_run": true
+    },
+    "limitations": [
+      "Eight boxes selected using prior outcomes; no population accuracy or full-image accuracy estimate.",
+      "Context pixels, target marker and instruction changed together; padding alone is not isolated.",
+      "Two tight-crop calls took about 11-12 seconds. Cache reuse is plausible but not established by these records; timing is not a controlled cold-start comparison."
+    ]
+  },
+  "run": {
+    "schema": "context-probe-run-v1",
+    "created_at": "2026-10-23T06:25:23.515678+00:00",
+    "plan": {
+      "schema": "context-probe-plan-v1",
+      "scope_sha256": "e19d53ea79a40fe4bf59374c366d6648da4683c6e92103cb07202bdfbbf573e8",
+      "targets": [
+        {
+          "case_name": "fresh-01",
+          "box_number": 1
+        },
+        {
+          "case_name": "fresh-14",
+          "box_number": 4
+        },
+        {
+          "case_name": "fresh-10",
+          "box_number": 2
+        },
+        {
+          "case_name": "fresh-01",
+          "box_number": 5
+        },
+        {
+          "case_name": "fresh-03",
+          "box_number": 2
+        },
+        {
+          "case_name": "fresh-23",
+          "box_number": 2
+        },
+        {
+          "case_name": "fresh-20",
+          "box_number": 2
+        },
+        {
+          "case_name": "fresh-10",
+          "box_number": 3
+        }
+      ]
+    },
+    "plan_sha256": "39e0bc1133ba922eeffd8502b1d4b46e4afaaa2f0f65e0e98f2befe6641460ce",
+    "scope_sha256": "e19d53ea79a40fe4bf59374c366d6648da4683c6e92103cb07202bdfbbf573e8",
+    "execution": {
+      "max_image_bytes": 8388608,
+      "max_annotation_bytes": 131072,
+      "max_pixels": 16000000,
+      "host": "http://127.0.0.1:11434",
+      "model": "qwen3-vl:4b-instruct",
+      "model_digest": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+      "identity_schema": "bound-v1",
+      "temperature": 0,
+      "num_ctx": 16384,
+      "num_predict": 2048,
+      "num_thread": 10,
+      "timeout_seconds": 600,
+      "max_request_bytes": 67108864,
+      "max_response_bytes": 65536,
+      "keep_alive_seconds": 3600
+    },
+    "ollama_version": "0.33.3",
+    "environment": {
+      "platform": "macOS-26.5.1-arm64-arm-64bit",
+      "system": "Darwin",
+      "release": "25.5.0",
+      "machine": "arm64",
+      "processor": "arm",
+      "cpu_count": 10,
+      "total_memory_bytes": 17179869184,
+      "python_version": "3.12.13",
+      "python_implementation": "CPython",
+      "packages": {
+        "numpy": "2.5.4",
+        "pillow": "12.3.0",
+        "pydantic": "2.14.1",
+        "httpx": "0.28.1",
+        "pytest": "9.1.1"
+      }
+    },
+    "code_sha256": {
+      "__init__.py": "c1ee7333452a3286b84dee79ecfd040491a8a8b883280d6a7892b7a31a2b7bed",
+      "client.py": "6a9fe3ef6605b4a3262650d090d4c701718627996b4cc4660e2f6d512103fb73",
+      "context_instruction_v1.txt": "53143463f05b8a1b6a8784654d98548771f2605db5be3a3280fbc08c5606b544",
+      "context_probe.py": "02035a5d1af13d8bd0208b5640cd5f40da1c49d38d921e777d20833a56687ed2",
+      "context_views.py": "8ad1eee3b1aa3744427be53691570f405c2fd7aa7541333ae2d481eefb94c053",
+      "crops.py": "7fe51de886e2e296be5f6780db699bfcd4edd38ddd5cdafa29358145605c7ff0",
+      "per_box_instruction_v1.txt": "0defcdac731216400b5047c53443ba869fae27456bd6fc49658e31778c6df173",
+      "prepare.py": "4493fc086b85d890fd56df5504f0b5c469727c6b8f2bc30c538eb80badeb3785",
+      "prompts.py": "3e7ee348988922f077d600fd4ae014bf35ec1f42f41b47f44b2ed39e8a4a4c69",
+      "reporting.py": "071386b6d7eb84689769664a635f7feb46ab399aee7952cdf98d16168e9cee7e",
+      "requirements.txt": "aa047bdcf96c80f3f47521685e3b3fe6962f417058d7e1070cf05325ff866701",
+      "run_experiment.py": "7f93cbc0135e8adb0dff88f7619456769e98df444678f20a1cac04203fe81f41",
+      "run_files.py": "60446a8efbd29a8485bb508a5b152e63fadecbebd7beba350f3d1cc50058aa99",
+      "runner.py": "53267ff8f190d0cee6fb90abb1e8c42960525b72fe14e61de1285920757ac472",
+      "scope.py": "6a0495b4348080e56e628f0958c4acb3e1d2d486a5d79280d32ccf134fc761f2",
+      "scoring.py": "9fa32c09ee9e5480824f3888557645c3acb589146b88035539a666dbb132db87",
+      "settings.py": "0bf97729a3c8df8d99826f217207f7ad2f38f082d9d18f7288a10343543887b8",
+      "system_prompt_v1.txt": "1c8ef6e29dd4b52133d9cdb19722b8396571e9a5032ee709ecba107b514edbab",
+      "views.py": "51226bf795a8545957bf98f90b8627c8b99fef681197da0af908311b8a346800"
+    },
+    "labels_read_during_inference": false,
+    "planned_requests": 16,
+    "order": "paired, alternating first arm",
+    "retries": 0,
+    "intervention": "context pixels plus outside-target red frame plus revised instruction",
+    "padding": "half width/height per side, minimum 32 pixels, clipped to source",
+    "margin": 2,
+    "resize": "none",
+    "evaluation_role": "selected development diagnostic"
+  },
+  "summary": {
+    "stage": "completed",
+    "reason": null,
+    "started_at": "2026-10-23T06:25:23.534450+00:00",
+    "finished_at": "2026-10-23T06:45:36.435625+00:00",
+    "planned_requests": 16,
+    "completed_requests": 16,
+    "model_calls": 16,
+    "source_files_changed": []
+  },
+  "results": [
+    {
+      "case_name": "fresh-01",
+      "box_number": 1,
+      "arm": "box-crop-v2",
+      "request_sha256": "6ddf7ec9f5546ec706f7fbfeeafe73ee433b1bf4ef0a99d6c46a544770a58522",
+      "image_sha256": "54b568e133c9bbd8a0cce9827f17377358f075b4c70e7a654eab4ce7908fa732",
+      "image_path": "crops/box-crop-v2-fresh-01/box-01.png",
+      "geometry": {
+        "source_bbox": [
+          27,
+          168,
+          144,
+          277
+        ],
+        "source_pil_box": [
+          26,
+          167,
+          144,
+          277
+        ],
+        "source_window": [
+          26,
+          167,
+          144,
+          277
+        ],
+        "target_window": [
+          0,
+          0,
+          118,
+          110
+        ],
+        "image_size": [
+          118,
+          110
+        ]
+      },
+      "case_id": "699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8",
+      "object_id": 1,
+      "source_image_sha256": "4cefcab118e2f17ad5391b6ec65ad9939fa346fec78566b2b0d12c944d83283c",
+      "source_annotation_sha256": "7fd8af71bbbc0ec205885a39037350585e259200383d410e2c394c28cc6f33e5",
+      "prediction": {
+        "case_id": "699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 1,
+        "object_id": 1,
+        "outcome": "fail",
+        "reason": "The crop shows only blurred, indistinct background pixels with no discernible pedestrian.",
+        "evidence_references": []
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 67602.91583300568,
+      "chat_ms": 67596.40599999693,
+      "metrics": {
+        "total_duration": 67593897375,
+        "load_duration": 11049917,
+        "prompt_eval_count": 1639,
+        "prompt_eval_duration": 57953949000,
+        "eval_count": 126,
+        "eval_duration": 8595928000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"fail\", \"reason\": \"The crop shows only blurred, indistinct background pixels with no discernible pedestrian.\", \"evidence_references\": []}"
+    },
+    {
+      "case_name": "fresh-01",
+      "box_number": 1,
+      "arm": "box-context-v1",
+      "request_sha256": "90ca765109f3bd0a923a0736af99cc51b6555b429ecd96b721dc28dfb1f37b06",
+      "image_sha256": "91634f1432694389052fa9ae8edd40768d3dbcfe5b08960b76ee119aa93f0112",
+      "image_path": "crops/box-context-v1-fresh-01/box-01.png",
+      "geometry": {
+        "source_bbox": [
+          27,
+          168,
+          144,
+          277
+        ],
+        "source_pil_box": [
+          26,
+          167,
+          144,
+          277
+        ],
+        "source_window": [
+          0,
+          112,
+          203,
+          332
+        ],
+        "target_window": [
+          28,
+          57,
+          146,
+          167
+        ],
+        "image_size": [
+          207,
+          224
+        ]
+      },
+      "case_id": "699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8",
+      "object_id": 1,
+      "source_image_sha256": "4cefcab118e2f17ad5391b6ec65ad9939fa346fec78566b2b0d12c944d83283c",
+      "source_annotation_sha256": "7fd8af71bbbc0ec205885a39037350585e259200383d410e2c394c28cc6f33e5",
+      "prediction": {
+        "case_id": "699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 1,
+        "object_id": 1,
+        "outcome": "fail",
+        "reason": "The red-framed area contains only pavement, tree trunks, and shadows; no visible pedestrian is inside the box.",
+        "evidence_references": []
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 71971.12520801602,
+      "chat_ms": 71965.8628749894,
+      "metrics": {
+        "total_duration": 71964669125,
+        "load_duration": 888125,
+        "prompt_eval_count": 1676,
+        "prompt_eval_duration": 60599376000,
+        "eval_count": 133,
+        "eval_duration": 10307135000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 1, \"object_id\": 1, \"outcome\": \"fail\", \"reason\": \"The red-framed area contains only pavement, tree trunks, and shadows; no visible pedestrian is inside the box.\", \"evidence_references\": []}"
+    },
+    {
+      "case_name": "fresh-14",
+      "box_number": 4,
+      "arm": "box-context-v1",
+      "request_sha256": "eecc645a265a6c1893b3b8f95844bd846bff33090d0df4b87dc77385358d300c",
+      "image_sha256": "2e8cfaa4bf699d9d5964b64ded6e2cd693b593dc6b853c02d790a54ade9e92fa",
+      "image_path": "crops/box-context-v1-fresh-14/box-04.png",
+      "geometry": {
+        "source_bbox": [
+          297,
+          54,
+          303,
+          73
+        ],
+        "source_pil_box": [
+          296,
+          53,
+          303,
+          73
+        ],
+        "source_window": [
+          264,
+          21,
+          335,
+          105
+        ],
+        "target_window": [
+          34,
+          34,
+          41,
+          54
+        ],
+        "image_size": [
+          75,
+          88
+        ]
+      },
+      "case_id": "d6e0b71aa78e62e9f17e139bff77fadeb775b3054bab9863a08667126312cef3",
+      "object_id": 4,
+      "source_image_sha256": "471509461bee4ddab5e7ad00ae28a40ab82e8bcf9d048f1fe05cfcf403c4f4f2",
+      "source_annotation_sha256": "96cf04850086fe9088ee879ba28385dbbdfa0ec45288b3051b1c176c93f9d85a",
+      "prediction": {
+        "case_id": "d6e0b71aa78e62e9f17e139bff77fadeb775b3054bab9863a08667126312cef3",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 4,
+        "object_id": 4,
+        "outcome": "pass",
+        "reason": "The red-framed box encloses a visible pedestrian wearing a yellow top, walking away, despite being blurred and partially obscured by trees.",
+        "evidence_references": [
+          "image",
+          "annotations",
+          "guideline"
+        ]
+      },
+      "outcome": "pass",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 74839.76733399322,
+      "chat_ms": 74820.31995800207,
+      "metrics": {
+        "total_duration": 74817755292,
+        "load_duration": 611792,
+        "prompt_eval_count": 1669,
+        "prompt_eval_duration": 64041570000,
+        "eval_count": 142,
+        "eval_duration": 10732562000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"d6e0b71aa78e62e9f17e139bff77fadeb775b3054bab9863a08667126312cef3\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 4, \"object_id\": 4, \"outcome\": \"pass\", \"reason\": \"The red-framed box encloses a visible pedestrian wearing a yellow top, walking away, despite being blurred and partially obscured by trees.\", \"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+    },
+    {
+      "case_name": "fresh-14",
+      "box_number": 4,
+      "arm": "box-crop-v2",
+      "request_sha256": "dc9a58690c5cd7c8adc50844fa98812448ab9d0e963f2c3555491a5622bab248",
+      "image_sha256": "683436d660c08cf7ee8243986ded6ae71144c8d86e095d43b9aeb5d24b29dafd",
+      "image_path": "crops/box-crop-v2-fresh-14/box-04.png",
+      "geometry": {
+        "source_bbox": [
+          297,
+          54,
+          303,
+          73
+        ],
+        "source_pil_box": [
+          296,
+          53,
+          303,
+          73
+        ],
+        "source_window": [
+          296,
+          53,
+          303,
+          73
+        ],
+        "target_window": [
+          0,
+          0,
+          7,
+          20
+        ],
+        "image_size": [
+          7,
+          20
+        ]
+      },
+      "case_id": "d6e0b71aa78e62e9f17e139bff77fadeb775b3054bab9863a08667126312cef3",
+      "object_id": 4,
+      "source_image_sha256": "471509461bee4ddab5e7ad00ae28a40ab82e8bcf9d048f1fe05cfcf403c4f4f2",
+      "source_annotation_sha256": "96cf04850086fe9088ee879ba28385dbbdfa0ec45288b3051b1c176c93f9d85a",
+      "prediction": {
+        "case_id": "d6e0b71aa78e62e9f17e139bff77fadeb775b3054bab9863a08667126312cef3",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 4,
+        "object_id": 4,
+        "outcome": "fail",
+        "reason": "The crop is entirely blurred and indistinct, showing no discernible pedestrian or features that would identify a person; it appears to be background.",
+        "evidence_references": []
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 82836.23604101012,
+      "chat_ms": 82827.45962499757,
+      "metrics": {
+        "total_duration": 82824732458,
+        "load_duration": 781750,
+        "prompt_eval_count": 1624,
+        "prompt_eval_duration": 70077249000,
+        "eval_count": 135,
+        "eval_duration": 12469819000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"d6e0b71aa78e62e9f17e139bff77fadeb775b3054bab9863a08667126312cef3\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 4, \"object_id\": 4, \"outcome\": \"fail\", \"reason\": \"The crop is entirely blurred and indistinct, showing no discernible pedestrian or features that would identify a person; it appears to be background.\", \"evidence_references\": []}"
+    },
+    {
+      "case_name": "fresh-10",
+      "box_number": 2,
+      "arm": "box-crop-v2",
+      "request_sha256": "661cab4a74d2c0e9d27e2619ccd07e45613714354354a2b2fa5cf0a50d25092b",
+      "image_sha256": "d1adbace2cfe406e571ad9d98454e6063f19b988b746368128d28bed1e032514",
+      "image_path": "crops/box-crop-v2-fresh-10/box-02.png",
+      "geometry": {
+        "source_bbox": [
+          378,
+          76,
+          529,
+          377
+        ],
+        "source_pil_box": [
+          377,
+          75,
+          529,
+          377
+        ],
+        "source_window": [
+          377,
+          75,
+          529,
+          377
+        ],
+        "target_window": [
+          0,
+          0,
+          152,
+          302
+        ],
+        "image_size": [
+          152,
+          302
+        ]
+      },
+      "case_id": "66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded",
+      "object_id": 2,
+      "source_image_sha256": "7b5b874dc8940fc62afe7fb57b8e99dccc8908c8e8177609afdc1d5436c353a7",
+      "source_annotation_sha256": "ebe6c0ce57387f1eb5ab6c93e724cb86da5ae93e5ffa2a248110fc661e0a45a9",
+      "prediction": {
+        "case_id": "66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 2,
+        "object_id": 2,
+        "outcome": "fail",
+        "reason": "The crop shows only background; no visible pedestrian is enclosed.",
+        "evidence_references": []
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 80296.24350002268,
+      "chat_ms": 80285.90020799311,
+      "metrics": {
+        "total_duration": 80284335500,
+        "load_duration": 1297542,
+        "prompt_eval_count": 1641,
+        "prompt_eval_duration": 71651556000,
+        "eval_count": 119,
+        "eval_duration": 7466817000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"fail\", \"reason\": \"The crop shows only background; no visible pedestrian is enclosed.\", \"evidence_references\": []}"
+    },
+    {
+      "case_name": "fresh-10",
+      "box_number": 2,
+      "arm": "box-context-v1",
+      "request_sha256": "7aaa8f71c417bb6dc1107cbd89a0cb4a12c755a4528da64f58b0b1906dc57f4c",
+      "image_sha256": "87c67b990ab9d348a2dda3652e655972dfc521162a24e58c8fe7950cb5855e53",
+      "image_path": "crops/box-context-v1-fresh-10/box-02.png",
+      "geometry": {
+        "source_bbox": [
+          378,
+          76,
+          529,
+          377
+        ],
+        "source_pil_box": [
+          377,
+          75,
+          529,
+          377
+        ],
+        "source_window": [
+          301,
+          0,
+          539,
+          381
+        ],
+        "target_window": [
+          78,
+          77,
+          230,
+          379
+        ],
+        "image_size": [
+          242,
+          385
+        ]
+      },
+      "case_id": "66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded",
+      "object_id": 2,
+      "source_image_sha256": "7b5b874dc8940fc62afe7fb57b8e99dccc8908c8e8177609afdc1d5436c353a7",
+      "source_annotation_sha256": "ebe6c0ce57387f1eb5ab6c93e724cb86da5ae93e5ffa2a248110fc661e0a45a9",
+      "prediction": {
+        "case_id": "66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 2,
+        "object_id": 2,
+        "outcome": "pass",
+        "reason": "The red-framed box encloses two men walking, clearly visible pedestrians despite partial occlusion and motion blur.",
+        "evidence_references": [
+          "image",
+          "annotations",
+          "guideline"
+        ]
+      },
+      "outcome": "pass",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 81210.00512500177,
+      "chat_ms": 81201.33479099604,
+      "metrics": {
+        "total_duration": 81200309750,
+        "load_duration": 4966750,
+        "prompt_eval_count": 1686,
+        "prompt_eval_duration": 71310905000,
+        "eval_count": 138,
+        "eval_duration": 8764147000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"pass\", \"reason\": \"The red-framed box encloses two men walking, clearly visible pedestrians despite partial occlusion and motion blur.\", \"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+    },
+    {
+      "case_name": "fresh-01",
+      "box_number": 5,
+      "arm": "box-context-v1",
+      "request_sha256": "6647c77b7aad6ede69c5d8d3295c8dcfe685983b13cc8e9d0776c1eafa9a9d87",
+      "image_sha256": "002171770e334bb594cf7deecba23d0870df694b2647b16d76e487dbe5f5fef1",
+      "image_path": "crops/box-context-v1-fresh-01/box-05.png",
+      "geometry": {
+        "source_bbox": [
+          430,
+          73,
+          456,
+          154
+        ],
+        "source_pil_box": [
+          429,
+          72,
+          456,
+          154
+        ],
+        "source_window": [
+          397,
+          31,
+          480,
+          195
+        ],
+        "target_window": [
+          34,
+          43,
+          61,
+          125
+        ],
+        "image_size": [
+          87,
+          168
+        ]
+      },
+      "case_id": "699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8",
+      "object_id": 5,
+      "source_image_sha256": "4cefcab118e2f17ad5391b6ec65ad9939fa346fec78566b2b0d12c944d83283c",
+      "source_annotation_sha256": "7fd8af71bbbc0ec205885a39037350585e259200383d410e2c394c28cc6f33e5",
+      "prediction": {
+        "case_id": "699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 5,
+        "object_id": 5,
+        "outcome": "pass",
+        "reason": "The red-framed box encloses a visible pedestrian from behind, wearing a light top and dark pants, walking on a sidewalk. The pedestrian is partially obscured by other figures but is clearly identifiable as a person within the frame boundaries, meeting the definition of a visible pedestrian under the guideline. The box is not entirely on background, and the pedestrian is not occluded by the frame's edge or background elements. The context crop includes surrounding pixels, but the guideline only requires the interior of the frame to contain a visible pedestrian, which it does. The annotation is not a label or inferred from surrounding people; it is based on the visual evidence inside the frame. The image quality is low, but the pedestrian is still discernible as a person, not background. The guideline does not require a whole body, walking motion, or tightly fitting box, so partial visibility is acceptable. The pedestrian is not entirely outside the frame, so the target does not fail. The annotation is not a 'P",
+        "evidence_references": [
+          "image",
+          "annotations"
+        ]
+      },
+      "outcome": "pass",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 96794.3784169911,
+      "chat_ms": 96784.09295898746,
+      "metrics": {
+        "total_duration": 96780948416,
+        "load_duration": 1290791,
+        "prompt_eval_count": 1702,
+        "prompt_eval_duration": 73049086000,
+        "eval_count": 324,
+        "eval_duration": 22668300000,
+        "done_reason": "stop"
+      },
+      "content": "{\n  \"case_id\": \"699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8\",\n  \"rule_id\": \"VISIBLE-PEDESTRIAN\",\n  \"box_number\": 5,\n  \"object_id\": 5,\n  \"outcome\": \"pass\",\n  \"reason\": \"The red-framed box encloses a visible pedestrian from behind, wearing a light top and dark pants, walking on a sidewalk. The pedestrian is partially obscured by other figures but is clearly identifiable as a person within the frame boundaries, meeting the definition of a visible pedestrian under the guideline. The box is not entirely on background, and the pedestrian is not occluded by the frame's edge or background elements. The context crop includes surrounding pixels, but the guideline only requires the interior of the frame to contain a visible pedestrian, which it does. The annotation is not a label or inferred from surrounding people; it is based on the visual evidence inside the frame. The image quality is low, but the pedestrian is still discernible as a person, not background. The guideline does not require a whole body, walking motion, or tightly fitting box, so partial visibility is acceptable. The pedestrian is not entirely outside the frame, so the target does not fail. The annotation is not a 'P\",\"evidence_references\": [\n    \"image\",\n    \"annotations\"\n  ]\n}"
+    },
+    {
+      "case_name": "fresh-01",
+      "box_number": 5,
+      "arm": "box-crop-v2",
+      "request_sha256": "c515d8cca9001887b4d9fd55578f4b5d9d4cfb67f54cd6d1f81196fce3cbfde2",
+      "image_sha256": "90ba66995457f92de308cf2841b34f6f4fdf097778ccfbea2bdb3baf51567b45",
+      "image_path": "crops/box-crop-v2-fresh-01/box-05.png",
+      "geometry": {
+        "source_bbox": [
+          430,
+          73,
+          456,
+          154
+        ],
+        "source_pil_box": [
+          429,
+          72,
+          456,
+          154
+        ],
+        "source_window": [
+          429,
+          72,
+          456,
+          154
+        ],
+        "target_window": [
+          0,
+          0,
+          27,
+          82
+        ],
+        "image_size": [
+          27,
+          82
+        ]
+      },
+      "case_id": "699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8",
+      "object_id": 5,
+      "source_image_sha256": "4cefcab118e2f17ad5391b6ec65ad9939fa346fec78566b2b0d12c944d83283c",
+      "source_annotation_sha256": "7fd8af71bbbc0ec205885a39037350585e259200383d410e2c394c28cc6f33e5",
+      "prediction": {
+        "case_id": "699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 5,
+        "object_id": 5,
+        "outcome": "pass",
+        "reason": "The crop shows a visible pedestrian, identifiable as a person wearing a light-colored top and dark pants, standing or walking.",
+        "evidence_references": []
+      },
+      "outcome": "pass",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 93660.21891697892,
+      "chat_ms": 93649.0085410187,
+      "metrics": {
+        "total_duration": 93646378250,
+        "load_duration": 961583,
+        "prompt_eval_count": 1647,
+        "prompt_eval_duration": 73448429000,
+        "eval_count": 133,
+        "eval_duration": 19851320000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"699f69ccf76405941d2a236fa90f0da25526f8c9d9ecaa555cc58cf1710a06a8\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 5, \"object_id\": 5, \"outcome\": \"pass\", \"reason\": \"The crop shows a visible pedestrian, identifiable as a person wearing a light-colored top and dark pants, standing or walking.\", \"evidence_references\": []}"
+    },
+    {
+      "case_name": "fresh-03",
+      "box_number": 2,
+      "arm": "box-crop-v2",
+      "request_sha256": "351d251921448e7de26c79fe484e148b59895d5e4d7bced41ac0a037e832a92f",
+      "image_sha256": "5ec0908f38631e6cc9490c6f95b08c411a0a1daeb55c1304d755e9da458f20eb",
+      "image_path": "crops/box-crop-v2-fresh-03/box-02.png",
+      "geometry": {
+        "source_bbox": [
+          189,
+          104,
+          223,
+          157
+        ],
+        "source_pil_box": [
+          188,
+          103,
+          223,
+          157
+        ],
+        "source_window": [
+          188,
+          103,
+          223,
+          157
+        ],
+        "target_window": [
+          0,
+          0,
+          35,
+          54
+        ],
+        "image_size": [
+          35,
+          54
+        ]
+      },
+      "case_id": "dc5b42a2daf99e7f889ed2588f518c2d2f1425140dbb19c22f3cb3b3b007dd0d",
+      "object_id": 2,
+      "source_image_sha256": "20b064554baedefdd2ccdf058047df35b432013adc2e4c89f6374dc12ae3796f",
+      "source_annotation_sha256": "5c175aa8192f040563cd11e20b7933fe3cee1467380cc082e9520061aaf29175",
+      "prediction": {
+        "case_id": "dc5b42a2daf99e7f889ed2588f518c2d2f1425140dbb19c22f3cb3b3b007dd0d",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 2,
+        "object_id": 2,
+        "outcome": "fail",
+        "reason": "The crop shows only blurred, indistinct dark and greenish areas with no discernible pedestrian.",
+        "evidence_references": []
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 91127.47712500277,
+      "chat_ms": 91114.35333298868,
+      "metrics": {
+        "total_duration": 91111069959,
+        "load_duration": 899709,
+        "prompt_eval_count": 1623,
+        "prompt_eval_duration": 75499934000,
+        "eval_count": 129,
+        "eval_duration": 14319452000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"dc5b42a2daf99e7f889ed2588f518c2d2f1425140dbb19c22f3cb3b3b007dd0d\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"fail\", \"reason\": \"The crop shows only blurred, indistinct dark and greenish areas with no discernible pedestrian.\", \"evidence_references\": []}"
+    },
+    {
+      "case_name": "fresh-03",
+      "box_number": 2,
+      "arm": "box-context-v1",
+      "request_sha256": "7ae01ed284da2c28f27c251baabc256f190a6612b3b9f39f740188c59ec65d2b",
+      "image_sha256": "85dc4ca990528d31366f0dee37d5b3fc2e1aa4e51cb23036455d784e73a05a26",
+      "image_path": "crops/box-context-v1-fresh-03/box-02.png",
+      "geometry": {
+        "source_bbox": [
+          189,
+          104,
+          223,
+          157
+        ],
+        "source_pil_box": [
+          188,
+          103,
+          223,
+          157
+        ],
+        "source_window": [
+          156,
+          71,
+          255,
+          189
+        ],
+        "target_window": [
+          34,
+          34,
+          69,
+          88
+        ],
+        "image_size": [
+          103,
+          122
+        ]
+      },
+      "case_id": "dc5b42a2daf99e7f889ed2588f518c2d2f1425140dbb19c22f3cb3b3b007dd0d",
+      "object_id": 2,
+      "source_image_sha256": "20b064554baedefdd2ccdf058047df35b432013adc2e4c89f6374dc12ae3796f",
+      "source_annotation_sha256": "5c175aa8192f040563cd11e20b7933fe3cee1467380cc082e9520061aaf29175",
+      "prediction": {
+        "case_id": "dc5b42a2daf99e7f889ed2588f518c2d2f1425140dbb19c22f3cb3b3b007dd0d",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 2,
+        "object_id": 2,
+        "outcome": "fail",
+        "reason": "The red-framed box encloses a dark, blurry pole-like object with no discernible pedestrian; background dominates the area.",
+        "evidence_references": [
+          "image",
+          "annotations",
+          "guideline"
+        ]
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 89713.72570798849,
+      "chat_ms": 89696.95225000032,
+      "metrics": {
+        "total_duration": 89694442333,
+        "load_duration": 4179166,
+        "prompt_eval_count": 1672,
+        "prompt_eval_duration": 77633206000,
+        "eval_count": 143,
+        "eval_duration": 10860910000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"dc5b42a2daf99e7f889ed2588f518c2d2f1425140dbb19c22f3cb3b3b007dd0d\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"fail\", \"reason\": \"The red-framed box encloses a dark, blurry pole-like object with no discernible pedestrian; background dominates the area.\", \"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+    },
+    {
+      "case_name": "fresh-23",
+      "box_number": 2,
+      "arm": "box-context-v1",
+      "request_sha256": "828ca104202a0ed84122d609f52e860ed6fb35843a0784679f18ab96470f9d25",
+      "image_sha256": "0d2b41d7c5ed81c950778817895f37ab09298e0771edf3af1df5e75b242a9a1d",
+      "image_path": "crops/box-context-v1-fresh-23/box-02.png",
+      "geometry": {
+        "source_bbox": [
+          43,
+          123,
+          64,
+          211
+        ],
+        "source_pil_box": [
+          42,
+          122,
+          64,
+          211
+        ],
+        "source_window": [
+          10,
+          77,
+          96,
+          256
+        ],
+        "target_window": [
+          34,
+          47,
+          56,
+          136
+        ],
+        "image_size": [
+          90,
+          183
+        ]
+      },
+      "case_id": "8759dd62c7d81224778ed2dd4d2e78dfdad3b4ad7272ce909dfbe94c147336d0",
+      "object_id": 2,
+      "source_image_sha256": "47802584f435e449f42e838834dc18c016e7bdfcedda9cee1a781d85d5e992fd",
+      "source_annotation_sha256": "1a925cbacf00f6606b7d9edcde32a638933fcdfb9f68917c4daf0f8471ae5968",
+      "prediction": {
+        "case_id": "8759dd62c7d81224778ed2dd4d2e78dfdad3b4ad7272ce909dfbe94c147336d0",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 2,
+        "object_id": 2,
+        "outcome": "pass",
+        "reason": "The red-framed box encloses a visible pedestrian: a man in a white shirt and jeans, standing with arms crossed, partially obscured by motion blur but clearly identifiable as a person.",
+        "evidence_references": [
+          "image",
+          "annotations"
+        ]
+      },
+      "outcome": "pass",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 90181.91466599819,
+      "chat_ms": 90173.67562500294,
+      "metrics": {
+        "total_duration": 90172558250,
+        "load_duration": 1083625,
+        "prompt_eval_count": 1677,
+        "prompt_eval_duration": 78504611000,
+        "eval_count": 148,
+        "eval_duration": 10447084000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"8759dd62c7d81224778ed2dd4d2e78dfdad3b4ad7272ce909dfbe94c147336d0\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"pass\", \"reason\": \"The red-framed box encloses a visible pedestrian: a man in a white shirt and jeans, standing with arms crossed, partially obscured by motion blur but clearly identifiable as a person.\", \"evidence_references\": [\"image\", \"annotations\"]}"
+    },
+    {
+      "case_name": "fresh-23",
+      "box_number": 2,
+      "arm": "box-crop-v2",
+      "request_sha256": "195b57ae0398d0266fff9d6dc9fa3eab900f75038b20364056efe8e552bd98dd",
+      "image_sha256": "54898084a73b66997e9bfc340f8ff565c957043047300d156ad7321f2323f1e2",
+      "image_path": "crops/box-crop-v2-fresh-23/box-02.png",
+      "geometry": {
+        "source_bbox": [
+          43,
+          123,
+          64,
+          211
+        ],
+        "source_pil_box": [
+          42,
+          122,
+          64,
+          211
+        ],
+        "source_window": [
+          42,
+          122,
+          64,
+          211
+        ],
+        "target_window": [
+          0,
+          0,
+          22,
+          89
+        ],
+        "image_size": [
+          22,
+          89
+        ]
+      },
+      "case_id": "8759dd62c7d81224778ed2dd4d2e78dfdad3b4ad7272ce909dfbe94c147336d0",
+      "object_id": 2,
+      "source_image_sha256": "47802584f435e449f42e838834dc18c016e7bdfcedda9cee1a781d85d5e992fd",
+      "source_annotation_sha256": "1a925cbacf00f6606b7d9edcde32a638933fcdfb9f68917c4daf0f8471ae5968",
+      "prediction": {
+        "case_id": "8759dd62c7d81224778ed2dd4d2e78dfdad3b4ad7272ce909dfbe94c147336d0",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 2,
+        "object_id": 2,
+        "outcome": "fail",
+        "reason": "The crop shows only blurred background pixels with no discernible pedestrian.",
+        "evidence_references": []
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 10757.357541995589,
+      "chat_ms": 10747.193916991819,
+      "metrics": {
+        "total_duration": 10744265416,
+        "load_duration": 820791,
+        "prompt_eval_count": 1620,
+        "prompt_eval_duration": 801146000,
+        "eval_count": 119,
+        "eval_duration": 7941040000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"8759dd62c7d81224778ed2dd4d2e78dfdad3b4ad7272ce909dfbe94c147336d0\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"fail\", \"reason\": \"The crop shows only blurred background pixels with no discernible pedestrian.\", \"evidence_references\": []}"
+    },
+    {
+      "case_name": "fresh-20",
+      "box_number": 2,
+      "arm": "box-crop-v2",
+      "request_sha256": "e1058c4f08b28ec8374a122cca5a75e1492dc48307eea92e98c04c55dae14f40",
+      "image_sha256": "de55693fe7453e46922d4a29159606e44885b484e32918ec9f2431e70f4a7479",
+      "image_path": "crops/box-crop-v2-fresh-20/box-02.png",
+      "geometry": {
+        "source_bbox": [
+          280,
+          52,
+          431,
+          330
+        ],
+        "source_pil_box": [
+          279,
+          51,
+          431,
+          330
+        ],
+        "source_window": [
+          279,
+          51,
+          431,
+          330
+        ],
+        "target_window": [
+          0,
+          0,
+          152,
+          279
+        ],
+        "image_size": [
+          152,
+          279
+        ]
+      },
+      "case_id": "22ecfdf1ed78a7d2f192fbedbe506214b78a1983382a6b45b8c760cbfe1f5006",
+      "object_id": 2,
+      "source_image_sha256": "4839f8ddd782becdddb4f778d018211392cfbe3c588a0d98e322d639be767f98",
+      "source_annotation_sha256": "553daea34875b489eceed25d716a13768514839c869491a4b0af2f2a5b96ffcc",
+      "prediction": {
+        "case_id": "22ecfdf1ed78a7d2f192fbedbe506214b78a1983382a6b45b8c760cbfe1f5006",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 2,
+        "object_id": 2,
+        "outcome": "fail",
+        "reason": "The crop shows only background elements, including a brick wall and greenery, with no visible pedestrian.",
+        "evidence_references": []
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 12341.343874984886,
+      "chat_ms": 12329.914125002688,
+      "metrics": {
+        "total_duration": 12328439542,
+        "load_duration": 1523584,
+        "prompt_eval_count": 1639,
+        "prompt_eval_duration": 253635000,
+        "eval_count": 127,
+        "eval_duration": 8637121000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"22ecfdf1ed78a7d2f192fbedbe506214b78a1983382a6b45b8c760cbfe1f5006\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"fail\", \"reason\": \"The crop shows only background elements, including a brick wall and greenery, with no visible pedestrian.\", \"evidence_references\": []}"
+    },
+    {
+      "case_name": "fresh-20",
+      "box_number": 2,
+      "arm": "box-context-v1",
+      "request_sha256": "6bc75d3a1ae4c2f5c862c4840406db26d379062cfa678aecf74e6c3ba45a099a",
+      "image_sha256": "6cc80a50820a1385f2e56ec47a3e62d60aeeb67a5505adcb6e0700a3691b486a",
+      "image_path": "crops/box-context-v1-fresh-20/box-02.png",
+      "geometry": {
+        "source_bbox": [
+          280,
+          52,
+          431,
+          330
+        ],
+        "source_pil_box": [
+          279,
+          51,
+          431,
+          330
+        ],
+        "source_window": [
+          203,
+          0,
+          473,
+          348
+        ],
+        "target_window": [
+          78,
+          53,
+          230,
+          332
+        ],
+        "image_size": [
+          274,
+          352
+        ]
+      },
+      "case_id": "22ecfdf1ed78a7d2f192fbedbe506214b78a1983382a6b45b8c760cbfe1f5006",
+      "object_id": 2,
+      "source_image_sha256": "4839f8ddd782becdddb4f778d018211392cfbe3c588a0d98e322d639be767f98",
+      "source_annotation_sha256": "553daea34875b489eceed25d716a13768514839c869491a4b0af2f2a5b96ffcc",
+      "prediction": {
+        "case_id": "22ecfdf1ed78a7d2f192fbedbe506214b78a1983382a6b45b8c760cbfe1f5006",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 2,
+        "object_id": 2,
+        "outcome": "pass",
+        "reason": "The red-framed box encloses a visible pedestrian: a woman in a pink top and blue jeans, walking and carrying items, with motion blur indicating movement.",
+        "evidence_references": [
+          "image",
+          "annotations",
+          "guideline"
+        ]
+      },
+      "outcome": "pass",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 94134.5581659989,
+      "chat_ms": 94118.19149999064,
+      "metrics": {
+        "total_duration": 94115087625,
+        "load_duration": 2094541,
+        "prompt_eval_count": 1693,
+        "prompt_eval_duration": 81149333000,
+        "eval_count": 148,
+        "eval_duration": 12573189000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"22ecfdf1ed78a7d2f192fbedbe506214b78a1983382a6b45b8c760cbfe1f5006\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 2, \"object_id\": 2, \"outcome\": \"pass\", \"reason\": \"The red-framed box encloses a visible pedestrian: a woman in a pink top and blue jeans, walking and carrying items, with motion blur indicating movement.\", \"evidence_references\": [\"image\", \"annotations\", \"guideline\"]}"
+    },
+    {
+      "case_name": "fresh-10",
+      "box_number": 3,
+      "arm": "box-context-v1",
+      "request_sha256": "6b3d79e04ee034673d4c35b8491813751292e77cac2acf9b1cb3396c0bf18b6c",
+      "image_sha256": "41b093734378ea170b54a4010a343e466df6ddec1c9d389ea92ac3eca2ac555b",
+      "image_path": "crops/box-context-v1-fresh-10/box-03.png",
+      "geometry": {
+        "source_bbox": [
+          315,
+          321,
+          394,
+          365
+        ],
+        "source_pil_box": [
+          314,
+          320,
+          394,
+          365
+        ],
+        "source_window": [
+          274,
+          288,
+          434,
+          381
+        ],
+        "target_window": [
+          42,
+          34,
+          122,
+          79
+        ],
+        "image_size": [
+          164,
+          97
+        ]
+      },
+      "case_id": "66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded",
+      "object_id": 3,
+      "source_image_sha256": "7b5b874dc8940fc62afe7fb57b8e99dccc8908c8e8177609afdc1d5436c353a7",
+      "source_annotation_sha256": "ebe6c0ce57387f1eb5ab6c93e724cb86da5ae93e5ffa2a248110fc661e0a45a9",
+      "prediction": {
+        "case_id": "66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 3,
+        "object_id": 3,
+        "outcome": "fail",
+        "reason": "The red-framed area contains only blurred background; no visible pedestrian is present.",
+        "evidence_references": []
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 87101.6364999814,
+      "chat_ms": 87089.19112500735,
+      "metrics": {
+        "total_duration": 87086074000,
+        "load_duration": 1161541,
+        "prompt_eval_count": 1670,
+        "prompt_eval_duration": 77733487000,
+        "eval_count": 123,
+        "eval_duration": 8995107000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 3, \"object_id\": 3, \"outcome\": \"fail\", \"reason\": \"The red-framed area contains only blurred background; no visible pedestrian is present.\", \"evidence_references\": []}"
+    },
+    {
+      "case_name": "fresh-10",
+      "box_number": 3,
+      "arm": "box-crop-v2",
+      "request_sha256": "3d38842a04e40a1b45ab7a060c9da2d91495970fea912cc0e3c9c20cab299623",
+      "image_sha256": "76a2012adf00ddc0a9c2846fda0b4aff5711e18840e126f4a692a8222bd008fb",
+      "image_path": "crops/box-crop-v2-fresh-10/box-03.png",
+      "geometry": {
+        "source_bbox": [
+          315,
+          321,
+          394,
+          365
+        ],
+        "source_pil_box": [
+          314,
+          320,
+          394,
+          365
+        ],
+        "source_window": [
+          314,
+          320,
+          394,
+          365
+        ],
+        "target_window": [
+          0,
+          0,
+          80,
+          45
+        ],
+        "image_size": [
+          80,
+          45
+        ]
+      },
+      "case_id": "66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded",
+      "object_id": 3,
+      "source_image_sha256": "7b5b874dc8940fc62afe7fb57b8e99dccc8908c8e8177609afdc1d5436c353a7",
+      "source_annotation_sha256": "ebe6c0ce57387f1eb5ab6c93e724cb86da5ae93e5ffa2a248110fc661e0a45a9",
+      "prediction": {
+        "case_id": "66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded",
+        "rule_id": "VISIBLE-PEDESTRIAN",
+        "box_number": 3,
+        "object_id": 3,
+        "outcome": "fail",
+        "reason": "The crop shows only blurred, indistinct background with no discernible pedestrian.",
+        "evidence_references": []
+      },
+      "outcome": "fail",
+      "error": null,
+      "model_verified": true,
+      "chat_attempted": true,
+      "duration_ms": 88287.57666700403,
+      "chat_ms": 88278.88704198995,
+      "metrics": {
+        "total_duration": 88271407208,
+        "load_duration": 1025958,
+        "prompt_eval_count": 1656,
+        "prompt_eval_duration": 77313417000,
+        "eval_count": 123,
+        "eval_duration": 9428104000,
+        "done_reason": "stop"
+      },
+      "content": "{\"case_id\": \"66e78b921a80d42c5d381369642a569f6beaa6cc6e848c875cee4573e4bfaded\", \"rule_id\": \"VISIBLE-PEDESTRIAN\", \"box_number\": 3, \"object_id\": 3, \"outcome\": \"fail\", \"reason\": \"The crop shows only blurred, indistinct background with no discernible pedestrian.\", \"evidence_references\": []}"
+    }
+  ],
+  "label_seal": {
+    "recorded_at": "2026-10-23T03:53:50.735984+00:00",
+    "labels_sha256": "80020b6491ec870f3f5831e5cf5336cbe767a8807014717fe9a784f05c0fd5be",
+    "scope_sha256": "e19d53ea79a40fe4bf59374c366d6648da4683c6e92103cb07202bdfbbf573e8",
+    "protocol_freeze_sha256": "7d897e12eae25856c72401253185a5b273e38ae7de17944760ceb26eb776a813",
+    "labels_frozen": true,
+    "model_requests_started": false,
+    "box_counts": {
+      "pass_count": 52,
+      "fail_count": 9,
+      "unsure_count": 0
+    },
+    "image_counts": {
+      "pass_count": 15,
+      "fail_count": 9,
+      "unsure_count": 0
+    }
+  },
+  "source_file_sha256": {
+    "run.json": "427cbe50e9d91ebeb30eaeaab4e29fee6840058a1091c0ead11cc98369745626",
+    "summary.json": "de7d656b722a401e963566e33ab931dec9aa1d74ef4b37497dee3e366ca04968",
+    "results.jsonl": "021e4013484cf435454fc879c11e0365cdec1071045d97f494aad47a410b8ac6"
+  }
+}

@@ -587,3 +587,21 @@ See [AUDITS.md](AUDITS.md). `GET /audits/{audit_id}/findings` is implemented, so
 See [CORRECTIONS.md](CORRECTIONS.md). Source and all five regenerated API artifacts
 describe 46 implemented and 4 planned operations, 50 total. Migration 012 and
 regression/runtime verification after the latest fixes remain separate gates.
+
+### Optional pedestrian enclosure findings
+
+`GET /api/v1/capabilities` includes `pedestrian_box_enclosure`, a sample-level check
+with no parameters. Confirm the check explicitly in the rulebook. Enabling its model
+requires server-side `ENCLOSURE_*` settings; these are not fields in the audit POST body.
+A configured check produces one pending human-review finding per sample and rule.
+Without configuration it produces `unavailable`, not a successful result.
+
+Read its stored evidence through the existing sample-detail and audit-findings endpoints.
+`evidence.measurements.enclosure` records the execution pin, source hashes, aggregate,
+and per-box outcomes, reasons, verification flags and view provenance. Render these as
+model proposals; do not infer a human decision from an outcome. A verified failure wins
+when some other boxes are unavailable. Empty, unreadable or invalid input remains unavailable.
+No new endpoint or migration is required. A supplied feedback policy with an enclosure
+rulebook is rejected with `POLICY_INCOMPATIBLE`. Linked rechecks retain the parent's
+execution choice (including disabled), but use the selected immutable sample revisions.
+See [configuration and limitations](../ENCLOSURE_CHECK.md).

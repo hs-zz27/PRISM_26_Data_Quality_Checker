@@ -98,6 +98,10 @@
             {
               "name": "mask_outside_box",
               "implementation": "implemented"
+            },
+            {
+              "name": "pedestrian_box_enclosure",
+              "implementation": "implemented"
             }
           ],
           "evidence_features": [
@@ -8253,6 +8257,18 @@
           "max_outside_fraction"
         ],
         "title": "MaximumOutsideFractionParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "pedestrian_box_enclosure",
+      "meaning": "Model-assisted judgment that each annotation box encloses a visible pedestrian, using one marked context view per box. Opt-in; a box entirely on background is a violation. Not a tightness, size or completeness check.",
+      "scope": "sample",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Checks whose semantics do not require a threshold or label list.",
+        "properties": {},
+        "title": "EmptyParameters",
         "type": "object"
       }
     }

@@ -62,7 +62,8 @@ class RecheckRepository(CorrectionRepository):
             batch=BatchAuditRequest.model_validate({**original.model_dump(),'dataset_root':'','sample_ids':request.sample_ids,
                 'sample_revisions':request.sample_revisions,'source_mode':'snapshot'})
             # Private shared insertion seam; no second connection or generic queue.
-            audit,job=AuditRepository(settings=self.settings)._start_audit_locked(connection,batch,sample_manifests=pins)
+            audit,job=AuditRepository(settings=self.settings)._start_audit_locked(
+                connection,batch,sample_manifests=pins,preserve_enclosure_runtime=True)
             connection.execute('''INSERT INTO audit_recheck_lineage(child_audit_id,parent_audit_id,reviewer_id,created_at)
                 VALUES(%s,%s,%s,%s)''',(audit.audit_id,parent_audit_id,request.reviewer_id,audit.created_at))
             result=AuditStarted(audit=audit,job=job,parent_audit_id=parent_audit_id,feedback_policy_id=original.feedback_policy_id)
