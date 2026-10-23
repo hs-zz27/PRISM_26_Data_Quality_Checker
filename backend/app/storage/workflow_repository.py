@@ -1367,6 +1367,9 @@ class AuditRepository(_WorkflowRepository):
         elif request.feedback_policy_id is not None or request.feedback_runtime is not None:
             from ..core.feedback import FeedbackError
             raise FeedbackError('POLICY_INCOMPATIBLE')
+        if bookrow is not None:
+            from ..services.enclosure import prepare_enclosure_runtime
+            request = prepare_enclosure_runtime(request, RulebookRepository._decode(bookrow))
         request_document = Jsonb(request.model_dump(mode="json"))
         connection.execute(
             """INSERT INTO jobs

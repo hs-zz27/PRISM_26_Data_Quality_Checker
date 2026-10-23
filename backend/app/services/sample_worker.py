@@ -99,6 +99,7 @@ def run_sample_child(
     snapshot_manifest: SampleAssetManifest | None = None,
     asset_settings: AssetStorageSettings | None = None,
     feedback_runtime: Any = None,
+    enclosure_runtime: Any = None,
 ) -> None:
     """Collect and evaluate one sample without opening the workflow database."""
     _clear_database_environment()
@@ -135,6 +136,12 @@ def run_sample_child(
                     from .feedback import augment_evaluation
                     evaluation = augment_evaluation(evaluation,rulebook,snapshot_manifest,feedback_runtime,asset_settings,
                         audit_id=audit_id,sample_id=sample_id,sample_revision=sample_revision)
+                if enclosure_runtime is not None:
+                    if snapshot_manifest is None or asset_settings is None:
+                        raise SampleComputationError("Model checks require immutable snapshot evidence.")
+                    from .enclosure import augment_enclosure
+                    evaluation = augment_enclosure(evaluation, rulebook, snapshot_manifest, enclosure_runtime, asset_settings,
+                        audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision)
                 message = (
                     "success", measurements, evaluation.findings,
                     evaluation.internal_check_failures,

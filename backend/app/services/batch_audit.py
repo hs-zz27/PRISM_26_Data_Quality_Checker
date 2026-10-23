@@ -514,7 +514,8 @@ class BatchAuditService:
                     sample_claim.sample_revision,
                 ),
                 kwargs={"snapshot_manifest": manifest, "asset_settings": asset_settings,
-                        "feedback_runtime":request.feedback_runtime},
+                        "feedback_runtime":request.feedback_runtime,
+                        "enclosure_runtime": request.enclosure_runtime},
                 daemon=True,
             )
             try:
@@ -742,6 +743,12 @@ class BatchAuditService:
                         evaluation=augment_evaluation(evaluation,rulebook,self._snapshot_for_claim(request,sample_claim),
                             request.feedback_runtime,self.manifest_repository.asset_settings,
                             audit_id=sample_claim.audit_id,sample_id=sample_claim.sample_id,sample_revision=sample_claim.sample_revision)
+                    if request.enclosure_runtime is not None:
+                        from .enclosure import augment_enclosure
+                        evaluation = augment_enclosure(evaluation, rulebook, self._snapshot_for_claim(request, sample_claim),
+                            request.enclosure_runtime, self.manifest_repository.asset_settings,
+                            audit_id=sample_claim.audit_id, sample_id=sample_claim.sample_id,
+                            sample_revision=sample_claim.sample_revision)
                 # Preserve the collector's source-processing status. The
                 # durable incomplete flag also records evaluator health.
                 stored_measurements = deepcopy(dict(measurements))
