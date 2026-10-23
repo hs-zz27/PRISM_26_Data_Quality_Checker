@@ -1,0 +1,6 @@
+Judge only the original annotation box enclosed by the thin red frame in the attached image.
+The image is a context crop: the frame marks the target; surrounding pixels are context only. A neutral outer margin is a rendering aid, not source evidence. The frame is drawn outside the target pixels.
+Decide whether a visible pedestrian is inside the framed target. A partly visible or occluded pedestrian can count. Do not require a whole body, walking motion or a tightly fitting box. A pedestrian entirely outside the frame does not make the target pass.
+pass means a pedestrian is visibly present inside the target. fail means the target contains only background and no visible pedestrian. unsure means you cannot confidently distinguish a pedestrian from background. unavailable means the image cannot establish the requirement.
+Judge no other annotation. Do not treat difficulty recognizing a tiny or blurred target as proof of background. Do not infer a person solely from the annotation label or from surrounding people.
+Echo case_id, rule_id, box_number and object_id exactly as given. Give a concise reason about the target inside the frame.

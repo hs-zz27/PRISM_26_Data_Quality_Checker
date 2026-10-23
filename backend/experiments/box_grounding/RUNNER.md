@@ -193,3 +193,44 @@ identity mismatches and other unavailable outcomes. A candidate that still flags
 every box fails the investigation even with perfect violation recall. Do not
 activate this experiment or claim generalization from these exposed cases; any
 accuracy improvement requires a fresh, independently reviewed set.
+
+## Identity binding: bound-v1
+
+The optional `--identity-schema bound-v1` mode adds per-request JSON Schema
+`const` values for `case_id` and `rule_id`, plus `box_number` and `object_id` for
+crops. It applies to both arms. The default `echo-v1` preserves earlier requests.
+These constants are known request identifiers, never expected outcomes or reviewer
+labels. The output model and strict equality checks still reject malformed or
+mismatched responses. Nothing is filled in, repaired, retried or silently accepted.
+
+Ollama accepts a JSON schema through its `format` parameter; `const` restricts a
+field to one value. See the [Ollama structured-output documentation](https://docs.ollama.com/capabilities/structured-outputs)
+and [JSON Schema const reference](https://json-schema.org/understanding-json-schema/reference/const).
+Runtime support and elimination of copying failures still need a real-model run;
+a schema does not guarantee visual accuracy.
+
+Start with the previously failing case-05 (one raw and two crop requests):
+
+```bash
+.venv/bin/python -B -m backend.experiments.box_grounding.run_experiment run --scope .cache/box-grounding/handoff-verification/scope.json --run-name crop-v2-bound-case05 --arms raw-image-v1,box-crop-v2 --identity-schema bound-v1 --cases case-05 --threads 10 --timeout-seconds 600
+```
+
+Check the saved results for exact identities and model verification, not merely
+successful completion. A failed identity still produces unavailable. The subset
+is a transport diagnostic, not an accuracy comparison. Do not replace the old
+case-05 outcomes with these new ones. Full comparison requires a new run over
+all cases with the same mode in both arms. Windows uses the portable Python
+command and prepared inputs path above, with `--threads auto`.
+
+The selected identity mode is recorded in execution settings, provenance and
+scores. Base schema hashes describe the unbound model schemas; each recorded
+request SHA covers the exact schema with its identity constants. Source images,
+prompts, crop version and identities remain bound through existing hashes and
+records. Earlier saved scores without identity mode are reported as echo-v1.
+
+## Selected-box context diagnostic
+
+See [CONTEXT_PROBE.md](CONTEXT_PROBE.md) for the separate eight-box paired probe,
+its owner-run test/inference commands, frozen padding/marker policy and decision
+rule. Its records describe selected boxes, not complete images. Existing runner
+variants and historical results are unchanged.

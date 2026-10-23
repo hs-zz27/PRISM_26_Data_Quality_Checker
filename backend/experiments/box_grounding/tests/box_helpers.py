@@ -112,6 +112,7 @@ def build_corpus(root: Path, specs: tuple[CaseSpec, ...] = DEFAULT_SPECS) -> Cor
                                               guideline=GUIDELINE, cases=cases))
     (packet / "system_prompt_v1.txt").write_bytes(b"Synthetic system prompt.")
     shutil.copy(PACKET / "per_box_instruction_v1.txt", packet / "per_box_instruction_v1.txt")
+    shutil.copy(PACKET / "context_instruction_v1.txt", packet / "context_instruction_v1.txt")
     shutil.copytree(PACKET / "reference_results", packet / "reference_results")
     prepare(root / "inputs", dataset_root=dataset, packet=packet)
     labels = [dict(case_id=s.name, decision=s.decision, partition=s.partition, reviewer_id="synthetic")

@@ -1,0 +1,14 @@
+{
+  "schema": "context-probe-plan-v1",
+  "scope_sha256": "e19d53ea79a40fe4bf59374c366d6648da4683c6e92103cb07202bdfbbf573e8",
+  "targets": [
+    {"case_name": "fresh-01", "box_number": 1},
+    {"case_name": "fresh-14", "box_number": 4},
+    {"case_name": "fresh-10", "box_number": 2},
+    {"case_name": "fresh-01", "box_number": 5},
+    {"case_name": "fresh-03", "box_number": 2},
+    {"case_name": "fresh-23", "box_number": 2},
+    {"case_name": "fresh-20", "box_number": 2},
+    {"case_name": "fresh-10", "box_number": 3}
+  ]
+}
