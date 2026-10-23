@@ -28,15 +28,79 @@ Work from current `origin/main` on a new integration branch. The experiment
 branch is a reference snapshot, not an instruction to replace current production
 files. One way to keep both checkouts available is:
 
-```bash
+```powershell
 git fetch origin
 git switch -c integrate/pedestrian-box-context origin/main
-git worktree add --detach ../cdif-context-reference origin/experiment/per-box-grounding
+git worktree add --detach ..\cdif-context-reference origin/experiment/per-box-grounding
 ```
 
 Use a different worktree directory if that path already exists. Never reset,
 delete, or overwrite someone else's checkout. Inspect the current main interfaces
 before editing: newer production changes take precedence over review copies.
+
+## Teammate environment — native Windows, 16 GB RAM
+
+Write all teammate-facing commands for **PowerShell**, run from the appropriate
+checkout root. Use native Python 3.12 and `pathlib`; paths may contain spaces.
+Do not assume WSL, Bash, macOS tools, Homebrew, `caffeinate`, `/Users/...`,
+`.venv/bin/python`, `source`, Unix signals or `fork`. Windows line continuation
+uses a backtick, not a Bash backslash; prefer one-line commands.
+
+If no suitable virtual environment already exists, create one after Python 3.12
+is available:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe --version
+```
+
+Do not replace an existing environment. Using the interpreter directly avoids
+requiring activation or changes to PowerShell's execution policy. Use the existing
+repository dependency pins; do not upgrade packages or install experiment-only
+requirements as if they were the full backend requirements. Request permission
+before dependency installation/changes as specified below.
+
+For a checkout containing the experiment packet, once its pinned test dependencies
+are available, the existing offline experiment tests use:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m pytest backend/experiments/box_grounding/tests -q
+```
+
+Run that command in the reference checkout with its own environment, or explicitly
+point to a suitable interpreter; the two worktrees do not share `.venv` folders.
+Keep new production regression tests in the integration checkout and provide their
+exact PowerShell command separately. Do not require the owner's ignored files.
+
+Coding and synthetic/mocked tests do **not** need Ollama, a vision model, the
+Penn-Fudan dataset, the CNN checkpoint or a GPU. PostgreSQL integration tests do
+need a separate local test database; use the project's Docker setup only when
+that test stage is authorized. Ollama and the Torchvision detector are separate
+systems; the detector weights cannot substitute for the vision-language model.
+
+If real inference is later authorized, use Windows Ollama with a separately
+verified local vision model. `ollama list` and `ollama ps` show installed/loaded
+models; `ollama serve` is needed only if the Windows Ollama app has not already
+started the server. Do not start a second server on the same port. A matching tag
+does not prove a matching digest: the earlier Windows run had a different build.
+Report any digest/version difference and do not silently substitute a model or
+claim direct equivalence to the Mac results. Do not download a model automatically.
+
+Start with automatic thread selection (`None`/omitted in production pins); the
+experiment's `--threads auto` belongs to its main runner, not to `context_probe`,
+whose integer-only `--threads` option should be omitted for automatic selection.
+Pin the chosen setting within each paired run. Keep requests sequential on the
+16 GB laptop and record actual latency/memory; Mac timings are not a Windows ETA.
+Retain CPU-only model options for this feature. No GPU/CUDA dependency is needed.
+
+New process entry points must be importable module-level callables with picklable
+arguments and no import-time model/database startup. Preserve the existing spawn
+supervisor; exercise it on native Windows. Use process cleanup/deadlines that work
+on Windows rather than adding POSIX-only signals, shell commands or process groups.
+
+Recorded experiment hashes may depend on exact file bytes. Do not change global
+Git line-ending settings or rewrite a recorded hash to hide a CRLF mismatch.
+Report any mismatch and distinguish local checkout conversion from changed source.
 
 ## Evidence and what it means
 
