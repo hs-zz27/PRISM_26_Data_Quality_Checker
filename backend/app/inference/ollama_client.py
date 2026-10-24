@@ -1,12 +1,13 @@
 """Connect to the user-installed Ollama model and use CPU inference options."""
 
 import json
-from typing import Any
+from typing import Any, Literal, Union
 
 import httpx
-from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, create_model, model_validator
 
 from ..checks.registry import (
+    EmptyParameters,
     RuleParameterError,
     extraction_check_catalog,
     get_check_definition,
@@ -46,6 +47,33 @@ class _RuleResponse(BaseModel):
             except RuleParameterError as error:
                 raise ValueError(str(error)) from error
         return self
+
+
+def _proposal_response_schema() -> dict[str, Any]:
+    """Constrain generated parameter values to the selected executable check.
+
+    The runtime validator stays independent: structured generation is guidance,
+    not a substitute for checking model output and exact source citations.
+    Pydantic assembles the union so nested parameter references remain valid.
+    """
+    variants = [create_model(
+        "UnmappedRuleProposal", __base__=RuleProposal,
+        check_name=(Literal[None], ...), parameters=(EmptyParameters, ...),
+    )]
+    for entry in extraction_check_catalog():
+        name = entry["check_name"]
+        definition = get_check_definition(name)
+        if definition is None:
+            raise RuntimeError("The extraction catalog and check registry disagree.")
+        variants.append(create_model(
+            f"Proposal_{name}", __base__=RuleProposal,
+            check_name=(Literal[name], ...), parameters=(definition.parameter_model, ...),
+        ))
+    response = create_model(
+        "RuleProposalResponse", __config__=ConfigDict(extra="forbid", strict=True),
+        rules=(list[Union[tuple(variants)]], ...),
+    )
+    return response.model_json_schema()
 
 
 def _post_json(
@@ -114,7 +142,7 @@ def propose_rules(
         {**configuration.model_dump(), **overrides}
     )
 
-    schema = _RuleResponse.model_json_schema()
+    schema = _proposal_response_schema()
     check_catalog = json.dumps(
         extraction_check_catalog(), ensure_ascii=False, sort_keys=True,
     )
@@ -130,7 +158,9 @@ def propose_rules(
         "Use check_name null and parameters {} when the requirement is unsupported or too "
         "ambiguous to map safely; preserve its plain-language description and exact citation. "
         "Use only check_name values from the authoritative catalog below, and make parameters "
-        "match that check's schema exactly. Percentage values for fraction parameters must be "
+        "match that check's schema exactly. The catalog describes schemas; output actual values, "
+        "not schema keywords. For example a label list is [\"person\", \"PASperson\"], "
+        "not an object containing items or minItems. Percentage values for fraction parameters must be "
         "converted to a value from 0 to 1, for example 5% becomes 0.05. Do not apply that "
         "conversion to pixel or count parameters. For example, 'At most 5% of the mask may "
         "be outside the box' maps to mask_outside_box with max_outside_fraction 0.05 only "
