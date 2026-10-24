@@ -51,6 +51,8 @@ describe('AuditReviewWorkspace', () => {
     expect(within(card).getByText('Label is not in the approved list')).toBeInTheDocument();
     expect(within(card).getByText('Label must be one of: person')).toBeInTheDocument();
     expect(within(card).getByText('vehicle')).toBeInTheDocument();
+    const recorded = within(card).getByText('Complete recorded evidence').closest('details');
+    expect(recorded?.querySelector('pre')?.textContent).toBe(JSON.stringify(finding.evidence?.measurements, null, 2));
     expect(within(card).getByText(/Allowed labels are person\./)).toBeInTheDocument();
     // Reviewer-authored rules say so instead of showing a citation.
     expect(await screen.findByText(/Reviewer-authored rule — no guideline sentence/)).toBeInTheDocument();

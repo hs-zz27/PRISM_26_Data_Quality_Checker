@@ -1,8 +1,9 @@
 import React from 'react';
 import { EnclosureEvidence, readEnclosureEvidence } from './EnclosureEvidence';
+import { summarizeEvidence } from '../../lib/evidence';
 import { History, Quote, UserRound } from 'lucide-react';
 import { Badge, type BadgeVariant } from '../../components/ui/Badge';
-import { checkLabel, describeRequirement, explainFinding, formatValue, outcomeLabel, resolutionLabel } from '../../lib/labels';
+import { checkLabel, describeRequirement, explainFinding, outcomeLabel, resolutionLabel } from '../../lib/labels';
 import { formatTimestamp } from '../../lib/format';
 import type { components } from '../../api/generated/openapi';
 
@@ -31,8 +32,9 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding: f, selected, 
   const requirement = describeRequirement(f.check_name, f.parameters as Record<string, unknown>);
   const enclosure = f.check_name === 'pedestrian_box_enclosure'
     ? readEnclosureEvidence(f.evidence?.measurements?.enclosure) : null;
-  const measurements = Object.entries(f.evidence?.measurements ?? {})
-    .filter(([key]) => !(enclosure && key === 'enclosure'));
+  const measurements = Object.fromEntries(Object.entries(f.evidence?.measurements ?? {})
+    .filter(([key]) => !(enclosure && key === 'enclosure')));
+  const evidenceRows = summarizeEvidence(f.check_name, measurements);
   const decisionButton = (value: FindingDecision, label: string, title: string, tone: string) => (
     <button
       type="button"
@@ -70,13 +72,20 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding: f, selected, 
 
       {enclosure && <EnclosureEvidence evidence={enclosure} />}
 
-      {measurements.length > 0 && (
+      {evidenceRows.length > 0 && (
         <div className="finding-evidence" aria-label="Measured evidence">
           <span className="finding-section-label">Evidence measured</span>
-          {measurements.map(([key, value]) => (
-            <div key={key}><span>{key.replace(/_/g, ' ')}</span><b>{formatValue(value)}</b></div>
+          {evidenceRows.map((row) => (
+            <div key={row.label}><span>{row.label}</span><b>{row.value}</b></div>
           ))}
         </div>
+      )}
+
+      {Object.keys(measurements).length > 0 && (
+        <details className="finding-evidence">
+          <summary>Complete recorded evidence</summary>
+          <pre className="whitespace-pre-wrap break-words text-xs">{JSON.stringify(measurements, null, 2)}</pre>
+        </details>
       )}
 
       {f.source_sentence ? (

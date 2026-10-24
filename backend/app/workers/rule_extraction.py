@@ -9,6 +9,7 @@ from ..core.config import DatabaseConfigurationError
 from ..services.extraction_jobs import ExtractionOutcomeUnresolved, supervise
 from ..storage.extraction_repository import ExtractionRepository
 from ..storage.workflow_repository import WorkflowStorageError
+from .poll_retry import PollRetry
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -21,9 +22,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         repository = ExtractionRepository()
         worker_id = f"extraction_worker_{uuid4().hex}"
+        poll_retry = PollRetry("Extraction worker")
         while not stop.is_set():
-            repository.recover_stale()
-            claim = repository.claim_next(worker_id=worker_id)
+            try:
+                repository.recover_stale()
+                claim = repository.claim_next(worker_id=worker_id)
+            except WorkflowStorageError as error:
+                if not poll_retry.should_retry(error, stop.wait):
+                    raise
+                continue
+            poll_retry.reset()
             if claim is not None:
                 supervise(claim, repository=repository, stop=stop)
             if arguments.once:

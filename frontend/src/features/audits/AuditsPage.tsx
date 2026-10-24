@@ -18,12 +18,14 @@ import { Button } from '../../components/ui/Button';
 import { useJobPolling } from '../../hooks/useJobPolling';
 import { formatCount, formatTimestamp } from '../../lib/format';
 import { jobStatusLabel } from '../../lib/labels';
+import { useDatasetName } from '../../hooks/useDatasetName';
 import { unwrapAuditStarted } from '../../lib/audit';
 
 export const AuditsPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { reviewerId, openPrompt } = useReviewerStore();
+  const datasetName = useDatasetName();
 
   const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
   const [selectedDatasetId, setSelectedDatasetId] = useState('');
@@ -215,7 +217,7 @@ export const AuditsPage: React.FC = () => {
                         {audit.audit_id}
                       </td>
                       <td className="py-3 px-4 font-mono text-text-muted">
-                        {audit.dataset_id}
+                        {datasetName(audit.dataset_id)}
                       </td>
                       <td className="py-3 px-4 font-mono text-text-muted">
                         {audit.rulebook_id} (v{audit.rulebook_version})

@@ -29,6 +29,7 @@ import { KeyboardHelpModal } from '../../components/ui/KeyboardHelpModal';
 import { isTypingTarget } from '../../lib/keyboard';
 import { checkLabel, reasonLabel, reviewStatusLabel, toolStatusLabel } from '../../lib/labels';
 import { formatTimestamp } from '../../lib/format';
+import { useDatasetName } from '../../hooks/useDatasetName';
 import {
   groupFindings,
   isReasonRequired,
@@ -60,6 +61,7 @@ export const AuditReviewWorkspace: React.FC = () => {
   const { reviewerId, openPrompt } = useReviewerStore();
   const { toggleMask, toggleBoxes, resetView, zoom, setZoom, setSelectedInstanceId } = useCanvasStore();
   const commentRef = useRef<HTMLTextAreaElement>(null);
+  const datasetName = useDatasetName();
   const [searchParams] = useSearchParams();
 
   // `?sample=` lets the report and other screens deep-link to one sample.
@@ -398,7 +400,7 @@ export const AuditReviewWorkspace: React.FC = () => {
           <div className="min-w-0">
             <div className="font-mono text-xs font-semibold text-text truncate">{auditId}</div>
             <div className="text-2xs font-mono text-text-muted truncate">
-              dataset {audit?.dataset_id ?? '…'} · rulebook {audit?.rulebook_id ?? '…'} v{audit?.rulebook_version ?? '…'}
+              dataset {datasetName(audit?.dataset_id)} · rulebook {audit?.rulebook_id ?? '…'} v{audit?.rulebook_version ?? '…'}
             </div>
           </div>
         </div>

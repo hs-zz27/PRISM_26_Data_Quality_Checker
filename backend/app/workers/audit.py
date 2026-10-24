@@ -10,6 +10,7 @@ from ..core.config import AssetStorageConfigurationError, AuditConfigurationErro
 from ..models.job import JobKind
 from ..services.batch_audit import BatchAuditService
 from ..storage.repository import RulebookRepository, RulebookStorageError
+from .poll_retry import PollRetry
 from ..storage.workflow_repository import (
     AuditRepository, JobClaimLostError, SampleAssetManifestRepository, WorkflowStorageError,
 )
@@ -35,11 +36,18 @@ def main(argv: list[str] | None = None) -> int:
             manifest_repository=SampleAssetManifestRepository(settings=repository.settings),
         )
         worker_id = f"audit_worker_{uuid4().hex}"
+        poll_retry = PollRetry("Audit worker")
         while not stop.is_set():
-            service.recover()
-            claim = repository.jobs.claim_next_job(
-                worker_id=worker_id, lease_seconds=service.lease_seconds, kind=JobKind.AUDIT,
-            )
+            try:
+                service.recover()
+                claim = repository.jobs.claim_next_job(
+                    worker_id=worker_id, lease_seconds=service.lease_seconds, kind=JobKind.AUDIT,
+                )
+            except (WorkflowStorageError, RulebookStorageError) as error:
+                if not poll_retry.should_retry(error, stop.wait):
+                    raise
+                continue
+            poll_retry.reset()
             if claim is not None:
                 try:
                     service.run_claimed_job(claim)
