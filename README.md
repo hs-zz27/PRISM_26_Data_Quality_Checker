@@ -320,6 +320,18 @@ The scaffold has folders and notes on what each part is responsible for. The vir
 
 ## Getting started
 
+For the complete local stack, see [Docker Compose setup](docker/README.md).
+With Docker Desktop, `.env` credentials and host Ollama ready, one command starts
+PostgreSQL, migrations, the API, frontend and all five workers:
+
+```bash
+docker compose up --build -d
+```
+
+Open http://localhost:5173. Existing native installs should read the storage and
+model-pin transition notes before switching. The manual setup below remains
+available when developing individual services.
+
 Requirements: Python 3.12, Docker (to run PostgreSQL), Node.js 18+ (for the frontend), and [Ollama](https://ollama.com) with a local model pulled.
 
 ```bash

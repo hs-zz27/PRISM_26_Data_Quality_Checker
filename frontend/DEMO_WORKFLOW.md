@@ -1,3 +1,7 @@
+> **Single-command option:** [Docker Compose](../docker/README.md) now starts
+> the frontend, API and all workers together. The separate terminal instructions
+> below remain useful for native development and debugging.
+
 # Local integrated demo
 
 Use the integration branch containing both `feat/frontend` and merged backend `main`.

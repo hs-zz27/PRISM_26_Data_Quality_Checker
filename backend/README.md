@@ -1,3 +1,7 @@
+> For single-command startup of the API, frontend and every worker, see
+> [Docker Compose setup](../docker/README.md). Individual worker commands below
+> are for native development; Compose starts them all automatically.
+
 # Backend
 
 > Current feedback source proposal: ten feedback operations plus real bounded

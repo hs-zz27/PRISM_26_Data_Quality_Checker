@@ -1,4 +1,96 @@
+# Start the local application with: docker compose up --build -d
+x-backend: &backend
+  image: cdif-backend:local
+  build:
+    context: .
+    dockerfile: docker/backend.Dockerfile
+  init: true
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    # .env may contain a native database URL. Containers use the Compose service.
+    DATABASE_URL: ""
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    CDIF_ALLOW_DOCKER_OLLAMA: "1"
+    OLLAMA_BASE_URL: http://host.docker.internal:11434
+    ENCLOSURE_HOST: http://host.docker.internal:11434
+    # Preserve absolute paths used by durable import/export requests.
+    ASSET_STORAGE_ROOT: ${ASSET_STORAGE_ROOT:-${PWD}/backend/data/assets}
+    DATASET_IMPORT_ROOT: ${DATASET_IMPORT_ROOT:-${PWD}/backend/data/imports}
+    EXPORT_ROOT: ${EXPORT_ROOT:-${PWD}/backend/data/exports}
+    DETECTION_CHECKPOINT_PATH: ${COMPOSE_DETECTION_CHECKPOINT_PATH:-}
+  volumes:
+    - type: bind
+      source: ${ASSET_STORAGE_ROOT:-${PWD}/backend/data/assets}
+      target: ${ASSET_STORAGE_ROOT:-${PWD}/backend/data/assets}
+    - type: bind
+      source: ${DATASET_IMPORT_ROOT:-${PWD}/backend/data/imports}
+      target: ${DATASET_IMPORT_ROOT:-${PWD}/backend/data/imports}
+    - type: bind
+      source: ${EXPORT_ROOT:-${PWD}/backend/data/exports}
+      target: ${EXPORT_ROOT:-${PWD}/backend/data/exports}
+    - type: bind
+      source: ${DETECTION_MODEL_ROOT:-./backend/data/models}
+      target: /models
+      read_only: true
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+  # Workers receive SIGTERM and have time to finish an active bounded sample.
+  stop_grace_period: ${COMPOSE_STOP_GRACE_PERIOD:-16m}
+
 services:
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: ["python", "-B", "-c", "from backend.app.storage.database import main; main()"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  extraction-worker:
+    <<: *backend
+    command: ["python", "-B", "-m", "backend.app.workers.rule_extraction"]
+
+  import-worker:
+    <<: *backend
+    command: ["python", "-B", "-m", "backend.app.workers.dataset_import"]
+
+  audit-worker:
+    <<: *backend
+    command: ["python", "-B", "-m", "backend.app.workers.audit"]
+
+  export-worker:
+    <<: *backend
+    command: ["python", "-B", "-m", "backend.app.workers.export"]
+
+  feedback-worker:
+    <<: *backend
+    command: ["python", "-B", "-m", "backend.app.workers.feedback"]
+
   postgres:
     image: postgres:18-bookworm
     restart: unless-stopped
