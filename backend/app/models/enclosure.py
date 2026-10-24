@@ -8,11 +8,11 @@ visibility percentage. These models carry no database, network or model behavior
 
 from __future__ import annotations
 
-import ipaddress
 from typing import Annotated, Any, Literal, Sequence
-from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
+
+from ..core.model_host import validate_local_model_host
 
 CHECK_NAME = "pedestrian_box_enclosure"
 PROTOCOL_VERSION = "pedestrian-box-context-v1"
@@ -65,18 +65,7 @@ class EnclosureExecutionPin(EnclosureModel):
     @field_validator("host")
     @classmethod
     def loopback_only(cls, host: str) -> str:
-        parsed = urlsplit(host)
-        name = parsed.hostname
-        local = name == "localhost"
-        if not local and name is not None:
-            try:
-                local = ipaddress.ip_address(name).is_loopback
-            except ValueError:
-                local = False
-        if (parsed.scheme not in ("http", "https") or not local or parsed.username or parsed.password
-                or parsed.path not in ("", "/") or parsed.query or parsed.fragment or parsed.port == 0):
-            raise ValueError("The model host must be a loopback URL without credentials or paths.")
-        return host
+        return validate_local_model_host(host)
 
     @model_validator(mode="after")
     def one_request_fits_the_sample_budget(self) -> "EnclosureExecutionPin":
