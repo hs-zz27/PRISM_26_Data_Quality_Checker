@@ -56,9 +56,18 @@ describe('readable evidence', () => {
     });
   });
 
-  it('adds nothing when a check could not run, and flattens unknown checks', () => {
-    expect(summarizeEvidence('mask_box_fill', unavailable)).toEqual([]);
+  it('explains unavailable measurements and flattens unknown checks', () => {
+    expect(summarizeEvidence('mask_box_fill', unavailable)).toEqual([
+      { label: 'Why not measured', value: 'Box lies partly outside the image' },
+    ]);
     const rows = summarizeEvidence('some_future_check', { status: 'completed', result: { score: 0.5, note: 'ok' } });
     expect(asMap(rows)).toEqual({ 'Result · score': '0.500', 'Result · note': 'ok' });
   });
+});
+
+
+it('does not present absent mask IDs as an empty set', () => {
+  const rows = asMap(summarizeEvidence('mask_ids', { result: { annotation_ids: [] } }));
+  expect(rows['Mask regions']).toBe('—');
+  expect(rows['Annotated objects']).toBe('none');
 });

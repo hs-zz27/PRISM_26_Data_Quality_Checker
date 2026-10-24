@@ -81,6 +81,13 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding: f, selected, 
         </div>
       )}
 
+      {Object.keys(measurements).length > 0 && (
+        <details className="finding-evidence">
+          <summary>Complete recorded evidence</summary>
+          <pre className="whitespace-pre-wrap break-words text-xs">{JSON.stringify(measurements, null, 2)}</pre>
+        </details>
+      )}
+
       {f.source_sentence ? (
         <blockquote className="finding-citation">
           <Quote size={12} aria-hidden="true" />

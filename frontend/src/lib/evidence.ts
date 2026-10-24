@@ -2,7 +2,7 @@
  * Turn a finding's measured evidence into readable rows.
  * Measurement checks nest their numbers under `result` next to the annotated
  * object; known checks get plain-language rows and anything else is flattened
- * one level so no recorded value is hidden.
+ * one level. FindingCard also exposes complete recorded evidence for inspection.
  */
 
 import { formatValue, humanizeCode, reasonLabel } from './labels';
@@ -19,7 +19,7 @@ const NOISE = new Set(['status', 'detail', 'reason', 'source_index', 'pair_index
 
 const px = (value: unknown) => (typeof value === 'number' ? `${Math.abs(value)} px` : formatValue(value));
 const percent = (value: unknown) => (typeof value === 'number' ? `${Math.round(value * 1000) / 10}%` : formatValue(value));
-const ids = (value: unknown) => (Array.isArray(value) && value.length ? value.map((id) => `#${formatValue(id)}`).join(', ') : 'none');
+const ids = (value: unknown) => (Array.isArray(value) ? (value.length ? value.map((id) => `#${formatValue(id)}`).join(', ') : 'none') : formatValue(value));
 const box = (value: unknown) => (Array.isArray(value) && value.length === 4 ? `[${value.join(', ')}]` : formatValue(value));
 
 function knownRows(checkName: string, result: Json, measurements: Json): EvidenceRow[] | null {
@@ -111,8 +111,11 @@ function genericRows(measurements: Json): EvidenceRow[] {
 export function summarizeEvidence(checkName: string | null | undefined, measurements: Json | null | undefined): EvidenceRow[] {
   if (!measurements) return [];
   const result = isRecord(measurements.result) ? measurements.result : null;
-  // A check that could not run carries only its reason, which the finding already explains.
-  if (!result && measurements.status === 'unavailable') return [];
+  // Keep the concrete measurement failure visible even if the finding uses a generic reason.
+  if (!result && measurements.status === 'unavailable') {
+    return typeof measurements.reason === 'string'
+      ? [{ label: 'Why not measured', value: reasonLabel(measurements.reason) }] : [];
+  }
   const known = checkName ? knownRows(checkName, result ?? {}, measurements) : null;
   if (known && (result || checkName === 'allowed_labels')) return known;
   return genericRows(measurements);
