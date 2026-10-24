@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRule, confirmationBlockers, newProposals, parseParameters, rulesWithMissingCitations, segmentGuideline, suggestRuleId } from './rulebookEditing';
+import { adoptProposal, rulesForDraftSave, buildRule, confirmationBlockers, newProposals, parseParameters, rulesWithMissingCitations, segmentGuideline, suggestRuleId } from './rulebookEditing';
 import { makeRule } from '../../test/fixtures';
 
 const TEXT = 'Boxes must be tight. Allowed labels are person. Masks must be one piece.';
@@ -86,5 +86,24 @@ describe('re-check proposals', () => {
     const proposals = newProposals(current, extracted);
     expect(proposals).toHaveLength(1);
     expect(proposals[0]).toMatchObject({ rule_id: 'R1-2', check_name: 'mask_components', confirmation_state: 'draft' });
+  });
+});
+
+
+describe('proposal adoption and draft provenance', () => {
+  it('adopts foreign proposals as pending reviewer additions without changing originals', () => {
+    const original = makeRule({ origin: 'extracted', confirmation_state: 'confirmed' });
+    const adopted = adoptProposal(original);
+    expect(adopted).toEqual({ ...original, origin: 'reviewer', confirmation_state: 'draft' });
+    expect(original.origin).toBe('extracted');
+    expect(original.confirmation_state).toBe('confirmed');
+  });
+  it('preserves retained rule origins and decisions but saves new IDs as reviewer additions', () => {
+    const retained = makeRule({ rule_id: 'OLD', origin: 'extracted' });
+    const added = makeRule({ rule_id: 'NEW', origin: 'extracted', confirmation_state: 'confirmed' });
+    const saved = rulesForDraftSave([retained], [retained, added]);
+    expect(saved[0]).toBe(retained);
+    expect(saved[1]).toEqual({ ...added, origin: 'reviewer' });
+    expect(added.origin).toBe('extracted');
   });
 });

@@ -155,3 +155,14 @@ export function newProposals(current: Rule[], extracted: Rule[]): Rule[] {
   }
   return result;
 }
+
+/** Adopting a proposal into another book is an explicit reviewer addition. */
+export function adoptProposal(proposal: Rule): Rule {
+  return { ...proposal, origin: 'reviewer', confirmation_state: 'draft' };
+}
+
+/** Retained IDs keep their existing origin; new additions use reviewer origin. */
+export function rulesForDraftSave(previous: Rule[], edited: Rule[]): Rule[] {
+  const retained = new Set(previous.map((rule) => rule.rule_id));
+  return edited.map((rule) => retained.has(rule.rule_id) ? rule : { ...rule, origin: 'reviewer' });
+}

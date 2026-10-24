@@ -1,4 +1,5 @@
 import React from 'react';
+import { EnclosureEvidence, readEnclosureEvidence } from './EnclosureEvidence';
 import { History, Quote, UserRound } from 'lucide-react';
 import { Badge, type BadgeVariant } from '../../components/ui/Badge';
 import { checkLabel, describeRequirement, explainFinding, formatValue, outcomeLabel, resolutionLabel } from '../../lib/labels';
@@ -28,7 +29,10 @@ interface FindingCardProps {
 export const FindingCard: React.FC<FindingCardProps> = ({ finding: f, selected, onSelect, onDecide, historyOpen, onToggleHistory, history, historyLoading, disabled }) => {
   const resolution = f.review?.resolution ?? 'pending';
   const requirement = describeRequirement(f.check_name, f.parameters as Record<string, unknown>);
-  const measurements = Object.entries(f.evidence?.measurements ?? {});
+  const enclosure = f.check_name === 'pedestrian_box_enclosure'
+    ? readEnclosureEvidence(f.evidence?.measurements?.enclosure) : null;
+  const measurements = Object.entries(f.evidence?.measurements ?? {})
+    .filter(([key]) => !(enclosure && key === 'enclosure'));
   const decisionButton = (value: FindingDecision, label: string, title: string, tone: string) => (
     <button
       type="button"
@@ -63,6 +67,8 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding: f, selected, 
         <div><dt>Check</dt><dd>{f.check_name ? checkLabel(f.check_name) : 'None — review manually'}</dd></div>
         {requirement && <div><dt>Requires</dt><dd>{requirement}</dd></div>}
       </dl>
+
+      {enclosure && <EnclosureEvidence evidence={enclosure} />}
 
       {measurements.length > 0 && (
         <div className="finding-evidence" aria-label="Measured evidence">

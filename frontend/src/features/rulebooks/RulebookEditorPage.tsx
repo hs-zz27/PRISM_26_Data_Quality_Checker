@@ -29,6 +29,8 @@ import { formatTimestamp } from '../../lib/format';
 import { RuleForm } from './RuleForm';
 import {
   CHECK_PARAMETER_TEMPLATES,
+  adoptProposal,
+  rulesForDraftSave,
   confirmationBlockers,
   newProposals,
   rulesWithMissingCitations,
@@ -141,10 +143,19 @@ export const RulebookEditorPage: React.FC = () => {
     return err instanceof Error ? err.message : String(err);
   };
 
-  const saveDraft = (rules: Rule[]) => apiPut('/rulebooks/{rulebook_id}', {
-    path: { rulebook_id: rulebookId! },
-    body: { expected_version: rulebook!.version, reviewer_id: requireReviewer(), guideline_text: localGuidelineText, rules },
-  });
+  const saveDraft = (rules: Rule[]) => {
+    const previous = rulebook!.rules ?? [];
+    const previousIds = new Set(previous.map((rule) => rule.rule_id));
+    const copied = rules.filter((rule) => !previousIds.has(rule.rule_id) && rule.origin === 'extracted');
+    if (copied.length && !window.confirm('These proposals were extracted into a separate draft. Adding them here saves them as reviewer-added rules and preserves their citations. The original extracted draft remains unchanged. Continue?')) {
+      throw new Error('Save cancelled. Your unsaved rules are still here.');
+    }
+    return apiPut('/rulebooks/{rulebook_id}', {
+      path: { rulebook_id: rulebookId! },
+      body: { expected_version: rulebook!.version, reviewer_id: requireReviewer(),
+        guideline_text: localGuidelineText, rules: rulesForDraftSave(previous, rules) },
+    });
+  };
 
   const saveDraftMutation = useMutation({
     mutationFn: () => saveDraft(localRules),
@@ -396,7 +407,7 @@ export const RulebookEditorPage: React.FC = () => {
                 <header>
                   <b>Re-check found {proposals.length} new proposal{proposals.length === 1 ? '' : 's'}</b>
                   <span className="flex gap-2">
-                    <button onClick={() => { updateRules((rules) => [...rules, ...proposals]); setProposals(null); }}>Add all</button>
+                    <button onClick={() => { updateRules((rules) => [...rules, ...proposals.map(adoptProposal)]); setProposals(null); }}>Adopt all</button>
                     <button onClick={() => setProposals(null)}>Dismiss</button>
                   </span>
                 </header>
@@ -406,10 +417,10 @@ export const RulebookEditorPage: React.FC = () => {
                       <b className="font-mono">{proposal.rule_id}</b> {proposal.description}
                       {proposal.source_sentence && <small>“{proposal.source_sentence}”</small>}
                     </div>
-                    <button onClick={() => { updateRules((rules) => [...rules, proposal]); setProposals((list) => list?.filter((p) => p.rule_id !== proposal.rule_id) ?? null); }}>Add</button>
+                    <button onClick={() => { updateRules((rules) => [...rules, adoptProposal(proposal)]); setProposals((list) => list?.filter((p) => p.rule_id !== proposal.rule_id) ?? null); }}>Adopt</button>
                   </div>
                 ))}
-                <p className="text-2xs text-text-faint">The re-check also saved its own draft in the rulebook list; you can ignore it.</p>
+                <p className="text-2xs text-text-faint">Adopting a proposal here creates a reviewer-added rule with its citation preserved. The original extracted draft remains in the rulebook list.</p>
               </section>
             )}
 

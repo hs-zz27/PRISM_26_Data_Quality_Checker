@@ -55,6 +55,7 @@ const JOB_STATUS: Record<string, string> = {
 
 const CHECK_NAMES: Record<string, string> = {
   annotation_guideline: 'Visual guideline (AI-assisted)',
+  pedestrian_box_enclosure: 'Pedestrian inside each annotation box (AI-assisted)',
   allowed_labels: 'Approved label list',
   annotation_ids: 'Unique object IDs',
   annotation_metadata: 'Annotation metadata matches image',
