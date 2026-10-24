@@ -73,12 +73,13 @@ def test_valid_proposals_preserve_content_and_request_uses_cpu_schema(fake_serve
     assert request["keep_alive"] == 300
     assert request["messages"][1]["content"] == GUIDELINES
     schema = request["format"]
-    rule_definition = schema["properties"]["rules"]["items"]["$ref"].rsplit("/", 1)[1]
-    rule_schema = schema["$defs"][rule_definition]
-    assert "origin" not in rule_schema["properties"]
-    assert "confirmation_state" not in rule_schema["properties"]
-    assert "source_sentence" in rule_schema["required"]
-    assert rule_schema["additionalProperties"] is False
+    variants = schema["properties"]["rules"]["items"]["anyOf"]
+    for reference in variants:
+        rule_schema = schema["$defs"][reference["$ref"].rsplit("/", 1)[1]]
+        assert "origin" not in rule_schema["properties"]
+        assert "confirmation_state" not in rule_schema["properties"]
+        assert {"source_sentence", "parameters", "check_name"} <= set(rule_schema["required"])
+        assert rule_schema["additionalProperties"] is False
     assert GUIDELINES not in json.dumps(state["requests"][0][1])
     instructions = request["messages"][0]["content"]
     for entry in extraction_check_catalog():
@@ -359,3 +360,27 @@ def test_dotenv_model_and_port_reach_requests_with_per_call_precedence(fake_serv
     assert [url.port for url in urls] == [11436 if per_call else 11435] * 2
     expected_model = "per-call:latest" if per_call else "dotenv-model:latest"
     assert [body["model"] for _, body in state["requests"]] == [expected_model] * 2
+
+
+def test_generation_schema_rejects_schema_keywords_in_place_of_label_values():
+    from jsonschema import Draft202012Validator
+    from backend.app.inference.ollama_client import _proposal_response_schema
+    validator = Draft202012Validator(_proposal_response_schema())
+    assert not list(validator.iter_errors({"rules": [PROPOSAL]}))
+    malformed = {**PROPOSAL, "parameters": {"allowed_labels": {
+        "items": ["person", "PASperson"], "minItems": 2,
+    }}}
+    assert list(validator.iter_errors({"rules": [malformed]}))
+    assert list(validator.iter_errors({"rules": [{**PROPOSAL, "check_name": "box_validity"}]}))
+    assert not list(validator.iter_errors({"rules": [{**PROPOSAL, "check_name": None, "parameters": {}}]}))
+    assert list(validator.iter_errors({"rules": [{**PROPOSAL, "check_name": None}]}))
+
+
+def test_runtime_still_rejects_schema_keywords_instead_of_a_label_list(fake_server):
+    state, transport = fake_server
+    state["chat"]["message"]["content"] = json.dumps({"rules": [{**PROPOSAL, "parameters": {
+        "allowed_labels": {"items": ["person", "PASperson"], "minItems": 2},
+    }}]})
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES, transport=transport)
+    assert caught.value.reason == "invalid_rule_proposals"
