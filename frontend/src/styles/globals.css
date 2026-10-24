@@ -170,7 +170,7 @@
   .correction-image svg rect { fill:transparent; stroke:var(--color-accent); stroke-width:2; vector-effect:non-scaling-stroke; }
   .correction-image svg rect { cursor:move; pointer-events:all; }
   .correction-image svg text { fill:var(--color-text); stroke:var(--color-base); stroke-width:3px; paint-order:stroke; font:11px var(--font-mono); }
-  .correction-image > .correction-mask { position:absolute; inset:0; width:100%; height:100%; max-height:none; object-fit:contain; opacity:.35; mix-blend-mode:screen; border:0; pointer-events:none; z-index:1; }
+  .correction-image > .correction-mask { position:absolute; inset:0; width:100%; height:100%; max-height:none; object-fit:contain; opacity:.35; mix-blend-mode:normal; border:0; pointer-events:none; z-index:1; }
   .correction-image svg { z-index:2; }
   .exports-page > section { border-top:1px solid var(--color-border); padding:12px 0; }
   .exports-page article { border-color:var(--color-border); }
@@ -190,7 +190,7 @@
   .canvas-shortcut { margin-left:auto; color:var(--color-text-faint); font-size:10px; }
   .canvas-stage { position:relative; flex:none; transform-origin:center center; background:var(--color-base); border:1px solid var(--color-border-strong); }
   .canvas-stage > img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; user-select:none; }
-  .canvas-stage > .canvas-mask { position:absolute; inset:0; mix-blend-mode:screen; }
+  .canvas-stage > .canvas-mask { position:absolute; inset:0; mix-blend-mode:normal; }
   .canvas-overlay { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
   .canvas-overlay g { cursor:pointer; }
   .canvas-overlay rect { fill:transparent; stroke-width:2; vector-effect:non-scaling-stroke; }

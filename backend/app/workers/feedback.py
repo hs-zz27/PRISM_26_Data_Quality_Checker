@@ -4,6 +4,8 @@ import time
 from uuid import uuid4
 from ..storage.feedback_jobs import FeedbackJobRepository
 from ..services.feedback_jobs import run_claim
+from ..core.feedback import FeedbackError
+from .poll_retry import PollRetry
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -11,9 +13,17 @@ def main():
     arguments = parser.parse_args()
     repository = FeedbackJobRepository()
     worker = 'feedback_' + uuid4().hex
+    poll_retry = PollRetry('Feedback worker')
     while True:
-        repository.recover()
-        claim = repository.claim(worker)
+        try:
+            repository.recover()
+            claim = repository.claim(worker)
+        except FeedbackError as error:
+            # Only storage unavailability is transient; other codes keep stopping the worker.
+            if error.code != 'DEPENDENCY_UNAVAILABLE' or not poll_retry.should_retry(error, time.sleep):
+                raise
+            continue
+        poll_retry.reset()
         if claim is not None:
             run_claim(repository, claim)
         if arguments.once:

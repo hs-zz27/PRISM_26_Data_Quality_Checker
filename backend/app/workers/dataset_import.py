@@ -10,6 +10,7 @@ from ..core.dataset_import import ImportOutcomeUnresolved, load_import_settings
 from ..services.dataset_import_jobs import run_claimed_import
 from ..storage.dataset_import_repository import DatasetImportRepository
 from ..storage.dataset_repository import DatasetCommitOutcomeUnknownError, DatasetStorageError
+from .poll_retry import PollRetry
 
 
 def main(argv=None):
@@ -23,9 +24,17 @@ def main(argv=None):
         settings = load_import_settings()
         repository = DatasetImportRepository()
         worker_id = "dataset_worker_" + uuid4().hex
+        poll_retry = PollRetry("Dataset import worker")
         while not stopped.is_set():
-            repository.recover_stale()
-            claim = repository.claim_next(worker_id=worker_id)
+            try:
+                repository.recover_stale()
+                claim = repository.claim_next(worker_id=worker_id)
+            except DatasetStorageError as error:
+                # DatasetCommitOutcomeUnknownError is flagged and never retried.
+                if not poll_retry.should_retry(error, stopped.wait):
+                    raise
+                continue
+            poll_retry.reset()
             if claim is not None:
                 run_claimed_import(repository, claim, settings=settings, stop_event=stopped)
             if args.once:

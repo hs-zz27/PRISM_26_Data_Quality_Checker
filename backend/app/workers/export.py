@@ -10,6 +10,7 @@ from ..core.export import ExportDependencyError, ExportOutcomeUnknown, load_expo
 from ..services.export_jobs import run_claimed_export
 from ..storage.export_repository import ExportRepository
 from ..storage.workflow_repository import JobClaimLostError, WorkflowStorageError
+from .poll_retry import PollRetry
 
 
 def main(argv=None):
@@ -24,9 +25,17 @@ def main(argv=None):
         settings = load_export_settings()
         repository = ExportRepository()
         worker_id = 'export_worker_' + uuid4().hex
+        poll_retry = PollRetry('Export worker')
         while not stopped.is_set():
-            repository.recover_stale()
-            claim = repository.claim_next(worker_id=worker_id)
+            try:
+                repository.recover_stale()
+                claim = repository.claim_next(worker_id=worker_id)
+            except (ExportDependencyError, WorkflowStorageError) as error:
+                # An unknown commit outcome must still stop for reconciliation.
+                if isinstance(error, ExportOutcomeUnknown) or not poll_retry.should_retry(error, stopped.wait):
+                    raise
+                continue
+            poll_retry.reset()
             if claim is not None:
                 try:
                     run_claimed_export(repository, claim, settings=settings, stop_event=stopped)

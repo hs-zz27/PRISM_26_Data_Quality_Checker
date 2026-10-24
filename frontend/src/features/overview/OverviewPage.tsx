@@ -7,10 +7,12 @@ import { queryKeys } from '../../api/queryClient';
 import { formatTimestamp } from '../../lib/format';
 import { jobStatusLabel } from '../../lib/labels';
 import { workflowSteps, type WorkflowCounts } from './workflow';
+import { useDatasetName } from '../../hooks/useDatasetName';
 
 const ICONS = [BookOpen, ListChecks, Database, SearchCode, DownloadCloud];
 
 export const OverviewPage: React.FC = () => {
+  const datasetName = useDatasetName();
   const rulebooks = useQuery({ queryKey: queryKeys.rulebooks(), queryFn: () => apiGetAllPages('/rulebooks', { query: { limit: 100, offset: 0 } }) });
   const datasets = useQuery({ queryKey: queryKeys.datasets(), queryFn: () => apiGetAllPages('/datasets', { query: { limit: 100, offset: 0 } }) });
   const audits = useQuery({ queryKey: queryKeys.audits(), queryFn: () => apiGetAllPages('/audits', { query: { limit: 100, offset: 0 } }) });
@@ -67,7 +69,7 @@ export const OverviewPage: React.FC = () => {
               {recentAudits.map((audit) => (
                 <tr key={audit.audit_id}>
                   <td className="font-mono">{audit.audit_id}</td>
-                  <td className="font-mono">{audit.dataset_id}</td>
+                  <td>{datasetName(audit.dataset_id)}</td>
                   <td className="font-mono">{audit.rulebook_id} v{audit.rulebook_version}</td>
                   <td>{jobStatusLabel(audit.status)} · {audit.processed_count}/{audit.sample_count ?? '?'}</td>
                   <td>{formatTimestamp(audit.created_at)}</td>

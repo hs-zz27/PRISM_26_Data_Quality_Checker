@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { checkLabel, jobStatusLabel, reviewStatusLabel, toolStatusLabel } from '../../lib/labels';
 import { formatTimestamp } from '../../lib/format';
+import { useDatasetName } from '../../hooks/useDatasetName';
 import { aggregateByRule, buildReportRows, downloadText, mapWithConcurrency, reportToCsv, summarizeQueue } from './auditReport';
 
 const pct = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : '—');
@@ -16,6 +17,7 @@ export const AuditReportPage: React.FC = () => {
   const { auditId } = useParams<{ auditId: string }>();
   const queryClient = useQueryClient();
   const [loaded, setLoaded] = useState(0);
+  const datasetName = useDatasetName();
 
   const audit = useQuery({
     queryKey: queryKeys.audit(auditId!),
@@ -64,7 +66,7 @@ export const AuditReportPage: React.FC = () => {
           <h1>Audit report</h1>
           <p className="report-meta">
             <span className="mono">{auditId}</span>
-            {audit.data && <> · dataset <span className="mono">{audit.data.dataset_id}</span> · rulebook <span className="mono">{audit.data.rulebook_id} v{audit.data.rulebook_version}</span> · {jobStatusLabel(audit.data.status)} · started {formatTimestamp(audit.data.created_at)}</>}
+            {audit.data && <> · dataset <b>{datasetName(audit.data.dataset_id)}</b> · rulebook <span className="mono">{audit.data.rulebook_id} v{audit.data.rulebook_version}</span> · {jobStatusLabel(audit.data.status)} · started {formatTimestamp(audit.data.created_at)}</>}
           </p>
         </div>
         <div className="report-actions">
