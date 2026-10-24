@@ -186,3 +186,9 @@ frontend/
         ├── tokens.css           # Single source of truth CSS custom properties
         └── globals.css          # Tailwind base layers, typography, custom scrollbars
 ```
+
+## Integrated demo
+
+See [DEMO_WORKFLOW.md](DEMO_WORKFLOW.md) for required API/worker processes and the
+real import → audit → review → correction → recheck → export acceptance checklist.
+The enclosure check now displays per-box model proposals separately from human decisions.

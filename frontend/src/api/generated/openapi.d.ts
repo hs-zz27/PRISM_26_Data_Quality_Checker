@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Check HTTP server liveness
-         * @description Liveness only. Ollama being offline must not make this endpoint fail.
+         * @description Liveness only. Returns ok while the HTTP server is running. It never touches PostgreSQL, Ollama, the detector checkpoint or inference, so an offline optional service cannot make it fail.
          */
         get: operations["getHealth"];
         put?: never;
@@ -32,8 +32,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List supported and planned checks
-         * @description List supported and planned checks
+         * List supported checks and evidence features
+         * @description Describes what this backend build supports: dataset and guideline input formats, the annotation coordinate convention, executable guideline checks taken from the real registry, and detection and matching evidence features, which are listed separately because they are not guideline checks. Installed files do not change it. It starts no service and runs no inference. Planned posture, mask or person-count checks and detection-mask coverage are not listed because they do not exist.
          */
         get: operations["getCapabilities"];
         put?: never;
@@ -53,7 +53,7 @@ export interface paths {
         };
         /**
          * Inspect local model readiness
-         * @description Read-only readiness. Does not start services, download models or change configuration.
+         * @description Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.
          */
         get: operations["getSystemStatus"];
         put?: never;
@@ -473,7 +473,7 @@ export interface paths {
         };
         /**
          * List findings with rule sources and review state
-         * @description List findings with rule sources and review state
+         * @description List every machine finding of one audit across all of its samples, in ascending finding_id order (text order, not creation order). Each item is the stored finding, including its pinned sample_revision, rulebook version, rule parameters, origin, source sentence and evidence, with the latest human review in review; a finding nobody has reviewed shows resolution pending. Omit the filters to include all four outcomes (pass, fail, unsure, unavailable) and every review resolution. sample_id and outcome combine with AND. total counts all matching findings before paging, and next_offset is offset plus the number of items only when more matching findings remain, otherwise null (an empty page, an offset past the end and the final page all return null). An unknown audit returns HTTP 404; an existing audit with no matching findings returns HTTP 200 with an empty page. Audit existence, the total, the page and the latest reviews are read from one database snapshot. Reading never starts a worker, runs inference, reads asset files or changes a finding or its review. Findings are machine evidence: a reviewer's decision is separate, and an accepted or rejected finding does not decide the sample. Use getAuditSample for one sample's full detail.
          */
         get: operations["listAuditFindings"];
         put?: never;
@@ -1413,6 +1413,25 @@ export interface components {
         AuditSamplePage: {
             /** Items */
             items: components["schemas"]["SampleAuditSummary"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+            /** Next Offset */
+            next_offset: number | null;
+        };
+        /**
+         * FindingPage
+         * @description One page of an audit's findings, ordered by ascending finding_id.
+         *
+         *     Findings are the stored machine snapshots with their latest human review
+         *     applied. total counts every finding that matches the filters before paging.
+         */
+        FindingPage: {
+            /** Items */
+            items: components["schemas"]["Finding"][];
             /** Limit */
             limit: number;
             /** Offset */
@@ -2405,6 +2424,12 @@ export interface components {
              */
             num_predict: number;
             /**
+             * Num Thread
+             * @description Pinned CPU threads; omitted or null retains automatic selection.
+             * @default null
+             */
+            num_thread: number | null;
+            /**
              * Timeout Seconds
              * @default 120
              */
@@ -2566,44 +2591,142 @@ export interface components {
             };
             objects: components["schemas"]["ObjectMeasurements"][];
         };
-        FindingPage: {
-            items: components["schemas"]["Finding"][];
-            limit: number;
-            offset: number;
-            total: number;
-            next_offset: number | null;
+        /**
+         * Capabilities
+         * @description What this backend build can do. It never reflects which files are installed.
+         */
+        Capabilities: {
+            /** Dataset Formats */
+            dataset_formats: string[];
+            /** Guideline Input Formats */
+            guideline_input_formats: string[];
+            /**
+             * Coordinate Convention
+             * @description Annotation boxes. Detection evidence documents its own zero-based pixel-edge convention inside each evidence record.
+             * @constant
+             */
+            coordinate_convention: "one_based_inclusive";
+            /**
+             * Checks
+             * @description Executable guideline checks. Detection evidence is listed separately. A listed check can still report unavailable results for a sample when its inputs are missing; model-assisted checks, for example, need the configured local model (see system status).
+             */
+            checks: components["schemas"]["CheckCapability"][];
+            /** Evidence Features */
+            evidence_features: components["schemas"]["EvidenceFeature"][];
+            /**
+             * Execution Device
+             * @constant
+             */
+            execution_device: "cpu";
         };
+        /**
+         * CheckCapability
+         * @description An executable guideline check that rules may name, taken from the real registry.
+         */
+        CheckCapability: {
+            /** Name */
+            name: string;
+            /**
+             * Implementation
+             * @constant
+             */
+            implementation: "implemented";
+        };
+        /**
+         * EvidenceFeature
+         * @description Evidence stored with audited samples. It is not an executable guideline check.
+         */
+        EvidenceFeature: {
+            /** Name */
+            name: string;
+            /**
+             * Implementation
+             * @constant
+             */
+            implementation: "implemented";
+            /** Description */
+            description: string;
+        };
+        /**
+         * Health
+         * @description HTTP liveness only. It says nothing about Ollama, the detector or storage.
+         */
         Health: {
-            /** @constant */
+            /**
+             * Status
+             * @constant
+             */
             status: "ok";
-            /** @constant */
+            /**
+             * Api Version
+             * @constant
+             */
             api_version: "v1";
         };
-        Capabilities: {
-            dataset_formats: string[];
-            guideline_input_formats: string[];
-            /** @constant */
-            coordinate_convention: "one_based_inclusive";
-            checks: {
-                name: string;
-                /** @enum {string} */
-                implementation: "implemented" | "planned";
-            }[];
-            /** @constant */
+        /**
+         * SystemStatus
+         * @description Read-only readiness. Reading it starts nothing and downloads nothing.
+         */
+        SystemStatus: {
+            ollama: components["schemas"]["OllamaStatus"];
+            detector: components["schemas"]["DetectorStatus"];
+            /**
+             * Execution Device
+             * @constant
+             */
             execution_device: "cpu";
         };
-        SystemStatus: {
-            ollama: {
-                reachable: boolean;
-                model: string;
-                model_available: boolean | null;
-            };
-            detector: {
-                weights_cached: boolean;
-                integration_ready: boolean;
-            };
-            /** @constant */
-            execution_device: "cpu";
+        /** DetectorStatus */
+        DetectorStatus: {
+            /**
+             * Integration Supported
+             * @description Whether this environment has the packages the CPU detector needs.
+             */
+            integration_supported: boolean;
+            /**
+             * Configuration
+             * @description Detection settings for new audits; invalid means enabled but unusable.
+             * @enum {string}
+             */
+            configuration: "disabled" | "enabled" | "invalid";
+            /**
+             * Checkpoint File
+             * @description Whether a file exists at the configured location. A present file is not verified: it is not hashed, loaded or run.
+             * @enum {string}
+             */
+            checkpoint_file: "not_configured" | "present" | "missing" | "unreadable";
+            /**
+             * Validation
+             * @description Whether the checkpoint was actually loaded and checked. 'unknown' means no validation has been recorded; it never means the model works.
+             * @enum {string}
+             */
+            validation: "unknown" | "validated" | "failed";
+            /** Architecture */
+            architecture: string;
+        };
+        /** OllamaStatus */
+        OllamaStatus: {
+            /**
+             * Configuration
+             * @description Whether the local Ollama settings could be read.
+             * @enum {string}
+             */
+            configuration: "valid" | "invalid";
+            /**
+             * Reachable
+             * @description Whether a short metadata request to the server succeeded.
+             */
+            reachable: boolean;
+            /**
+             * Model
+             * @description Configured language model name; null when settings are invalid.
+             */
+            model: string | null;
+            /**
+             * Model Available
+             * @description Whether the configured model is installed; null when that is unknown.
+             */
+            model_available: boolean | null;
         };
     };
     responses: never;
@@ -2623,7 +2746,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Check HTTP server liveness */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2638,64 +2761,7 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
-            /** @description The request could not be processed. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "INVALID_REQUEST",
-                     *         "message": "The request could not be processed.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The requested resource does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "NOT_FOUND",
-                     *         "message": "The requested resource does not exist.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description One or more request fields are invalid. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "VALIDATION_ERROR",
-                     *         "message": "One or more request fields are invalid.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The request could not be completed. */
+            /** @description Unexpected server error. */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -2706,25 +2772,6 @@ export interface operations {
                      *       "error": {
                      *         "code": "INTERNAL_ERROR",
                      *         "message": "The request could not be completed.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description A required local model or service is unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "DEPENDENCY_UNAVAILABLE",
-                     *         "message": "A required local model or service is unavailable.",
                      *         "details": [],
                      *         "request_id": "request_demo"
                      *       }
@@ -2744,7 +2791,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description List supported and planned checks */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2809,24 +2856,20 @@ export interface operations {
                      *           "implementation": "implemented"
                      *         },
                      *         {
+                     *           "name": "pedestrian_box_enclosure",
+                     *           "implementation": "implemented"
+                     *         }
+                     *       ],
+                     *       "evidence_features": [
+                     *         {
                      *           "name": "person_detection",
-                     *           "implementation": "planned"
+                     *           "implementation": "implemented",
+                     *           "description": "CPU person detector run inside audit sample processing when enabled for an audit. Stored as the detection_evidence measurement; not a guideline check and creates no findings."
                      *         },
                      *         {
-                     *           "name": "detection_annotation_matches",
-                     *           "implementation": "planned"
-                     *         },
-                     *         {
-                     *           "name": "detection_mask_coverage",
-                     *           "implementation": "planned"
-                     *         },
-                     *         {
-                     *           "name": "mask_person_count",
-                     *           "implementation": "planned"
-                     *         },
-                     *         {
-                     *           "name": "person_posture",
-                     *           "implementation": "planned"
+                     *           "name": "detection_annotation_matching",
+                     *           "implementation": "implemented",
+                     *           "description": "Conservative matching of detections to person annotations, stored inside detection_evidence. Ambiguity is reported for review, never resolved automatically."
                      *         }
                      *       ],
                      *       "execution_device": "cpu"
@@ -2835,64 +2878,7 @@ export interface operations {
                     "application/json": components["schemas"]["Capabilities"];
                 };
             };
-            /** @description The request could not be processed. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "INVALID_REQUEST",
-                     *         "message": "The request could not be processed.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The requested resource does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "NOT_FOUND",
-                     *         "message": "The requested resource does not exist.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description One or more request fields are invalid. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "VALIDATION_ERROR",
-                     *         "message": "One or more request fields are invalid.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The request could not be completed. */
+            /** @description Unexpected server error. */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -2903,25 +2889,6 @@ export interface operations {
                      *       "error": {
                      *         "code": "INTERNAL_ERROR",
                      *         "message": "The request could not be completed.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description A required local model or service is unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "DEPENDENCY_UNAVAILABLE",
-                     *         "message": "A required local model or service is unavailable.",
                      *         "details": [],
                      *         "request_id": "request_demo"
                      *       }
@@ -2941,7 +2908,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Inspect local model readiness */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2950,13 +2917,17 @@ export interface operations {
                     /**
                      * @example {
                      *       "ollama": {
-                     *         "reachable": false,
+                     *         "configuration": "valid",
+                     *         "reachable": true,
                      *         "model": "example-local-model:latest",
-                     *         "model_available": null
+                     *         "model_available": true
                      *       },
                      *       "detector": {
-                     *         "weights_cached": true,
-                     *         "integration_ready": false
+                     *         "integration_supported": true,
+                     *         "configuration": "enabled",
+                     *         "checkpoint_file": "present",
+                     *         "validation": "unknown",
+                     *         "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"
                      *       },
                      *       "execution_device": "cpu"
                      *     }
@@ -2964,64 +2935,7 @@ export interface operations {
                     "application/json": components["schemas"]["SystemStatus"];
                 };
             };
-            /** @description The request could not be processed. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "INVALID_REQUEST",
-                     *         "message": "The request could not be processed.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The requested resource does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "NOT_FOUND",
-                     *         "message": "The requested resource does not exist.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description One or more request fields are invalid. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "VALIDATION_ERROR",
-                     *         "message": "One or more request fields are invalid.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The request could not be completed. */
+            /** @description Unexpected server error. */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -3032,25 +2946,6 @@ export interface operations {
                      *       "error": {
                      *         "code": "INTERNAL_ERROR",
                      *         "message": "The request could not be completed.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description A required local model or service is unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "DEPENDENCY_UNAVAILABLE",
-                     *         "message": "A required local model or service is unavailable.",
                      *         "details": [],
                      *         "request_id": "request_demo"
                      *       }
@@ -5945,14 +5840,26 @@ export interface operations {
     listAuditFindings: {
         parameters: {
             query?: {
-                /** @example 20 */
+                /**
+                 * @description Page size, from 1 to 100.
+                 * @example 20
+                 */
                 limit?: number;
-                /** @example 0 */
+                /**
+                 * @description Zero-based position in the filtered list, up to PostgreSQL's largest integer.
+                 * @example 0
+                 */
                 offset?: number;
-                /** @example sample_001 */
-                sample_id?: string;
-                /** @example fail */
-                outcome?: "pass" | "fail" | "unsure" | "unavailable";
+                /**
+                 * @description Optional filter. A sample with no findings in this audit, including a sample that is not in it, returns an empty page rather than HTTP 404.
+                 * @example sample_001
+                 */
+                sample_id?: string | null;
+                /**
+                 * @description Optional machine outcome filter. It combines with sample_id using AND and never filters by the reviewer's decision.
+                 * @example fail
+                 */
+                outcome?: components["schemas"]["FindingOutcome"] | null;
             };
             header?: never;
             path: {
@@ -5969,78 +5876,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "items": [
-                     *         {
-                     *           "finding_id": "finding_demo",
-                     *           "audit_id": "audit_demo",
-                     *           "sample_id": "sample_001",
-                     *           "sample_revision": 1,
-                     *           "object_id": 2,
-                     *           "rulebook_id": "rulebook_demo",
-                     *           "rulebook_version": 3,
-                     *           "rule_id": "LBL-1",
-                     *           "description": "Use an allowed label.",
-                     *           "check_name": "allowed_labels",
-                     *           "outcome": "fail",
-                     *           "reason": "label_not_allowed",
-                     *           "parameters": {
-                     *             "allowed_labels": [
-                     *               "person"
-                     *             ]
-                     *           },
-                     *           "origin": "extracted",
-                     *           "source_sentence": "Allowed labels are person.",
-                     *           "evidence": {
-                     *             "image_url": null,
-                     *             "mask_preview_url": null,
-                     *             "crop_url": null,
-                     *             "measurements": {
-                     *               "actual_label": "vehicle",
-                     *               "allowed_labels": [
-                     *                 "person"
-                     *               ]
-                     *             }
-                     *           },
-                     *           "review": {
-                     *             "revision": 0,
-                     *             "resolution": "pending",
-                     *             "reviewer_id": null,
-                     *             "comment": null,
-                     *             "updated_at": null
-                     *           }
-                     *         }
-                     *       ],
-                     *       "limit": 20,
-                     *       "offset": 0,
-                     *       "total": 1,
-                     *       "next_offset": null
-                     *     }
-                     */
                     "application/json": components["schemas"]["FindingPage"];
                 };
             };
-            /** @description The request could not be processed. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "INVALID_REQUEST",
-                     *         "message": "The request could not be processed.",
-                     *         "details": [],
-                     *         "request_id": "request_demo"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The requested resource does not exist. */
+            /** @description The requested audit, sample, or finding does not exist. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6050,7 +5889,7 @@ export interface operations {
                      * @example {
                      *       "error": {
                      *         "code": "NOT_FOUND",
-                     *         "message": "The requested resource does not exist.",
+                     *         "message": "The requested audit, sample, or finding does not exist.",
                      *         "details": [],
                      *         "request_id": "request_demo"
                      *       }
@@ -6097,7 +5936,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description A required local model or service is unavailable. */
+            /** @description Audit storage is unavailable. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -6107,7 +5946,7 @@ export interface operations {
                      * @example {
                      *       "error": {
                      *         "code": "DEPENDENCY_UNAVAILABLE",
-                     *         "message": "A required local model or service is unavailable.",
+                     *         "message": "Audit storage is unavailable.",
                      *         "details": [],
                      *         "request_id": "request_demo"
                      *       }

@@ -36,7 +36,10 @@ export const Navbar: React.FC = () => {
   const parts = pathname.split('/').filter(Boolean);
   const apiReady = !healthError && health?.status === 'ok';
   const ollamaReady = !systemError && Boolean(system?.ollama?.reachable);
-  const detectorReady = !systemError && Boolean(system?.detector?.integration_ready);
+  const detector = system?.detector;
+  const detectorReady = !systemError && Boolean(detector?.integration_supported
+    && detector.configuration === 'enabled' && detector.checkpoint_file === 'present'
+    && detector.validation === 'validated');
 
   return <>
     <header className="topbar">

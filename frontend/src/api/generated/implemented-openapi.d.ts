@@ -88,6 +88,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audits/{audit_id}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List findings with rule sources and review state
+         * @description List every machine finding of one audit across all of its samples, in ascending finding_id order (text order, not creation order). Each item is the stored finding, including its pinned sample_revision, rulebook version, rule parameters, origin, source sentence and evidence, with the latest human review in review; a finding nobody has reviewed shows resolution pending. Omit the filters to include all four outcomes (pass, fail, unsure, unavailable) and every review resolution. sample_id and outcome combine with AND. total counts all matching findings before paging, and next_offset is offset plus the number of items only when more matching findings remain, otherwise null (an empty page, an offset past the end and the final page all return null). An unknown audit returns HTTP 404; an existing audit with no matching findings returns HTTP 200 with an empty page. Audit existence, the total, the page and the latest reviews are read from one database snapshot. Reading never starts a worker, runs inference, reads asset files or changes a finding or its review. Findings are machine evidence: a reviewer's decision is separate, and an accepted or rejected finding does not decide the sample. Use getAuditSample for one sample's full detail.
+         */
+        get: operations["listAuditFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/feedback/examples": {
         parameters: {
             query?: never;
@@ -796,6 +816,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check HTTP server liveness
+         * @description Liveness only. Returns ok while the HTTP server is running. It never touches PostgreSQL, Ollama, the detector checkpoint or inference, so an offline optional service cannot make it fail.
+         */
+        get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List supported checks and evidence features
+         * @description Describes what this backend build supports: dataset and guideline input formats, the annotation coordinate convention, executable guideline checks taken from the real registry, and detection and matching evidence features, which are listed separately because they are not guideline checks. Installed files do not change it. It starts no service and runs no inference. Planned posture, mask or person-count checks and detection-mask coverage are not listed because they do not exist.
+         */
+        get: operations["getCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inspect local model readiness
+         * @description Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.
+         */
+        get: operations["getSystemStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1038,6 +1118,34 @@ export interface components {
              */
             feedback_policy_id: string | null;
         };
+        /**
+         * Capabilities
+         * @description What this backend build can do. It never reflects which files are installed.
+         */
+        Capabilities: {
+            /** Dataset Formats */
+            dataset_formats: string[];
+            /** Guideline Input Formats */
+            guideline_input_formats: string[];
+            /**
+             * Coordinate Convention
+             * @description Annotation boxes. Detection evidence documents its own zero-based pixel-edge convention inside each evidence record.
+             * @constant
+             */
+            coordinate_convention: "one_based_inclusive";
+            /**
+             * Checks
+             * @description Executable guideline checks. Detection evidence is listed separately. A listed check can still report unavailable results for a sample when its inputs are missing; model-assisted checks, for example, need the configured local model (see system status).
+             */
+            checks: components["schemas"]["CheckCapability"][];
+            /** Evidence Features */
+            evidence_features: components["schemas"]["EvidenceFeature"][];
+            /**
+             * Execution Device
+             * @constant
+             */
+            execution_device: "cpu";
+        };
         /** CapturedAvailability */
         CapturedAvailability: {
             annotation_text: components["schemas"]["AssetAvailability"];
@@ -1100,6 +1208,19 @@ export interface components {
             correction_reviewer_id: string | null;
             /** Image Url */
             image_url: string;
+        };
+        /**
+         * CheckCapability
+         * @description An executable guideline check that rules may name, taken from the real registry.
+         */
+        CheckCapability: {
+            /** Name */
+            name: string;
+            /**
+             * Implementation
+             * @constant
+             */
+            implementation: "implemented";
         };
         /** ComparisonMetrics */
         ComparisonMetrics: {
@@ -1202,6 +1323,34 @@ export interface components {
          * @enum {string}
          */
         DatasetStatus: "importing" | "ready" | "invalid" | "failed" | "cancelled";
+        /** DetectorStatus */
+        DetectorStatus: {
+            /**
+             * Integration Supported
+             * @description Whether this environment has the packages the CPU detector needs.
+             */
+            integration_supported: boolean;
+            /**
+             * Configuration
+             * @description Detection settings for new audits; invalid means enabled but unusable.
+             * @enum {string}
+             */
+            configuration: "disabled" | "enabled" | "invalid";
+            /**
+             * Checkpoint File
+             * @description Whether a file exists at the configured location. A present file is not verified: it is not hashed, loaded or run.
+             * @enum {string}
+             */
+            checkpoint_file: "not_configured" | "present" | "missing" | "unreadable";
+            /**
+             * Validation
+             * @description Whether the checkpoint was actually loaded and checked. 'unknown' means no validation has been recorded; it never means the model works.
+             * @enum {string}
+             */
+            validation: "unknown" | "validated" | "failed";
+            /** Architecture */
+            architecture: string;
+        };
         /** ErrorDetail */
         ErrorDetail: {
             /**
@@ -1243,6 +1392,21 @@ export interface components {
             measurements?: {
                 [key: string]: components["schemas"]["JsonValue"];
             };
+        };
+        /**
+         * EvidenceFeature
+         * @description Evidence stored with audited samples. It is not an executable guideline check.
+         */
+        EvidenceFeature: {
+            /** Name */
+            name: string;
+            /**
+             * Implementation
+             * @constant
+             */
+            implementation: "implemented";
+            /** Description */
+            description: string;
         };
         /**
          * ExclusionReason
@@ -1310,6 +1474,12 @@ export interface components {
              * @default 512
              */
             num_predict: number;
+            /**
+             * Num Thread
+             * @description Pinned CPU threads; omitted or null retains automatic selection.
+             * @default null
+             */
+            num_thread: number | null;
             /**
              * Timeout Seconds
              * @default 120
@@ -1723,6 +1893,25 @@ export interface components {
          */
         FindingOutcome: "pass" | "fail" | "unsure" | "unavailable";
         /**
+         * FindingPage
+         * @description One page of an audit's findings, ordered by ascending finding_id.
+         *
+         *     Findings are the stored machine snapshots with their latest human review
+         *     applied. total counts every finding that matches the filters before paging.
+         */
+        FindingPage: {
+            /** Items */
+            items: components["schemas"]["Finding"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+            /** Next Offset */
+            next_offset: number | null;
+        };
+        /**
          * FindingResolution
          * @description Accepting a finding confirms its conclusion, not acceptance of the sample.
          * @enum {string}
@@ -1849,6 +2038,22 @@ export interface components {
             cases: components["schemas"]["Adjudication"][];
         };
         /**
+         * Health
+         * @description HTTP liveness only. It says nothing about Ollama, the detector or storage.
+         */
+        Health: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /**
+             * Api Version
+             * @constant
+             */
+            api_version: "v1";
+        };
+        /**
          * ImportedAnnotationObject
          * @description Keep order, duplicate/negative IDs and invalid boxes for later auditing.
          */
@@ -1930,6 +2135,30 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /** OllamaStatus */
+        OllamaStatus: {
+            /**
+             * Configuration
+             * @description Whether the local Ollama settings could be read.
+             * @enum {string}
+             */
+            configuration: "valid" | "invalid";
+            /**
+             * Reachable
+             * @description Whether a short metadata request to the server succeeded.
+             */
+            reachable: boolean;
+            /**
+             * Model
+             * @description Configured language model name; null when settings are invalid.
+             */
+            model: string | null;
+            /**
+             * Model Available
+             * @description Whether the configured model is installed; null when that is unknown.
+             */
+            model_available: boolean | null;
         };
         /** Prediction */
         Prediction: {
@@ -2415,6 +2644,19 @@ export interface components {
             reviewer_id: string;
             /** Comment */
             comment: string;
+        };
+        /**
+         * SystemStatus
+         * @description Read-only readiness. Reading it starts nothing and downloads nothing.
+         */
+        SystemStatus: {
+            ollama: components["schemas"]["OllamaStatus"];
+            detector: components["schemas"]["DetectorStatus"];
+            /**
+             * Execution Device
+             * @constant
+             */
+            execution_device: "cpu";
         };
         /**
          * ToolStatus
@@ -2941,6 +3183,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SampleAudit"];
+                };
+            };
+            /** @description The requested resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "NOT_FOUND",
+                     *         "message": "The requested audit, sample, or finding does not exist.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "VALIDATION_ERROR",
+                     *         "message": "One or more request fields are invalid.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INTERNAL_ERROR",
+                     *         "message": "The request could not be completed.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Audit storage unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "DEPENDENCY_UNAVAILABLE",
+                     *         "message": "Audit storage is unavailable.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAuditFindings: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Page size, from 1 to 100.
+                 * @example 20
+                 */
+                limit?: number;
+                /**
+                 * @description Zero-based position in the filtered list, up to PostgreSQL's largest integer.
+                 * @example 0
+                 */
+                offset?: number;
+                /**
+                 * @description Optional filter. A sample with no findings in this audit, including a sample that is not in it, returns an empty page rather than HTTP 404.
+                 * @example sample_001
+                 */
+                sample_id?: string | null;
+                /**
+                 * @description Optional machine outcome filter. It combines with sample_id using AND and never filters by the reviewer's decision.
+                 * @example fail
+                 */
+                outcome?: components["schemas"]["FindingOutcome"] | null;
+            };
+            header?: never;
+            path: {
+                /** @example audit_demo */
+                audit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingPage"];
                 };
             };
             /** @description The requested resource does not exist. */
@@ -7927,6 +8289,225 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "status": "ok",
+                     *       "api_version": "v1"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INTERNAL_ERROR",
+                     *         "message": "The request could not be completed.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "dataset_formats": [
+                     *         "penn_fudan"
+                     *       ],
+                     *       "guideline_input_formats": [
+                     *         "plain_text"
+                     *       ],
+                     *       "coordinate_convention": "one_based_inclusive",
+                     *       "checks": [
+                     *         {
+                     *           "name": "allowed_labels",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "annotation_guideline",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "annotation_ids",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "annotation_metadata",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "box_mask_alignment",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "box_overlaps",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "box_validity",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "mask_box_fill",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "mask_components",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "mask_dimensions",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "mask_ids",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "mask_outside_box",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "pedestrian_box_enclosure",
+                     *           "implementation": "implemented"
+                     *         }
+                     *       ],
+                     *       "evidence_features": [
+                     *         {
+                     *           "name": "person_detection",
+                     *           "implementation": "implemented",
+                     *           "description": "CPU person detector run inside audit sample processing when enabled for an audit. Stored as the detection_evidence measurement; not a guideline check and creates no findings."
+                     *         },
+                     *         {
+                     *           "name": "detection_annotation_matching",
+                     *           "implementation": "implemented",
+                     *           "description": "Conservative matching of detections to person annotations, stored inside detection_evidence. Ambiguity is reported for review, never resolved automatically."
+                     *         }
+                     *       ],
+                     *       "execution_device": "cpu"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Capabilities"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INTERNAL_ERROR",
+                     *         "message": "The request could not be completed.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSystemStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "ollama": {
+                     *         "configuration": "valid",
+                     *         "reachable": true,
+                     *         "model": "example-local-model:latest",
+                     *         "model_available": true
+                     *       },
+                     *       "detector": {
+                     *         "integration_supported": true,
+                     *         "configuration": "enabled",
+                     *         "checkpoint_file": "present",
+                     *         "validation": "unknown",
+                     *         "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"
+                     *       },
+                     *       "execution_device": "cpu"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INTERNAL_ERROR",
+                     *         "message": "The request could not be completed.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
