@@ -30,7 +30,7 @@ import { KeyboardHelpModal } from '../../components/ui/KeyboardHelpModal';
 import { isTypingTarget } from '../../lib/keyboard';
 import { checkLabel, reasonLabel, reviewStatusLabel, toolStatusLabel } from '../../lib/labels';
 import { formatTimestamp } from '../../lib/format';
-import { useJobPolling } from '../../hooks/useJobPolling';
+import { RECHECK_IN_PROGRESS_MESSAGE, useImageRecheckStatus } from '../../hooks/useImageRecheckStatus';
 import { useDatasetName } from '../../hooks/useDatasetName';
 import {
   groupFindings,
@@ -69,13 +69,13 @@ export const AuditReviewWorkspace: React.FC = () => {
   // `?sample=` lets the report and other screens deep-link to one sample.
   const [activeSampleId, setActiveSampleId] = useState<string | null>(() => searchParams.get('sample'));
   const [historicalAttemptId, setHistoricalAttemptId] = useState<string | null>(null);
-  const [recheckJobId, setRecheckJobId] = useState<string | null>(null);
-  useJobPolling(recheckJobId);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [hiddenObjectIds, setHiddenObjectIds] = useState<number[]>([]);
   const [reviewComment, setReviewComment] = useState<string>('');
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState<boolean>(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  // Separate from reviewError: loading the other recheck's new attempt must not hide it.
+  const [recheckNotice, setRecheckNotice] = useState<string | null>(null);
   const [historyFindingId, setHistoryFindingId] = useState<string | null>(null);
   const [correctionPrompt, setCorrectionPrompt] = useState<{ datasetId: string; sampleId: string; auditId: string } | null>(null);
   const [leftWidth, setLeftWidth] = useState(() => readPaneWidth('left', 264));
@@ -129,6 +129,7 @@ export const AuditReviewWorkspace: React.FC = () => {
     setHistoryFindingId(null);
     setReviewComment('');
     setReviewError(null);
+    setRecheckNotice(null);
     setHiddenObjectIds([]);
   }, [activeSampleId, setSelectedInstanceId]);
 
@@ -154,6 +155,8 @@ export const AuditReviewWorkspace: React.FC = () => {
   const detailError = displayedDetail.error;
   const isDetailLoading = displayedDetail.isLoading;
   const attemptRunning = ['queued', 'running'].includes(latestDetail.data?.summary.processing_status ?? 'queued');
+  // Survives refresh: blocked while any attempt of this image has an unfinished job.
+  const recheckStatus = useImageRecheckStatus(auditId, activeSampleId);
 
   // A new attempt has new evidence and needs its own decision and reason.
   useEffect(() => {
@@ -178,14 +181,20 @@ export const AuditReviewWorkspace: React.FC = () => {
     },
     onSuccess: (result) => {
       setHistoricalAttemptId(null);
-      setRecheckJobId(result.job.job_id);
+      recheckStatus.track(result.job.job_id);
       setReviewError(null);
+      setRecheckNotice(null);
       return queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
     },
     onError: (error) => {
-      setReviewError(error instanceof ApiError && error.code === 'STALE_SAMPLE_REVISION'
-        ? 'This image has a newer correction. Open Correct and re-check the saved revision there.'
-        : error.message);
+      if (error instanceof ApiError && error.code === 'RECHECK_ALREADY_RUNNING') {
+        setRecheckNotice(RECHECK_IN_PROGRESS_MESSAGE);
+        recheckStatus.refresh();
+      } else {
+        setReviewError(error instanceof ApiError && error.code === 'STALE_SAMPLE_REVISION'
+          ? 'This image has a newer correction. Open Correct and re-check the saved revision there.'
+          : error.message);
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.audit(auditId!) });
     },
   });
@@ -504,6 +513,12 @@ export const AuditReviewWorkspace: React.FC = () => {
           <button onClick={() => { setReviewError(null); if (activeSampleId && auditId) void queryClient.invalidateQueries({ queryKey: queryKeys.auditSample(auditId, activeSampleId) }); }}>Reload latest</button>
         </div>
       )}
+      {recheckNotice && (
+        <div role="alert" className="review-alert">
+          <AlertTriangle size={14} /> <span>{recheckNotice}</span>
+          <button onClick={() => setRecheckNotice(null)} aria-label="Dismiss">×</button>
+        </div>
+      )}
       {correctionPrompt && (
         <div role="status" className="review-notice">
           <Wrench size={14} /> <span>{correctionPrompt.sampleId} was sent for correction.</span>
@@ -625,15 +640,24 @@ export const AuditReviewWorkspace: React.FC = () => {
             <section className="checklist-section" aria-label="Image rechecks">
               <Button size="sm" variant="secondary" leftIcon={<RefreshCw size={13} />}
                 onClick={() => recheckMutation.mutate()} isLoading={recheckMutation.isPending}
-                disabled={!latestDetail.data || attemptRunning || !!historicalAttemptId || sampleReviewMutation.isPending || findingReviewMutation.isPending || !audit || !['completed', 'failed', 'cancelled'].includes(audit.status)}>
+                disabled={!latestDetail.data || attemptRunning || !recheckStatus.canRecheck || !!historicalAttemptId || sampleReviewMutation.isPending || findingReviewMutation.isPending || !audit || !['completed', 'failed', 'cancelled'].includes(audit.status)}>
                 Re-check this image
               </Button>
               <p className="text-2xs text-text-muted mt-2">
-                {attemptRunning ? 'Checking this image. Its new results will appear here and need a fresh review.'
+                {recheckStatus.state === 'loading' ? "Loading this image's recheck status…"
+                  : recheckStatus.state === 'error' ? null
+                  : recheckStatus.activeJob?.status === 'cancelling' ? 'The current recheck is being cancelled. You can re-check once it stops.'
+                  : attemptRunning || recheckStatus.state === 'active' ? 'Checking this image. Its new results will appear here and need a fresh review.'
                   : latestDetail.data?.summary.processing_status === 'cancelled'
                     ? 'The latest attempt was cancelled. Re-check this image to try again; earlier results remain in history.'
                   : 'Rechecks update this workspace. Previous results and decisions stay in attempt history.'}
               </p>
+              {recheckStatus.state === 'error' && (
+                <div role="alert" className="text-2xs text-status-fail mt-2">
+                  Could not load this image's recheck status, so re-checking is paused.{' '}
+                  <button type="button" className="underline" onClick={recheckStatus.refresh}>Retry</button>
+                </div>
+              )}
               {(latestDetail.data?.attempts?.length ?? 0) > 1 && (
                 <label className="block text-2xs mt-2">Attempt history
                   <select aria-label="Attempt history" className="w-full mt-1" value={historicalAttemptId ?? ''}

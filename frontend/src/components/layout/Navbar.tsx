@@ -5,7 +5,7 @@ import { Activity, Bot, Layers, UserRound, ChevronRight, CircleHelp, BriefcaseBu
 import { apiGet } from '../../api/client';
 import { queryKeys } from '../../api/queryClient';
 import { useReviewerStore } from '../../store/reviewerStore';
-import { useJobStore } from '../../store/jobStore';
+import { selectActiveJobCount, useJobStore } from '../../store/jobStore';
 import { useTransportStore } from '../../store/transportStore';
 import { ReviewerPromptModal } from '../ui/ReviewerPromptModal';
 import { KeyboardHelpModal } from '../ui/KeyboardHelpModal';
@@ -30,7 +30,7 @@ export const Navbar: React.FC = () => {
   const { reviewerId, openPrompt } = useReviewerStore();
   const [helpOpen, setHelpOpen] = useState(false);
   const { pathname } = useLocation();
-  const jobCount = useJobStore((state) => state.ids.length);
+  const jobCount = useJobStore(selectActiveJobCount);
   const { data: health, isError: healthError } = useQuery({ queryKey: queryKeys.health(), queryFn: () => apiGet('/health'), refetchInterval: 30_000 });
   const { data: system, isError: systemError } = useQuery({ queryKey: queryKeys.systemStatus(), queryFn: () => apiGet('/system/status'), refetchInterval: 30_000 });
   const parts = pathname.split('/').filter(Boolean);
@@ -58,7 +58,7 @@ export const Navbar: React.FC = () => {
           <Readiness icon={Layers} label="Detector" ready={detectorReady} mockOperation="getSystemStatus" />
         </div>
         <span className="topbar-divider" />
-        <span className="job-count" title={`${jobCount} tracked jobs`}><BriefcaseBusiness size={14} /> Jobs <b className="mono">{jobCount}</b></span>
+        <span className="job-count" title={`${jobCount} active jobs (queued, running or cancelling)`}><BriefcaseBusiness size={14} /> Jobs <b className="mono">{jobCount}</b></span>
         <button className="topbar-icon-button" onClick={() => setHelpOpen(true)} title="Keyboard shortcuts" aria-label="Keyboard shortcuts"><CircleHelp size={15} /><kbd>?</kbd></button>
         <button className="reviewer-control" onClick={openPrompt} title="Set reviewer attribution"><UserRound size={14} /><span>{reviewerId || 'Set reviewer'}</span></button>
       </div>

@@ -7,6 +7,7 @@ import { queryKeys } from '../../api/queryClient';
 import { useReviewerStore } from '../../store/reviewerStore';
 import { Button } from '../../components/ui/Button';
 import { useJobPolling } from '../../hooks/useJobPolling';
+import { RECHECK_IN_PROGRESS_MESSAGE, useImageRecheckStatus } from '../../hooks/useImageRecheckStatus';
 import { bboxToCss, defaultNewBbox, isBboxValid, resizeBboxOnCanvas, translateBboxOnCanvas, type BBox1Based, type ResizeHandle } from '../../lib/coords';
 import { formatTimestamp } from '../../lib/format';
 import { jobStatusLabel } from '../../lib/labels';
@@ -59,6 +60,9 @@ export const CorrectionsPage: React.FC = () => {
     enabled: !!auditId && !!sampleId,
     retry: false,
   });
+
+  // Survives refresh: blocked while any attempt of this image has an unfinished job.
+  const recheckStatus = useImageRecheckStatus(auditId || null, sampleId || null);
 
   const sample = sampleQuery.data;
   const imageSize = sample?.image_size ?? null;
@@ -124,9 +128,17 @@ export const CorrectionsPage: React.FC = () => {
     },
     onSuccess: (target) => {
       setRecheckTarget(target);
+      recheckStatus.track(target.jobId);
       void queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
     },
-    onError: (err) => setMessage({ tone: 'error', text: err.message }),
+    onError: (err) => {
+      if (err instanceof ApiError && err.code === 'RECHECK_ALREADY_RUNNING') {
+        setMessage({ tone: 'error', text: RECHECK_IN_PROGRESS_MESSAGE });
+        recheckStatus.refresh();
+        return;
+      }
+      setMessage({ tone: 'error', text: err.message });
+    },
   });
   const job = useJobPolling(recheckTarget?.jobId);
 
@@ -278,7 +290,17 @@ export const CorrectionsPage: React.FC = () => {
               <section>
                 <h2>Re-check against audit</h2>
                 <p className="text-2xs text-text-muted">Runs the audit's rules again on revision r{sample.revision} so the fix can be reviewed.</p>
-                <Button size="sm" variant="secondary" leftIcon={<RefreshCw size={13} />} isLoading={recheck.isPending || job.isActive} disabled={dirty} title={dirty ? 'Save your edits first' : undefined} onClick={() => recheck.mutate()}>Re-check this sample</Button>
+                <Button size="sm" variant="secondary" leftIcon={<RefreshCw size={13} />} isLoading={recheck.isPending} disabled={dirty || !recheckStatus.canRecheck} title={dirty ? 'Save your edits first' : recheckStatus.state === 'active' ? RECHECK_IN_PROGRESS_MESSAGE : undefined} onClick={() => recheck.mutate()}>Re-check this sample</Button>
+                {recheckStatus.state === 'loading' && <p className="text-2xs text-text-muted">Loading this image's recheck status…</p>}
+                {recheckStatus.state === 'error' && (
+                  <p role="alert" className="text-xs text-status-fail">
+                    Could not load this image's recheck status, so re-checking is paused.{' '}
+                    <button type="button" className="underline" onClick={recheckStatus.refresh}>Retry</button>
+                  </p>
+                )}
+                {recheckStatus.activeJob && recheckStatus.activeJob.job_id !== recheckTarget?.jobId && (
+                  <p className="text-xs">A recheck of this image is {jobStatusLabel(recheckStatus.activeJob.status)}. You can re-check again once it finishes.</p>
+                )}
                 {job.job && (
                   <p className="text-xs">
                     Re-check {jobStatusLabel(job.job.status)}

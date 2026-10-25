@@ -84,6 +84,8 @@ export function useJobPolling(jobId: string | null | undefined, options: UseJobP
   });
 
   const job = query.data;
+  const setTrackedStatus = useJobStore((state) => state.setStatus);
+  useEffect(() => { if (job) setTrackedStatus(job.job_id, job.status); }, [job, setTrackedStatus]);
 
   // Invalidate queries & fire callbacks when a job transitions to a terminal state
   useEffect(() => {
