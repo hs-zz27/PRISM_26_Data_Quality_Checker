@@ -15,7 +15,7 @@ export const OverviewPage: React.FC = () => {
   const datasetName = useDatasetName();
   const rulebooks = useQuery({ queryKey: queryKeys.rulebooks(), queryFn: () => apiGetAllPages('/rulebooks', { query: { limit: 100, offset: 0 } }) });
   const datasets = useQuery({ queryKey: queryKeys.datasets(), queryFn: () => apiGetAllPages('/datasets', { query: { limit: 100, offset: 0 } }) });
-  const audits = useQuery({ queryKey: queryKeys.audits(), queryFn: () => apiGetAllPages('/audits', { query: { limit: 100, offset: 0 } }) });
+  const audits = useQuery({ queryKey: queryKeys.auditWorkspaces(), queryFn: () => apiGetAllPages('/audits', { query: { limit: 100, offset: 0, roots_only: true } }) });
   const exports = useQuery({ queryKey: queryKeys.exports(), queryFn: () => apiGetAllPages('/exports', { query: { limit: 100, offset: 0 } }) });
 
   const loading = rulebooks.isLoading || datasets.isLoading || audits.isLoading || exports.isLoading;

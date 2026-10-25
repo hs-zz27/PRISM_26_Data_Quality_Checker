@@ -14,6 +14,7 @@ from ..models.audit_read import (
     SampleAssets,
     SampleAudit,
     SampleAuditSummary,
+    SampleAttempt,
     ToolStatus,
 )
 from ..models.finding import FindingOutcome
@@ -24,6 +25,7 @@ from .workflow_repository import (
     _FINDINGS_WITH_REVIEWS, _WorkflowRepository, _decode_reviewed_finding,
     _require_identifier, _validate_measurement_document,
 )
+from .audit_attempts import AUDIT_FAMILY, LATEST_SAMPLES, workspace_root
 
 
 # Keep aggregation in SQL so filtering and pagination apply to the entire queue.
@@ -32,8 +34,8 @@ from .workflow_repository import (
 _ASSET_CONTENT_TYPE = "image/png"
 # Largest OFFSET PostgreSQL accepts (a signed 64-bit integer).
 _MAX_OFFSET = 9_223_372_036_854_775_807
-_SAMPLE_VIEW = """
-    SELECT s.audit_id, s.sample_id, s.sample_revision, s.ordinal,
+_SAMPLE_VIEW_TEMPLATE = """
+    SELECT s.audit_id, s.sample_id, s.sample_revision, {ordinal} AS ordinal,
            s.manifest_dataset_id,
            manifest.original_image_availability AS manifest_image_availability,
            manifest.raw_mask_availability AS manifest_mask_availability,
@@ -49,7 +51,7 @@ _SAMPLE_VIEW = """
                     OR counts.unavailable > 0 OR counts.pass_count = 0 THEN 'unavailable'
                ELSE 'no_issue'
            END AS tool_status
-    FROM audit_samples AS s
+    FROM {source}
     LEFT JOIN sample_asset_manifests AS manifest
       ON manifest.dataset_id = s.manifest_dataset_id
      AND manifest.sample_id = s.sample_id
@@ -69,8 +71,19 @@ _SAMPLE_VIEW = """
         WHERE (f.audit_id, f.sample_id, f.sample_revision) =
               (s.audit_id, s.sample_id, s.sample_revision)
     ) AS counts
-    WHERE s.audit_id = %s
+    WHERE {selection}
 """
+
+_SAMPLE_VIEW = _SAMPLE_VIEW_TEMPLATE.format(
+    ordinal="s.ordinal", source="audit_samples AS s", selection="s.audit_id = %s",
+)
+_LATEST_SAMPLE_VIEW = _SAMPLE_VIEW_TEMPLATE.format(
+    ordinal="chosen.ordinal",
+    source="""selected_samples chosen JOIN audit_samples AS s
+        ON (s.audit_id, s.sample_id, s.sample_revision) =
+           (chosen.audit_id, chosen.sample_id, chosen.sample_revision)""",
+    selection="TRUE",
+)
 
 
 def _asset_url(row: dict[str, Any], asset_kind: str) -> str:
@@ -129,6 +142,7 @@ def _summary(row: dict[str, Any]) -> SampleAuditSummary:
             finding_counts={"pass": row["pass_count"], "fail": row["fail"],
                             "unsure": row["unsure"], "unavailable": row["unavailable"]},
             thumbnail_url=None if thumbnail is None else thumbnail.url,
+            result_audit_id=row["audit_id"],
         )
     except ValidationError as error:
         raise WorkflowStorageError("A saved audit sample failed validation.") from error
@@ -163,6 +177,7 @@ class AuditReadRepository(_WorkflowRepository):
         self, audit_id: str, *, limit: int = 20, offset: int = 0,
         tool_status: ToolStatus | None = None,
         review_status: SampleReviewDecision | None = None,
+        include_rechecks: bool = False,
     ) -> AuditSamplePage:
         audit_id = _require_identifier(audit_id, "audit_id")
         if type(limit) is not int or not 1 <= limit <= 100:
@@ -178,16 +193,18 @@ class AuditReadRepository(_WorkflowRepository):
             if value is not None:
                 filters.append(f"{name} = %s")
                 parameters.append(enum(value).value)
-        query = f"SELECT * FROM ({_SAMPLE_VIEW}) AS samples"
+        prefix = LATEST_SAMPLES if include_rechecks else ""
+        view = _LATEST_SAMPLE_VIEW if include_rechecks else _SAMPLE_VIEW
+        query = f"SELECT * FROM ({view}) AS samples"
         if filters:
             query += " WHERE " + " AND ".join(filters)
         with self._connection() as connection:
             self._get_audit(connection, audit_id)
             total = connection.execute(
-                f"SELECT count(*) AS total FROM ({query}) AS filtered", parameters,
+                prefix + f"SELECT count(*) AS total FROM ({query}) AS filtered", parameters,
             ).fetchone()["total"]
             rows = connection.execute(
-                query + " ORDER BY ordinal LIMIT %s OFFSET %s", [*parameters, limit, offset],
+                prefix + query + " ORDER BY ordinal LIMIT %s OFFSET %s", [*parameters, limit, offset],
             ).fetchall()
             items = [_summary(row) for row in rows]
         return AuditSamplePage(
@@ -198,6 +215,7 @@ class AuditReadRepository(_WorkflowRepository):
     def list_audit_findings(
         self, audit_id: str, *, limit: int = 20, offset: int = 0,
         sample_id: str | None = None, outcome: FindingOutcome | None = None,
+        include_rechecks: bool = False,
     ) -> FindingPage:
         """Read one audit's findings in ascending finding_id order.
 
@@ -211,7 +229,11 @@ class AuditReadRepository(_WorkflowRepository):
             raise ValueError("limit must be an integer between 1 and 100.")
         if type(offset) is not int or not 0 <= offset <= _MAX_OFFSET:
             raise ValueError(f"offset must be an integer between 0 and {_MAX_OFFSET}.")
-        filters = ["findings.audit_id = %s"]
+        prefix = LATEST_SAMPLES if include_rechecks else ""
+        filters = ["""EXISTS (SELECT 1 FROM selected_samples chosen
+            WHERE (findings.audit_id, findings.sample_id, findings.sample_revision) =
+                  (chosen.audit_id, chosen.sample_id, chosen.sample_revision))"""
+            if include_rechecks else "findings.audit_id = %s"]
         parameters: list[Any] = [audit_id]
         if sample_id is not None:
             filters.append("findings.sample_id = %s")
@@ -223,10 +245,10 @@ class AuditReadRepository(_WorkflowRepository):
         with self._connection() as connection:
             self._get_audit(connection, audit_id)
             total = connection.execute(
-                "SELECT count(*) AS total FROM findings" + where, parameters,
+                prefix + "SELECT count(*) AS total FROM findings" + where, parameters,
             ).fetchone()["total"]
             rows = connection.execute(
-                _FINDINGS_WITH_REVIEWS + where + " ORDER BY findings.finding_id LIMIT %s OFFSET %s",
+                prefix + _FINDINGS_WITH_REVIEWS + where + " ORDER BY findings.finding_id LIMIT %s OFFSET %s",
                 [*parameters, limit, offset],
             ).fetchall()
             items = [_decode_reviewed_finding(row) for row in rows]
@@ -235,13 +257,15 @@ class AuditReadRepository(_WorkflowRepository):
             next_offset=offset + len(items) if offset + len(items) < total else None,
         )
 
-    def get_sample(self, audit_id: str, sample_id: str) -> SampleAudit:
+    def get_sample(self, audit_id: str, sample_id: str, *, include_rechecks: bool = False) -> SampleAudit:
         audit_id = _require_identifier(audit_id, "audit_id")
         sample_id = _require_identifier(sample_id, "sample_id")
         with self._connection() as connection:
             audit = self._get_audit(connection, audit_id)
+            prefix = LATEST_SAMPLES if include_rechecks else ""
+            view = _LATEST_SAMPLE_VIEW if include_rechecks else _SAMPLE_VIEW
             rows = connection.execute(
-                _SAMPLE_VIEW + " AND s.sample_id = %s", (audit_id, sample_id),
+                prefix + view + " AND s.sample_id = %s", (audit_id, sample_id),
             ).fetchall()
             if not rows:
                 raise AuditSampleNotFoundError(audit_id, sample_id)
@@ -250,7 +274,20 @@ class AuditReadRepository(_WorkflowRepository):
             if len(rows) != 1:
                 raise WorkflowStorageError("The audit contains ambiguous sample revisions.")
             row = rows[0]
-            key = (audit_id, sample_id, row["sample_revision"])
+            result_audit_id = row["audit_id"]
+            key = (result_audit_id, sample_id, row["sample_revision"])
+            root_id = workspace_root(connection, audit_id)
+            attempt_rows = connection.execute(
+                AUDIT_FAMILY + """SELECT s.audit_id, a.job_id, s.sample_revision,
+                    s.status AS processing_status, a.created_at, link.reviewer_id
+                    FROM audit_family family
+                    JOIN audit_runs a ON a.audit_id=family.audit_id
+                    JOIN audit_samples s ON s.audit_id=a.audit_id
+                    LEFT JOIN audit_recheck_lineage link ON link.child_audit_id=a.audit_id
+                    WHERE s.sample_id=%s
+                    ORDER BY family.created_at DESC, family.depth DESC,
+                             family.audit_id COLLATE "C" DESC""", (root_id, sample_id),
+            ).fetchall()
             measurement = connection.execute(
                 """SELECT document FROM audit_measurements
                    WHERE (audit_id, sample_id, sample_revision) = (%s, %s, %s)""", key,
@@ -269,10 +306,12 @@ class AuditReadRepository(_WorkflowRepository):
                 review = (
                     SampleReviewRecord.model_validate_json(json.dumps(row["current_review"]))
                     if row["current_review"] is not None else
-                    SampleReview(audit_id=audit_id, sample_id=sample_id, sample_revision=key[2])
+                    SampleReview(audit_id=result_audit_id, sample_id=sample_id, sample_revision=key[2])
                 )
                 return SampleAudit(
-                    audit_id=audit_id, dataset_id=audit["dataset_id"], summary=_summary(row),
+                    audit_id=result_audit_id, dataset_id=audit["dataset_id"], summary=_summary(row),
+                    workspace_audit_id=root_id,
+                    attempts=[SampleAttempt.model_validate(item) for item in attempt_rows],
                     assets=_assets(row),
                     measurements=None if measurement is None else
                     _public_measurements(measurement["document"], sample_id),

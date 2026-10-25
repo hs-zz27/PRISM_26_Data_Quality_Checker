@@ -3377,7 +3377,7 @@
             }
           }
         },
-        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
+        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. Use include_rechecks=true on the original audit sample/queue/findings reads to show attempts in one workspace. Overlapping active rechecks of the same image return RECHECK_ALREADY_RUNNING (409). No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Immutable correction repository/service and linked AUDIT enqueue."
       }
@@ -3665,7 +3665,7 @@
             }
           }
         },
-        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
+        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. Use include_rechecks=true on the original audit sample/queue/findings reads to show attempts in one workspace. Overlapping active rechecks of the same image return RECHECK_ALREADY_RUNNING (409). No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Immutable correction repository/service and linked AUDIT enqueue."
       },
@@ -3905,7 +3905,7 @@
             }
           }
         },
-        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
+        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. Use include_rechecks=true on the original audit sample/queue/findings reads to show attempts in one workspace. Overlapping active rechecks of the same image return RECHECK_ALREADY_RUNNING (409). No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Immutable correction repository/service and linked AUDIT enqueue."
       }
@@ -4156,7 +4156,7 @@
           "Audits"
         ],
         "summary": "List audit runs",
-        "description": "Read every persisted lifecycle state, newest created_at first and descending audit_id for ties. limit is 1–100 (default 20); offset is a nonnegative BIGINT (default 0). Count and page use one database snapshot. Empty and past-the-end pages return 200. Exposes only AuditRun summaries, never private paths, request documents, claims or asset keys. Listing does not execute or recover jobs. Offset pages may shift when new audits are added between requests.",
+        "description": "roots_only=true lists original audit workspaces and hides linked recheck attempts; false preserves the historical all-runs list. Read every persisted lifecycle state, newest created_at first and descending audit_id for ties. limit is 1–100 (default 20); offset is a nonnegative BIGINT (default 0). Count and page use one database snapshot. Empty and past-the-end pages return 200. Exposes only AuditRun summaries, never private paths, request documents, claims or asset keys. Listing does not execute or recover jobs. Offset pages may shift when new audits are added between requests.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "AuditRepository.list_audits and FastAPI route implemented.",
         "responses": {
@@ -4273,6 +4273,17 @@
               "default": 0
             },
             "example": 0,
+            "description": ""
+          },
+          {
+            "name": "roots_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": true,
             "description": ""
           }
         ]
@@ -4410,7 +4421,7 @@
           "Audits"
         ],
         "summary": "Read the complete review queue",
-        "description": "Omit filters to include every sample in original audit order. total and next_offset refer to the filtered queue. Processing state, incomplete flag, machine outcomes and human decisions are separate. Queued/running samples are pending; otherwise fail takes precedence over unsure, then unavailable. Failed/cancelled/incomplete or zero-findings samples cannot be no_issue. No automatic acceptance. Snapshot-backed samples with an available captured original image advertise a revision-pinned thumbnail_url; legacy samples without a manifest association keep it null. Missing audits return 404, empty matching pages return 200.",
+        "description": "include_rechecks=true selects the newest submitted attempt for each original sample, including queued/failed/cancelled attempts, and reports its result_audit_id. Review counts and filters use that attempt only; old acceptance never carries over. False reads the exact historical audit. Omit filters to include every sample in original audit order. total and next_offset refer to the filtered queue. Processing state, incomplete flag, machine outcomes and human decisions are separate. Queued/running samples are pending; otherwise fail takes precedence over unsure, then unavailable. Failed/cancelled/incomplete or zero-findings samples cannot be no_issue. No automatic acceptance. Snapshot-backed samples with an available captured original image advertise a revision-pinned thumbnail_url; legacy samples without a manifest association keep it null. Missing audits return 404, empty matching pages return 200.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "AuditReadRepository.list_samples and FastAPI route implemented.",
         "responses": {
@@ -4596,6 +4607,17 @@
             "description": ""
           },
           {
+            "name": "include_rechecks",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": true,
+            "description": ""
+          },
+          {
             "name": "audit_id",
             "in": "path",
             "required": true,
@@ -4617,7 +4639,7 @@
           "Audits"
         ],
         "summary": "Read sample findings, evidence and measurements",
-        "description": "One database snapshot includes the stored sample pin, exact captured manifest availability, original measurements, all findings with latest reviews, technical failures and current sample decision. Snapshot-backed samples advertise image/thumbnail links when original_image is available and mask/mask_preview links when raw_mask is available; recorded missing or unreadable roles and legacy samples without a manifest association remain null. Links advertise captured availability only: the asset route verifies exact bytes and derived previews may reject corrupt or unsupported sources. Measurements are null when not persisted and otherwise preserve the collector document (including its original pending_review field), except that loading-error details use safe messages even for legacy reports. Stored evidence is not rewritten. No current dataset files are read or latest revision inferred. Missing audit/sample returns 404.",
+        "description": "include_rechecks=true reads the newest submitted attempt within this audit family; false reads this exact historical attempt. audit_id identifies the actual evidence and review owner; workspace_audit_id identifies the original audit. attempts provides ordered history. Write sample decisions to the returned audit_id; findings retain their own IDs. One database snapshot includes the stored sample pin, exact captured manifest availability, original measurements, all findings with latest reviews, technical failures and current sample decision. Snapshot-backed samples advertise image/thumbnail links when original_image is available and mask/mask_preview links when raw_mask is available; recorded missing or unreadable roles and legacy samples without a manifest association remain null. Links advertise captured availability only: the asset route verifies exact bytes and derived previews may reject corrupt or unsupported sources. Measurements are null when not persisted and otherwise preserve the collector document (including its original pending_review field), except that loading-error details use safe messages even for legacy reports. Stored evidence is not rewritten. No current dataset files are read or latest revision inferred. Missing audit/sample returns 404.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "AuditReadRepository.get_sample and FastAPI route implemented.",
         "responses": {
@@ -7528,6 +7550,17 @@
         },
         "parameters": [
           {
+            "name": "include_rechecks",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": true,
+            "description": ""
+          },
+          {
             "name": "audit_id",
             "in": "path",
             "required": true,
@@ -7561,7 +7594,7 @@
           "Audits"
         ],
         "summary": "List findings with rule sources and review state",
-        "description": "List every machine finding of one audit across all of its samples, in ascending finding_id order (text order, not creation order). Each item is the stored finding, including its pinned sample_revision, rulebook version, rule parameters, origin, source sentence and evidence, with the latest human review in review; a finding nobody has reviewed shows resolution pending. Omit the filters to include all four outcomes (pass, fail, unsure, unavailable) and every review resolution. sample_id and outcome combine with AND. total counts all matching findings before paging, and next_offset is offset plus the number of items only when more matching findings remain, otherwise null (an empty page, an offset past the end and the final page all return null). An unknown audit returns HTTP 404; an existing audit with no matching findings returns HTTP 200 with an empty page. Audit existence, the total, the page and the latest reviews are read from one database snapshot. Reading never starts a worker, runs inference, reads asset files or changes a finding or its review. Findings are machine evidence: a reviewer's decision is separate, and an accepted or rejected finding does not decide the sample. Use getAuditSample for one sample's full detail.",
+        "description": "include_rechecks=true selects findings only from the latest submitted attempt per original sample; false preserves exact historical reads. List every machine finding of one audit across all of its samples, in ascending finding_id order (text order, not creation order). Each item is the stored finding, including its pinned sample_revision, rulebook version, rule parameters, origin, source sentence and evidence, with the latest human review in review; a finding nobody has reviewed shows resolution pending. Omit the filters to include all four outcomes (pass, fail, unsure, unavailable) and every review resolution. sample_id and outcome combine with AND. total counts all matching findings before paging, and next_offset is offset plus the number of items only when more matching findings remain, otherwise null (an empty page, an offset past the end and the final page all return null). An unknown audit returns HTTP 404; an existing audit with no matching findings returns HTTP 200 with an empty page. Audit existence, the total, the page and the latest reviews are read from one database snapshot. Reading never starts a worker, runs inference, reads asset files or changes a finding or its review. Findings are machine evidence: a reviewer's decision is separate, and an accepted or rejected finding does not decide the sample. Use getAuditSample for one sample's full detail.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "AuditReadRepository.list_audit_findings and FastAPI route implemented.",
         "responses": {
@@ -7909,6 +7942,17 @@
             "description": "Optional filter. A sample with no findings in this audit, including a sample that is not in it, returns an empty page rather than HTTP 404."
           },
           {
+            "name": "include_rechecks",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": true,
+            "description": ""
+          },
+          {
             "name": "outcome",
             "in": "query",
             "required": false,
@@ -8050,6 +8094,16 @@
                       "error": {
                         "code": "STALE_SAMPLE_REVISION",
                         "message": "Refresh the selected revision before resubmitting.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  },
+                  "RECHECK_ALREADY_RUNNING": {
+                    "value": {
+                      "error": {
+                        "code": "RECHECK_ALREADY_RUNNING",
+                        "message": "Wait for the active recheck of this image to finish.",
                         "details": [],
                         "request_id": "request_demo"
                       }
@@ -8200,7 +8254,7 @@
             }
           }
         },
-        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
+        "description": "Immutable correction revisions preserve old audit/review/export evidence. Refresh on stale revision; uploads expire and are consumed once. Rechecks pin selected current heads through enqueue, preserve the parent rulebook, and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. Use include_rechecks=true on the original audit sample/queue/findings reads to show attempts in one workspace. Overlapping active rechecks of the same image return RECHECK_ALREADY_RUNNING (409). No correction or machine success implies human acceptance. Original provenance is nullable; unknown historical mask_changed is null. Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Immutable correction repository/service and linked AUDIT enqueue."
       }
@@ -9206,7 +9260,8 @@
                 "audit_id": "audit_demo",
                 "format": "penn_fudan",
                 "selection": "all_reviewed",
-                "include_images": false
+                "include_images": false,
+                "include_rechecks": false
               }
             }
           }
@@ -9225,6 +9280,7 @@
                     "format": "penn_fudan",
                     "selection": "all_reviewed",
                     "include_images": false,
+                    "include_rechecks": false,
                     "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     "job_id": "job_export_demo",
                     "status": "queued",
@@ -9374,7 +9430,7 @@
             }
           }
         },
-        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; include_rechecks=true freezes the latest submitted attempt for each original image, including corrected revisions; each entry records result_audit_id. Any active attempt in the family blocks that selection. False preserves historical audit-only selection. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
       },
@@ -9427,6 +9483,7 @@
                       "format": "penn_fudan",
                       "selection": "all_reviewed",
                       "include_images": false,
+                      "include_rechecks": false,
                       "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                       "job_id": "job_export_demo",
                       "status": "completed",
@@ -9512,7 +9569,7 @@
             }
           }
         },
-        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; include_rechecks=true freezes the latest submitted attempt for each original image, including corrected revisions; each entry records result_audit_id. Any active attempt in the family blocks that selection. False preserves historical audit-only selection. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
       }
@@ -9552,6 +9609,7 @@
                   "format": "penn_fudan",
                   "selection": "all_reviewed",
                   "include_images": false,
+                  "include_rechecks": false,
                   "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                   "job_id": "job_export_demo",
                   "status": "completed",
@@ -9653,7 +9711,7 @@
             }
           }
         },
-        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; include_rechecks=true freezes the latest submitted attempt for each original image, including corrected revisions; each entry records result_audit_id. Any active attempt in the family blocks that selection. False preserves historical audit-only selection. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
       }
@@ -9823,7 +9881,7 @@
             }
           }
         },
-        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; include_rechecks=true freezes the latest submitted attempt for each original image, including corrected revisions; each entry records result_audit_id. Any active attempt in the family blocks that selection. False preserves historical audit-only selection. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
       }
@@ -9868,9 +9926,11 @@
                   "rulebook_version": 3,
                   "selection": "all_reviewed",
                   "include_images": false,
+                  "include_rechecks": false,
                   "selected_at": "2026-10-21T00:00:00Z",
                   "entries": [
                     {
+                      "result_audit_id": null,
                       "sample_id": "sample_000",
                       "sample_revision": 2,
                       "ordinal": 0,
@@ -9888,6 +9948,7 @@
                       "reason": null
                     },
                     {
+                      "result_audit_id": null,
                       "sample_id": "sample_001",
                       "sample_revision": 2,
                       "ordinal": 1,
@@ -9905,6 +9966,7 @@
                       "reason": null
                     },
                     {
+                      "result_audit_id": null,
                       "sample_id": "sample_002",
                       "sample_revision": 2,
                       "ordinal": 2,
@@ -9922,6 +9984,7 @@
                       "reason": "pending_review"
                     },
                     {
+                      "result_audit_id": null,
                       "sample_id": "sample_003",
                       "sample_revision": 2,
                       "ordinal": 3,
@@ -10054,7 +10117,7 @@
             }
           }
         },
-        "description": "Exports preserve exact historical audit pins and frozen human decisions; they do not implement annotation corrections or rechecks. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
+        "description": "Exports preserve exact historical audit pins and frozen human decisions; include_rechecks=true freezes the latest submitted attempt for each original image, including corrected revisions; each entry records result_audit_id. Any active attempt in the family blocks that selection. False preserves historical audit-only selection. accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. Pending/reopened and needs_correction samples are excluded. Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. After a lost POST response, reconcile list/detail/job reads before considering resubmission. Download and manifest return EXPORT_NOT_READY for every noncompleted state.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "ExportRepository, bounded explicit export worker and verified download service."
       }
@@ -13641,6 +13704,20 @@
             ],
             "default": null,
             "title": "Thumbnail Url"
+          },
+          "result_audit_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Result Audit Id"
           }
         },
         "required": [
@@ -13910,6 +13987,68 @@
         "title": "SampleAssets",
         "type": "object"
       },
+      "SampleAttempt": {
+        "additionalProperties": false,
+        "description": "An immutable execution identity; reviews belong to this exact attempt.",
+        "properties": {
+          "audit_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "job_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "minimum": 1,
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "processing_status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Processing Status",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "reviewer_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reviewer Id"
+          }
+        },
+        "required": [
+          "audit_id",
+          "job_id",
+          "sample_revision",
+          "processing_status",
+          "created_at"
+        ],
+        "title": "SampleAttempt",
+        "type": "object"
+      },
       "SampleAudit": {
         "additionalProperties": false,
         "properties": {
@@ -13961,6 +14100,27 @@
           },
           "review": {
             "$ref": "#/components/schemas/SampleReview"
+          },
+          "workspace_audit_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Workspace Audit Id"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/SampleAttempt"
+            },
+            "title": "Attempts",
+            "type": "array"
           }
         },
         "required": [
@@ -14908,6 +15068,11 @@
           "include_images": {
             "title": "Include Images",
             "type": "boolean"
+          },
+          "include_rechecks": {
+            "default": false,
+            "title": "Include Rechecks",
+            "type": "boolean"
           }
         },
         "required": [
@@ -14939,6 +15104,11 @@
           },
           "include_images": {
             "title": "Include Images",
+            "type": "boolean"
+          },
+          "include_rechecks": {
+            "default": false,
+            "title": "Include Rechecks",
             "type": "boolean"
           },
           "export_id": {
@@ -15147,6 +15317,21 @@
       "ExportManifestEntry": {
         "additionalProperties": false,
         "properties": {
+          "result_audit_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Result Audit Id"
+          },
           "sample_id": {
             "maxLength": 255,
             "minLength": 1,
@@ -15298,6 +15483,11 @@
           },
           "include_images": {
             "title": "Include Images",
+            "type": "boolean"
+          },
+          "include_rechecks": {
+            "default": false,
+            "title": "Include Rechecks",
             "type": "boolean"
           },
           "selected_at": {

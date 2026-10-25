@@ -65,7 +65,7 @@ def test_query_parameter_constraints_agree_between_the_generated_and_live_docume
     live = {(p["in"], p["name"]): p for p in operation(IMPLEMENTED, LIVE_PATH)["parameters"]}
     assert set(generated) == set(live) == {
         ("path", "audit_id"), ("query", "limit"), ("query", "offset"),
-        ("query", "sample_id"), ("query", "outcome"),
+        ("query", "sample_id"), ("query", "outcome"), ("query", "include_rechecks"),
     }
     for key, parameter in live.items():
         assert generated[key]["required"] == parameter["required"] == (key[0] == "path")
@@ -152,7 +152,7 @@ def test_the_frontend_fixture_describes_the_implemented_operation():
     assert len(entries) == 1
     entry = entries[0]
     assert (entry["implementation"], entry["method"], entry["path"]) == ("implemented", "GET", LIVE_PATH)
-    assert set(entry["request"]["query"]) == {"limit", "offset", "sample_id", "outcome"}
+    assert set(entry["request"]["query"]) == {"limit", "offset", "sample_id", "outcome", "include_rechecks"}
     assert entry["request"]["content_type"] is None and entry["request"]["body"] is None
     assert entry["response"]["status"] == 200
     FindingPage.model_validate_json(json.dumps(entry["response"]["body"]))

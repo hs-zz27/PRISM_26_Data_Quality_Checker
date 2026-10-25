@@ -53,6 +53,8 @@ def align_correction_contract(contract,live,operations):
             'Refresh on stale revision; uploads expire and are consumed once. '
             'Rechecks pin selected current heads through enqueue, preserve the parent rulebook, '
             'and create fresh pending reviews. Recheck jobs intentionally use kind=audit and the existing audit worker. '
+            'Use include_rechecks=true on the original audit sample/queue/findings reads to show attempts in one workspace. '
+            'Overlapping active rechecks of the same image return RECHECK_ALREADY_RUNNING (409). '
             'No correction or machine success implies human acceptance. '
             'Original provenance is nullable; unknown historical mask_changed is null. '
             'Object IDs are 1..65535; supported mask PNGs are grayscale 8/16-bit or palette indices 1/2/4/8-bit.'),
@@ -85,7 +87,7 @@ def align_correction_contract(contract,live,operations):
         if identifier=='correctAnnotations':
             codes['409'].update(MASK_UPLOAD_UNAVAILABLE='The mask upload cannot be used.',SOURCE_AUDIT_MISMATCH='The source audit does not pin this base.')
         if identifier=='recheckSamples':
-            codes['409'].update(AUDIT_NOT_READY='Wait for a terminal parent.',AUDIT_NOT_RECHECKABLE='The parent lacks supported immutable lineage.',RULEBOOK_NOT_CONFIRMED='The recorded book must be confirmed.')
+            codes['409'].update(RECHECK_ALREADY_RUNNING='Wait for the active recheck of this image to finish.',AUDIT_NOT_READY='Wait for a terminal parent.',AUDIT_NOT_RECHECKABLE='The parent lacks supported immutable lineage.',RULEBOOK_NOT_CONFIRMED='The recorded book must be confirmed.')
         for status,response in operation['responses'].items():
             for media_type,media in response.get('content',{}).items():
                 if media_type!='application/json':

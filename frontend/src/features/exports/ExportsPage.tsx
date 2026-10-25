@@ -91,19 +91,19 @@ export const ExportsPage: React.FC = () => {
     queryKey: queryKeys.exports(),
     queryFn: () => apiGetAllPages('/exports', { query: { limit: 100, offset: 0 } }),
   });
-  const audits = useQuery({ queryKey: queryKeys.audits(), queryFn: () => apiGetAllPages('/audits', { query: { limit: 100, offset: 0 } }) });
+  const audits = useQuery({ queryKey: queryKeys.auditWorkspaces(), queryFn: () => apiGetAllPages('/audits', { query: { limit: 100, offset: 0, roots_only: true } }) });
   // Only finished audits can be exported; running ones return AUDIT_NOT_READY.
   const exportableAudits = useMemo(() => (audits.data?.items ?? []).filter((audit) => audit.status === 'completed'), [audits.data]);
 
   const start = useMutation({
-    mutationFn: () => apiPost<'/exports'>('/exports', { body: { audit_id: auditId, format: 'penn_fudan', selection, include_images: includeImages } }),
+    mutationFn: () => apiPost<'/exports'>('/exports', { body: { audit_id: auditId, format: 'penn_fudan', selection, include_images: includeImages, include_rechecks: true } }),
     onSuccess: (result) => {
       setMessage({ tone: 'ok', text: `Export ${result.export.export_id} queued. It appears below and updates automatically.` });
       void client.invalidateQueries({ queryKey: queryKeys.exports() });
     },
     onError: (error) => setMessage({
       tone: 'error',
-      text: error instanceof ApiError && error.code === 'AUDIT_NOT_READY' ? 'That audit is still running. Wait for it to complete, then export.'
+      text: error instanceof ApiError && error.code === 'AUDIT_NOT_READY' ? 'That audit or one of its rechecks is still running. Wait for it to finish, then export.'
         : error instanceof ApiError && error.code === 'AUDIT_NOT_EXPORTABLE' ? 'This audit was created in a legacy mode that cannot be exported reproducibly.'
           : error.message,
     }),
@@ -113,7 +113,7 @@ export const ExportsPage: React.FC = () => {
     <div className="workstation-page exports-page space-y-5">
       <header>
         <h1>Export reviewed data</h1>
-        <p className="text-xs text-text-muted mt-1">Package the samples reviewers decided on. Only explicit human sample decisions count — tool results never include or exclude a sample on their own.</p>
+        <p className="text-xs text-text-muted mt-1">Package the latest reviewed attempt for each image, including rechecks. Only explicit human sample decisions count — tool results never include or exclude a sample on their own.</p>
       </header>
 
       <section className="export-form">

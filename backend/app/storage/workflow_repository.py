@@ -1424,19 +1424,21 @@ class AuditRepository(_WorkflowRepository):
                 raise AuditNotFoundError(audit_id)
             return _decode_audit(row)
 
-    def list_audits(self, *, limit: int = 20, offset: int = 0) -> AuditPage:
+    def list_audits(self, *, limit: int = 20, offset: int = 0, roots_only: bool = False) -> AuditPage:
         """Page public summaries in a consistent snapshot, newest first."""
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("limit must be an integer between 1 and 100.")
         if type(offset) is not int or not 0 <= offset <= 9_223_372_036_854_775_807:
             raise ValueError("offset must be a supported nonnegative integer.")
+        where = (" WHERE NOT EXISTS (SELECT 1 FROM audit_recheck_lineage link "
+                 "WHERE link.child_audit_id=audit_runs.audit_id)") if roots_only else ""
         with self._connection() as connection:
-            total = connection.execute("SELECT count(*) AS total FROM audit_runs").fetchone()["total"]
+            total = connection.execute("SELECT count(*) AS total FROM audit_runs" + where).fetchone()["total"]
             rows = connection.execute(
                 """SELECT audit_id, job_id, dataset_id, rulebook_id, rulebook_version,
                           source_mode, status, sample_count, processed_count, failed_count,
                           incomplete_count, created_at, updated_at
-                   FROM audit_runs ORDER BY created_at DESC, audit_id COLLATE "C" DESC
+                   FROM audit_runs""" + where + """ ORDER BY created_at DESC, audit_id COLLATE "C" DESC
                    LIMIT %s OFFSET %s""", (limit, offset),
             ).fetchall()
             items = [_decode_audit(row) for row in rows]

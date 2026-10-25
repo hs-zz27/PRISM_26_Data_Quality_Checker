@@ -105,6 +105,14 @@ def test_list_returns_public_page_without_starting_work(api):
     service.start.assert_not_called()
 
 
+def test_list_can_hide_linked_recheck_attempts(api):
+    client, service, repository = api
+    response = client.get("/api/v1/audits?roots_only=true")
+    assert response.status_code == 200
+    repository.list_audits.assert_called_once_with(limit=20, offset=0, roots_only=True)
+    service.start.assert_not_called()
+
+
 @pytest.mark.parametrize("query", ["limit=0", "limit=101", "offset=-1", "offset=9223372036854775808"])
 def test_list_rejects_invalid_pagination(api, query):
     client, _, repository = api

@@ -1,0 +1,21 @@
+# Only application build inputs enter the Docker build context.
+**
+!requirements.txt
+!backend/
+!backend/app/
+!backend/app/**
+!backend/ollama.toml
+!backend/api/
+!backend/api/examples.json
+!frontend/
+!frontend/**
+!docker/
+!docker/**
+**/__pycache__/
+**/*.pyc
+frontend/node_modules/
+frontend/dist/
+frontend/.env*
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/

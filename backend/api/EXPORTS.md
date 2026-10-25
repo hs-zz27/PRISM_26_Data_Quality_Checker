@@ -218,3 +218,16 @@ are not public messages. Worker error codes are an explicit finite allowlist.
 The prototype's existing reviewer attribution is not an authentication boundary.
 This feature does not add authorization or permission to redistribute source data;
 operators must respect dataset licenses and existing local deployment limits.
+
+## Exporting a review workspace after rechecks
+
+Set `include_rechecks: true` in `ExportRequest` to export the original workspace's
+latest attempt per image, using the same selection as the review queue. The default
+is `false` for historical audit-only exports. The original audit and all its linked
+attempts must be terminal at selection time; otherwise the API returns
+`AUDIT_NOT_READY`. A recheck never inherits an older sample acceptance.
+
+The manifest freezes `include_rechecks` and each entry's `result_audit_id` together
+with its revision, review and asset pins. Review changes and later rechecks cannot
+change an existing export. Older manifests may omit these additive fields and
+retain their historical interpretation. The frontend uses the workspace selection.

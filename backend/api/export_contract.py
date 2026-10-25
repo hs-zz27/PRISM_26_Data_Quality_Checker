@@ -35,7 +35,9 @@ def align_export_contract(contract, live, operations):
         operation['summary'] = summaries[operation_id]
         operation['description'] = (
             'Exports preserve exact historical audit pins and frozen human decisions; '
-            'they do not implement annotation corrections or rechecks. '
+            'include_rechecks=true freezes the latest submitted attempt for each original image, '
+            'including corrected revisions; each entry records result_audit_id. '
+            'Any active attempt in the family blocks that selection. False preserves historical audit-only selection. '
             'accepted_only includes accepted; all_reviewed includes accepted and rejected diagnostically. '
             'Pending/reopened and needs_correction samples are excluded. '
             'Counts and artifact URLs stay null until completed. Active audits and legacy audits are not exportable. '

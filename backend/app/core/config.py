@@ -2,10 +2,8 @@
 
 import os
 import tomllib
-from ipaddress import ip_address
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
 from psycopg import ProgrammingError
@@ -13,6 +11,8 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from pydantic import (
     BaseModel, ConfigDict, Field, SecretStr, StringConstraints, ValidationError, field_validator,
 )
+
+from .model_host import validate_local_model_host
 
 
 BACKEND_DIRECTORY = Path(__file__).resolve().parents[2]
@@ -43,31 +43,7 @@ class OllamaSettings(BaseModel):
     @field_validator("host")
     @classmethod
     def require_loopback_host(cls, host: str) -> str:
-        """Keep requests local and reject credentials or URL routing overrides."""
-        parsed = urlsplit(host)
-        hostname = parsed.hostname
-        local = hostname == "localhost"
-        if not local and hostname is not None:
-            try:
-                local = ip_address(hostname).is_loopback
-            except ValueError:
-                local = False
-        if (
-            parsed.scheme not in ("http", "https")
-            or not local
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.path not in ("", "/")
-            or parsed.query
-            or parsed.fragment
-        ):
-            raise ValueError(
-                "Ollama host must be a loopback URL without credentials, paths or queries."
-            )
-        # Accessing port also validates malformed or out-of-range numbers.
-        if parsed.port == 0:
-            raise ValueError("Ollama port must be greater than zero.")
-        return host
+        return validate_local_model_host(host)
 
 
 class _BackendConfiguration(BaseModel):

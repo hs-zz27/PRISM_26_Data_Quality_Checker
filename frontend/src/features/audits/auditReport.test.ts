@@ -69,3 +69,10 @@ describe('audit report', () => {
     expect(progress).toEqual([1, 2, 3, 4, 5]);
   });
 });
+
+it('retains the selected attempt identity in downloaded report rows', () => {
+  const rows = buildReportRows([makeSampleAudit([makeFinding({ audit_id: 'recheck-2' })], { audit_id: 'recheck-2' })]);
+  expect(rows[0]?.result_audit_id).toBe('recheck-2');
+  expect(reportToCsv(rows)).toContain('result_audit_id');
+  expect(reportToCsv(rows)).toContain('recheck-2');
+});

@@ -1,3 +1,7 @@
+> For single-command startup of the API, frontend and every worker, see
+> [Docker Compose setup](../docker/README.md). Individual worker commands below
+> are for native development; Compose starts them all automatically.
+
 # Backend
 
 > Current feedback source proposal: ten feedback operations plus real bounded
@@ -1106,3 +1110,28 @@ human-review proposal on immutable snapshot assets. It is disabled by default an
 requires an explicitly pinned local vision model. See [ENCLOSURE_CHECK.md](ENCLOSURE_CHECK.md)
 for configuration, budget behavior, evidence and validation limits. It does not replace
 the CPU detector, annotation-completeness checks or the generic feedback workflow.
+
+## Rechecks in the original review workspace
+
+The review screen keeps one queue for an original audit. **Re-check this image**
+starts a linked attempt and shows its progress and new results in the same screen.
+Only the selected image needs a fresh review. Other images retain their decisions.
+**Attempt history** displays older evidence and decisions read-only. A queued,
+failed or cancelled attempt stays visible; it never falls back to an older acceptance.
+An overlapping active recheck of the same image returns HTTP 409.
+
+The storage records remain separate immutable executions. No new migration or
+backfill is required: existing linked rechecks participate in the workspace view.
+The audit catalogue hides these linked executions; its lifecycle columns describe
+an original run, while image processing and review progress appear in the workspace.
+
+API clients opt in with `roots_only=true` on the audit list and
+`include_rechecks=true` on queue, sample and findings reads. Sample responses identify
+both `workspace_audit_id` and the actual result's `audit_id`; sample review writes
+must use the latter. Without the query flag, reads retain historical behavior.
+
+The report and export UI use the latest attempt per image. Export requests set
+`include_rechecks=true`, wait until all family attempts are terminal, then freeze
+selected revisions and human decisions in one database snapshot. Each manifest
+entry records `result_audit_id`. Previously frozen exports remain unchanged.
+This does not silently approve new findings or corrected data.

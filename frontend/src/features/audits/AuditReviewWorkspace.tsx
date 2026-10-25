@@ -16,8 +16,9 @@ import {
   FileBarChart,
   SkipForward,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
-import { ApiError, apiGet, apiGetAllPages, apiPut } from '../../api/client';
+import { ApiError, apiGet, apiGetAllPages, apiPost, apiPut } from '../../api/client';
 import { queryKeys } from '../../api/queryClient';
 import { useReviewerStore } from '../../store/reviewerStore';
 import { useCanvasStore } from '../../store/canvasStore';
@@ -29,6 +30,7 @@ import { KeyboardHelpModal } from '../../components/ui/KeyboardHelpModal';
 import { isTypingTarget } from '../../lib/keyboard';
 import { checkLabel, reasonLabel, reviewStatusLabel, toolStatusLabel } from '../../lib/labels';
 import { formatTimestamp } from '../../lib/format';
+import { useJobPolling } from '../../hooks/useJobPolling';
 import { useDatasetName } from '../../hooks/useDatasetName';
 import {
   groupFindings,
@@ -66,13 +68,16 @@ export const AuditReviewWorkspace: React.FC = () => {
 
   // `?sample=` lets the report and other screens deep-link to one sample.
   const [activeSampleId, setActiveSampleId] = useState<string | null>(() => searchParams.get('sample'));
+  const [historicalAttemptId, setHistoricalAttemptId] = useState<string | null>(null);
+  const [recheckJobId, setRecheckJobId] = useState<string | null>(null);
+  useJobPolling(recheckJobId);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [hiddenObjectIds, setHiddenObjectIds] = useState<number[]>([]);
   const [reviewComment, setReviewComment] = useState<string>('');
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState<boolean>(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [historyFindingId, setHistoryFindingId] = useState<string | null>(null);
-  const [correctionPrompt, setCorrectionPrompt] = useState<{ datasetId: string; sampleId: string } | null>(null);
+  const [correctionPrompt, setCorrectionPrompt] = useState<{ datasetId: string; sampleId: string; auditId: string } | null>(null);
   const [leftWidth, setLeftWidth] = useState(() => readPaneWidth('left', 264));
   const [rightWidth, setRightWidth] = useState(() => readPaneWidth('right', 380));
 
@@ -93,17 +98,19 @@ export const AuditReviewWorkspace: React.FC = () => {
   });
 
   const queueQuery = (filters: { toolStatusFilter: 'all' | AuditToolStatus; reviewStatusFilter: 'all' | AuditReviewStatus }) => ({
-    queryKey: queryKeys.auditSamples(auditId!, filters),
+    queryKey: queryKeys.auditSamples(auditId!, { ...filters, include_rechecks: true }),
     queryFn: () => apiGetAllPages('/audits/{audit_id}/samples', {
       path: { audit_id: auditId! },
       query: {
         limit: 100,
         offset: 0,
+        include_rechecks: true,
         ...(filters.toolStatusFilter !== 'all' ? { tool_status: filters.toolStatusFilter } : {}),
         ...(filters.reviewStatusFilter !== 'all' ? { review_status: filters.reviewStatusFilter } : {}),
       },
     }),
     enabled: Boolean(auditId),
+    refetchInterval: 5000,
   });
   const { data: samplePage, isLoading: isQueueLoading, error: queueError } = useQuery(queueQuery({ toolStatusFilter, reviewStatusFilter }));
   // Unfiltered queue drives overall progress; it shares the cache entry when no filter is set.
@@ -116,6 +123,7 @@ export const AuditReviewWorkspace: React.FC = () => {
 
   // A new sample starts with a clean selection and comment.
   useEffect(() => {
+    setHistoricalAttemptId(null);
     setSelectedFindingId(null);
     setSelectedInstanceId(null);
     setHistoryFindingId(null);
@@ -124,13 +132,72 @@ export const AuditReviewWorkspace: React.FC = () => {
     setHiddenObjectIds([]);
   }, [activeSampleId, setSelectedInstanceId]);
 
-  const { data: sampleDetail, error: detailError, isLoading: isDetailLoading } = useQuery({
-    queryKey: queryKeys.auditSample(auditId!, activeSampleId!),
+  const latestDetailKey = [...queryKeys.auditSample(auditId!, activeSampleId!), 'latest'];
+  const latestDetail = useQuery({
+    queryKey: latestDetailKey,
     queryFn: () => apiGet('/audits/{audit_id}/samples/{sample_id}', {
       path: { audit_id: auditId!, sample_id: activeSampleId! },
+      query: { include_rechecks: true },
     }),
     enabled: Boolean(auditId && activeSampleId),
+    refetchInterval: 5000,
   });
+  const historicalDetail = useQuery({
+    queryKey: queryKeys.auditSample(historicalAttemptId ?? '', activeSampleId!),
+    queryFn: () => apiGet('/audits/{audit_id}/samples/{sample_id}', {
+      path: { audit_id: historicalAttemptId!, sample_id: activeSampleId! },
+    }),
+    enabled: Boolean(historicalAttemptId && activeSampleId),
+  });
+  const displayedDetail = historicalAttemptId ? historicalDetail : latestDetail;
+  const sampleDetail = displayedDetail.data;
+  const detailError = displayedDetail.error;
+  const isDetailLoading = displayedDetail.isLoading;
+  const attemptRunning = ['queued', 'running'].includes(latestDetail.data?.summary.processing_status ?? 'queued');
+
+  // A new attempt has new evidence and needs its own decision and reason.
+  useEffect(() => {
+    setSelectedFindingId(null);
+    setHistoryFindingId(null);
+    setReviewComment('');
+    setReviewError(null);
+  }, [sampleDetail?.audit_id]);
+
+  const recheckMutation = useMutation({
+    mutationFn: async () => {
+      if (!reviewerId.trim()) { openPrompt(); throw new Error('Set your reviewer name first (top right).'); }
+      if (!auditId || !activeSampleId || !latestDetail.data) throw new Error('Load the image first.');
+      return apiPost('/audits/{audit_id}/rechecks', {
+        path: { audit_id: auditId },
+        body: {
+          sample_ids: [activeSampleId],
+          sample_revisions: { [activeSampleId]: latestDetail.data.summary.sample_revision },
+          reviewer_id: reviewerId.trim(),
+        },
+      });
+    },
+    onSuccess: (result) => {
+      setHistoricalAttemptId(null);
+      setRecheckJobId(result.job.job_id);
+      setReviewError(null);
+      return queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
+    },
+    onError: (error) => {
+      setReviewError(error instanceof ApiError && error.code === 'STALE_SAMPLE_REVISION'
+        ? 'This image has a newer correction. Open Correct and re-check the saved revision there.'
+        : error.message);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.audit(auditId!) });
+    },
+  });
+  const canReview = !!sampleDetail && !latestDetail.error && !historicalAttemptId
+    && ['completed', 'failed'].includes(sampleDetail.summary.processing_status) && !recheckMutation.isPending;
+
+  useEffect(() => {
+    const root = latestDetail.data?.workspace_audit_id;
+    if (root && root !== auditId && activeSampleId) {
+      navigate(`/audits/${root}/review?sample=${encodeURIComponent(activeSampleId)}`, { replace: true });
+    }
+  }, [latestDetail.data?.workspace_audit_id, auditId, activeSampleId, navigate]);
 
   const { data: rawSample, error: rawSampleError } = useQuery({
     queryKey: queryKeys.datasetSample(
@@ -168,8 +235,8 @@ export const AuditReviewWorkspace: React.FC = () => {
     enabled: !!historyFindingId,
   });
   const sampleHistoryQuery = useQuery({
-    queryKey: queryKeys.sampleReviews(auditId ?? '', activeSampleId ?? '', sampleDetail?.summary.sample_revision ?? 1),
-    queryFn: () => apiGetAllPages('/audits/{audit_id}/samples/{sample_id}/reviews', { path: { audit_id: auditId!, sample_id: activeSampleId! }, query: { limit: 100, offset: 0, sample_revision: sampleDetail?.summary.sample_revision ?? 1 } }),
+    queryKey: queryKeys.sampleReviews(sampleDetail?.audit_id ?? '', activeSampleId ?? '', sampleDetail?.summary.sample_revision ?? 1),
+    queryFn: () => apiGetAllPages('/audits/{audit_id}/samples/{sample_id}/reviews', { path: { audit_id: sampleDetail!.audit_id, sample_id: activeSampleId! }, query: { limit: 100, offset: 0, sample_revision: sampleDetail?.summary.sample_revision ?? 1 } }),
     enabled: !!auditId && !!activeSampleId && !!sampleDetail,
   });
 
@@ -216,7 +283,7 @@ export const AuditReviewWorkspace: React.FC = () => {
       }
       if (!activeSampleId || !auditId) return;
       return apiPut('/audits/{audit_id}/samples/{sample_id}/review', {
-        path: { audit_id: auditId, sample_id: activeSampleId },
+        path: { audit_id: sampleDetail!.audit_id, sample_id: activeSampleId },
         body: {
           expected_sample_revision: sampleDetail?.summary.sample_revision ?? 1,
           expected_review_version: currentReview?.revision ?? 0,
@@ -228,14 +295,14 @@ export const AuditReviewWorkspace: React.FC = () => {
     },
     onMutate: async ({ decision }) => {
       if (!activeSampleId || !auditId) return undefined;
-      const key = queryKeys.auditSample(auditId, activeSampleId);
+      const key = [...queryKeys.auditSample(auditId, activeSampleId), 'latest'];
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData(key);
       queryClient.setQueryData<SampleAudit>(key, (old) => old ? {
         ...old,
         review: {
           ...old.review,
-          audit_id: auditId,
+          audit_id: old.audit_id,
           sample_id: activeSampleId,
           sample_revision: old.summary.sample_revision,
           revision: (old.review?.revision ?? 0) + 1,
@@ -260,8 +327,9 @@ export const AuditReviewWorkspace: React.FC = () => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.auditSample(auditId, activeSampleId) });
         void queryClient.invalidateQueries({ queryKey: queryKeys.auditSamples(auditId) });
       }
-      setCorrectionPrompt(decision === 'needs_correction' && sampleDetail && activeSampleId
-        ? { datasetId: sampleDetail.dataset_id, sampleId: activeSampleId }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
+      setCorrectionPrompt(decision === 'needs_correction' && _result && audit
+        ? { datasetId: audit.dataset_id, sampleId: _result.sample_id, auditId: _result.audit_id }
         : null);
       navigateQueue('next');
     },
@@ -281,7 +349,7 @@ export const AuditReviewWorkspace: React.FC = () => {
     },
     onMutate: async ({ findingId, resolution }) => {
       if (!activeSampleId || !auditId) return undefined;
-      const key = queryKeys.auditSample(auditId, activeSampleId);
+      const key = [...queryKeys.auditSample(auditId, activeSampleId), 'latest'];
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData(key);
       queryClient.setQueryData<SampleAudit>(key, (old) => old ? {
@@ -313,20 +381,23 @@ export const AuditReviewWorkspace: React.FC = () => {
       if (activeSampleId && auditId) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.auditSample(auditId, activeSampleId) });
       }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.findingReviews(findingId) });
     },
   });
 
   const decideFinding = useCallback((finding: Finding, resolution: FindingDecision) => {
+    if (!canReview || findingReviewMutation.isPending || sampleReviewMutation.isPending) return;
     if (!ensureReason(isReasonRequired({ kind: 'finding', resolution }), 'override the tool')) return;
     findingReviewMutation.mutate({ findingId: finding.finding_id, resolution, expectedReviewVersion: finding.review?.revision ?? 0 });
-  }, [ensureReason, findingReviewMutation]);
+  }, [canReview, ensureReason, findingReviewMutation, sampleReviewMutation.isPending]);
 
   const decideSample = useCallback((decision: SampleReviewDecision) => {
+    if (!canReview || findingReviewMutation.isPending || sampleReviewMutation.isPending) return;
     const verb = decision === 'rejected' ? 'reject this sample' : 'send this sample for correction';
     if (!ensureReason(isReasonRequired({ kind: 'sample', decision }), verb)) return;
     sampleReviewMutation.mutate({ decision });
-  }, [ensureReason, sampleReviewMutation]);
+  }, [canReview, ensureReason, sampleReviewMutation, findingReviewMutation.isPending]);
 
   const selectFinding = useCallback((finding: Finding) => {
     setSelectedFindingId(finding.finding_id);
@@ -381,7 +452,7 @@ export const AuditReviewWorkspace: React.FC = () => {
       onToggleHistory={() => setHistoryFindingId((id) => (id === f.finding_id ? null : f.finding_id))}
       history={historyFindingId === f.finding_id ? findingHistoryQuery.data?.items : undefined}
       historyLoading={historyFindingId === f.finding_id && findingHistoryQuery.isLoading}
-      disabled={findingReviewMutation.isPending}
+      disabled={!canReview || findingReviewMutation.isPending || sampleReviewMutation.isPending}
     />
   );
 
@@ -436,7 +507,7 @@ export const AuditReviewWorkspace: React.FC = () => {
       {correctionPrompt && (
         <div role="status" className="review-notice">
           <Wrench size={14} /> <span>{correctionPrompt.sampleId} was sent for correction.</span>
-          <Link to={`/corrections?dataset=${encodeURIComponent(correctionPrompt.datasetId)}&sample=${encodeURIComponent(correctionPrompt.sampleId)}&audit=${encodeURIComponent(auditId ?? '')}`}>Fix its annotations now →</Link>
+          <Link to={`/corrections?dataset=${encodeURIComponent(correctionPrompt.datasetId)}&sample=${encodeURIComponent(correctionPrompt.sampleId)}&audit=${encodeURIComponent(correctionPrompt.auditId)}`}>Fix its annotations now →</Link>
           <button onClick={() => setCorrectionPrompt(null)} aria-label="Dismiss">×</button>
         </div>
       )}
@@ -542,7 +613,7 @@ export const AuditReviewWorkspace: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {sampleDetail && activeSampleId && (
-                <Link className="review-header-link" title="Open this sample in the correction editor" to={`/corrections?dataset=${encodeURIComponent(sampleDetail.dataset_id)}&sample=${encodeURIComponent(activeSampleId)}&audit=${encodeURIComponent(auditId ?? '')}`}>
+                <Link className="review-header-link" title="Open this sample in the correction editor" to={`/corrections?dataset=${encodeURIComponent(sampleDetail.dataset_id)}&sample=${encodeURIComponent(activeSampleId)}&audit=${encodeURIComponent(sampleDetail.audit_id)}`}>
                   <Wrench size={12} /> Correct
                 </Link>
               )}
@@ -551,6 +622,34 @@ export const AuditReviewWorkspace: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <section className="checklist-section" aria-label="Image rechecks">
+              <Button size="sm" variant="secondary" leftIcon={<RefreshCw size={13} />}
+                onClick={() => recheckMutation.mutate()} isLoading={recheckMutation.isPending}
+                disabled={!latestDetail.data || attemptRunning || !!historicalAttemptId || sampleReviewMutation.isPending || findingReviewMutation.isPending || !audit || !['completed', 'failed', 'cancelled'].includes(audit.status)}>
+                Re-check this image
+              </Button>
+              <p className="text-2xs text-text-muted mt-2">
+                {attemptRunning ? 'Checking this image. Its new results will appear here and need a fresh review.'
+                  : latestDetail.data?.summary.processing_status === 'cancelled'
+                    ? 'The latest attempt was cancelled. Re-check this image to try again; earlier results remain in history.'
+                  : 'Rechecks update this workspace. Previous results and decisions stay in attempt history.'}
+              </p>
+              {(latestDetail.data?.attempts?.length ?? 0) > 1 && (
+                <label className="block text-2xs mt-2">Attempt history
+                  <select aria-label="Attempt history" className="w-full mt-1" value={historicalAttemptId ?? ''}
+                    disabled={sampleReviewMutation.isPending || findingReviewMutation.isPending || recheckMutation.isPending}
+                    onChange={(event) => setHistoricalAttemptId(event.target.value || null)}>
+                    <option value="">Latest attempt</option>
+                    {latestDetail.data!.attempts!.slice(1).map((attempt) => (
+                      <option key={attempt.audit_id} value={attempt.audit_id}>
+                        {formatTimestamp(attempt.created_at)} · r{attempt.sample_revision} · {attempt.processing_status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {historicalAttemptId && <p className="text-2xs text-status-unsure mt-2">Previous attempt — read only. Select Latest attempt to review.</p>}
+            </section>
             {isDetailLoading && <p className="text-xs text-text-muted"><Loader2 className="inline w-3 h-3 animate-spin" /> Loading findings…</p>}
 
             {sampleDetail?.failures && sampleDetail.failures.length > 0 && (
@@ -638,13 +737,13 @@ export const AuditReviewWorkspace: React.FC = () => {
             />
             {reasonNeededHint && <p id="review-comment-hint" className="text-3xs text-text-faint">{reasonNeededHint}</p>}
             <div className="grid grid-cols-3 gap-2">
-              <Button variant="primary" size="sm" leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />} isLoading={sampleReviewMutation.isPending} onClick={() => decideSample('accepted')} title="Accept sample (Shift+A)" className="bg-status-accepted hover:bg-status-accepted/90 text-base-pure font-bold">
+              <Button variant="primary" size="sm" leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />} disabled={!canReview || findingReviewMutation.isPending} isLoading={sampleReviewMutation.isPending} onClick={() => decideSample('accepted')} title="Accept sample (Shift+A)" className="bg-status-accepted hover:bg-status-accepted/90 text-base-pure font-bold">
                 Accept
               </Button>
-              <Button variant="danger" size="sm" leftIcon={<XCircle className="w-3.5 h-3.5" />} isLoading={sampleReviewMutation.isPending} onClick={() => decideSample('rejected')} title="Reject sample — reason required (Shift+R)" className="font-bold">
+              <Button variant="danger" size="sm" leftIcon={<XCircle className="w-3.5 h-3.5" />} disabled={!canReview || findingReviewMutation.isPending} isLoading={sampleReviewMutation.isPending} onClick={() => decideSample('rejected')} title="Reject sample — reason required (Shift+R)" className="font-bold">
                 Reject
               </Button>
-              <Button variant="secondary" size="sm" leftIcon={<Wrench className="w-3.5 h-3.5 text-status-needs-fix" />} isLoading={sampleReviewMutation.isPending} onClick={() => decideSample('needs_correction')} title="Needs correction — reason required (Shift+N)" className="text-status-needs-fix border-status-needs-fix/30 hover:bg-status-needs-fix/10 font-bold">
+              <Button variant="secondary" size="sm" leftIcon={<Wrench className="w-3.5 h-3.5 text-status-needs-fix" />} disabled={!canReview || findingReviewMutation.isPending} isLoading={sampleReviewMutation.isPending} onClick={() => decideSample('needs_correction')} title="Needs correction — reason required (Shift+N)" className="text-status-needs-fix border-status-needs-fix/30 hover:bg-status-needs-fix/10 font-bold">
                 Needs fix
               </Button>
             </div>

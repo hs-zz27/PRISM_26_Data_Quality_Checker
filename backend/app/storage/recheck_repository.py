@@ -8,6 +8,7 @@ from .dataset_repository import _identifier
 from .workflow_repository import AuditRepository, AuditNotFoundError, _decode_audit
 from .repository import RulebookRepository
 from ..services.batch_audit import _snapshot_confirmed_rulebook
+from .audit_attempts import AUDIT_FAMILY, workspace_root
 
 
 class RecheckRepository(CorrectionRepository):
@@ -37,6 +38,19 @@ class RecheckRepository(CorrectionRepository):
             dataset=connection.execute('SELECT * FROM datasets WHERE dataset_id=%s FOR UPDATE',(current['dataset_id'],)).fetchone()
             if dataset is None or dataset['status']!='ready':
                 raise CorrectionError('AUDIT_NOT_RECHECKABLE')
+            # The dataset lock serializes recheck submissions and corrections.
+            # Check the entire family after taking it, including sibling rechecks.
+            root_id = workspace_root(connection, parent_audit_id)
+            active = connection.execute(
+                AUDIT_FAMILY + """SELECT 1 FROM audit_family family
+                    JOIN audit_runs a ON a.audit_id=family.audit_id
+                    JOIN audit_samples s ON s.audit_id=a.audit_id
+                    WHERE s.sample_id=ANY(%s)
+                      AND a.status IN ('queued','running','cancelling') LIMIT 1""",
+                (root_id, request.sample_ids),
+            ).fetchone()
+            if active is not None:
+                raise CorrectionError('RECHECK_ALREADY_RUNNING')
             # Decode the locked catalogue row through the established validator;
             # corrupt metadata is storage failure, not a successful child enqueue.
             self._dataset(connection,current['dataset_id'])

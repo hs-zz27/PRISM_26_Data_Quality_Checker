@@ -17,6 +17,7 @@ class CorrectionError(RuntimeError):
         'STALE_SAMPLE_REVISION': (409, 'The sample changed. Refresh before resubmitting.'),
         'MASK_UPLOAD_UNAVAILABLE': (409, 'The staged mask is expired, consumed or belongs to different evidence.'),
         'AUDIT_NOT_READY': (409, 'Wait for a terminal parent audit before rechecking.'),
+        'RECHECK_ALREADY_RUNNING': (409, 'A selected image already has a queued or running recheck. Wait for it to finish.'),
         'AUDIT_NOT_RECHECKABLE': (409, 'The parent audit has no supported immutable catalogue lineage or feedback policy.'),
         'SOURCE_AUDIT_MISMATCH': (409, 'Refresh the sample: the source audit does not pin this exact base revision.'),
         'SOURCE_NOT_CORRECTABLE': (422, 'A verified PNG image and a valid resulting integer-ID mask are required.'),
