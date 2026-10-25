@@ -117,7 +117,7 @@ export interface paths {
         };
         /**
          * List approved binary model examples
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         get: operations["listFeedbackExamples"];
         put?: never;
@@ -137,13 +137,13 @@ export interface paths {
         };
         /**
          * List candidate policies
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         get: operations["listFeedbackPolicies"];
         put?: never;
         /**
          * Freeze selected approved examples
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         post: operations["createFeedbackPolicy"];
         delete?: never;
@@ -161,7 +161,7 @@ export interface paths {
         };
         /**
          * Read a frozen policy
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         get: operations["getFeedbackPolicy"];
         put?: never;
@@ -183,7 +183,7 @@ export interface paths {
         put?: never;
         /**
          * Freeze explicit rule-level adjudications
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         post: operations["createGroundTruth"];
         delete?: never;
@@ -201,7 +201,7 @@ export interface paths {
         };
         /**
          * Read immutable truth
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         get: operations["getGroundTruth"];
         put?: never;
@@ -221,13 +221,13 @@ export interface paths {
         };
         /**
          * List comparisons
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         get: operations["listFeedbackEvaluations"];
         put?: never;
         /**
          * Queue a held-out comparison
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         post: operations["evaluateFeedbackPolicy"];
         delete?: never;
@@ -245,7 +245,7 @@ export interface paths {
         };
         /**
          * Read comparison results
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         get: operations["getFeedbackEvaluation"];
         put?: never;
@@ -267,7 +267,7 @@ export interface paths {
         put?: never;
         /**
          * Record explicit reviewer activation
-         * @description Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
+         * @description Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.
          */
         post: operations["activateFeedbackPolicy"];
         delete?: never;
@@ -1351,6 +1351,192 @@ export interface components {
             /** Architecture */
             architecture: string;
         };
+        /** EnclosureAggregate */
+        EnclosureAggregate: {
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "pass" | "fail" | "unsure" | "unavailable";
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * EnclosureBoxEvidence
+         * @description Durable provenance for one attempted box, including unavailable attempts.
+         */
+        EnclosureBoxEvidence: {
+            /** Annotation Index */
+            annotation_index: number;
+            /** Box Number */
+            box_number: number;
+            /** Object Id */
+            object_id: number;
+            /** Label */
+            label: string;
+            /** Bbox */
+            bbox: number[];
+            /** View Sha256 */
+            view_sha256: string;
+            /** View Size */
+            view_size: number[];
+            /** Source Window */
+            source_window: number[];
+            /** Target Window */
+            target_window: number[];
+            /** Request Sha256 */
+            request_sha256: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "pass" | "fail" | "unsure" | "unavailable";
+            /** Reason */
+            reason: string | null;
+            /** Evidence References */
+            evidence_references: ("image" | "annotations" | "guideline")[];
+            /** Model Verified */
+            model_verified: boolean;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Chat Ms */
+            chat_ms: number | null;
+        };
+        /**
+         * EnclosureEvidence
+         * @description The existing enclosure document, retained unchanged in feedback snapshots.
+         */
+        EnclosureEvidence: {
+            /**
+             * Protocol Version
+             * @constant
+             */
+            protocol_version: "pedestrian-box-context-v1";
+            /**
+             * View Version
+             * @constant
+             */
+            view_version: "box-context-png-v1";
+            execution: components["schemas"]["EnclosureExecutionPin"];
+            /** Image Sha256 */
+            image_sha256: string | null;
+            /** Annotation Sha256 */
+            annotation_sha256: string | null;
+            /** Boxes Intended */
+            boxes_intended: number | null;
+            /**
+             * Case Id
+             * @default null
+             */
+            case_id: string | null;
+            /** Failure */
+            failure: string | null;
+            aggregate: components["schemas"]["EnclosureAggregate"];
+            /** Boxes */
+            boxes: components["schemas"]["EnclosureBoxEvidence"][];
+            /**
+             * Feedback Policy Id
+             * @default null
+             */
+            feedback_policy_id: string | null;
+            /**
+             * Feedback Policy Sha256
+             * @default null
+             */
+            feedback_policy_sha256: string | null;
+        };
+        /**
+         * EnclosureExecutionPin
+         * @description Everything that decides how a box is judged, frozen when an audit is accepted.
+         *
+         *     Queued, retried and rechecked work uses this pin, never current defaults. The view
+         *     and prompt are versioned honestly: transformed pixels are never labeled as the
+         *     untouched original image.
+         */
+        EnclosureExecutionPin: {
+            /**
+             * Check Name
+             * @default pedestrian_box_enclosure
+             * @constant
+             */
+            check_name: "pedestrian_box_enclosure";
+            /**
+             * Protocol Version
+             * @default pedestrian-box-context-v1
+             * @constant
+             */
+            protocol_version: "pedestrian-box-context-v1";
+            /**
+             * View Version
+             * @default box-context-png-v1
+             * @constant
+             */
+            view_version: "box-context-png-v1";
+            /**
+             * Response Schema Version
+             * @default box-prediction-v1
+             * @constant
+             */
+            response_schema_version: "box-prediction-v1";
+            /**
+             * Identity Schema
+             * @default bound-v1
+             * @constant
+             */
+            identity_schema: "bound-v1";
+            /** Host */
+            host: string;
+            /** Model */
+            model: string;
+            /** Model Digest */
+            model_digest: string;
+            /** System Prompt Sha256 */
+            system_prompt_sha256: string;
+            /** Instruction Sha256 */
+            instruction_sha256: string;
+            /**
+             * Temperature
+             * @default 0
+             * @constant
+             */
+            temperature: 0;
+            /** Num Ctx */
+            num_ctx: number;
+            /** Num Predict */
+            num_predict: number;
+            /**
+             * Num Thread
+             * @default null
+             */
+            num_thread: number | null;
+            /** Request Timeout Seconds */
+            request_timeout_seconds: number;
+            /** Sample Budget Seconds */
+            sample_budget_seconds: number;
+            /** Max Boxes */
+            max_boxes: number;
+            /** Max Request Bytes */
+            max_request_bytes: number;
+            /** Max Response Bytes */
+            max_response_bytes: number;
+            /** Keep Alive Seconds */
+            keep_alive_seconds: number;
+            /**
+             * Max Image Bytes
+             * @default 8388608
+             */
+            max_image_bytes: number;
+            /**
+             * Max Annotation Bytes
+             * @default 131072
+             */
+            max_annotation_bytes: number;
+            /**
+             * Max Pixels
+             * @default 16000000
+             */
+            max_pixels: number;
+        };
         /** ErrorDetail */
         ErrorDetail: {
             /**
@@ -1437,15 +1623,15 @@ export interface components {
             /**
              * Prompt Version
              * @default annotation-guideline-v1
-             * @constant
+             * @enum {string}
              */
-            prompt_version: "annotation-guideline-v1";
+            prompt_version: "annotation-guideline-v1" | "pedestrian-box-feedback-v1";
             /**
              * Preprocessing
              * @default original-png-no-transform-v1
-             * @constant
+             * @enum {string}
              */
-            preprocessing: "original-png-no-transform-v1";
+            preprocessing: "original-png-no-transform-v1" | "box-context-png-v1";
             /**
              * Schema Version
              * @default 1
@@ -1495,6 +1681,8 @@ export interface components {
              * @default 65536
              */
             max_response_bytes: number;
+            /** @default null */
+            enclosure: components["schemas"]["EnclosureExecutionPin"] | null;
         };
         /** Export */
         Export: {
@@ -2240,6 +2428,8 @@ export interface components {
             duration_ms: number;
             /** Model Verified */
             model_verified: boolean;
+            /** @default null */
+            enclosure: components["schemas"]["EnclosureEvidence"] | null;
         };
         /** ResultReference */
         ResultReference: {

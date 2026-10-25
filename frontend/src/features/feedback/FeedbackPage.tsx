@@ -55,7 +55,10 @@ export const FeedbackPage: React.FC = () => {
       const queue = await apiGetAllPages('/audits/{audit_id}/samples', { path: { audit_id: truthAuditId }, query: { limit: 100, offset: 0 } });
       const reviewed = queue.items.filter((item) => item.review_status !== 'pending_review');
       const samples = await mapWithConcurrency(reviewed, 4, (item) => apiGet('/audits/{audit_id}/samples/{sample_id}', { path: { audit_id: truthAuditId, sample_id: item.sample_id } }));
-      return deriveCandidateCases(samples);
+      return deriveCandidateCases(samples.map((sample) => ({ ...sample,
+        findings: sample.findings.filter((finding) =>
+          finding.check_name === 'annotation_guideline' || finding.check_name === 'pedestrian_box_enclosure'),
+      })));
     },
     enabled: !!truthAuditId,
   });
@@ -112,7 +115,7 @@ export const FeedbackPage: React.FC = () => {
     <div className="workstation-page feedback-page">
       <header className="feedback-intro">
         <h1>Improve future audits</h1>
-        <p>Reviewer corrections become examples for the AI-assisted check. A candidate is only activated after it beats the current baseline on separate, frozen ground truth.</p>
+        <p>Reviewed examples provide context for future AI checks. Compare a candidate against the baseline on separate, frozen ground truth before deciding whether to activate it.</p>
         <ol className="feedback-steps">
           <li>Pick examples</li><li>Create candidate</li><li>Freeze held-out truth</li><li>Evaluate</li><li>Activate</li>
         </ol>
@@ -121,6 +124,7 @@ export const FeedbackPage: React.FC = () => {
 
       <section>
         <h2>1. Approved reviewer examples <span className="text-text-faint">(pick up to {MAX_POLICY_EXAMPLES})</span></h2>
+        <p className="text-2xs text-text-muted">For the pedestrian box check, examples come from reviewed single-box images, including reasoned overrides. Reviewing a multi-box image does not label each individual box. Evaluation images may have multiple boxes; every box is checked.</p>
         {examples.isLoading ? <p className="text-xs text-text-muted">Loading examples…</p>
           : examples.error ? <p role="alert" className="text-xs text-status-fail">{examples.error.message}</p>
             : !exampleItems.length ? <p className="text-xs text-text-muted">No approved examples yet. They come from reviewed findings of AI-assisted checks.</p>
@@ -265,7 +269,25 @@ export const FeedbackPage: React.FC = () => {
                         <td className="font-mono">{result.candidate.prediction.rule_id}</td>
                         <td>{outcomeLabel(result.baseline.prediction.outcome)}</td>
                         <td className={result.candidate.prediction.outcome !== result.baseline.prediction.outcome ? 'text-accent' : ''}>{outcomeLabel(result.candidate.prediction.outcome)}</td>
-                        <td><small>{result.candidate.prediction.reason}</small></td>
+                        <td>
+                          <small>{result.candidate.prediction.reason}</small>
+                          {result.candidate.enclosure && (
+                            <details>
+                              <summary>Per-box results ({result.candidate.enclosure.boxes.length})</summary>
+                              <table className="report-table">
+                                <thead><tr><th>Box</th><th>Baseline</th><th>Candidate</th><th>Candidate reason</th></tr></thead>
+                                <tbody>{result.candidate.enclosure.boxes.map((box, index) => (
+                                  <tr key={box.box_number}>
+                                    <td>#{box.box_number} · Object {box.object_id}</td>
+                                    <td>{outcomeLabel(result.baseline.enclosure?.boxes[index]?.outcome ?? 'unavailable')}</td>
+                                    <td>{outcomeLabel(box.outcome)}</td>
+                                    <td><small>{box.reason ?? 'No verified result'}</small></td>
+                                  </tr>
+                                ))}</tbody>
+                              </table>
+                            </details>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
