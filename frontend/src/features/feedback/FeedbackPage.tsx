@@ -11,6 +11,9 @@ import { formatPercent, formatTimestamp } from '../../lib/format';
 import { jobStatusLabel, outcomeLabel } from '../../lib/labels';
 import { mapWithConcurrency } from '../audits/auditReport';
 import { deriveCandidateCases, MAX_GROUND_TRUTH_CASES, MAX_POLICY_EXAMPLES, type CandidateCase } from './groundTruth';
+import { selectionBlockReason } from './exampleSelection';
+import { ExampleCard } from './ExampleCard';
+import { useDatasetName } from '../../hooks/useDatasetName';
 import type { components } from '../../api/generated/openapi';
 
 type ArmMetrics = components['schemas']['ArmMetrics'];
@@ -20,6 +23,7 @@ const ASSESSMENT_VARIANT = { improved: 'pass', equal: 'neutral', regressed: 'fai
 export const FeedbackPage: React.FC = () => {
   const client = useQueryClient();
   const { reviewerId, openPrompt } = useReviewerStore();
+  const datasetName = useDatasetName();
   const [selectedExamples, setSelectedExamples] = useState<string[]>([]);
   const [policyName, setPolicyName] = useState('');
   const [policyId, setPolicyId] = useState('');
@@ -101,6 +105,8 @@ export const FeedbackPage: React.FC = () => {
   });
 
   const exampleItems = examples.data?.items ?? [];
+  const chosenExamples = exampleItems.filter((example) => example.example_id && selectedExamples.includes(example.example_id));
+  const selectedGroup = chosenExamples[0];
 
   return (
     <div className="workstation-page feedback-page">
@@ -119,25 +125,31 @@ export const FeedbackPage: React.FC = () => {
           : examples.error ? <p role="alert" className="text-xs text-status-fail">{examples.error.message}</p>
             : !exampleItems.length ? <p className="text-xs text-text-muted">No approved examples yet. They come from reviewed findings of AI-assisted checks.</p>
               : (
-                <div className="example-grid">
-                  {exampleItems.map((example) => {
-                    if (!example.example_id) return null;
-                    const id = example.example_id;
-                    const checked = selectedExamples.includes(id);
-                    const full = !checked && selectedExamples.length >= MAX_POLICY_EXAMPLES;
-                    return (
-                      <label key={example.case_id} className={`example-card${checked ? ' is-selected' : ''}${full ? ' is-disabled' : ''}`}>
-                        <img src={example.image_url} alt={`Sample ${example.reference.sample_id}`} loading="lazy" />
-                        <span>
-                          <input type="checkbox" checked={checked} disabled={full} onChange={(event) => setSelectedExamples((old) => event.target.checked ? [...old, id] : old.filter((x) => x !== id))} />
-                          <b className="font-mono">{example.reference.rule_id}</b> should <b>{outcomeLabel(example.expected).toLowerCase()}</b>
-                          <small>{example.reference.sample_id} · {example.reviewer_id}</small>
-                          <small>“{example.reason}”</small>
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <>
+                  <p className="text-2xs text-text-muted">Each card shows the exact image revision the reviewer judged, with all of its annotation boxes outlined. The expected result applies to that whole annotation for the named rule. One policy uses one dataset, one rulebook version and one rule.</p>
+                  {selectedGroup && (
+                    <p className="example-group" role="status">
+                      Selected group: dataset <b>{datasetName(selectedGroup.dataset_id)}</b> · rulebook <span className="font-mono">{selectedGroup.target.rulebook_id} v{selectedGroup.target.rulebook_version}</span> · rule <b className="font-mono">{selectedGroup.target.rule.rule_id}</b>. Examples outside this group are disabled.
+                      <button type="button" className="rule-action" onClick={() => setSelectedExamples([])}>Clear selection</button>
+                    </p>
+                  )}
+                  <div className="example-grid">
+                    {exampleItems.map((example) => {
+                      if (!example.example_id) return null;
+                      const id = example.example_id;
+                      return (
+                        <ExampleCard
+                          key={example.case_id}
+                          example={{ ...example, example_id: id }}
+                          datasetName={datasetName(example.dataset_id)}
+                          checked={selectedExamples.includes(id)}
+                          blockReason={selectionBlockReason(example, chosenExamples)}
+                          onToggle={(checked) => setSelectedExamples((old) => checked ? (old.includes(id) ? old : [...old, id]) : old.filter((x) => x !== id))}
+                        />
+                      );
+                    })}
+                  </div>
+                </>
               )}
       </section>
 
