@@ -59,7 +59,8 @@ def test_mutated_nested_snapshot_is_revalidated(tmp_path):
 
 def test_latest_export_requires_exact_attempt_provenance(tmp_path):
     frozen, _, _ = synthetic(tmp_path)
-    frozen.manifest.include_rechecks = True
+    # Records are frozen, so simulate a corrupted stored snapshot by bypassing the setter.
+    object.__setattr__(frozen.manifest, 'include_rechecks', True)
     with pytest.raises(ValidationError, match='explicit result audit'):
         FrozenExport.model_validate_json(frozen.model_dump_json())
 

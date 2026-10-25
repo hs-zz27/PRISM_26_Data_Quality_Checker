@@ -15,6 +15,9 @@ from backend.app.storage.workflow_repository import RetryableWorkflowStorageErro
 from backend.app.workers import audit, dataset_import, export, feedback, poll_retry, rule_extraction
 from backend.app.workers.poll_retry import PollRetry
 
+# The production delays, captured before the autouse fixture below zeroes them for speed.
+REAL_DELAYS = poll_retry.RETRY_DELAYS_SECONDS
+
 
 def outage(error):
     error.__cause__ = OperationalError("connection refused")
@@ -137,7 +140,7 @@ def test_poll_retries_a_known_rolled_back_deadlock():
     failure = DatabaseError("transaction rolled back")
     failure.__cause__ = errors.DeadlockDetected("deadlock")
     wait = Mock()
-    assert PollRetry("Test").should_retry(failure, wait)
+    assert PollRetry("Test", delays=REAL_DELAYS).should_retry(failure, wait)
     wait.assert_called_once_with(2)
 
 
