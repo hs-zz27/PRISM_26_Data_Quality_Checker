@@ -4316,7 +4316,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       }
@@ -4557,7 +4557,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       },
@@ -4815,7 +4815,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       }
@@ -5054,7 +5054,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       }
@@ -5296,7 +5296,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       }
@@ -5530,7 +5530,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       }
@@ -5769,7 +5769,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       },
@@ -6008,7 +6008,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       }
@@ -6228,7 +6228,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       }
@@ -6482,7 +6482,7 @@
             "description": "Service Unavailable"
           }
         },
-        "description": "Immutable rule-level reviewer evidence. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
+        "description": "Immutable rule-level reviewer evidence. Supports generic annotation_guideline feedback and single-box pedestrian_box_enclosure examples, including attributed binary overrides. Enclosure evaluation targets may contain multiple boxes; both arms retain per-box evidence and the same pinned marked-context method. Multi-box sample reviews never become inferred per-box training labels. New model outputs remain pending review. Metadata reads do not run inference. Evaluations use an explicit owned worker and fresh baseline/candidate inference over the same held-out cases. Null metrics mean not computed. Undefined ratios remain null. Activation requires an explicit reviewer decision, not a universal score threshold. Examples and model identities in fixtures are synthetic. Actual multimodal context fidelity, model capability and improvement require owner-run validation.",
         "x-implementation-status": "implemented",
         "x-backing-service-status": "Feedback repositories, explicit comparison worker and thin HTTP routes."
       }
@@ -13992,6 +13992,480 @@
         "title": "DetectorStatus",
         "type": "object"
       },
+      "EnclosureAggregate": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "unsure",
+              "unavailable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason"
+        ],
+        "title": "EnclosureAggregate",
+        "type": "object"
+      },
+      "EnclosureBoxEvidence": {
+        "additionalProperties": false,
+        "description": "Durable provenance for one attempted box, including unavailable attempts.",
+        "properties": {
+          "annotation_index": {
+            "minimum": 0,
+            "title": "Annotation Index",
+            "type": "integer"
+          },
+          "box_number": {
+            "maximum": 32,
+            "minimum": 1,
+            "title": "Box Number",
+            "type": "integer"
+          },
+          "object_id": {
+            "title": "Object Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "bbox": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Bbox",
+            "type": "array"
+          },
+          "view_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "View Sha256",
+            "type": "string"
+          },
+          "view_size": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "View Size",
+            "type": "array"
+          },
+          "source_window": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Source Window",
+            "type": "array"
+          },
+          "target_window": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Target Window",
+            "type": "array"
+          },
+          "request_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Sha256"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "unsure",
+              "unavailable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "evidence_references": {
+            "items": {
+              "enum": [
+                "image",
+                "annotations",
+                "guideline"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Evidence References",
+            "type": "array"
+          },
+          "model_verified": {
+            "title": "Model Verified",
+            "type": "boolean"
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "title": "Duration Ms",
+            "type": "number"
+          },
+          "chat_ms": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Ms"
+          }
+        },
+        "required": [
+          "annotation_index",
+          "box_number",
+          "object_id",
+          "label",
+          "bbox",
+          "view_sha256",
+          "view_size",
+          "source_window",
+          "target_window",
+          "request_sha256",
+          "outcome",
+          "reason",
+          "evidence_references",
+          "model_verified",
+          "duration_ms",
+          "chat_ms"
+        ],
+        "title": "EnclosureBoxEvidence",
+        "type": "object"
+      },
+      "EnclosureEvidence": {
+        "additionalProperties": false,
+        "description": "The existing enclosure document, retained unchanged in feedback snapshots.",
+        "properties": {
+          "protocol_version": {
+            "const": "pedestrian-box-context-v1",
+            "title": "Protocol Version",
+            "type": "string"
+          },
+          "view_version": {
+            "const": "box-context-png-v1",
+            "title": "View Version",
+            "type": "string"
+          },
+          "execution": {
+            "$ref": "#/components/schemas/EnclosureExecutionPin"
+          },
+          "image_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Sha256"
+          },
+          "annotation_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annotation Sha256"
+          },
+          "boxes_intended": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boxes Intended"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Case Id"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure"
+          },
+          "aggregate": {
+            "$ref": "#/components/schemas/EnclosureAggregate"
+          },
+          "boxes": {
+            "items": {
+              "$ref": "#/components/schemas/EnclosureBoxEvidence"
+            },
+            "maxItems": 32,
+            "title": "Boxes",
+            "type": "array"
+          },
+          "feedback_policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Feedback Policy Id"
+          },
+          "feedback_policy_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Feedback Policy Sha256"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "view_version",
+          "execution",
+          "image_sha256",
+          "annotation_sha256",
+          "boxes_intended",
+          "failure",
+          "aggregate",
+          "boxes"
+        ],
+        "title": "EnclosureEvidence",
+        "type": "object"
+      },
+      "EnclosureExecutionPin": {
+        "additionalProperties": false,
+        "description": "Everything that decides how a box is judged, frozen when an audit is accepted.\n\nQueued, retried and rechecked work uses this pin, never current defaults. The view\nand prompt are versioned honestly: transformed pixels are never labeled as the\nuntouched original image.",
+        "properties": {
+          "check_name": {
+            "const": "pedestrian_box_enclosure",
+            "default": "pedestrian_box_enclosure",
+            "title": "Check Name",
+            "type": "string"
+          },
+          "protocol_version": {
+            "const": "pedestrian-box-context-v1",
+            "default": "pedestrian-box-context-v1",
+            "title": "Protocol Version",
+            "type": "string"
+          },
+          "view_version": {
+            "const": "box-context-png-v1",
+            "default": "box-context-png-v1",
+            "title": "View Version",
+            "type": "string"
+          },
+          "response_schema_version": {
+            "const": "box-prediction-v1",
+            "default": "box-prediction-v1",
+            "title": "Response Schema Version",
+            "type": "string"
+          },
+          "identity_schema": {
+            "const": "bound-v1",
+            "default": "bound-v1",
+            "title": "Identity Schema",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "model": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Model",
+            "type": "string"
+          },
+          "model_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Model Digest",
+            "type": "string"
+          },
+          "system_prompt_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "System Prompt Sha256",
+            "type": "string"
+          },
+          "instruction_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Instruction Sha256",
+            "type": "string"
+          },
+          "temperature": {
+            "const": 0,
+            "default": 0,
+            "title": "Temperature",
+            "type": "integer"
+          },
+          "num_ctx": {
+            "maximum": 131072,
+            "minimum": 1024,
+            "title": "Num Ctx",
+            "type": "integer"
+          },
+          "num_predict": {
+            "maximum": 2048,
+            "minimum": 128,
+            "title": "Num Predict",
+            "type": "integer"
+          },
+          "num_thread": {
+            "anyOf": [
+              {
+                "maximum": 1024,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Num Thread"
+          },
+          "request_timeout_seconds": {
+            "maximum": 3600,
+            "minimum": 1,
+            "title": "Request Timeout Seconds",
+            "type": "integer"
+          },
+          "sample_budget_seconds": {
+            "maximum": 86400,
+            "minimum": 1,
+            "title": "Sample Budget Seconds",
+            "type": "integer"
+          },
+          "max_boxes": {
+            "maximum": 32,
+            "minimum": 1,
+            "title": "Max Boxes",
+            "type": "integer"
+          },
+          "max_request_bytes": {
+            "maximum": 134217728,
+            "minimum": 1024,
+            "title": "Max Request Bytes",
+            "type": "integer"
+          },
+          "max_response_bytes": {
+            "maximum": 65536,
+            "minimum": 1024,
+            "title": "Max Response Bytes",
+            "type": "integer"
+          },
+          "keep_alive_seconds": {
+            "maximum": 3600,
+            "minimum": 0,
+            "title": "Keep Alive Seconds",
+            "type": "integer"
+          },
+          "max_image_bytes": {
+            "default": 8388608,
+            "maximum": 16777216,
+            "minimum": 1024,
+            "title": "Max Image Bytes",
+            "type": "integer"
+          },
+          "max_annotation_bytes": {
+            "default": 131072,
+            "maximum": 262144,
+            "minimum": 1024,
+            "title": "Max Annotation Bytes",
+            "type": "integer"
+          },
+          "max_pixels": {
+            "default": 16000000,
+            "maximum": 32000000,
+            "minimum": 1,
+            "title": "Max Pixels",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host",
+          "model",
+          "model_digest",
+          "system_prompt_sha256",
+          "instruction_sha256",
+          "num_ctx",
+          "num_predict",
+          "request_timeout_seconds",
+          "sample_budget_seconds",
+          "max_boxes",
+          "max_request_bytes",
+          "max_response_bytes",
+          "keep_alive_seconds"
+        ],
+        "title": "EnclosureExecutionPin",
+        "type": "object"
+      },
       "ErrorDetail": {
         "additionalProperties": false,
         "properties": {
@@ -14170,14 +14644,20 @@
             "type": "string"
           },
           "prompt_version": {
-            "const": "annotation-guideline-v1",
             "default": "annotation-guideline-v1",
+            "enum": [
+              "annotation-guideline-v1",
+              "pedestrian-box-feedback-v1"
+            ],
             "title": "Prompt Version",
             "type": "string"
           },
           "preprocessing": {
-            "const": "original-png-no-transform-v1",
             "default": "original-png-no-transform-v1",
+            "enum": [
+              "original-png-no-transform-v1",
+              "box-context-png-v1"
+            ],
             "title": "Preprocessing",
             "type": "string"
           },
@@ -14248,6 +14728,17 @@
             "minimum": 1024,
             "title": "Max Response Bytes",
             "type": "integer"
+          },
+          "enclosure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnclosureExecutionPin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -16182,6 +16673,17 @@
           "model_verified": {
             "title": "Model Verified",
             "type": "boolean"
+          },
+          "enclosure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnclosureEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [

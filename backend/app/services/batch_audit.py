@@ -751,7 +751,9 @@ class BatchAuditService:
                             processing_deadline=sample_claim.processing_deadline,
                             checkpoint=lambda: self._checkpoint(sample_claim, renew=False),
                             audit_id=sample_claim.audit_id, sample_id=sample_claim.sample_id,
-                            sample_revision=sample_claim.sample_revision)
+                            sample_revision=sample_claim.sample_revision,
+                            **({'feedback_policy': request.feedback_runtime.policy} if request.feedback_runtime is not None
+                                and request.feedback_runtime.execution.enclosure is not None else {}))
                 # Preserve the collector's source-processing status. The
                 # durable incomplete flag also records evaluator health.
                 stored_measurements = deepcopy(dict(measurements))

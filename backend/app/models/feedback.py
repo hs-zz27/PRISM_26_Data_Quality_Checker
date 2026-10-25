@@ -9,6 +9,7 @@ from .identifiers import Identifier, Revision
 from .finding import FindingReview
 from .job import Job
 from .rule import Rule
+from .enclosure import EnclosureEvidence, EnclosureExecutionPin, enclosure_case_identity
 Text = Annotated[str, StringConstraints(min_length=1, max_length=4096, pattern=r'\S')]
 Digest = Annotated[str, StringConstraints(pattern='^[0-9a-f]{64}$')]
 Binary = Literal['pass', 'fail']
@@ -82,8 +83,8 @@ class RulePin(Record):
     def applicable(self):
         if self.semantic_sha256 != fingerprint(self.rule):
             raise ValueError('Rule semantic hash differs.')
-        if self.rule.check_name != 'annotation_guideline' or self.rule.parameters or self.rule.confirmation_state.value != 'confirmed':
-            raise ValueError('A confirmed, parameter-free annotation guideline is required.')
+        if self.rule.check_name not in {'annotation_guideline', 'pedestrian_box_enclosure'} or self.rule.parameters or self.rule.confirmation_state.value != 'confirmed':
+            raise ValueError('A confirmed, parameter-free visual check is required.')
         return self
 
 class CaseReference(Record):
@@ -123,10 +124,37 @@ class CaseSnapshot(Record):
             raise ValueError('Approved examples require frozen model provenance.')
         if self.finding_id is None and (self.model_execution is not None or self.model_proposal is not None):
             raise ValueError('Adjudications do not invent a machine proposal.')
-        if self.model_proposal is not None and (not self.model_proposal.model_verified or self.model_proposal.prediction.case_id != unit_id(self.manifest, self.target) or self.model_proposal.prediction.rule_id != self.reference.rule_id or (self.model_proposal.prediction.outcome != self.expected)):
+        enclosure = self.target.rule.check_name == 'pedestrian_box_enclosure'
+        if self.model_proposal is not None and (not self.model_proposal.model_verified or self.model_proposal.prediction.case_id != unit_id(self.manifest, self.target) or self.model_proposal.prediction.rule_id != self.reference.rule_id):
             raise ValueError('Approved proposal identity differs.')
-        if self.finding_review is not None and (self.finding_review.resolution.value != 'accepted' or self.finding_review.revision < 1 or self.finding_review.reviewer_id != self.reviewer_id or (self.finding_review.updated_at != self.reviewed_at)):
+        if self.finding_review is not None and (self.finding_review.resolution.value not in ({'accepted', 'rejected'} if enclosure else {'accepted'}) or self.finding_review.revision < 1 or self.finding_review.reviewer_id != self.reviewer_id or (self.finding_review.updated_at != self.reviewed_at)):
             raise ValueError('Examples need current accepted, attributed review evidence.')
+        if self.model_proposal is not None:
+            proposal = self.model_proposal
+            expected = proposal.prediction.outcome
+            if enclosure:
+                evidence = proposal.enclosure
+                if evidence is None or self.model_execution.enclosure != evidence.execution:
+                    raise ValueError('Enclosure examples require frozen per-box execution evidence.')
+                if evidence.boxes_intended != 1 or len(evidence.boxes) != 1 or not evidence.boxes[0].model_verified:
+                    raise ValueError('Only single-box reviewed samples establish a per-box example.')
+                if expected not in {'pass', 'fail'}:
+                    raise ValueError('Enclosure examples require a binary model proposal.')
+                identity = enclosure_case_identity(rulebook_id=self.target.rulebook_id, rulebook_version=self.target.rulebook_version,
+                    rule_id=self.reference.rule_id, sample_id=self.manifest.sample_id,
+                    sample_revision=self.manifest.sample_revision, image_sha256=self.manifest.original_image.sha256,
+                    annotation_sha256=self.manifest.annotation_text.sha256)
+                if (evidence.case_id != identity or evidence.image_sha256 != self.manifest.original_image.sha256
+                        or evidence.annotation_sha256 != self.manifest.annotation_text.sha256):
+                    raise ValueError('Enclosure source identity differs.')
+                if self.finding_review.resolution.value == 'rejected':
+                    if not (self.finding_review.comment or '').strip():
+                        raise ValueError('An enclosure override requires the human reason.')
+                    expected = 'fail' if expected == 'pass' else 'pass'
+            elif proposal.enclosure is not None or self.model_execution.enclosure is not None:
+                raise ValueError('Generic guideline provenance cannot contain enclosure execution.')
+            if expected != self.expected:
+                raise ValueError('Example answer differs from its human review.')
         if (self.correction_parent_revision is None) != (self.correction_reviewer_id is None):
             raise ValueError('Correction lineage must be complete when present.')
         return self
@@ -194,6 +222,9 @@ class FrozenSet(Record):
         identities = [(c.manifest.dataset_id, c.manifest.sample_id) for c in self.cases]
         if len(set(identities)) != len(identities):
             raise ValueError('Duplicate logical samples.')
+        if first.target.rule.check_name == 'pedestrian_box_enclosure' and first.finding_id is not None:
+            if any(c.model_execution != first.model_execution for c in self.cases):
+                raise ValueError('Enclosure examples require one exact execution pin.')
         return self
 
 class FeedbackPolicy(Record):
@@ -234,8 +265,8 @@ class EvidenceLimits(Record):
 class ExecutionPin(EvidenceLimits):
     model: Text
     model_digest: Annotated[str, StringConstraints(pattern='^sha256:[0-9a-f]{64}$')]
-    prompt_version: Literal['annotation-guideline-v1'] = 'annotation-guideline-v1'
-    preprocessing: Literal['original-png-no-transform-v1'] = 'original-png-no-transform-v1'
+    prompt_version: Literal['annotation-guideline-v1', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
+    preprocessing: Literal['original-png-no-transform-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
     schema_version: Literal[1] = 1
     identity_assurance: Literal['local-server-reported-pre-post-v1'] = 'local-server-reported-pre-post-v1'
     temperature: Literal[0] = 0
@@ -249,6 +280,31 @@ class ExecutionPin(EvidenceLimits):
     timeout_seconds: int = Field(default=120, ge=1, le=600)
     max_request_bytes: int = Field(default=64 * 1024 ** 2, ge=1024, le=128 * 1024 ** 2)
     max_response_bytes: int = Field(default=65536, ge=1024, le=65536)
+    enclosure: EnclosureExecutionPin | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @classmethod
+    def for_enclosure(cls, pin: EnclosureExecutionPin) -> 'ExecutionPin':
+        return cls(model=pin.model, model_digest=pin.model_digest,
+            prompt_version='pedestrian-box-feedback-v1', preprocessing=pin.view_version,
+            num_ctx=pin.num_ctx, num_predict=pin.num_predict, num_thread=pin.num_thread,
+            timeout_seconds=pin.request_timeout_seconds, max_request_bytes=pin.max_request_bytes,
+            max_response_bytes=pin.max_response_bytes, max_image_bytes=pin.max_image_bytes,
+            max_annotation_bytes=pin.max_annotation_bytes, max_pixels=pin.max_pixels, enclosure=pin)
+
+    @model_validator(mode='after')
+    def method_matches_pin(self):
+        if self.enclosure is None:
+            if self.prompt_version != 'annotation-guideline-v1' or self.preprocessing != 'original-png-no-transform-v1':
+                raise ValueError('Enclosure execution requires its complete pin.')
+        else:
+            pin = self.enclosure
+            if (self.prompt_version != 'pedestrian-box-feedback-v1' or self.preprocessing != pin.view_version
+                    or any(getattr(self, field) != getattr(pin, field) for field in (
+                        'model', 'model_digest', 'num_ctx', 'num_predict', 'num_thread',
+                        'max_request_bytes', 'max_response_bytes', 'max_image_bytes', 'max_annotation_bytes', 'max_pixels'))
+                    or self.timeout_seconds != pin.request_timeout_seconds):
+                raise ValueError('Feedback execution differs from its enclosure pin.')
+        return self
 
 class FeedbackRuntime(Record):
     execution: ExecutionPin
@@ -265,11 +321,14 @@ class RecordedPrediction(Record):
     prediction: Prediction
     duration_ms: float = Field(ge=0, allow_inf_nan=False)
     model_verified: bool
+    enclosure: EnclosureEvidence | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def verified_outcome(self):
         if not self.model_verified and self.prediction.outcome != 'unavailable':
             raise ValueError('Unverified execution cannot publish a substantive proposal.')
+        if self.enclosure is not None and self.prediction.outcome != self.enclosure.aggregate.outcome:
+            raise ValueError('Prediction differs from its per-box aggregate.')
         return self
 
 class CaseComparison(Record):
@@ -322,6 +381,11 @@ class EvaluationInput(Record):
             raise ValueError('Policy examples and explicit truth provenance differ.')
         if len(self.policy.cases) > 4 or self.policy.cases[0].target != self.truth.cases[0].target:
             raise ValueError('Evaluation scope is incompatible.')
+        if self.policy.cases[0].target.rule.check_name == 'pedestrian_box_enclosure':
+            if self.runtime != self.policy.cases[0].model_execution or self.runtime.enclosure is None:
+                raise ValueError('Enclosure comparisons must preserve the reviewed execution pin.')
+        elif self.runtime.enclosure is not None:
+            raise ValueError('Generic comparisons cannot run an enclosure execution.')
         train = self.policy.cases
         test = self.truth.cases
         if train[0].manifest.dataset_id != test[0].manifest.dataset_id:

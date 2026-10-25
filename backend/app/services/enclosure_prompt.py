@@ -15,7 +15,7 @@ import json
 from typing import Any, Mapping
 
 from ..models.enclosure import (
-    CHECK_NAME, PROTOCOL_VERSION, EnclosureExecutionPin, bound_response_schema,
+    EnclosureExecutionPin, bound_response_schema, enclosure_case_identity as case_identity,
 )
 from .enclosure_views import ContextView
 
@@ -49,16 +49,6 @@ def verify_pin_prompts(pin: EnclosureExecutionPin) -> None:
     """Fail closed when the prompt text drifted from what the accepted audit pinned."""
     if (pin.system_prompt_sha256, pin.instruction_sha256) != (SYSTEM_PROMPT_SHA256, INSTRUCTION_SHA256):
         raise PromptMismatch("prompt_version_mismatch")
-
-
-def case_identity(*, rulebook_id: str, rulebook_version: int, rule_id: str, sample_id: str,
-                  sample_revision: int, image_sha256: str, annotation_sha256: str) -> str:
-    """One stable identity for this exact rule applied to this exact sample revision."""
-    document = dict(rulebook_id=rulebook_id, rulebook_version=rulebook_version, rule_id=rule_id,
-                    sample_id=sample_id, sample_revision=sample_revision, check_name=CHECK_NAME,
-                    protocol_version=PROTOCOL_VERSION, image_sha256=image_sha256,
-                    annotation_sha256=annotation_sha256)
-    return sha256(json.dumps(document, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def box_identity(case_id: str, rule_id: str, view: ContextView) -> dict[str, Any]:

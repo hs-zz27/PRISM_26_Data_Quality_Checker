@@ -1109,7 +1109,11 @@ The `pedestrian_box_enclosure` check runs the marked-context method as a pending
 human-review proposal on immutable snapshot assets. It is disabled by default and
 requires an explicitly pinned local vision model. See [ENCLOSURE_CHECK.md](ENCLOSURE_CHECK.md)
 for configuration, budget behavior, evidence and validation limits. It does not replace
-the CPU detector, annotation-completeness checks or the generic feedback workflow.
+the CPU detector or annotation-completeness checks. Existing feedback endpoints can
+freeze single-box reviewed enclosure examples (including reasoned binary overrides),
+compare them on separate single- or multi-box targets, and explicitly activate a
+compatible policy for future enclosure audits and rechecks. See the feedback section
+in [ENCLOSURE_CHECK.md](ENCLOSURE_CHECK.md) for scope, provenance and validation gates.
 
 ## Rechecks in the original review workspace
 

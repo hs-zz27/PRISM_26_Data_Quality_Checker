@@ -37,13 +37,19 @@ def prepare_enclosure_runtime(request: Any, book: Any,
         if request.enclosure_runtime is not None:
             raise FeedbackError("POLICY_INCOMPATIBLE")
         return request
-    if request.feedback_policy_id is not None:
-        raise FeedbackError("POLICY_INCOMPATIBLE")  # a supplied policy is never ignored for this method
+    if request.feedback_policy_id is not None and (
+        request.feedback_runtime is None or request.feedback_runtime.execution.enclosure is None
+    ):
+        raise FeedbackError("POLICY_INCOMPATIBLE")
     if request.source_mode.value != "snapshot":
         raise FeedbackError("POLICY_INCOMPATIBLE")
     if preserve_runtime:
         return request  # A disabled parent is a frozen choice too.
     runtime = request.enclosure_runtime if request.enclosure_runtime is not None else loader()
+    if request.feedback_policy_id is not None and (
+        runtime is None or runtime.execution != request.feedback_runtime.execution.enclosure
+    ):
+        raise FeedbackError("POLICY_INCOMPATIBLE")
     return request if runtime is None else request.model_copy(update={"enclosure_runtime": runtime})
 
 
@@ -65,7 +71,8 @@ def _box_record(view: ContextView, call: Any, failure: str | None, request_sha25
 
 def _judge_boxes(views: tuple[ContextView, ...], rule: dict[str, Any], case_id: str, runtime: EnclosureRuntime,
                  clock: Callable[[], float], transport: httpx.BaseTransport | None, *,
-                 deadline: float, checkpoint: Callable[[], None] | None = None) -> list[dict[str, Any]]:
+                 deadline: float, checkpoint: Callable[[], None] | None = None,
+                 examples: tuple | list = ()) -> list[dict[str, Any]]:
     pin = runtime.execution
     records: list[dict[str, Any]] = []
     client = EnclosureClient(pin, transport=transport, clock=clock)
@@ -74,7 +81,11 @@ def _judge_boxes(views: tuple[ContextView, ...], rule: dict[str, Any], case_id: 
             if checkpoint is not None:
                 checkpoint()
             try:
-                prepared = build_request(pin, rule, case_id, view)
+                if examples:
+                    from .enclosure_feedback import build_feedback_request
+                    prepared = build_feedback_request(pin, rule, case_id, view, examples)
+                else:
+                    prepared = build_request(pin, rule, case_id, view)
             except ContextNotRepresentable as error:
                 records.append(_box_record(view, None, error.code, None))
                 continue
@@ -108,7 +119,8 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
                       transport: httpx.BaseTransport | None = None,
                       evidence_reader: Callable[..., Any] = read_evidence,
                       processing_deadline: datetime | None = None,
-                      checkpoint: Callable[[], None] | None = None) -> Any:
+                      checkpoint: Callable[[], None] | None = None,
+                      feedback_policy: Any = None) -> Any:
     """Replace each enclosure rule's placeholder with one finding holding every box's proposal."""
     if runtime is None:
         return evaluation
@@ -117,6 +129,13 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
     if not targets:
         return evaluation
     pin = runtime.execution
+    if feedback_policy is not None:
+        from ..models.feedback import FrozenSet, RulePin, checked
+        feedback_policy = checked(FrozenSet, feedback_policy)
+        if not any(feedback_policy.cases[0].target == RulePin(
+            rulebook_id=rulebook.rulebook_id, rulebook_version=rulebook.version, rule=rule
+        ) for rule in targets):
+            raise FeedbackError('POLICY_INCOMPATIBLE')
     # One allowance includes evidence preparation and every rule/box in this sample.
     allowance = float(pin.sample_budget_seconds)
     if processing_deadline is not None:
@@ -138,6 +157,15 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
         facts = {"image_sha256": manifest.original_image.sha256, "annotation_sha256": manifest.annotation_text.sha256,
                  "boxes_intended": None}
     for rule in targets:
+        examples = ()
+        policy_facts = {}
+        if feedback_policy is not None and feedback_policy.cases[0].target.rule.rule_id == rule.rule_id:
+            from ..models.feedback import FrozenSet, RulePin, checked, fingerprint
+            from .enclosure_feedback import example_views
+            policy = checked(FrozenSet, feedback_policy)
+            target = RulePin(rulebook_id=rulebook.rulebook_id, rulebook_version=rulebook.version, rule=rule)
+            examples = example_views(manifest, target, policy.cases, pin, asset_settings)
+            policy_facts = {'feedback_policy_id': policy.resource_id, 'feedback_policy_sha256': fingerprint(policy)}
         rule_document = rule.model_dump(mode="json")
         failure, views = ("evidence_unavailable" if inputs is None else None), ()
         if inputs is not None:
@@ -148,16 +176,16 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
             except EnclosureViewError as error:
                 failure = error.code
         if failure:  # zero, too many or invalid boxes: explicit unavailable, never an all-pass
-            findings.append(_finding_for(rule, runtime, facts, "unavailable", failure, [], failure, ids))
+            findings.append(_finding_for(rule, runtime, {**facts, **policy_facts}, "unavailable", failure, [], failure, ids))
             continue
         case_id = case_identity(rulebook_id=rulebook.rulebook_id, rulebook_version=rulebook.version,
                                 rule_id=rule.rule_id, sample_id=sample_id, sample_revision=sample_revision,
                                 image_sha256=facts["image_sha256"], annotation_sha256=facts["annotation_sha256"])
         boxes = _judge_boxes(views, rule_document, case_id, runtime, clock, transport,
-                             deadline=deadline, checkpoint=checkpoint)
+                             deadline=deadline, checkpoint=checkpoint, examples=examples)
         outcome, label = aggregate_sample([BoxVerdict(outcome=b["outcome"], model_verified=b["model_verified"])
                                            for b in boxes])
         marked = [str(b["box_number"]) for b in boxes if b["outcome"] == outcome and outcome != "pass"]
         reason = label + (f": boxes {', '.join(marked)}" if marked else "")
-        findings.append(_finding_for(rule, runtime, {**facts, "case_id": case_id}, outcome, reason, boxes, None, ids))
+        findings.append(_finding_for(rule, runtime, {**facts, **policy_facts, "case_id": case_id}, outcome, reason, boxes, None, ids))
     return RuleEvaluationResult(findings=findings, internal_check_failures=evaluation.internal_check_failures)

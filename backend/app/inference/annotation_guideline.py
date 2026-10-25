@@ -29,6 +29,8 @@ class GuidelineClient:
 
     def __init__(self, execution: ExecutionPin, *, transport=None):
         self.execution = checked(ExecutionPin, execution)
+        if self.execution.enclosure is not None:
+            raise FeedbackError('POLICY_INCOMPATIBLE')
         host = load_ollama_settings().host
         self.client = httpx.Client(base_url=host, trust_env=False, follow_redirects=False, timeout=self.execution.timeout_seconds, transport=transport)
 

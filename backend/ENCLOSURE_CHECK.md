@@ -11,8 +11,43 @@ annotation completeness. It is a model proposal for human review, not proof of a
 2. Enable the settings below and start a snapshot audit. The pin is frozen when the audit is accepted, so queued,
    retried and rechecked work uses that pin, not later defaults. A disabled parent remains disabled on recheck.
 3. Without the settings, or with `ENCLOSURE_ENABLED` unset, the rule stays unavailable (`model_execution_unavailable`).
-4. A supplied feedback policy is rejected (`POLICY_INCOMPATIBLE`) for a book using this check. Feedback policies
-   and `annotation_guideline` behavior are unchanged.
+4. An activated feedback policy may be selected for this exact rulebook version and dataset. Its reviewed
+   enclosure execution pin must match the enabled audit configuration. Other policies are rejected with
+   `POLICY_INCOMPATIBLE`; a policy is never silently ignored or substituted.
+
+## Feedback with marked box context
+
+The feedback page now accepts attributed binary reviews of **single-box** enclosure samples.
+An agreement retains the model answer; an override uses the opposite binary answer and its human reason.
+The original proposal, review revision, execution pin, source hashes and box provenance remain frozen.
+A review of a multi-box sample does not identify the correct answer for each box, so those samples are
+not offered as training examples. This restriction does not apply to evaluation targets or future audits:
+both still judge every annotation box and use the existing sample aggregation.
+
+Feedback retains its 600-second maximum per model request; longer enclosure request pins are not
+eligible for this workflow. Select up to four examples from one exact rule and dataset. Create a candidate, then freeze separate
+human-adjudicated samples from that same scope. Image hashes and sample identities prevent overlap,
+including renamed or revised copies. Evaluation uses the reviewed enclosure pin for both arms. The
+baseline calls the existing request builder unchanged. The candidate appends all selected single-box
+marked views and their human answers; target pixels, framing, identity schema, options and aggregation
+stay the same. No original source coordinates or held-out answers enter the model request. Context that
+cannot fit is rejected rather than truncated. The comparison worker retains its one-hour job deadline,
+ownership fencing and cancellation supervision; keep live prototype evaluations small.
+
+Each comparison stores both arms' complete per-box results and policy provenance. Metrics remain
+sample-by-rule metrics, not per-box accuracy: any verified failing target box fails that sample.
+Activation remains an explicit reviewer choice after a completed comparison. It does not promise an
+accuracy improvement, and an equal or regressed candidate should not be described as an improvement.
+
+New audits using the policy freeze its examples and execution. Their findings retain every box result
+plus the policy ID and snapshot hash. Rechecks preserve that frozen configuration and start with pending
+human reviews. Use a rulebook with enclosure and optional deterministic rules; a combined generic
+`annotation_guideline` and enclosure policy runtime is intentionally unsupported.
+
+The generic guideline feedback path and old saved snapshots retain their original serialization.
+No database migration or backfill is needed. Request context and timing differ when examples are added;
+this new candidate path requires owner-run tests and fresh real-model evaluation. Earlier context-method
+validation establishes the baseline method, not the accuracy of this feedback extension.
 
 | Setting | Meaning |
 | --- | --- |

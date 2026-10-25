@@ -14,12 +14,16 @@ def compare_child(channel, inputs, ordinal, asset_settings):
     client = None
     try:
         case = inputs.truth.cases[ordinal]
-        client = GuidelineClient(inputs.runtime)
+        if inputs.runtime.enclosure is not None:
+            from .enclosure_feedback import EnclosureFeedbackClient
+            client = EnclosureFeedbackClient(inputs.runtime, inputs.policy)
+        else:
+            client = GuidelineClient(inputs.runtime)
         baseline = client.predict(case.manifest, case.target, [], asset_settings)
         candidate = client.predict(case.manifest, case.target, inputs.policy.cases, asset_settings)
         result = CaseComparison(case_id=unit_id(case.manifest, case.target), baseline=baseline, candidate=candidate)
-        payload = json.dumps({'result': result.model_dump(mode='json')}, allow_nan=False).encode()
-        if len(payload) > 32768:
+        payload = json.dumps({'result': result.model_dump(mode='json')}, ensure_ascii=False, allow_nan=False).encode()
+        if len(payload) > 524288:
             raise ValueError('Comparison response exceeds bound.')
         channel.send_bytes(payload)
     except BaseException:
@@ -94,7 +98,10 @@ def run_claim(repository, claim):
             send.close()
             watch.thread.start()
             last = time.monotonic()
-            deadline = last + min(1200, 2 * inputs.runtime.timeout_seconds + 60)
+            case_seconds = (inputs.runtime.enclosure.sample_budget_seconds if inputs.runtime.enclosure is not None
+                            else inputs.runtime.timeout_seconds)
+            deadline = last + (2 * case_seconds + 60 if inputs.runtime.enclosure is not None
+                               else min(1200, 2 * case_seconds + 60))
             while not receive.poll(0.2):
                 if watch.expired:
                     raise JobClaimLostError('Feedback lease expired.')
@@ -109,7 +116,7 @@ def run_claim(repository, claim):
                     last = time.monotonic()
                 if not process.is_alive():
                     raise RuntimeError('Feedback child exited without a result.')
-            payload = json.loads(receive.recv_bytes(maxlength=32768))
+            payload = json.loads(receive.recv_bytes(maxlength=524288))
             if watch.expired:
                 raise JobClaimLostError('Feedback lease expired.')
             if payload.get('fatal'):

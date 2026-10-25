@@ -16,10 +16,11 @@ class FeedbackJobRepository(FeedbackRepository):
 
     def enqueue(self, request: FeedbackEvaluationCreate) -> FeedbackEvaluationStarted:
         request = checked(FeedbackEvaluationCreate, request)
-        execution = load_execution_pin()
         with self.connection() as connection:
             policy = self._set(connection, request.policy_id, 'policy')
             truth = self._set(connection, request.ground_truth_id, 'truth')
+        execution = (policy.cases[0].model_execution if policy.cases[0].target.rule.check_name == 'pedestrian_box_enclosure'
+                     else load_execution_pin())
         if policy.cases[0].target != truth.cases[0].target or policy.cases[0].manifest.dataset_id != truth.cases[0].manifest.dataset_id:
             raise FeedbackError('POLICY_INCOMPATIBLE')
         try:
@@ -29,7 +30,11 @@ class FeedbackJobRepository(FeedbackRepository):
         self._verify(policy.cases + truth.cases)
         from ..services.feedback_prompt import prepare_payload
         for case in truth.cases:
-            prepare_payload(case.manifest, case.target, policy.cases, execution, self.asset_settings)
+            if execution.enclosure is not None:
+                from ..services.enclosure_feedback import prepare_comparison
+                prepare_comparison(case.manifest, case.target, policy, execution, self.asset_settings)
+            else:
+                prepare_payload(case.manifest, case.target, policy.cases, execution, self.asset_settings)
         identifier = 'evaluation_' + uuid4().hex
         with self.connection(write=True) as connection:
             now = connection.execute('SELECT clock_timestamp() AS now').fetchone()['now']
@@ -64,6 +69,10 @@ class FeedbackJobRepository(FeedbackRepository):
         for case, result in zip(inputs.truth.cases, results):
             if result.case_id != unit_id(case.manifest, case.target) or any((p.prediction.rule_id != case.target.rule.rule_id for p in (result.baseline, result.candidate))):
                 raise FeedbackError('DEPENDENCY_UNAVAILABLE')
+            from ..services.enclosure_feedback import validate_prediction
+            for arm in ('baseline', 'candidate'):
+                validate_prediction(getattr(result, arm), case.manifest, case.target, inputs.runtime,
+                    inputs.policy if arm == 'candidate' else None)
         progress = self.decode(Progress, row['progress'])
         if progress.total != len(inputs.truth.cases) or progress.processed != len(results):
             raise FeedbackError('DEPENDENCY_UNAVAILABLE')
@@ -212,6 +221,10 @@ class FeedbackJobRepository(FeedbackRepository):
             case = inputs.truth.cases[ordinal]
             if result.case_id != unit_id(case.manifest, case.target) or any((p.prediction.rule_id != case.target.rule.rule_id for p in (result.baseline, result.candidate))):
                 raise ValueError('Case result differs from frozen scope.')
+            from ..services.enclosure_feedback import validate_prediction
+            for arm in ('baseline', 'candidate'):
+                validate_prediction(getattr(result, arm), case.manifest, case.target, inputs.runtime,
+                    inputs.policy if arm == 'candidate' else None)
             count = connection.execute('SELECT count(*) AS n FROM feedback_case_results WHERE evaluation_id=%s', (resource['evaluation_id'],)).fetchone()['n']
             if count != ordinal:
                 raise ValueError('One sequential write per intended case is required.')

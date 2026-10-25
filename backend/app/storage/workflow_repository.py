@@ -1364,7 +1364,8 @@ class AuditRepository(_WorkflowRepository):
         bookrow = connection.execute("SELECT * FROM rulebook_versions WHERE rulebook_id=%s AND version=%s",
             (request.rulebook_id,request.rulebook_version)).fetchone()
         if bookrow is not None:
-            request = prepare_runtime(connection,request,RulebookRepository._decode(bookrow),settings=self.settings)
+            request = prepare_runtime(connection,request,RulebookRepository._decode(bookrow),settings=self.settings,
+                preserve_enclosure_runtime=preserve_enclosure_runtime)
         elif request.feedback_policy_id is not None or request.feedback_runtime is not None:
             from ..core.feedback import FeedbackError
             raise FeedbackError('POLICY_INCOMPATIBLE')

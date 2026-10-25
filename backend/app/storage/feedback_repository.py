@@ -59,35 +59,68 @@ class FeedbackRepository:
         publication = DatasetRepository(settings=self.settings)._get_publication(connection, row['dataset_id'], reference.sample_id, reference.sample_revision)
         lineage = connection.execute('SELECT parent_revision,reviewer_id FROM annotation_revision_provenance WHERE dataset_id=%s AND sample_id=%s AND sample_revision=%s', (row['dataset_id'], reference.sample_id, reference.sample_revision)).fetchone()
         if finding is not None:
-            if finding.description != target.rule.description or finding.parameters != target.rule.parameters or finding.check_name != 'annotation_guideline' or (finding.rulebook_id != book.rulebook_id) or (finding.rulebook_version != book.version) or (finding.source_sentence != target.rule.source_sentence) or (finding.object_id is not None):
+            if finding.description != target.rule.description or finding.parameters != target.rule.parameters or finding.check_name != target.rule.check_name or (finding.rulebook_id != book.rulebook_id) or (finding.rulebook_version != book.version) or (finding.source_sentence != target.rule.source_sentence) or (finding.object_id is not None):
                 raise FeedbackError('FEEDBACK_NOT_READY')
             reviewed = finding.review.updated_at
         else:
             reviewed = connection.execute('SELECT clock_timestamp() AS now').fetchone()['now']
         try:
-            return CaseSnapshot(reference=reference, target=target, manifest=publication.manifest, expected=expected, reviewer_id=reviewer, reviewed_at=reviewed, reason=reason, finding_id=None if finding is None else finding.finding_id, finding_review=None if finding is None else finding.review, model_execution=None if finding is None else self.decode(ExecutionPin, finding.evidence.measurements.get('execution')), model_proposal=None if finding is None else self.decode(RecordedPrediction, finding.evidence.measurements.get('model_proposal')), correction_parent_revision=None if lineage is None else lineage['parent_revision'], correction_reviewer_id=None if lineage is None else lineage['reviewer_id'])
+            execution = proposal = None
+            if finding is not None:
+                if target.rule.check_name == 'pedestrian_box_enclosure':
+                    from ..services.enclosure_feedback import recorded_enclosure
+                    proposal = recorded_enclosure(publication.manifest, target, finding.evidence.measurements.get('enclosure'))
+                    execution = ExecutionPin.for_enclosure(proposal.enclosure.execution)
+                    if proposal.prediction.outcome != finding.outcome.value:
+                        raise ValueError('Stored finding and per-box evidence disagree.')
+                else:
+                    execution = self.decode(ExecutionPin, finding.evidence.measurements.get('execution'))
+                    proposal = self.decode(RecordedPrediction, finding.evidence.measurements.get('model_proposal'))
+            return CaseSnapshot(reference=reference, target=target, manifest=publication.manifest, expected=expected, reviewer_id=reviewer, reviewed_at=reviewed, reason=reason, finding_id=None if finding is None else finding.finding_id, finding_review=None if finding is None else finding.review, model_execution=execution, model_proposal=proposal, correction_parent_revision=None if lineage is None else lineage['parent_revision'], correction_reviewer_id=None if lineage is None else lineage['reviewer_id'])
         except ValidationError as error:
             raise FeedbackError('FEEDBACK_NOT_READY') from error
 
     def _example(self, connection, row):
         finding = _decode_reviewed_finding(row)
-        if finding.outcome.value not in ('pass', 'fail') or finding.review.resolution.value != 'accepted':
+        enclosure = finding.check_name == 'pedestrian_box_enclosure'
+        if finding.outcome.value not in ('pass', 'fail') or finding.review.resolution.value not in ({'accepted', 'rejected'} if enclosure else {'accepted'}):
             raise FeedbackError('FEEDBACK_NOT_READY')
-        case = self._case(connection, CaseReference(audit_id=finding.audit_id, sample_id=finding.sample_id, sample_revision=finding.sample_revision, rule_id=finding.rule_id), finding.outcome.value, finding.review.reviewer_id, 'Human accepted this binary annotation-guideline proposal.', finding=finding)
+        expected = finding.outcome.value
+        if enclosure and finding.review.resolution.value == 'rejected':
+            expected = 'fail' if expected == 'pass' else 'pass'
+        reason = finding.review.comment or ('Human reviewed this single-box enclosure proposal.' if enclosure else 'Human accepted this binary annotation-guideline proposal.')
+        case = self._case(connection, CaseReference(audit_id=finding.audit_id, sample_id=finding.sample_id, sample_revision=finding.sample_revision, rule_id=finding.rule_id), expected, finding.review.reviewer_id, reason, finding=finding)
         from ..models.feedback import unit_id
-        proposal = self.decode(RecordedPrediction, finding.evidence.measurements.get('model_proposal'))
+        proposal = case.model_proposal
         if not proposal.model_verified or proposal.prediction.outcome != finding.outcome.value or proposal.prediction.case_id != unit_id(case.manifest, case.target) or (proposal.prediction.rule_id != case.target.rule.rule_id):
             raise FeedbackError('FEEDBACK_NOT_READY')
         audit = connection.execute('SELECT request FROM audit_runs WHERE audit_id=%s', (case.reference.audit_id,)).fetchone()
         from ..models.audit import BatchAuditRequest
         original = self.decode(BatchAuditRequest, audit['request'])
-        if original.feedback_runtime is None or original.feedback_runtime.execution != case.model_execution:
+        if enclosure:
+            if original.enclosure_runtime is None or original.enclosure_runtime.execution != case.model_execution.enclosure:
+                raise FeedbackError('DEPENDENCY_UNAVAILABLE')
+            saved_policy = None if original.feedback_runtime is None else original.feedback_runtime.policy
+            if (proposal.enclosure.feedback_policy_id != original.feedback_policy_id
+                    or proposal.enclosure.feedback_policy_sha256 != (None if saved_policy is None else fingerprint(saved_policy))):
+                raise FeedbackError('DEPENDENCY_UNAVAILABLE')
+        elif original.feedback_runtime is None or original.feedback_runtime.execution != case.model_execution:
             raise FeedbackError('DEPENDENCY_UNAVAILABLE')
         return case
 
     def examples(self, *, limit: int=20, offset: int=0) -> FeedbackExamplePage:
         _pagination(limit, offset)
-        clause = " WHERE findings.document->>'check_name'='annotation_guideline' AND findings.outcome IN ('pass','fail') AND latest.resolution='accepted' AND findings.document#>>'{evidence,measurements,model_proposal,model_verified}'='true' AND EXISTS (SELECT 1 FROM audit_runs a WHERE a.audit_id=findings.audit_id AND a.source_mode='snapshot' AND a.status IN ('completed','failed','cancelled'))"
+        clause = """ WHERE findings.outcome IN ('pass','fail') AND (
+            (findings.document->>'check_name'='annotation_guideline'
+             AND latest.resolution='accepted'
+             AND findings.document#>>'{evidence,measurements,model_proposal,model_verified}'='true')
+            OR (findings.document->>'check_name'='pedestrian_box_enclosure'
+             AND (latest.resolution='accepted' OR (latest.resolution='rejected' AND NULLIF(btrim(latest.comment),'') IS NOT NULL))
+             AND findings.document#>>'{evidence,measurements,enclosure,boxes_intended}'='1'
+             AND jsonb_array_length(findings.document#>'{evidence,measurements,enclosure,boxes}')=1
+             AND findings.document#>>'{evidence,measurements,enclosure,boxes,0,model_verified}'='true')
+            ) AND EXISTS (SELECT 1 FROM audit_runs a WHERE a.audit_id=findings.audit_id
+                AND a.source_mode='snapshot' AND a.status IN ('completed','failed','cancelled'))"""
         with self.connection() as connection:
             total = connection.execute('SELECT count(*) AS n FROM (' + _FINDINGS_WITH_REVIEWS + clause + ') q').fetchone()['n']
             rows = connection.execute(_FINDINGS_WITH_REVIEWS + clause + ' ORDER BY findings.created_at DESC,findings.finding_id COLLATE "C" LIMIT %s OFFSET %s', (limit, offset)).fetchall()
@@ -115,7 +148,11 @@ class FeedbackRepository:
         from ..services.feedback_evidence import evidence
         bounds = EvidenceLimits()
         for case in cases:
-            evidence(case.manifest, bounds, self.asset_settings)
+            if case.model_execution is not None and case.model_execution.enclosure is not None:
+                from ..services.enclosure_feedback import example_views
+                example_views(case.manifest, case.target, [case], case.model_execution.enclosure, self.asset_settings)
+            else:
+                evidence(case.manifest, bounds, self.asset_settings)
 
     def create_policy(self, request: FeedbackPolicyCreate) -> FeedbackPolicy:
         request = checked(FeedbackPolicyCreate, request)

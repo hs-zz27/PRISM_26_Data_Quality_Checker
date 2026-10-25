@@ -16,6 +16,8 @@ def prepare_payload(manifest, target, examples, execution, asset_settings):
     vision tokenizer. Actual installed-model context fidelity is an owner-run gate.
     """
     execution = checked(ExecutionPin, execution)
+    if execution.enclosure is not None or target.rule.check_name != 'annotation_guideline':
+        raise FeedbackError('POLICY_INCOMPATIBLE')
     if len(examples) > 4 or any((c.target != target or c.manifest.dataset_id != manifest.dataset_id for c in examples)):
         raise FeedbackError('POLICY_INCOMPATIBLE')
     images = []

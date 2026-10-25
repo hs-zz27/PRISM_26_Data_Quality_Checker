@@ -144,7 +144,9 @@ def run_sample_child(
                     from .enclosure import augment_enclosure
                     evaluation = augment_enclosure(evaluation, rulebook, snapshot_manifest, enclosure_runtime, asset_settings,
                         processing_deadline=processing_deadline,
-                        audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision)
+                        audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision,
+                        **({'feedback_policy': feedback_runtime.policy} if feedback_runtime is not None
+                            and feedback_runtime.execution.enclosure is not None else {}))
                 message = (
                     "success", measurements, evaluation.findings,
                     evaluation.internal_check_failures,

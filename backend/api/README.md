@@ -603,7 +603,11 @@ Read its stored evidence through the existing sample-detail and audit-findings e
 and per-box outcomes, reasons, verification flags and view provenance. Render these as
 model proposals; do not infer a human decision from an outcome. A verified failure wins
 when some other boxes are unavailable. Empty, unreadable or invalid input remains unavailable.
-No new endpoint or migration is required. A supplied feedback policy with an enclosure
-rulebook is rejected with `POLICY_INCOMPATIBLE`. Linked rechecks retain the parent's
+No new endpoint or migration is required. Existing feedback endpoints also support
+single-box enclosure examples, including attributed binary overrides. Evaluation targets
+may contain multiple boxes. Feedback evaluations expose per-box evidence in each arm's
+optional `enclosure` document and pin the enclosure method in `execution.enclosure`.
+An activated policy requires the exact dataset, confirmed rule, version and execution pin;
+incompatible policies return `POLICY_INCOMPATIBLE`. Linked rechecks retain the parent's
 execution choice (including disabled), but use the selected immutable sample revisions.
 See [configuration and limitations](../ENCLOSURE_CHECK.md).

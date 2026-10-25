@@ -7,9 +7,9 @@ from ..inference.annotation_guideline import GuidelineClient
 from ..storage.feedback_repository import FeedbackRepository
 
 
-def prepare_runtime(connection,request,book,*,settings):
+def prepare_runtime(connection,request,book,*,settings,preserve_enclosure_runtime=False):
     """No inference. Persist a complete serializable execution/policy pin at acceptance."""
-    supported=[r for r in book.rules if r.check_name=='annotation_guideline']
+    supported=[r for r in book.rules if r.check_name in {'annotation_guideline','pedestrian_box_enclosure'}]
     runtime=None if request.feedback_runtime is None else checked(FeedbackRuntime,request.feedback_runtime)
     if not supported or request.source_mode.value!='snapshot':
         if request.feedback_policy_id is not None or runtime is not None:raise FeedbackError('POLICY_INCOMPATIBLE')
@@ -31,10 +31,26 @@ def prepare_runtime(connection,request,book,*,settings):
         if (policy.cases[0].manifest.dataset_id!=request.dataset_id
                 or (target.rulebook_id,target.rulebook_version)!=(book.rulebook_id,book.version)
                 or target.rule not in supported):raise FeedbackError('POLICY_INCOMPATIBLE')
+        if target.rule.check_name == 'pedestrian_box_enclosure':
+            if any(r.check_name == 'annotation_guideline' for r in supported):
+                raise FeedbackError('POLICY_INCOMPATIBLE')
+            from ..core.enclosure import load_enclosure_runtime
+            from ..models.enclosure import EnclosureRuntime
+            available = request.enclosure_runtime
+            if available is None and not preserve_enclosure_runtime:
+                available = load_enclosure_runtime()
+            if (available is None or frozen.runtime.enclosure is None
+                    or available.execution != frozen.runtime.enclosure):
+                raise FeedbackError('POLICY_INCOMPATIBLE')
+            request = request.model_copy(update={'enclosure_runtime': EnclosureRuntime(execution=frozen.runtime.enclosure)})
+        elif frozen.runtime.enclosure is not None:
+            raise FeedbackError('POLICY_INCOMPATIBLE')
         runtime=pinned
     elif runtime is not None:
         if runtime.policy is not None:raise FeedbackError('POLICY_INCOMPATIBLE')
     else:
+        if not any(r.check_name == 'annotation_guideline' for r in supported):
+            return request  # Enclosure-only baselines keep their existing execution path.
         # Absence of an owner-pinned model keeps feature-disabled books unavailable,
         # not magically passing and not dependent on an Ollama server.
         import os
@@ -49,6 +65,8 @@ def prepare_runtime(connection,request,book,*,settings):
 def augment_evaluation(evaluation,rulebook,manifest,runtime,asset_settings,*,audit_id,sample_id,sample_revision):
     if runtime is None: return evaluation
     runtime=checked(FeedbackRuntime,runtime)
+    if runtime.execution.enclosure is not None:
+        return evaluation  # The per-box evaluator applies this policy exactly once.
     targets=[r for r in rulebook.rules if r.check_name=='annotation_guideline']
     if not targets: return evaluation
     findings=[f for f in evaluation.findings if f.check_name!='annotation_guideline']
