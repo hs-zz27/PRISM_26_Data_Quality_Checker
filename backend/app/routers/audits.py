@@ -69,9 +69,10 @@ def list_audits(
     repository: AuditRepositoryDependency,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0, le=9_223_372_036_854_775_807)] = 0,
+    roots_only: bool = False,
 ) -> AuditPage:
     """Read all audit states, newest first, without running or recovering jobs."""
-    return repository.list_audits(limit=limit, offset=offset)
+    return repository.list_audits(limit=limit, offset=offset, **({"roots_only": True} if roots_only else {}))
 
 
 @router.get("/{audit_id}", response_model=AuditRun, operation_id="getAudit", responses=NOT_FOUND)
@@ -88,19 +89,22 @@ def list_audit_samples(
     offset: Annotated[int, Query(ge=0)] = 0,
     tool_status: ToolStatus | None = None,
     review_status: SampleReviewDecision | None = None,
+    include_rechecks: bool = False,
 ) -> AuditSamplePage:
     """Read all samples in audit order, optionally filtering machine or human state."""
     return repository.list_samples(
         audit_id, limit=limit, offset=offset, tool_status=tool_status, review_status=review_status,
+        **({"include_rechecks": True} if include_rechecks else {}),
     )
 
 
 @router.get("/{audit_id}/samples/{sample_id}", response_model=SampleAudit, operation_id="getAuditSample", responses=NOT_FOUND)
 def get_audit_sample(
     audit_id: Identifier, sample_id: Identifier, repository: Repository,
+    include_rechecks: bool = False,
 ) -> SampleAudit:
     """Read stored evidence and current reviews for the sample's audited revision."""
-    return repository.get_sample(audit_id, sample_id)
+    return repository.get_sample(audit_id, sample_id, **({"include_rechecks": True} if include_rechecks else {}))
 
 
 @router.get(
@@ -114,8 +118,10 @@ def list_audit_findings(
     offset: Annotated[int, Query(ge=0, le=9_223_372_036_854_775_807)] = 0,
     sample_id: Annotated[str | None, Query(min_length=1, pattern=r"^[^\x00]*[^\s\x00][^\x00]*$")] = None,
     outcome: FindingOutcome | None = None,
+    include_rechecks: bool = False,
 ) -> FindingPage:
     """Read an audit's machine findings with their latest human reviews, in finding_id order."""
     return repository.list_audit_findings(
         audit_id, limit=limit, offset=offset, sample_id=sample_id, outcome=outcome,
+        **({"include_rechecks": True} if include_rechecks else {}),
     )

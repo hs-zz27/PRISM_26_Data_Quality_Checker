@@ -1247,7 +1247,8 @@
         "path_parameters": {},
         "query": {
           "limit": 20,
-          "offset": 0
+          "offset": 0,
+          "roots_only": true
         },
         "content_type": null,
         "body": null
@@ -1332,7 +1333,8 @@
           "limit": 20,
           "offset": 0,
           "tool_status": "flagged",
-          "review_status": "pending_review"
+          "review_status": "pending_review",
+          "include_rechecks": true
         },
         "content_type": null,
         "body": null
@@ -1378,7 +1380,9 @@
           "audit_id": "audit_demo",
           "sample_id": "sample_001"
         },
-        "query": {},
+        "query": {
+          "include_rechecks": true
+        },
         "content_type": null,
         "body": null
       },
@@ -1956,6 +1960,7 @@
           "limit": 20,
           "offset": 0,
           "sample_id": "sample_001",
+          "include_rechecks": true,
           "outcome": "fail"
         },
         "content_type": null,
@@ -2329,7 +2334,8 @@
           "audit_id": "audit_demo",
           "format": "penn_fudan",
           "selection": "all_reviewed",
-          "include_images": false
+          "include_images": false,
+          "include_rechecks": false
         }
       },
       "response": {
@@ -2341,6 +2347,7 @@
             "format": "penn_fudan",
             "selection": "all_reviewed",
             "include_images": false,
+            "include_rechecks": false,
             "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "job_id": "job_export_demo",
             "status": "queued",
@@ -2392,6 +2399,7 @@
           "format": "penn_fudan",
           "selection": "all_reviewed",
           "include_images": false,
+          "include_rechecks": false,
           "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "job_id": "job_export_demo",
           "status": "completed",
@@ -2454,9 +2462,11 @@
           "rulebook_version": 3,
           "selection": "all_reviewed",
           "include_images": false,
+          "include_rechecks": false,
           "selected_at": "2026-10-21T00:00:00Z",
           "entries": [
             {
+              "result_audit_id": null,
               "sample_id": "sample_000",
               "sample_revision": 2,
               "ordinal": 0,
@@ -2474,6 +2484,7 @@
               "reason": null
             },
             {
+              "result_audit_id": null,
               "sample_id": "sample_001",
               "sample_revision": 2,
               "ordinal": 1,
@@ -2491,6 +2502,7 @@
               "reason": null
             },
             {
+              "result_audit_id": null,
               "sample_id": "sample_002",
               "sample_revision": 2,
               "ordinal": 2,
@@ -2508,6 +2520,7 @@
               "reason": "pending_review"
             },
             {
+              "result_audit_id": null,
               "sample_id": "sample_003",
               "sample_revision": 2,
               "ordinal": 3,
@@ -3247,6 +3260,7 @@
               "format": "penn_fudan",
               "selection": "all_reviewed",
               "include_images": false,
+              "include_rechecks": false,
               "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "job_id": "job_export_demo",
               "status": "completed",
@@ -7223,7 +7237,8 @@
       "audit_id": "audit_demo",
       "format": "penn_fudan",
       "selection": "all_reviewed",
-      "include_images": false
+      "include_images": false,
+      "include_rechecks": false
     },
     "states": [
       {
@@ -7232,6 +7247,7 @@
           "format": "penn_fudan",
           "selection": "all_reviewed",
           "include_images": false,
+          "include_rechecks": false,
           "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "job_id": "job_export_demo",
           "status": "queued",
@@ -7263,6 +7279,7 @@
           "format": "penn_fudan",
           "selection": "all_reviewed",
           "include_images": false,
+          "include_rechecks": false,
           "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "job_id": "job_export_demo",
           "status": "running",
@@ -7294,6 +7311,7 @@
           "format": "penn_fudan",
           "selection": "all_reviewed",
           "include_images": false,
+          "include_rechecks": false,
           "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "job_id": "job_export_demo",
           "status": "cancelling",
@@ -7325,6 +7343,7 @@
           "format": "penn_fudan",
           "selection": "all_reviewed",
           "include_images": false,
+          "include_rechecks": false,
           "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "job_id": "job_export_demo",
           "status": "completed",
@@ -7361,6 +7380,7 @@
           "format": "penn_fudan",
           "selection": "all_reviewed",
           "include_images": false,
+          "include_rechecks": false,
           "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "job_id": "job_export_demo",
           "status": "failed",
@@ -7397,6 +7417,7 @@
           "format": "penn_fudan",
           "selection": "all_reviewed",
           "include_images": false,
+          "include_rechecks": false,
           "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "job_id": "job_export_demo",
           "status": "cancelled",
@@ -7433,9 +7454,11 @@
       "rulebook_version": 3,
       "selection": "all_reviewed",
       "include_images": false,
+      "include_rechecks": false,
       "selected_at": "2026-10-21T00:00:00Z",
       "entries": [
         {
+          "result_audit_id": null,
           "sample_id": "sample_000",
           "sample_revision": 2,
           "ordinal": 0,
@@ -7453,6 +7476,7 @@
           "reason": null
         },
         {
+          "result_audit_id": null,
           "sample_id": "sample_001",
           "sample_revision": 2,
           "ordinal": 1,
@@ -7470,6 +7494,7 @@
           "reason": null
         },
         {
+          "result_audit_id": null,
           "sample_id": "sample_002",
           "sample_revision": 2,
           "ordinal": 2,
@@ -7487,6 +7512,7 @@
           "reason": "pending_review"
         },
         {
+          "result_audit_id": null,
           "sample_id": "sample_003",
           "sample_revision": 2,
           "ordinal": 3,
@@ -7515,6 +7541,7 @@
       "rulebook_version": 3,
       "selection": "all_reviewed",
       "include_images": false,
+      "include_rechecks": false,
       "selected_at": "2026-10-21T00:00:00Z",
       "entries": []
     },
@@ -7525,6 +7552,7 @@
           "format": "penn_fudan",
           "selection": "all_reviewed",
           "include_images": false,
+          "include_rechecks": false,
           "export_id": "export_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "job_id": "job_export_demo",
           "status": "completed",

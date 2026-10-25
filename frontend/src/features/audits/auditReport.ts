@@ -74,6 +74,7 @@ export function aggregateByRule(samples: SampleAudit[]): RuleSummary[] {
 
 /** One row per finding — the five explainability fields plus the human decision. */
 export interface ReportRow {
+  result_audit_id: string;
   sample_id: string;
   sample_revision: number;
   object_id: string;
@@ -98,6 +99,7 @@ export function buildReportRows(samples: SampleAudit[]): ReportRow[] {
   for (const sample of samples) {
     const sampleReview = sample.review;
     const base = {
+      result_audit_id: sample.audit_id,
       sample_id: sample.summary.sample_id,
       sample_revision: sample.summary.sample_revision,
       sample_decision: reviewStatusLabel(sampleReview?.decision ?? 'pending_review'),
@@ -134,7 +136,7 @@ export function buildReportRows(samples: SampleAudit[]): ReportRow[] {
 const CSV_COLUMNS: Array<keyof ReportRow> = [
   'sample_id', 'sample_revision', 'object_id', 'rule_id', 'rule', 'check', 'result', 'explanation', 'evidence',
   'citation', 'rule_origin', 'finding_decision', 'finding_reviewer', 'finding_comment', 'sample_decision',
-  'sample_reviewer', 'sample_comment',
+  'sample_reviewer', 'sample_comment', 'result_audit_id',
 ];
 
 function csvCell(value: string | number): string {

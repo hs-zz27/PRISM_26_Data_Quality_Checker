@@ -37,8 +37,8 @@ export const AuditsPage: React.FC = () => {
 
   // Fetch audits
   const { data: audits, isLoading, error } = useQuery({
-    queryKey: queryKeys.audits(),
-    queryFn: () => apiGetAllPages('/audits', { query: { limit: 100, offset: 0 } }),
+    queryKey: queryKeys.auditWorkspaces(),
+    queryFn: () => apiGetAllPages('/audits', { query: { limit: 100, offset: 0, roots_only: true } }),
   });
 
   // Fetch ready datasets for launch
@@ -162,7 +162,7 @@ export const AuditsPage: React.FC = () => {
       {/* Audits Table */}
       <div>
         <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-3">
-          Executed Audits ({audits?.total ?? 0})
+          Audit workspaces ({audits?.total ?? 0})
         </div>
 
         {isLoading ? (
@@ -198,9 +198,9 @@ export const AuditsPage: React.FC = () => {
                   <th className="py-2.5 px-4 font-medium">Audit ID</th>
                   <th className="py-2.5 px-4 font-medium">Dataset</th>
                   <th className="py-2.5 px-4 font-medium">Rulebook</th>
-                  <th className="py-2.5 px-4 font-medium">Status</th>
+                  <th className="py-2.5 px-4 font-medium">Initial run</th>
                   <th className="py-2.5 px-4 font-medium">Samples</th>
-                  <th className="py-2.5 px-4 font-medium">Processed</th>
+                  <th className="py-2.5 px-4 font-medium">Initially processed</th>
                   <th className="py-2.5 px-4 font-medium">Created</th>
                   <th className="py-2.5 px-4 font-medium text-right">Actions</th>
                 </tr>

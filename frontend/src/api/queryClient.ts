@@ -55,9 +55,10 @@ export const queryKeys = {
 
   // Audits
   audits: () => ['audits'] as const,
+  auditWorkspaces: () => ['audits', 'workspaces'] as const,
   audit: (id: string) => ['audits', id] as const,
   auditSamples: (id: string, params?: Record<string, unknown>) =>
-    ['audits', id, 'samples', params] as const,
+    params === undefined ? ['audits', id, 'samples'] as const : ['audits', id, 'samples', params] as const,
   auditSample: (auditId: string, sampleId: string) =>
     ['audits', auditId, 'samples', sampleId] as const,
 

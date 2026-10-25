@@ -56,6 +56,7 @@ class ExportRequest(Record):
     format: Literal["penn_fudan"]
     selection: ExportSelection = Field(strict=False)
     include_images: bool
+    include_rechecks: bool = False
 
 
 class Export(ExportRequest):
@@ -121,6 +122,7 @@ class CapturedAvailability(Record):
 
 
 class ExportManifestEntry(Record):
+    result_audit_id: Identifier | None = None
     sample_id: Identifier
     sample_revision: Revision
     ordinal: Count
@@ -173,6 +175,7 @@ class ExportManifest(Record):
     rulebook_version: Revision
     selection: ExportSelection = Field(strict=False)
     include_images: bool
+    include_rechecks: bool = False
     selected_at: AwareDatetime
     entries: list[ExportManifestEntry]
 
@@ -180,6 +183,10 @@ class ExportManifest(Record):
     def membership(self):
         seen = set()
         for ordinal, entry in enumerate(self.entries):
+            if self.include_rechecks and entry.result_audit_id is None:
+                raise ValueError("Latest-attempt exports require an explicit result audit for every entry.")
+            if not self.include_rechecks and entry.result_audit_id not in (None, self.audit_id):
+                raise ValueError("Historical exports must use their own audit results.")
             key = (entry.sample_id, entry.sample_revision)
             if entry.ordinal != ordinal or key in seen:
                 raise ValueError("Manifest entries must be unique in contiguous audit order.")

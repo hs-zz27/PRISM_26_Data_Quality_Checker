@@ -33,6 +33,7 @@ def test_specific_missing_role_reasons(role, state, images):
     {'audit_id': ''}, {'audit_id': '   '}, {'audit_id': 'a\x00b'}, {'audit_id': 3},
     {'audit_id': 'a' * 256}, {'format': 'coco'}, {'include_images': 1}, {'include_images': 'false'},
     {'selection': 'unsure'}, {'selection': 'latest'}, {'output_path': '/private'},
+    {'include_rechecks': 1}, {'include_rechecks': 'true'},
 ])
 def test_request_rejects_invalid_or_private_fields(overrides):
     body = dict(audit_id='audit_demo', format='penn_fudan', selection='accepted_only', include_images=True)
@@ -53,6 +54,13 @@ def test_mutated_nested_snapshot_is_revalidated(tmp_path):
     frozen, _, _ = synthetic(tmp_path)
     frozen.manifest.entries.clear()
     with pytest.raises(ValidationError):
+        FrozenExport.model_validate_json(frozen.model_dump_json())
+
+
+def test_latest_export_requires_exact_attempt_provenance(tmp_path):
+    frozen, _, _ = synthetic(tmp_path)
+    frozen.manifest.include_rechecks = True
+    with pytest.raises(ValidationError, match='explicit result audit'):
         FrozenExport.model_validate_json(frozen.model_dump_json())
 
 

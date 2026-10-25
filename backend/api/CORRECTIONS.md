@@ -217,3 +217,24 @@ Authentication, image editing, cross-format conversion, automatic correction,
 feedback evaluation/learning, GC and generic job-framework changes are not added.
 Reviewer_id is untrusted prototype attribution, not authentication or authorization.
 Do not deploy as a public multi-user service without a separate security review.
+
+## One review workspace, multiple attempts
+
+Keep the user at `/audits/{original_audit_id}/review` after submitting a recheck.
+Use `include_rechecks=true` on `listAuditSamples`, `getAuditSample` and
+`listAuditFindings` to select the newest submitted attempt for each original sample.
+Selection includes queued, running, failed and cancelled attempts. Filters, counts,
+asset links, findings and reviews all refer to the selected attempt. Original
+sample order is preserved and unaffected samples keep their original results.
+
+`SampleAudit.audit_id` and `SampleAuditSummary.result_audit_id` identify the actual
+result owner. Submit sample review updates and read review history using this ID.
+`workspace_audit_id` identifies the original workspace; `attempts` lists the image's
+executions newest first. To view history, read the chosen attempt without the flag.
+Old evidence and decisions are not overwritten or carried into the new attempt.
+
+`listAudits?roots_only=true` excludes linked attempts from the main catalogue.
+An active recheck for any selected image in the same family causes
+`RECHECK_ALREADY_RUNNING` (HTTP 409). The existing worker, claim protection and
+cancellation routes remain in use. Rechecks of corrected data still require its
+current revision. Historical API defaults remain unchanged.

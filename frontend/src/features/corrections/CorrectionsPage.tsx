@@ -41,7 +41,7 @@ export const CorrectionsPage: React.FC = () => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [mask, setMask] = useState<File | null>(null);
   const [message, setMessage] = useState<{ tone: 'error' | 'ok'; text: string } | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [recheckTarget, setRecheckTarget] = useState<{ jobId: string; workspaceId: string; sampleId: string } | null>(null);
   const [dirty, setDirty] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -114,16 +114,21 @@ export const CorrectionsPage: React.FC = () => {
   });
 
   const recheck = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!reviewerId.trim()) { openPrompt(); throw new Error('Set your reviewer name first (top right).'); }
       if (!auditId) throw new Error('Choose the audit to re-check against.');
       if (!sample) throw new Error('Select a sample.');
-      return apiPost('/audits/{audit_id}/rechecks', { path: { audit_id: auditId }, body: { sample_ids: [sampleId], sample_revisions: { [sampleId]: sample.revision }, reviewer_id: reviewerId.trim() } });
+      const workspaceId = auditSampleQuery.data?.workspace_audit_id ?? auditId;
+      const result = await apiPost('/audits/{audit_id}/rechecks', { path: { audit_id: auditId }, body: { sample_ids: [sampleId], sample_revisions: { [sampleId]: sample.revision }, reviewer_id: reviewerId.trim() } });
+      return { jobId: result.job.job_id, workspaceId, sampleId };
     },
-    onSuccess: (result) => setJobId(result.job.job_id),
+    onSuccess: (target) => {
+      setRecheckTarget(target);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
+    },
     onError: (err) => setMessage({ tone: 'error', text: err.message }),
   });
-  const job = useJobPolling(jobId);
+  const job = useJobPolling(recheckTarget?.jobId);
 
   const updateObject = (index: number, field: 'label' | 'object_id' | 0 | 1 | 2 | 3, value: string) => editObjects((old) => old.map((obj, i) => {
     if (i !== index) return obj;
@@ -277,7 +282,7 @@ export const CorrectionsPage: React.FC = () => {
                 {job.job && (
                   <p className="text-xs">
                     Re-check {jobStatusLabel(job.job.status)}
-                    {job.isCompleted && job.result?.id && <> — <Link to={`/audits/${job.result.id}/review?sample=${encodeURIComponent(sampleId)}`}>review the result →</Link></>}
+                    {recheckTarget && <> — <Link to={`/audits/${recheckTarget.workspaceId}/review?sample=${encodeURIComponent(recheckTarget.sampleId)}`}>continue in the original review →</Link></>}
                     {job.isFailed && job.job.error && <> — {job.job.error.message}</>}
                   </p>
                 )}

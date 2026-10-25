@@ -24,6 +24,8 @@ docker compose logs -f --tail=50 api extraction-worker audit-worker
 ```
 
 Open **http://localhost:5173**. API docs are at **http://localhost:8000/docs**.
+The API service builds the backend image once; migrations and all workers reuse
+that image without attempting separate builds or pulling it from a registry.
 The first image build downloads Python/Node dependencies, including CPU PyTorch
 wheels. Later starts reuse built images. `migrate` exiting with status 0 is normal.
 A failed migration blocks the API and workers instead of starting against an

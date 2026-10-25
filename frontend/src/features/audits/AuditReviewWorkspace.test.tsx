@@ -94,3 +94,84 @@ describe('AuditReviewWorkspace', () => {
     expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')).toBe(false);
   });
 });
+
+const attempts = [
+  { audit_id: 'child-1', job_id: 'child-job', sample_revision: 1, processing_status: 'completed' as const, created_at: '2026-10-25T10:00:00Z', reviewer_id: 'rev_test' },
+  { audit_id: 'audit-1', job_id: 'job-1', sample_revision: 1, processing_status: 'completed' as const, created_at: '2026-10-24T10:00:00Z', reviewer_id: null },
+];
+function childDetail() {
+  return makeSampleAudit([makeFinding({ audit_id: 'child-1', finding_id: 'child-finding' })], {
+    audit_id: 'child-1', workspace_audit_id: 'audit-1', attempts,
+    summary: makeSummary({ result_audit_id: 'child-1' }),
+    review: { ...sample.review, audit_id: 'child-1' },
+  });
+}
+
+describe('rechecks inside the original workspace', () => {
+  beforeEach(() => useReviewerStore.setState({ reviewerId: 'rev_test' }));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('submits a recheck without navigating away and displays its pending state', async () => {
+    let submitted = false;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url, 'http://localhost').pathname;
+      if (init?.method === 'POST' && path === '/api/v1/audits/audit-1/rechecks') {
+        submitted = true;
+        return json({ audit: { audit_id: 'child-1' }, job: { job_id: 'child-job' }, parent_audit_id: 'audit-1' }, 202);
+      }
+      if (path === '/api/v1/jobs/child-job') return json({ job_id: 'child-job', kind: 'audit', status: 'queued', progress: { phase: 'queued', processed: 0, total: 1, fraction: 0 } });
+      if (submitted && path === '/api/v1/audits/audit-1/samples/sample-1') {
+        const child = childDetail();
+        return json({ ...child, findings: [], summary: { ...child.summary, processing_status: 'queued', tool_status: 'pending' } });
+      }
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkspace();
+    const recheck = await screen.findByRole('button', { name: 'Re-check this image' });
+    await waitFor(() => expect(recheck).toBeEnabled());
+    fireEvent.click(recheck);
+    expect(await screen.findByText(/Checking this image\. Its new results will appear here/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Re-check this image' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Accept$/ })).toBeDisabled();
+    expect(screen.getByText('audit-1')).toBeInTheDocument();
+    const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ sample_ids: ['sample-1'], sample_revisions: { 'sample-1': 1 }, reviewer_id: 'rev_test' });
+    expect(fetchMock.mock.calls.some(([url]) => url.includes('/samples/sample-1?include_rechecks=true'))).toBe(true);
+  });
+
+  it('saves decisions to the displayed attempt, preserving original audit evidence', async () => {
+    const child = childDetail();
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url, 'http://localhost').pathname;
+      if (path === '/api/v1/audits/audit-1/samples/sample-1') return json(child);
+      if (init?.method === 'PUT') return json({ ...child.review, decision: 'accepted', revision: 1 });
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkspace();
+    const accept = await screen.findByRole('button', { name: /^Accept$/ });
+    await waitFor(() => expect(accept).toBeEnabled());
+    fireEvent.click(accept);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => init?.method === 'PUT' && url.includes('/audits/child-1/samples/sample-1/review'))).toBe(true));
+    expect(fetchMock.mock.calls.some(([url, init]) => init?.method === 'PUT' && url.includes('/audits/audit-1/'))).toBe(false);
+  });
+
+  it('shows previous evidence read-only and blocks both buttons and review shortcuts', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const parsed = new URL(url, 'http://localhost');
+      if (parsed.pathname === '/api/v1/audits/audit-1/samples/sample-1' && parsed.searchParams.get('include_rechecks') === 'true') return json(childDetail());
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkspace();
+    fireEvent.change(await screen.findByLabelText('Attempt history'), { target: { value: 'audit-1' } });
+    expect(await screen.findByText(/Previous attempt — read only/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Accept$/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Re-check this image' })).toBeDisabled();
+    fireEvent.keyDown(window, { key: 'A', shiftKey: true });
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false);
+    fireEvent.change(screen.getByLabelText('Attempt history'), { target: { value: '' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Accept$/ })).toBeEnabled());
+  });
+});

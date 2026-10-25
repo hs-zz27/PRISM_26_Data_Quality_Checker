@@ -261,3 +261,12 @@ def test_other_methods_are_not_allowed_and_do_not_touch_storage(api):
     for method in ("post", "put", "patch", "delete"):
         assert getattr(client, method)(URL).status_code == 405
     assert repository.method_calls == []
+
+
+def test_latest_attempt_findings_forward_explicit_selection(api):
+    client, repository, _ = api
+    repository.list_audit_findings.return_value = page([finding()])
+    assert client.get(URL, params={'include_rechecks': 'true'}).status_code == 200
+    repository.list_audit_findings.assert_called_once_with(
+        'audit_1', limit=20, offset=0, sample_id=None, outcome=None, include_rechecks=True,
+    )

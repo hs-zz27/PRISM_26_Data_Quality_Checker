@@ -29,6 +29,7 @@ from ..models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultRefe
 from ..models.review import SampleReviewDecision
 from ..models.rule import NonBlankText
 from .database import CommitOutcomeUnknownError, DatabaseError, database_connection
+from .audit_attempts import AUDIT_FAMILY, LATEST_SAMPLES
 from .workflow_repository import (
     AuditNotFoundError, JobAlreadyFinishedError, JobClaimLostError, JobNotFoundError,
     SampleAssetManifestRepository, _decode_audit, _decode_job, _job_row_values,
@@ -99,9 +100,26 @@ class ExportRepository:
             if audit.sample_count > policy.max_samples:
                 raise ExportDependencyError("Export selection exceeds the configured sample limit.")
             selected_at = _now(connection)
+            if request.include_rechecks:
+                active = connection.execute(
+                    AUDIT_FAMILY + """SELECT 1 FROM audit_family family
+                        JOIN audit_runs a ON a.audit_id=family.audit_id
+                        WHERE a.status IN ('queued','running','cancelling') LIMIT 1""",
+                    (request.audit_id,),
+                ).fetchone()
+                if active is not None:
+                    raise AuditNotReady()
+            prefix = LATEST_SAMPLES if request.include_rechecks else ""
+            source = ("""selected_samples chosen JOIN audit_samples s
+                ON (s.audit_id,s.sample_id,s.sample_revision)=
+                   (chosen.audit_id,chosen.sample_id,chosen.sample_revision)"""
+                if request.include_rechecks else "audit_samples s")
+            ordinal_column = "chosen.ordinal" if request.include_rechecks else "s.ordinal"
+            selection_filter = "TRUE" if request.include_rechecks else "s.audit_id=%s"
             rows = connection.execute(
-                """SELECT s.*,to_jsonb(m) AS registered_manifest,to_jsonb(r) AS current_review
-                   FROM audit_samples s
+                prefix + f"""SELECT s.*, {ordinal_column} AS selection_ordinal,
+                   to_jsonb(m) AS registered_manifest,to_jsonb(r) AS current_review
+                   FROM {source}
                    LEFT JOIN sample_asset_manifests m
                      ON (m.dataset_id,m.sample_id,m.sample_revision)=
                         (s.manifest_dataset_id,s.sample_id,s.sample_revision)
@@ -112,14 +130,14 @@ class ExportRepository:
                              (s.audit_id,s.sample_id,s.sample_revision)
                        ORDER BY r.revision DESC LIMIT 1
                    ) r ON TRUE
-                   WHERE s.audit_id=%s ORDER BY s.ordinal LIMIT %s""",
+                   WHERE {selection_filter} ORDER BY {ordinal_column} LIMIT %s""",
                 (request.audit_id, policy.max_samples + 1),
             ).fetchall()
             if len(rows) != audit.sample_count or len(rows) > policy.max_samples:
                 raise ExportDependencyError("The audit pin ledger is inconsistent.")
             samples = []
             for ordinal, row in enumerate(rows):
-                if (row["ordinal"] != ordinal or row["manifest_dataset_id"] != audit.dataset_id
+                if (row["selection_ordinal"] != ordinal or row["manifest_dataset_id"] != audit.dataset_id
                         or row["registered_manifest"] is None):
                     raise ExportDependencyError("An audit manifest association is invalid.")
                 manifest = SampleAssetManifestRepository._decode(row["registered_manifest"])
@@ -127,7 +145,7 @@ class ExportRepository:
                     _ReviewPin, row["current_review"])
                 if review is not None and (
                     (review.audit_id, review.sample_id, review.sample_revision)
-                    != (audit.audit_id, row["sample_id"], row["sample_revision"])
+                    != (row["audit_id"], row["sample_id"], row["sample_revision"])
                 ):
                     raise ExportDependencyError("The current review does not match its audit pin.")
                 availability = CapturedAvailability(**{
@@ -137,6 +155,7 @@ class ExportRepository:
                 decision = SampleReviewDecision.PENDING_REVIEW if review is None else review.decision
                 reason = exclusion(decision, request.selection, request.include_images, availability)
                 entry = ExportManifestEntry(
+                    result_audit_id=row["audit_id"],
                     sample_id=row["sample_id"], sample_revision=row["sample_revision"],
                     ordinal=ordinal, processing_state=row["status"], included=reason is None,
                     review_decision=decision, review_revision=0 if review is None else review.revision,
@@ -150,6 +169,7 @@ class ExportRepository:
                 source_mode="snapshot", rulebook_id=audit.rulebook_id,
                 rulebook_version=audit.rulebook_version, selection=request.selection,
                 include_images=request.include_images, selected_at=selected_at,
+                include_rechecks=request.include_rechecks,
                 entries=[s.entry for s in samples],
             )
             frozen = FrozenExport(manifest=document, samples=samples, policy=policy)

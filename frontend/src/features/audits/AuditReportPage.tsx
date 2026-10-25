@@ -25,19 +25,20 @@ export const AuditReportPage: React.FC = () => {
     enabled: Boolean(auditId),
   });
   const queue = useQuery({
-    queryKey: queryKeys.auditSamples(auditId!, { toolStatusFilter: 'all', reviewStatusFilter: 'all' }),
-    queryFn: () => apiGetAllPages('/audits/{audit_id}/samples', { path: { audit_id: auditId! }, query: { limit: 100, offset: 0 } }),
+    queryKey: queryKeys.auditSamples(auditId!, { toolStatusFilter: 'all', reviewStatusFilter: 'all', include_rechecks: true }),
+    queryFn: () => apiGetAllPages('/audits/{audit_id}/samples', { path: { audit_id: auditId! }, query: { limit: 100, offset: 0, include_rechecks: true } }),
     enabled: Boolean(auditId),
   });
 
   // Findings live on each sample record; load them with bounded concurrency and reuse the review cache.
   const details = useQuery({
-    queryKey: ['audits', auditId, 'report-details', queue.data?.items.length],
+    queryKey: ['audits', auditId, 'report-details', queue.dataUpdatedAt],
     queryFn: async () => {
       setLoaded(0);
       return mapWithConcurrency(queue.data!.items, 4, (item) => queryClient.fetchQuery({
-        queryKey: queryKeys.auditSample(auditId!, item.sample_id),
-        queryFn: () => apiGet('/audits/{audit_id}/samples/{sample_id}', { path: { audit_id: auditId!, sample_id: item.sample_id } }),
+        queryKey: queryKeys.auditSample(item.result_audit_id ?? auditId!, item.sample_id),
+        staleTime: 0,
+        queryFn: () => apiGet('/audits/{audit_id}/samples/{sample_id}', { path: { audit_id: item.result_audit_id ?? auditId!, sample_id: item.sample_id } }),
       }), setLoaded);
     },
     enabled: Boolean(queue.data?.items.length),
@@ -53,6 +54,7 @@ export const AuditReportPage: React.FC = () => {
   const exportJson = () => downloadText(`${auditId}-report.json`, JSON.stringify({
     audit: audit.data,
     generated_at: new Date().toISOString(),
+    include_rechecks: true,
     summary,
     rules,
     findings: rows,
@@ -70,8 +72,8 @@ export const AuditReportPage: React.FC = () => {
           </p>
         </div>
         <div className="report-actions">
-          <Button size="sm" variant="secondary" leftIcon={<Download size={13} />} disabled={!details.data} onClick={exportCsv}>CSV</Button>
-          <Button size="sm" variant="secondary" leftIcon={<FileJson size={13} />} disabled={!details.data} onClick={exportJson}>JSON</Button>
+          <Button size="sm" variant="secondary" leftIcon={<Download size={13} />} disabled={!details.data || details.isFetching || queue.isFetching || !!details.error || !!queue.error} onClick={exportCsv}>CSV</Button>
+          <Button size="sm" variant="secondary" leftIcon={<FileJson size={13} />} disabled={!details.data || details.isFetching || queue.isFetching || !!details.error || !!queue.error} onClick={exportJson}>JSON</Button>
           <Button size="sm" variant="secondary" leftIcon={<Printer size={13} />} onClick={() => window.print()}>Print</Button>
         </div>
       </header>
@@ -79,7 +81,7 @@ export const AuditReportPage: React.FC = () => {
       {(audit.error || queue.error || details.error) && <p role="alert" className="text-status-fail text-xs">{String(audit.error ?? queue.error ?? details.error)}</p>}
 
       <section className="report-tiles" aria-label="Summary">
-        <Tile label="Samples" value={total} detail={audit.data ? `${audit.data.processed_count} processed · ${audit.data.failed_count} failed` : undefined} />
+        <Tile label="Samples" value={total} detail="Latest attempt for each image, including rechecks" />
         <Tile label="Reviewed" value={total - summary.review.pending_review} detail={`${pct(total - summary.review.pending_review, total)} of samples`} />
         <Tile label="Accepted" value={summary.review.accepted} detail={pct(summary.review.accepted, total)} tone="pass" />
         <Tile label="Rejected" value={summary.review.rejected} detail={pct(summary.review.rejected, total)} tone="fail" />

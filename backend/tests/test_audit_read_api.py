@@ -633,3 +633,26 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
     response = client.put("/api/v1/audits/audit_1/samples/sample_1/review", json={})
     assert response.status_code == 422
     assert_contract("ErrorResponse", response.json())
+
+
+def test_latest_attempt_sample_read_forwards_flag_and_preserves_owner(api, detail):
+    client, repository = api
+    detail.audit_id = 'child_1'
+    detail.workspace_audit_id = 'audit_1'
+    detail.summary.result_audit_id = 'child_1'
+    detail.review.audit_id = 'child_1'
+    repository.get_sample.return_value = detail
+    response = client.get('/api/v1/audits/audit_1/samples/sample_1?include_rechecks=true')
+    assert response.status_code == 200
+    assert response.json()['audit_id'] == 'child_1'
+    assert response.json()['workspace_audit_id'] == 'audit_1'
+    repository.get_sample.assert_called_once_with('audit_1', 'sample_1', include_rechecks=True)
+
+
+def test_latest_attempt_queue_forwards_flag(api):
+    client, repository = api
+    repository.list_samples.return_value = AuditSamplePage(items=[], limit=20, offset=0, total=0, next_offset=None)
+    assert client.get('/api/v1/audits/audit_1/samples?include_rechecks=true').status_code == 200
+    repository.list_samples.assert_called_once_with(
+        'audit_1', limit=20, offset=0, tool_status=None, review_status=None, include_rechecks=True,
+    )

@@ -195,7 +195,9 @@ actions the running backend currently supports.
 7. **Implemented:** resolve findings and record sample decisions separately.
    **Implemented in source:** correct boxes, labels and masks through a new immutable revision; see CORRECTIONS.md.
 8. **Implemented in source:** recheck corrected revisions through an audit-kind job. This creates a child audit, retaining old evidence
-   and requiring a new reviewer decision. Export the reviewed child audit.
+   and requiring a new reviewer decision. Keep the original review workspace open with
+   `include_rechecks=true`; export that workspace with the same flag to include the latest
+   attempt for each image. Earlier attempts remain available as history.
 9. **Implemented:** prepare an export from a terminal snapshot-backed audit, poll
    its job, then download the ZIP and JSON manifest. Corrections/rechecks are not prerequisites.
 10. **Planned:** inspect approved correction examples, create an example-retrieval policy,

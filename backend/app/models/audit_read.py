@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from .audit import AuditFailure
 from .finding import Finding
@@ -60,6 +60,20 @@ class SampleAuditSummary(BaseModel):
     review_status: SampleReviewDecision = Field(strict=False)
     finding_counts: FindingCounts
     thumbnail_url: NonBlankText | None = None
+    result_audit_id: NonBlankText | None = None
+
+
+class SampleAttempt(BaseModel):
+    """An immutable execution identity; reviews belong to this exact attempt."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    audit_id: NonBlankText
+    job_id: NonBlankText
+    sample_revision: int = Field(ge=1)
+    processing_status: Literal["queued", "running", "completed", "failed", "cancelled"]
+    created_at: AwareDatetime
+    reviewer_id: NonBlankText | None = None
 
 
 class AuditSamplePage(BaseModel):
@@ -110,6 +124,8 @@ class SampleAudit(BaseModel):
     findings: list[Finding]
     failures: list[AuditFailure]
     review: SampleReview
+    workspace_audit_id: NonBlankText | None = None
+    attempts: list[SampleAttempt] = Field(default_factory=list)
 
 
 class ErrorResponse(BaseModel):

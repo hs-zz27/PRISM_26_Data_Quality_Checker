@@ -1,9 +1,8 @@
 # Start the local application with: docker compose up --build -d
 x-backend: &backend
   image: cdif-backend:local
-  build:
-    context: .
-    dockerfile: docker/backend.Dockerfile
+  # Every backend service uses the image built once by the API service below.
+  pull_policy: never
   init: true
   restart: unless-stopped
   env_file: .env
@@ -51,6 +50,9 @@ services:
 
   api:
     <<: *backend
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     healthcheck:

@@ -38,6 +38,7 @@ export function makeSummary(overrides: Partial<SampleAuditSummary> = {}): Sample
     review_status: 'pending_review',
     finding_counts: { pass: 0, fail: 1, unsure: 0, unavailable: 0 },
     thumbnail_url: null,
+    result_audit_id: 'audit-1',
     ...overrides,
   };
 }
@@ -47,6 +48,8 @@ export function makeSampleAudit(findings: Finding[], overrides: Partial<SampleAu
   return {
     audit_id: 'audit-1',
     dataset_id: 'dataset-1',
+    workspace_audit_id: 'audit-1',
+    attempts: [],
     measurements: {},
     failures: [],
     review: { audit_id: 'audit-1', sample_id: summary.sample_id, sample_revision: summary.sample_revision, revision: 0, decision: 'pending_review', reviewer_id: null, comment: null, updated_at: null },
