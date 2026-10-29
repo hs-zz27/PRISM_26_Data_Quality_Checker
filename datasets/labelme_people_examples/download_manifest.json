@@ -1,0 +1,95 @@
+{
+  "retrieved_at": "2026-10-29T04:30:29.358440+00:00",
+  "dataset": "Official LabelMe instance-segmentation examples",
+  "upstream_revision": "main; exact downloaded bytes identified by SHA-256",
+  "alterations": "None. All image and annotation files are upstream bytes.",
+  "license_note": "Repository licence is included; retain upstream PASCAL VOC image provenance. Repository software licence is not a separate image-rights grant.",
+  "files": [
+    {
+      "file": "2011_000003.jpg",
+      "url": "https://raw.githubusercontent.com/wkentaro/labelme/main/examples/instance_segmentation/data_annotated/2011_000003.jpg",
+      "bytes": 147408,
+      "sha256": "94bc550055447e1fab3982571d7114eb4a02a868054f34cb15f95cadf3e48c9a"
+    },
+    {
+      "file": "2011_000003.json",
+      "url": "https://raw.githubusercontent.com/wkentaro/labelme/main/examples/instance_segmentation/data_annotated/2011_000003.json",
+      "bytes": 9345,
+      "sha256": "0aa7c87bd4f11d3ab38d63fa9bc2a11640d77c0eca2a13968e852478f63021dc"
+    },
+    {
+      "file": "2011_000006.jpg",
+      "url": "https://raw.githubusercontent.com/wkentaro/labelme/main/examples/instance_segmentation/data_annotated/2011_000006.jpg",
+      "bytes": 108615,
+      "sha256": "a0d04eb84ed3cd07282d61833d219c11fd6d98f53dc0135d4b3c720b26cfb244"
+    },
+    {
+      "file": "2011_000006.json",
+      "url": "https://raw.githubusercontent.com/wkentaro/labelme/main/examples/instance_segmentation/data_annotated/2011_000006.json",
+      "bytes": 10129,
+      "sha256": "8f7f13768d9b25927f3dd19d317f33807b13d571d56ec801eea57798999ec9b8"
+    },
+    {
+      "file": "2011_000025.jpg",
+      "url": "https://raw.githubusercontent.com/wkentaro/labelme/main/examples/instance_segmentation/data_annotated/2011_000025.jpg",
+      "bytes": 136977,
+      "sha256": "5dfbdc6981c971986773e226d827f44f7497cf5ca0d4fa1556fd7575aba301ce"
+    },
+    {
+      "file": "2011_000025.json",
+      "url": "https://raw.githubusercontent.com/wkentaro/labelme/main/examples/instance_segmentation/data_annotated/2011_000025.json",
+      "bytes": 3992,
+      "sha256": "df548de624182d99286bc3f5b0f18e287ee6d1fab00f53784b9deaf7c00870ab"
+    },
+    {
+      "file": "UPSTREAM_README.md",
+      "url": "https://raw.githubusercontent.com/wkentaro/labelme/main/examples/instance_segmentation/README.md",
+      "bytes": 2099,
+      "sha256": "22a8f4b5d04ddafdcf52b92bcb2ff6caf12beb3d7121e8c9daca17a424619afa"
+    },
+    {
+      "file": "UPSTREAM_REPOSITORY_LICENSE",
+      "url": "https://raw.githubusercontent.com/wkentaro/labelme/main/LICENSE",
+      "bytes": 35147,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    }
+  ],
+  "samples": [
+    {
+      "file": "2011_000003.json",
+      "labels": [
+        "person",
+        "person",
+        "person",
+        "bottle",
+        "__ignore__"
+      ],
+      "embedded_image": false
+    },
+    {
+      "file": "2011_000006.json",
+      "labels": [
+        "person",
+        "person",
+        "person",
+        "chair",
+        "person",
+        "__ignore__",
+        "sofa",
+        "sofa",
+        "sofa",
+        "sofa"
+      ],
+      "embedded_image": false
+    },
+    {
+      "file": "2011_000025.json",
+      "labels": [
+        "bus",
+        "bus",
+        "car"
+      ],
+      "embedded_image": false
+    }
+  ]
+}

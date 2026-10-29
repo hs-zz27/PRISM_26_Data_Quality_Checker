@@ -1,0 +1,45 @@
+{
+  "format": "labelme",
+  "source_path": "datasets/labelme_people_examples/2011_000006.json",
+  "unassigned_annotation_count": 0,
+  "reader_issues": [],
+  "images": [
+    {
+      "image_key": "",
+      "file_name": "2011_000006.jpg",
+      "annotation_count": 10,
+      "availability": "available",
+      "actual_width": 500,
+      "actual_height": 375,
+      "image_format": "JPEG",
+      "sha256": "a0d04eb84ed3cd07282d61833d219c11fd6d98f53dc0135d4b3c720b26cfb244",
+      "issues": []
+    }
+  ],
+  "geometry_issues": [
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/shapes/0/points",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/shapes/1/points",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "polygon_outside_image",
+      "location": "/shapes/3/points",
+      "message": "Polygon vertices extend outside the decoded image extent.",
+      "severity": "error"
+    }
+  ],
+  "diagnostic_counts": {
+    "self_intersecting_polygon": 2,
+    "polygon_outside_image": 1
+  },
+  "inspection_only": true,
+  "validated_at": "2026-10-29T04:38:52.411442+00:00"
+}
