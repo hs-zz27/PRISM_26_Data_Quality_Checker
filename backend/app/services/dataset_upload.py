@@ -63,7 +63,7 @@ def submit_archive(
     loop. Ingress/parser limits remain Phase 3; this counter is not an ingress cap.
     """
     name = TypeAdapter(Identifier).validate_python(name, strict=True)
-    if type(format) is not str or format != "penn_fudan":
+    if type(format) is not str or format not in {"penn_fudan", "coco", "labelme"}:
         raise ValueError("Unsupported dataset format.")
     effective = load_import_settings() if settings is None else ImportSettings.model_validate(settings.model_dump())
     submission = uuid4().hex
@@ -96,7 +96,7 @@ def submit_archive(
         request = ImportRequest(
             job_id=f"job_dataset_import_{uuid4().hex}", dataset_id=f"dataset_{uuid4().hex}",
             archive_key=f"uploads/{submission}/archive.zip", archive_sha256=digest.hexdigest(),
-            archive_size_bytes=size, policy=effective.policy,
+            archive_size_bytes=size, policy=effective.policy, format=format,
         )
         try:
             result = repository.enqueue(request, name=name, format=format)

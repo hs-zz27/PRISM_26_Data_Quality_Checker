@@ -71,7 +71,7 @@ def reader(boxes, fail=False):
     return read
 
 
-MANIFEST = SimpleNamespace(original_image=SimpleNamespace(sha256="a" * 64), annotation_text=SimpleNamespace(sha256="b" * 64))
+MANIFEST = SimpleNamespace(annotation_format="penn_fudan", original_image=SimpleNamespace(sha256="a" * 64), annotation_text=SimpleNamespace(sha256="b" * 64))
 
 
 class FakeOllama:
@@ -436,7 +436,7 @@ def test_the_spawned_child_runs_the_enclosure_step_after_evaluation(monkeypatch)
         return marker
 
     monkeypatch.setattr("backend.app.services.enclosure.augment_enclosure", fake_augment)
-    message, _ = child(monkeypatch, manifest=SimpleNamespace(), settings=object(), enclosure=runtime())
+    message, _ = child(monkeypatch, manifest=SimpleNamespace(annotation_format="penn_fudan"), settings=object(), enclosure=runtime())
     assert message[0] == "success" and message[3] == 7 and calls[0][2] == {"audit_id": "audit_1", "sample_id": "sample_1", "sample_revision": 2, "processing_deadline": None}
 
 

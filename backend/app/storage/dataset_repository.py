@@ -168,7 +168,8 @@ class DatasetRepository:
                 url=(f"/api/v1/datasets/{quote(source.dataset_id, safe='')}/samples/"
                      f"{quote(source.sample_id, safe='')}/assets/{kind}"
                      f"?revision={source.sample_revision}"),
-                content_type="image/png", revision=source.sample_revision,
+                content_type=source.original_image.content_type if kind == "image" else "image/png",
+                revision=source.sample_revision,
             )
 
         image = source.original_image.availability.value == "available"
@@ -335,7 +336,7 @@ class DatasetRepository:
             "SELECT * FROM datasets WHERE dataset_id=%s FOR UPDATE", (claim.request.dataset_id,),
         ).fetchone()
         try:
-            saved = ImportRequest.model_validate(dict(request))
+            saved = ImportRequest.model_validate({**dict(request), "format": dataset["format"]})
         except (TypeError, ValueError) as error:
             raise DatasetStorageError("The private import ledger failed validation.") from error
         if (saved != claim.request or dataset is None
@@ -368,6 +369,7 @@ class DatasetRepository:
         for role in ("original_image", "raw_mask", "annotation_text"):
             columns.extend(f"{role}_{suffix}" for suffix in
                            ("availability", "storage_key", "content_type", "sha256", "size_bytes"))
+        columns.extend(("annotation_format", "image_key"))
         inserted = connection.execute(
             "INSERT INTO sample_asset_manifests (" + ",".join(columns) + ") VALUES ("
             + ",".join(["%s"] * len(columns))
@@ -389,7 +391,8 @@ class DatasetRepository:
             raise TypeError("Expected ImportClaim and SamplePublication models.")
         claim = ImportClaim.model_validate(claim.model_dump())
         prepared = SamplePublication.model_validate(prepared.model_dump())
-        if prepared.sample.dataset_id != claim.request.dataset_id or prepared.sample.revision != 1:
+        if (prepared.sample.dataset_id != claim.request.dataset_id or prepared.sample.revision != 1
+                or prepared.manifest.annotation_format != claim.request.format):
             raise ValueError("An import publishes only revision 1 of its own dataset.")
         bounds = claim.request.policy
         if len(prepared.sample.objects) > bounds.max_objects_per_sample:

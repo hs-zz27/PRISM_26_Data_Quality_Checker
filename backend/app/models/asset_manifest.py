@@ -1,10 +1,11 @@
 """Immutable metadata for one dataset sample revision's source assets."""
 
 from enum import StrEnum
+from typing import Literal
 from pathlib import PurePosixPath, PureWindowsPath
 import re
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, model_serializer
 
 from .rule import NonBlankText
 
@@ -77,6 +78,26 @@ class SampleAssetManifest(BaseModel):
     dataset_id: NonBlankText
     sample_id: NonBlankText
     sample_revision: int = Field(ge=1)
+    annotation_format: Literal["penn_fudan", "coco", "labelme"] = "penn_fudan"
+    image_key: str | None = None
     original_image: AssetManifestEntry
     raw_mask: AssetManifestEntry
     annotation_text: AssetManifestEntry
+
+    @model_validator(mode="after")
+    def format_binding(self):
+        if self.annotation_format == "penn_fudan" and self.image_key is not None:
+            raise ValueError("Penn-Fudan does not use a JSON image key.")
+        if self.annotation_format != "penn_fudan" and self.image_key is None:
+            raise ValueError("JSON annotations require a pinned image record key.")
+        return self
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_identity(self, handler):
+        # Existing feedback cases/policies hash nested manifest JSON. Keep the
+        # historical Penn-Fudan representation byte-for-byte hash compatible.
+        value = handler(self)
+        if self.annotation_format == "penn_fudan" and self.image_key is None:
+            value.pop("annotation_format", None)
+            value.pop("image_key", None)
+        return value

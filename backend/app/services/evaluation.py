@@ -460,7 +460,7 @@ def _evaluate_object_rule(
                 outcome, reason = FindingOutcome.PASS, None
             else:
                 outcome, reason = FindingOutcome.FAIL, "label_not_allowed"
-        elif rule.check_name == "box_validity":
+        elif rule.check_name in ("box_validity", "polygon_validity"):
             outcome, reason = _generic_outcome(envelope, field="valid")
         elif rule.check_name == "box_mask_alignment":
             outcome, reason = _numeric_outcome(

@@ -99,7 +99,7 @@ def test_constraints_defaults_nullability_and_exact_error_inventory():
     assert set(schema["required"]) == {"archive", "name", "format"}
     assert schema["additionalProperties"] is False
     assert schema["properties"]["archive"]["format"] == "binary"
-    assert schema["properties"]["format"]["const"] == "penn_fudan"
+    assert schema["properties"]["format"]["enum"] == ["penn_fudan", "coco", "labelme"]
 
 
 def test_every_scenario_validates_and_matches_import_lifecycle_policy():

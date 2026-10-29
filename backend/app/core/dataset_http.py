@@ -33,7 +33,7 @@ class DatasetUpload(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     archive: UploadFile = Field(json_schema_extra={"format": "binary"})
     name: Identifier
-    format: Literal["penn_fudan"]
+    format: Literal["penn_fudan", "coco", "labelme"]
 
 
 class MultipartPolicy(BaseModel):

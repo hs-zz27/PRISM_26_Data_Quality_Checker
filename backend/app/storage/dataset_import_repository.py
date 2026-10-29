@@ -37,6 +37,8 @@ def _now(connection):
 
 class DatasetImportRepository(DatasetRepository):
     def enqueue(self, request: ImportRequest, *, name: str, format="penn_fudan"):
+        if request.format != format:
+            raise ValueError("Import format must match the durable dataset format.")
         request = ImportRequest.model_validate(request.model_dump())
         if request.started_at is not None:
             raise ValueError("New imports must not already have an attempt.")
@@ -89,6 +91,7 @@ class DatasetImportRepository(DatasetRepository):
         if (dataset is None or dataset["import_job_id"] != row["job_id"]
                 or row["resource_kind"] != "dataset" or row["resource_id"] != request.dataset_id):
             raise DatasetStorageError("Import resource identity is inconsistent.")
+        request = ImportRequest.model_validate({**request.model_dump(), "format": dataset["format"]})
         return request, dataset
 
     def claim_next(self, *, worker_id: str):
@@ -229,6 +232,7 @@ class DatasetImportRepository(DatasetRepository):
                        sum(r.annotation_object_count) AS objects,min(s.ordinal) AS first,max(s.ordinal) AS last,
                        bool_and(h.sample_revision=1 AND jsonb_build_object(
                            'dataset_id',m.dataset_id,'sample_id',m.sample_id,'sample_revision',m.sample_revision,
+                           'annotation_format',m.annotation_format,'image_key',m.image_key,
                            'original_image',jsonb_build_object(
                                'availability',m.original_image_availability,'storage_key',m.original_image_storage_key,
                                'content_type',m.original_image_content_type,'sha256',m.original_image_sha256,
@@ -240,7 +244,9 @@ class DatasetImportRepository(DatasetRepository):
                            'annotation_text',jsonb_build_object(
                                'availability',m.annotation_text_availability,'storage_key',m.annotation_text_storage_key,
                                'content_type',m.annotation_text_content_type,'sha256',m.annotation_text_sha256,
-                               'size_bytes',m.annotation_text_size_bytes))=r.manifest_document) AS exact
+                               'size_bytes',m.annotation_text_size_bytes))=
+                           (jsonb_build_object('annotation_format','penn_fudan','image_key',NULL)
+                            || r.manifest_document)) AS exact
                        FROM dataset_samples s JOIN dataset_sample_heads h USING(dataset_id,sample_id)
                        JOIN dataset_sample_revisions r ON (r.dataset_id,r.sample_id,r.sample_revision)=
                            (h.dataset_id,h.sample_id,h.sample_revision)

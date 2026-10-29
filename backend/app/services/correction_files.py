@@ -33,7 +33,7 @@ def read_asset(settings, entry):
             return data
 
 
-def write_asset(settings, data, *, role):
+def write_asset(settings, data, *, role, annotation_format='penn_fudan'):
     if role not in {'annotation','mask'}:
         raise ValueError('Unsupported correction asset role.')
     limit = settings.policy.max_annotation_bytes if role=='annotation' else settings.policy.max_mask_bytes
@@ -41,10 +41,10 @@ def write_asset(settings, data, *, role):
         raise CorrectionError('UPLOAD_TOO_LARGE')
     token=uuid4().hex
     directory=settings.asset_root/'corrections'/'v1'/token
-    filename='annotation.txt' if role=='annotation' else 'mask.png'
+    filename=('annotation.txt' if annotation_format == 'penn_fudan' else 'annotation.json') if role=='annotation' else 'mask.png'
     with storage_errors():
         with directory_fd(directory,create=True,private=True):
             pass
         write_private(directory,filename,data)
     return AssetManifestEntry(availability='available',storage_key=f'corrections/v1/{token}/{filename}',
-        content_type='text/plain' if role=='annotation' else 'image/png',sha256=sha256(data).hexdigest(),size_bytes=len(data))
+        content_type=('text/plain' if annotation_format == 'penn_fudan' else 'application/json') if role=='annotation' else 'image/png',sha256=sha256(data).hexdigest(),size_bytes=len(data))

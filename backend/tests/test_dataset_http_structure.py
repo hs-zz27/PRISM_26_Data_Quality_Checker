@@ -50,7 +50,7 @@ def test_live_multipart_schema_is_strict_required_and_response_is_real_model(tmp
     assert body["required"] is True and schema["additionalProperties"] is False
     assert set(schema["required"]) == {"archive", "name", "format"}
     assert schema["properties"]["archive"]["format"] == "binary"
-    assert schema["properties"]["format"]["const"] == "penn_fudan"
+    assert schema["properties"]["format"]["enum"] == ["penn_fudan", "coco", "labelme"]
     assert {"202", "413", "415", "422", "500", "503"} <= set(operation["responses"])
     assert "DatasetImportStarted" in operation["responses"]["202"]["content"]["application/json"]["schema"]["$ref"]
     for path, method, _ in EXPECTED - {("/api/v1/datasets", "post", "importDataset")}:

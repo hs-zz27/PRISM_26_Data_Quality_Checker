@@ -44,12 +44,14 @@
         "content_type": "application/json",
         "body": {
           "dataset_formats": [
-            "penn_fudan"
+            "penn_fudan",
+            "coco",
+            "labelme"
           ],
           "guideline_input_formats": [
             "plain_text"
           ],
-          "coordinate_convention": "one_based_inclusive",
+          "coordinate_convention": "format_specific",
           "checks": [
             {
               "name": "allowed_labels",
@@ -101,6 +103,10 @@
             },
             {
               "name": "pedestrian_box_enclosure",
+              "implementation": "implemented"
+            },
+            {
+              "name": "polygon_validity",
               "implementation": "implemented"
             }
           ],
@@ -830,6 +836,7 @@
               "sample_id": "sample_001",
               "dataset_id": "dataset_demo",
               "revision": 1,
+              "annotation_format": "penn_fudan",
               "image_size": [
                 4,
                 3
@@ -915,6 +922,7 @@
           "sample_id": "sample_001",
           "dataset_id": "dataset_demo",
           "revision": 1,
+          "annotation_format": "penn_fudan",
           "image_size": [
             4,
             3
@@ -6633,6 +6641,7 @@
         "sample_id": "zero_object",
         "dataset_id": "dataset_import_demo",
         "revision": 1,
+        "annotation_format": "penn_fudan",
         "image_size": [
           4,
           3
@@ -6667,6 +6676,7 @@
         "sample_id": "annotation_only",
         "dataset_id": "dataset_import_demo",
         "revision": 1,
+        "annotation_format": "penn_fudan",
         "image_size": null,
         "integrity_status": "invalid",
         "objects": [
@@ -6702,6 +6712,7 @@
         "sample_id": "missing_mask",
         "dataset_id": "dataset_import_demo",
         "revision": 1,
+        "annotation_format": "penn_fudan",
         "image_size": [
           4,
           3
@@ -6744,6 +6755,7 @@
         "sample_id": "corrupt_image",
         "dataset_id": "dataset_import_demo",
         "revision": 1,
+        "annotation_format": "penn_fudan",
         "image_size": null,
         "integrity_status": "invalid",
         "objects": [
@@ -6791,6 +6803,7 @@
         "sample_id": "malformed_annotation",
         "dataset_id": "dataset_import_demo",
         "revision": 1,
+        "annotation_format": "penn_fudan",
         "image_size": [
           4,
           3
@@ -6830,6 +6843,7 @@
         "sample_id": "invalid_objects",
         "dataset_id": "dataset_import_demo",
         "revision": 1,
+        "annotation_format": "penn_fudan",
         "image_size": [
           4,
           3
@@ -7200,6 +7214,7 @@
       "sample_id": "annotation_only",
       "dataset_id": "dataset_import_demo",
       "revision": 1,
+      "annotation_format": "penn_fudan",
       "image_size": null,
       "integrity_status": "invalid",
       "objects": [
@@ -8292,6 +8307,18 @@
       "check_name": "pedestrian_box_enclosure",
       "meaning": "Model-assisted judgment that each annotation box encloses a visible pedestrian, using one marked context view per box. Opt-in; a box entirely on background is a violation. Not a tightness, size or completeness check.",
       "scope": "sample",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Checks whose semantics do not require a threshold or label list.",
+        "properties": {},
+        "title": "EmptyParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "polygon_validity",
+      "meaning": "Supplied polygons must have at least three distinct vertices, nonzero area, no non-adjacent edge intersections or repeated vertices, and remain within image bounds. Only apply when the guidelines require these structural properties; this does not judge visual fit.",
+      "scope": "object",
       "parameters_schema": {
         "additionalProperties": false,
         "description": "Checks whose semantics do not require a threshold or label list.",

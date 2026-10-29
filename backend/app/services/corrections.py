@@ -86,6 +86,8 @@ class CorrectionService:
     def upload(self,dataset_id,sample_id,expected_revision,handle):
         settings=self._settings_snapshot()
         base=self.repository.base(dataset_id,sample_id,expected_revision)
+        if base.manifest.annotation_format != 'penn_fudan':
+            raise CorrectionError('JSON_SOURCE_NOT_CORRECTABLE')
         image_size,_=decode_png(read_asset(settings,base.manifest.original_image),settings.policy)
         chunks=[]; total=0; limit=settings.policy.max_mask_bytes
         while True:
@@ -108,6 +110,11 @@ class CorrectionService:
         settings=self._settings_snapshot()
         request=checked(CorrectionRequest,request)
         base=self.repository.base(dataset_id,sample_id,request.expected_revision)
+        if base.manifest.annotation_format != 'penn_fudan':
+            from .json_corrections import prepare_json_correction
+            return self.repository.publish(prepare_json_correction(base, request, settings))
+        if any(hasattr(obj, 'coordinate_system') for obj in request.objects):
+            raise CorrectionError('VALIDATION_ERROR')
         size,channels=decode_png(read_asset(settings,base.manifest.original_image),settings.policy)
         staged=self.repository.mask(request.mask_upload_id,base) if request.mask_upload_id is not None else None
         mask=base.manifest.raw_mask if staged is None else staged.asset

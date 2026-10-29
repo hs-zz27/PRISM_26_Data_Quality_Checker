@@ -242,6 +242,9 @@ def capture_sample(
     source_root: str | Path,
     repository: SampleAssetManifestRepository,
     copy_file: Callable[[Path, Path], tuple[str, int]] | None = None,
+    source_files: dict[AssetKind, tuple[Path, str]] | None = None,
+    annotation_format: str = "penn_fudan",
+    image_key: str | None = None,
 ) -> SampleAssetManifest:
     """Capture one trusted local Penn-Fudan sample and publish its manifest.
 
@@ -259,7 +262,7 @@ def capture_sample(
     with _capture_lock(storage_root, dataset_id, sample_id, sample_revision):
         return _capture_locked(
             dataset_id, sample_id, sample_revision, source_root, storage_root,
-            repository, copy_file,
+            repository, copy_file, source_files, annotation_format, image_key,
         )
 
 
@@ -267,13 +270,31 @@ def _capture_locked(
     dataset_id: str, sample_id: str, sample_revision: int,
     source_root: Path, storage_root: Path, repository: SampleAssetManifestRepository,
     copy_file: Callable[[Path, Path], tuple[str, int]],
+    source_files: dict[AssetKind, tuple[Path, str]] | None = None,
+    annotation_format: str = "penn_fudan",
+    image_key: str | None = None,
 ) -> SampleAssetManifest:
     created: list[Path] = []
     entries: dict[AssetKind, AssetManifestEntry] = {}
 
     try:
         for kind, (_, content_type) in _SOURCE_ASSETS.items():
-            source, availability = _source_file(source_root, kind, sample_id)
+            if source_files is None:
+                source, availability = _source_file(source_root, kind, sample_id)
+            elif kind not in source_files:
+                source, availability = None, AssetAvailability.MISSING
+            else:
+                candidate, content_type = source_files[kind]
+                try:
+                    source = candidate.resolve(strict=True)
+                    source.relative_to(source_root)
+                    if not source.is_file():
+                        raise ValueError("Not a file.")
+                    availability = AssetAvailability.AVAILABLE
+                except FileNotFoundError:
+                    source, availability = None, AssetAvailability.MISSING
+                except (OSError, ValueError, RuntimeError):
+                    source, availability = None, AssetAvailability.UNREADABLE
             if availability is not AssetAvailability.AVAILABLE or source is None:
                 entries[kind] = AssetManifestEntry(availability=availability)
                 continue
@@ -320,6 +341,7 @@ def _capture_locked(
             dataset_id=dataset_id,
             sample_id=sample_id,
             sample_revision=sample_revision,
+            annotation_format=annotation_format, image_key=image_key,
             original_image=entries[AssetKind.ORIGINAL_IMAGE],
             raw_mask=entries[AssetKind.RAW_MASK],
             annotation_text=entries[AssetKind.ANNOTATION_TEXT],

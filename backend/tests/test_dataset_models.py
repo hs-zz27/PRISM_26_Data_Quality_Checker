@@ -36,7 +36,7 @@ def request(**updates):
     ("sample_count", True), ("object_count", False), ("sample_count", -1),
     ("sample_count", 1.0), ("object_count", float("nan")),
     ("object_count", float("inf")), ("sample_count", 2**63),
-    ("name", " \n"), ("unexpected", 1), ("format", "coco"),
+    ("name", " \n"), ("unexpected", 1), ("format", "unsupported_format"),
     ("created_at", datetime(2026, 10, 20)), ("status", "completed"),
 ])
 def test_dataset_rejects_invalid_primitive_or_extra(field, value):

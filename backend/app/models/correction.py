@@ -4,7 +4,7 @@ import unicodedata
 
 from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
-from .dataset import Count, Identifier, ImportedAnnotationObject, Revision, MAX_SAMPLE_OBJECTS
+from .dataset import Count, Identifier, ImportedAnnotationObject, JsonAnnotationObject, Revision, MAX_SAMPLE_OBJECTS
 from .dataset_import import SamplePublication
 from .asset_manifest import AssetManifestEntry
 
@@ -61,11 +61,35 @@ class CorrectionObject(StrictRecord):
         return self
 
 
+class JsonCorrectionObject(JsonAnnotationObject):
+    """Native JSON geometry edits; identity changes are checked against the source."""
+
+    @field_validator('bbox', mode='before')
+    @classmethod
+    def json_box(cls, value):
+        return tuple(value) if isinstance(value, list) else value
+
+    @field_validator('polygons', mode='before')
+    @classmethod
+    def json_points(cls, value):
+        if isinstance(value, list):
+            return [[tuple(point) if isinstance(point, list) else point for point in part]
+                    if isinstance(part, list) else part for part in value]
+        return value
+
+    @field_validator('label')
+    @classmethod
+    def valid_label(cls, value):
+        if not value.strip() or len(value) > 255 or '\x00' in value:
+            raise ValueError('A nonblank label of at most 255 characters is required.')
+        return value
+
+
 class CorrectionRequest(StrictRecord):
     expected_revision: Revision
     reviewer_id: StoredIdentifier
     reason: Text
-    objects: list[CorrectionObject] = Field(max_length=MAX_SAMPLE_OBJECTS)
+    objects: list[CorrectionObject | JsonCorrectionObject] = Field(max_length=MAX_SAMPLE_OBJECTS)
     mask_upload_id: StoredIdentifier | None = None
     source_audit_id: StoredIdentifier | None = None
 
@@ -115,7 +139,7 @@ class AnnotationRevision(StrictRecord):
     sample_id: StoredIdentifier
     revision: Revision
     parent_revision: Revision | None
-    objects: list[ImportedAnnotationObject] = Field(max_length=MAX_SAMPLE_OBJECTS)
+    objects: list[ImportedAnnotationObject | JsonAnnotationObject] = Field(max_length=MAX_SAMPLE_OBJECTS)
     mask_changed: bool | None
     reviewer_id: StoredIdentifier | None
     reason: Text | None
@@ -192,11 +216,13 @@ class PreparedCorrection(StrictRecord):
                 or before.ordinal != after.ordinal or before.sample.revision != self.request.expected_revision
                 or after.sample.revision != before.sample.revision + 1
                 or after.manifest.original_image != before.manifest.original_image
+                or after.manifest.annotation_format != before.manifest.annotation_format
+                or after.manifest.image_key != before.manifest.image_key
                 or after.annotation_object_count != len(self.request.objects)
                 or [o.model_dump() for o in after.sample.objects] != [o.model_dump() for o in self.request.objects]
                 or after.sample.integrity_status.value != 'valid' or after.sample.image_size is None
                 or after.manifest.annotation_text.availability.value != 'available'
-                or after.manifest.annotation_text.content_type != 'text/plain'
+                or after.manifest.annotation_text.content_type != ('text/plain' if before.manifest.annotation_format == 'penn_fudan' else 'application/json')
                 or after.manifest.annotation_text.size_bytes < 1
                 or after.manifest.annotation_text.storage_key == before.manifest.annotation_text.storage_key):
             raise ValueError('Prepared correction disagrees with its exact base and request.')

@@ -141,6 +141,8 @@ class ExportRepository:
                         or row["registered_manifest"] is None):
                     raise ExportDependencyError("An audit manifest association is invalid.")
                 manifest = SampleAssetManifestRepository._decode(row["registered_manifest"])
+                if manifest.annotation_format != request.format:
+                    raise AuditNotExportable()
                 review = None if row["current_review"] is None else _decode(
                     _ReviewPin, row["current_review"])
                 if review is not None and (
@@ -153,7 +155,7 @@ class ExportRepository:
                     for role in CapturedAvailability.model_fields
                 })
                 decision = SampleReviewDecision.PENDING_REVIEW if review is None else review.decision
-                reason = exclusion(decision, request.selection, request.include_images, availability)
+                reason = exclusion(decision, request.selection, request.include_images, availability, request.format)
                 entry = ExportManifestEntry(
                     result_audit_id=row["audit_id"],
                     sample_id=row["sample_id"], sample_revision=row["sample_revision"],
@@ -165,6 +167,7 @@ class ExportRepository:
                 )
                 samples.append(FrozenSample(entry=entry, manifest=manifest))
             document = ExportManifest(
+                format=request.format,
                 export_id=export_id, audit_id=audit.audit_id, dataset_id=audit.dataset_id,
                 source_mode="snapshot", rulebook_id=audit.rulebook_id,
                 rulebook_version=audit.rulebook_version, selection=request.selection,

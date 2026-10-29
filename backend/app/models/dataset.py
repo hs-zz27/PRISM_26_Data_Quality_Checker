@@ -1,7 +1,7 @@
 """Strict catalogue transports; source evidence is not a correction request."""
 
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import quote
 
 from pydantic import (
@@ -65,6 +65,8 @@ class CatalogueModel(BaseModel):
 
 class DatasetFormat(StrEnum):
     PENN_FUDAN = "penn_fudan"
+    COCO = "coco"
+    LABELME = "labelme"
 
 
 class DatasetStatus(StrEnum):
@@ -87,6 +89,22 @@ class ImportedAnnotationObject(CatalogueModel):
     object_id: int
     label: str
     bbox: tuple[int, int, int, int]
+
+
+class JsonAnnotationObject(CatalogueModel):
+    """Display identity is local; source keys/IDs and continuous geometry are retained."""
+
+    coordinate_system: Literal["zero_based_continuous"]
+    object_id: int
+    source_key: str
+    source_id: int | str | None = None
+    group_id: int | None = None
+    label: str
+    bbox: tuple[int | float, int | float, int | float, int | float] | None
+    bbox_origin: Literal["supplied", "derived_from_polygon"] | None = None
+    polygons: list[list[tuple[int | float, int | float]]] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
 
 
 class Dataset(CatalogueModel):
@@ -122,9 +140,10 @@ class Sample(CatalogueModel):
     sample_id: Identifier
     dataset_id: Identifier
     revision: Revision
+    annotation_format: Literal["penn_fudan", "coco", "labelme"] = "penn_fudan"
     image_size: tuple[Dimension, Dimension] | None
     integrity_status: IntegrityStatus = Field(strict=False)
-    objects: list[ImportedAnnotationObject] = Field(max_length=MAX_SAMPLE_OBJECTS)
+    objects: list[ImportedAnnotationObject | JsonAnnotationObject] = Field(max_length=MAX_SAMPLE_OBJECTS)
     assets: SampleAssets = Field(default_factory=SampleAssets)
     issues: list[ErrorDetail] = Field(default_factory=list, max_length=MAX_ISSUES)
 
@@ -139,13 +158,17 @@ class Sample(CatalogueModel):
 
     @model_validator(mode="after")
     def coherent_evidence(self) -> "Sample":
+        if any(isinstance(obj, JsonAnnotationObject) != (self.annotation_format != "penn_fudan") for obj in self.objects):
+            raise ValueError("Objects must use their sample format's coordinate model.")
         for kind in ("image", "mask", "mask_preview", "thumbnail"):
             reference = getattr(self.assets, kind)
             expected = (f"/api/v1/datasets/{quote(self.dataset_id, safe='')}/samples/"
                         f"{quote(self.sample_id, safe='')}/assets/{kind}?revision={self.revision}")
             if reference is not None and (
                 type(reference.revision) is not int or reference.revision != self.revision
-                or reference.url != expected or reference.content_type != "image/png"
+                or reference.url != expected or reference.content_type not in (
+                    ("image/png", "image/jpeg") if kind == "image" else ("image/png",)
+                )
             ):
                 raise ValueError("Asset references must pin this exact sample identity and role.")
         if self.integrity_status is IntegrityStatus.VALID:

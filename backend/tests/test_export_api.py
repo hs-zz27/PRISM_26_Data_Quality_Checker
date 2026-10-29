@@ -52,7 +52,7 @@ def test_post_is_durable_service_delegation_and_public_only(api):
 
 @pytest.mark.parametrize('body', [
     {'include_images': 1}, {'audit_id': '\x00'}, {'selection': 'unsure'},
-    {'format': 'coco'}, {'max_samples': 1}, {'output_path': '/private'},
+    {'format': 'unsupported_format'}, {'max_samples': 1}, {'output_path': '/private'},
 ])
 def test_invalid_public_body_has_no_enqueue(api, body):
     client, repository, _, examples = api

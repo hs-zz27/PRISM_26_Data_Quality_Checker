@@ -31,7 +31,7 @@ def test_specific_missing_role_reasons(role, state, images):
 
 @pytest.mark.parametrize('overrides', [
     {'audit_id': ''}, {'audit_id': '   '}, {'audit_id': 'a\x00b'}, {'audit_id': 3},
-    {'audit_id': 'a' * 256}, {'format': 'coco'}, {'include_images': 1}, {'include_images': 'false'},
+    {'audit_id': 'a' * 256}, {'format': 'unsupported_format'}, {'include_images': 1}, {'include_images': 'false'},
     {'selection': 'unsure'}, {'selection': 'latest'}, {'output_path': '/private'},
     {'include_rechecks': 1}, {'include_rechecks': 'true'},
 ])

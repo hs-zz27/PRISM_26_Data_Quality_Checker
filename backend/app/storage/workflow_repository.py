@@ -1174,6 +1174,7 @@ class SampleAssetManifestRepository(_WorkflowRepository):
             manifest.dataset_id, manifest.sample_id, manifest.sample_revision,
             *values(manifest.original_image), *values(manifest.raw_mask),
             *values(manifest.annotation_text),
+            manifest.annotation_format, manifest.image_key,
         )
 
     @staticmethod
@@ -1183,6 +1184,8 @@ class SampleAssetManifestRepository(_WorkflowRepository):
                 "dataset_id": row["dataset_id"],
                 "sample_id": row["sample_id"],
                 "sample_revision": row["sample_revision"],
+                "annotation_format": row.get("annotation_format", "penn_fudan"),
+                "image_key": row.get("image_key"),
                 "original_image": {
                     "availability": row["original_image_availability"],
                     "storage_key": row["original_image_storage_key"],
@@ -1224,10 +1227,10 @@ class SampleAssetManifestRepository(_WorkflowRepository):
                        raw_mask_content_type, raw_mask_sha256, raw_mask_size_bytes,
                        annotation_text_availability, annotation_text_storage_key,
                        annotation_text_content_type, annotation_text_sha256,
-                       annotation_text_size_bytes
+                       annotation_text_size_bytes, annotation_format, image_key
                    ) VALUES (
                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                       %s, %s, %s, %s, %s
+                       %s, %s, %s, %s, %s, %s, %s
                    ) ON CONFLICT (dataset_id, sample_id, sample_revision) DO NOTHING""",
                 self._row_values(snapshot),
             )

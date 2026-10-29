@@ -1,6 +1,6 @@
 """Private catalogue/import contracts. Never expose these in HTTP response models."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, ConfigDict, Field, StringConstraints, model_validator
 
@@ -45,6 +45,7 @@ class ImportRequest(CatalogueModel):
 
     job_id: Identifier
     dataset_id: Identifier
+    format: Literal["penn_fudan", "coco", "labelme"] = "penn_fudan"
     archive_key: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
     archive_sha256: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
     archive_size_bytes: Count
@@ -102,6 +103,8 @@ class SamplePublication(CatalogueModel):
             sample.dataset_id, sample.sample_id, sample.revision
         ):
             raise ValueError("Sample and manifest identities disagree.")
+        if manifest.annotation_format != sample.annotation_format:
+            raise ValueError("Sample and manifest formats disagree.")
         if any(value is not None for value in sample.assets.model_dump().values()):
             raise ValueError("Prepared evidence cannot supply public asset links.")
         if self.annotation_object_count is not None and self.annotation_object_count != len(sample.objects):
@@ -115,7 +118,8 @@ class SamplePublication(CatalogueModel):
         if sample.integrity_status is IntegrityStatus.VALID and (
             self.annotation_object_count is None or any(
                 entry.availability.value != "available" for entry in (
-                    manifest.original_image, manifest.raw_mask, manifest.annotation_text
+                    manifest.original_image, manifest.annotation_text,
+                    *([manifest.raw_mask] if manifest.annotation_format == "penn_fudan" else [])
                 )
             )
         ):

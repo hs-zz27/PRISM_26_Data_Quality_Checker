@@ -53,7 +53,7 @@ class ExclusionReason(StrEnum):
 
 class ExportRequest(Record):
     audit_id: Identifier
-    format: Literal["penn_fudan"]
+    format: Literal["penn_fudan", "coco", "labelme"]
     selection: ExportSelection = Field(strict=False)
     include_images: bool
     include_rechecks: bool = False
@@ -148,7 +148,7 @@ class ExportManifestEntry(Record):
         return self
 
 
-def exclusion(decision, selection, include_images, availability):
+def exclusion(decision, selection, include_images, availability, format="penn_fudan"):
     """Human decision first; no machine-quality veto and no history fallback."""
     if decision is SampleReviewDecision.PENDING_REVIEW:
         return ExclusionReason.PENDING_REVIEW
@@ -157,6 +157,8 @@ def exclusion(decision, selection, include_images, availability):
     if decision is SampleReviewDecision.REJECTED and selection is ExportSelection.ACCEPTED_ONLY:
         return ExclusionReason.REJECTED
     for role in ("annotation_text", "raw_mask", "original_image"):
+        if role == "raw_mask" and format != "penn_fudan":
+            continue
         if role == "original_image" and not include_images:
             continue
         status = getattr(availability, role)
@@ -166,7 +168,7 @@ def exclusion(decision, selection, include_images, availability):
 
 
 class ExportManifest(Record):
-    format: Literal["penn_fudan"] = "penn_fudan"
+    format: Literal["penn_fudan", "coco", "labelme"] = "penn_fudan"
     export_id: Identifier
     audit_id: Identifier
     dataset_id: Identifier
@@ -192,7 +194,7 @@ class ExportManifest(Record):
                 raise ValueError("Manifest entries must be unique in contiguous audit order.")
             seen.add(key)
             expected = exclusion(entry.review_decision, self.selection,
-                                 self.include_images, entry.availability)
+                                 self.include_images, entry.availability, self.format)
             if entry.reason != expected or entry.included != (expected is None):
                 raise ValueError("Manifest membership contradicts frozen selection policy.")
         return self
@@ -225,6 +227,8 @@ class FrozenExport(Record):
             raise ValueError("Frozen input count is inconsistent or exceeds policy.")
         for sample, entry in zip(self.samples, self.manifest.entries):
             m = sample.manifest
+            if m.annotation_format != self.manifest.format:
+                raise ValueError("Export format must match its captured source format.")
             if (sample.entry != entry or m.dataset_id != self.manifest.dataset_id
                     or m.sample_id != entry.sample_id or m.sample_revision != entry.sample_revision):
                 raise ValueError("Frozen manifest does not match the audited pin.")

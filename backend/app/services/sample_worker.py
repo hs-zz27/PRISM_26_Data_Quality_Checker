@@ -111,12 +111,17 @@ def run_sample_child(
         if snapshot_manifest is not None:
             if asset_settings is None:
                 raise SampleComputationError("Snapshot storage settings are required.")
-            materialize_sample(
-                snapshot_manifest, asset_settings=asset_settings,
-                target_root=Path(dataset_root),
-            )
+            if snapshot_manifest.annotation_format == "penn_fudan":
+                materialize_sample(
+                    snapshot_manifest, asset_settings=asset_settings,
+                    target_root=Path(dataset_root),
+                )
         try:
-            measurements = collector(dataset_root, sample_id, allowed_labels, connectivity)
+            if snapshot_manifest is not None and snapshot_manifest.annotation_format != "penn_fudan":
+                from .json_audit import audit_json_sample
+                measurements = audit_json_sample(snapshot_manifest, asset_settings, allowed_labels)
+            else:
+                measurements = collector(dataset_root, sample_id, allowed_labels, connectivity)
         except (OSError, UnicodeError) as error:
             message = ("source_data", type(error).__name__, str(error))
         except SampleDataError as error:

@@ -103,6 +103,10 @@ class CheckDefinition:
 
 
 CHECK_REGISTRY: dict[str, CheckDefinition] = {
+    "polygon_validity": CheckDefinition(
+        "polygon_validity", "object", EmptyParameters,
+        "Supplied polygons must have at least three distinct vertices, nonzero area, no non-adjacent edge intersections or repeated vertices, and remain within image bounds. Only apply when the guidelines require these structural properties; this does not judge visual fit.",
+    ),
     "annotation_guideline": CheckDefinition(
         "annotation_guideline", "sample", EmptyParameters,
         "Model-assisted judgment of one explicit visual annotation guideline against an image and parsed annotations. Not a fallback for numeric checks, motion, unseen facts or unsupported evidence.",

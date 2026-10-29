@@ -105,12 +105,14 @@
                 },
                 "example": {
                   "dataset_formats": [
-                    "penn_fudan"
+                    "penn_fudan",
+                    "coco",
+                    "labelme"
                   ],
                   "guideline_input_formats": [
                     "plain_text"
                   ],
-                  "coordinate_convention": "one_based_inclusive",
+                  "coordinate_convention": "format_specific",
                   "checks": [
                     {
                       "name": "allowed_labels",
@@ -162,6 +164,10 @@
                     },
                     {
                       "name": "pedestrian_box_enclosure",
+                      "implementation": "implemented"
+                    },
+                    {
+                      "name": "polygon_validity",
                       "implementation": "implemented"
                     }
                   ],
@@ -2232,7 +2238,11 @@
                     "type": "string"
                   },
                   "format": {
-                    "const": "penn_fudan",
+                    "enum": [
+                      "penn_fudan",
+                      "coco",
+                      "labelme"
+                    ],
                     "title": "Format",
                     "type": "string"
                   }
@@ -2585,6 +2595,7 @@
                       "sample_id": "sample_001",
                       "dataset_id": "dataset_demo",
                       "revision": 1,
+                      "annotation_format": "penn_fudan",
                       "image_size": [
                         4,
                         3
@@ -2803,6 +2814,7 @@
                   "sample_id": "sample_001",
                   "dataset_id": "dataset_demo",
                   "revision": 1,
+                  "annotation_format": "penn_fudan",
                   "image_size": [
                     4,
                     3
@@ -14656,7 +14668,9 @@
       },
       "DatasetFormat": {
         "enum": [
-          "penn_fudan"
+          "penn_fudan",
+          "coco",
+          "labelme"
         ],
         "title": "DatasetFormat",
         "type": "string"
@@ -14857,6 +14871,170 @@
         "title": "IntegrityStatus",
         "type": "string"
       },
+      "JsonAnnotationObject": {
+        "additionalProperties": false,
+        "description": "Display identity is local; source keys/IDs and continuous geometry are retained.",
+        "properties": {
+          "coordinate_system": {
+            "const": "zero_based_continuous",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "object_id": {
+            "title": "Object Id",
+            "type": "integer"
+          },
+          "source_key": {
+            "title": "Source Key",
+            "type": "string"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Id"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Id"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox"
+          },
+          "bbox_origin": {
+            "anyOf": [
+              {
+                "enum": [
+                  "supplied",
+                  "derived_from_polygon"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox Origin"
+          },
+          "polygons": {
+            "items": {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "title": "Polygons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "coordinate_system",
+          "object_id",
+          "source_key",
+          "label",
+          "bbox"
+        ],
+        "title": "JsonAnnotationObject",
+        "type": "object"
+      },
       "Sample": {
         "additionalProperties": false,
         "properties": {
@@ -14879,6 +15057,16 @@
             "minimum": 1,
             "title": "Revision",
             "type": "integer"
+          },
+          "annotation_format": {
+            "default": "penn_fudan",
+            "enum": [
+              "penn_fudan",
+              "coco",
+              "labelme"
+            ],
+            "title": "Annotation Format",
+            "type": "string"
           },
           "image_size": {
             "anyOf": [
@@ -14910,7 +15098,14 @@
           },
           "objects": {
             "items": {
-              "$ref": "#/components/schemas/ImportedAnnotationObject"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ImportedAnnotationObject"
+                },
+                {
+                  "$ref": "#/components/schemas/JsonAnnotationObject"
+                }
+              ]
             },
             "maxItems": 10000,
             "title": "Objects",
@@ -15026,7 +15221,11 @@
             "type": "string"
           },
           "format": {
-            "const": "penn_fudan",
+            "enum": [
+              "penn_fudan",
+              "coco",
+              "labelme"
+            ],
             "title": "Format",
             "type": "string"
           }
@@ -15058,7 +15257,11 @@
             "type": "string"
           },
           "format": {
-            "const": "penn_fudan",
+            "enum": [
+              "penn_fudan",
+              "coco",
+              "labelme"
+            ],
             "title": "Format",
             "type": "string"
           },
@@ -15095,7 +15298,11 @@
             "type": "string"
           },
           "format": {
-            "const": "penn_fudan",
+            "enum": [
+              "penn_fudan",
+              "coco",
+              "labelme"
+            ],
             "title": "Format",
             "type": "string"
           },
@@ -15434,8 +15641,12 @@
         "additionalProperties": false,
         "properties": {
           "format": {
-            "const": "penn_fudan",
             "default": "penn_fudan",
+            "enum": [
+              "penn_fudan",
+              "coco",
+              "labelme"
+            ],
             "title": "Format",
             "type": "string"
           },
@@ -15670,6 +15881,170 @@
         "title": "MaskUpload",
         "type": "object"
       },
+      "JsonCorrectionObject": {
+        "additionalProperties": false,
+        "description": "Native JSON geometry edits; identity changes are checked against the source.",
+        "properties": {
+          "coordinate_system": {
+            "const": "zero_based_continuous",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "object_id": {
+            "title": "Object Id",
+            "type": "integer"
+          },
+          "source_key": {
+            "title": "Source Key",
+            "type": "string"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Id"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Id"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox"
+          },
+          "bbox_origin": {
+            "anyOf": [
+              {
+                "enum": [
+                  "supplied",
+                  "derived_from_polygon"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox Origin"
+          },
+          "polygons": {
+            "items": {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "title": "Polygons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "coordinate_system",
+          "object_id",
+          "source_key",
+          "label",
+          "bbox"
+        ],
+        "title": "JsonCorrectionObject",
+        "type": "object"
+      },
       "CorrectionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -15695,7 +16070,14 @@
           },
           "objects": {
             "items": {
-              "$ref": "#/components/schemas/CorrectionObject"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CorrectionObject"
+                },
+                {
+                  "$ref": "#/components/schemas/JsonCorrectionObject"
+                }
+              ]
             },
             "maxItems": 10000,
             "title": "Objects",
@@ -15779,7 +16161,14 @@
           },
           "objects": {
             "items": {
-              "$ref": "#/components/schemas/ImportedAnnotationObject"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ImportedAnnotationObject"
+                },
+                {
+                  "$ref": "#/components/schemas/JsonAnnotationObject"
+                }
+              ]
             },
             "maxItems": 10000,
             "title": "Objects",
@@ -17935,8 +18324,8 @@
             "type": "array"
           },
           "coordinate_convention": {
-            "const": "one_based_inclusive",
-            "description": "Annotation boxes. Detection evidence documents its own zero-based pixel-edge convention inside each evidence record.",
+            "const": "format_specific",
+            "description": "Penn-Fudan uses one-based inclusive boxes. COCO and LabelMe use zero-based continuous coordinates. Detection evidence documents its own convention.",
             "title": "Coordinate Convention",
             "type": "string"
           },

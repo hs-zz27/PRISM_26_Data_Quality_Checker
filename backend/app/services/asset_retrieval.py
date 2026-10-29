@@ -90,4 +90,6 @@ class SampleAssetService:
         # These public source roles are PNGs. Stored metadata must not choose
         # an executable HTTP content type. Preserve even malformed captured
         # bytes for inspection; only preview requests decode the source.
-        return RetrievedAsset(content=content, content_type="image/png")
+        # Select only a safe image MIME type, never arbitrary stored metadata.
+        content_type = "image/jpeg" if kind is PublicAssetKind.IMAGE and content.startswith(b"\xff\xd8\xff") else "image/png"
+        return RetrievedAsset(content=content, content_type=content_type)

@@ -56,7 +56,10 @@ def _child(request_json: str, settings_json: str, directory_string: str, parent_
     directory = Path(directory_string)
     try:
         # Local import keeps worker module import free from PNG/NumPy startup cost.
-        from ..datasets.penn_fudan_zip import prepare_sample, unpack_archive
+        if request.format == "penn_fudan":
+            from ..datasets.penn_fudan_zip import prepare_sample, unpack_archive
+        else:
+            from ..datasets.json_zip import prepare_sample, unpack_archive
         source = directory / "extracted"
         ids, unsupported = unpack_archive(settings.root / request.archive_key, source, request)
         _emit(directory, {"kind": "discovery", "total": len(ids), "unsupported": unsupported}, request.policy.max_result_bytes)

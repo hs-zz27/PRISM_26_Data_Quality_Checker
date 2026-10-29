@@ -86,7 +86,7 @@ def test_measured_cap_and_source_exception_cleanup(tmp_path):
     assert list((effective.root / "uploads").iterdir()) == []
 
 
-@pytest.mark.parametrize("name,format", [(" ", "penn_fudan"), ("x", "coco"), (True, "penn_fudan")])
+@pytest.mark.parametrize("name,format", [(" ", "penn_fudan"), ("x", "unsupported_format"), (True, "penn_fudan")])
 def test_fields_rejected_before_staging(tmp_path, name, format):
     effective = settings(tmp_path)
     with pytest.raises(ValueError):

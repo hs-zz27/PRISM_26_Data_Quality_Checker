@@ -44,7 +44,7 @@ def test_acceptance_returns_public_queued_pair_closes_handle_without_import(api)
 
 @pytest.mark.parametrize("data", [{"format": "penn_fudan"}, {"name": "Example"},
     {"name": " ", "format": "penn_fudan"}, {"name": "x\x00y", "format": "penn_fudan"},
-    {"name": "x"*256, "format": "penn_fudan"}, {"name": "x", "format": "coco"},
+    {"name": "x"*256, "format": "penn_fudan"}, {"name": "x", "format": "unsupported_format"},
     *[{"name": "x", "format": "penn_fudan", key: "forbidden"} for key in
       ("dataset_id", "revision", "root", "policy", "job_id", "worker_id", "status")]])
 def test_strict_form_fields_return_safe_422_without_acceptance(api, data):

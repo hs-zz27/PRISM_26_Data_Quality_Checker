@@ -34,7 +34,8 @@ Revision = Annotated[int, Query(ge=1)]
     responses={
         200: {
             "description": "Verified raw or derived PNG bytes.",
-            "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}},
+            "content": {mime: {"schema": {"type": "string", "format": "binary"}}
+                        for mime in ("image/png", "image/jpeg")},
         },
     },
 )

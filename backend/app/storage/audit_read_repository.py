@@ -38,6 +38,7 @@ _SAMPLE_VIEW_TEMPLATE = """
     SELECT s.audit_id, s.sample_id, s.sample_revision, {ordinal} AS ordinal,
            s.manifest_dataset_id,
            manifest.original_image_availability AS manifest_image_availability,
+           manifest.original_image_content_type AS manifest_image_content_type,
            manifest.raw_mask_availability AS manifest_mask_availability,
            s.status AS processing_status, s.incomplete,
            to_jsonb(latest) AS current_review,
@@ -107,7 +108,7 @@ def _asset_reference(
         return None
     return AssetReference(
         url=_asset_url(row, asset_kind),
-        content_type=_ASSET_CONTENT_TYPE,
+        content_type=("image/jpeg" if asset_kind == "image" and row.get("manifest_image_content_type") == "image/jpeg" else _ASSET_CONTENT_TYPE),
         revision=row["sample_revision"],
     )
 

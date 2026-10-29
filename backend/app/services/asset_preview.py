@@ -35,10 +35,10 @@ class RenderedPreview:
     content_type: ClassVar[str] = "image/png"
 
 
-def _decode_png(content: bytes) -> Image.Image:
+def _decode_png(content: bytes, *, allow_jpeg: bool = False) -> Image.Image:
     try:
         with Image.open(BytesIO(content)) as source:
-            if source.format != "PNG":
+            if source.format not in ({"PNG", "JPEG"} if allow_jpeg else {"PNG"}):
                 raise PreviewUnavailableError("The captured asset is not a PNG image.")
             if source.width * source.height > MAX_PREVIEW_PIXELS:
                 raise PreviewUnavailableError("The captured image exceeds the preview pixel limit.")
@@ -104,7 +104,7 @@ class SamplePreviewService:
             dataset_id, sample_id, sample_revision, asset_kind,
             max_bytes=MAX_PREVIEW_SOURCE_BYTES,
         )
-        with _decode_png(content) as source:
+        with _decode_png(content, allow_jpeg=kind is PreviewKind.THUMBNAIL) as source:
             if kind is PreviewKind.THUMBNAIL:
                 rendered = source.convert("RGBA")
             else:

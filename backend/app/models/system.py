@@ -40,10 +40,10 @@ class Capabilities(BaseModel):
 
     dataset_formats: list[str]
     guideline_input_formats: list[str]
-    coordinate_convention: Literal["one_based_inclusive"] = Field(
+    coordinate_convention: Literal["format_specific"] = Field(
         description=(
-            "Annotation boxes. Detection evidence documents its own zero-based pixel-edge "
-            "convention inside each evidence record."
+            "Penn-Fudan uses one-based inclusive boxes. COCO and LabelMe use zero-based continuous "
+            "coordinates. Detection evidence documents its own convention."
         ),
     )
     checks: list[CheckCapability] = Field(

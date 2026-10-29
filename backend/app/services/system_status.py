@@ -54,9 +54,9 @@ _EVIDENCE_FEATURES = (
 def build_capabilities() -> Capabilities:
     """Describe the build from the real check registry; no service is started."""
     return Capabilities(
-        dataset_formats=["penn_fudan"],
+        dataset_formats=["penn_fudan", "coco", "labelme"],
         guideline_input_formats=["plain_text"],
-        coordinate_convention="one_based_inclusive",
+        coordinate_convention="format_specific",
         checks=[CheckCapability(name=name, implementation="implemented") for name in sorted(CHECK_REGISTRY)],
         evidence_features=list(_EVIDENCE_FEATURES),
         execution_device="cpu",

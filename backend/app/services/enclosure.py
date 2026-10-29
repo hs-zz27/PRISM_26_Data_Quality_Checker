@@ -169,6 +169,10 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
         rule_document = rule.model_dump(mode="json")
         failure, views = ("evidence_unavailable" if inputs is None else None), ()
         if inputs is not None:
+            if manifest.annotation_format != "penn_fudan":
+                findings.append(_finding_for(rule, runtime, {**facts, **policy_facts}, "unavailable",
+                    "unsupported_coordinate_system", [], "unsupported_coordinate_system", ids))
+                continue
             origin = parse_annotation_metadata(inputs["annotation_text"])["coordinate_origin"]
             try:
                 views = render_views(image, inputs["objects"], tuple(origin) if origin else (0, 0),

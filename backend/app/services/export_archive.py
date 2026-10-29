@@ -34,7 +34,11 @@ def member_names(frozen):
             raise ExportNameError()
         rows = [('annotation_text', f'Annotation/{sample_id}.txt'),
                 ('raw_mask', f'PedMasks/{sample_id}_mask.png')]
-        if frozen.manifest.include_images:
+        if frozen.manifest.format != 'penn_fudan':
+            rows = [('annotation_text', f'data/{sample_id}/annotations.json')]
+            if frozen.manifest.include_images:
+                rows.append(('original_image', f'data/{sample_id}/{_image_name(sample.manifest)}'))
+        elif frozen.manifest.include_images:
             rows.append(('original_image', f'PNGImages/{sample_id}.png'))
         for role, name in rows:
             key = name.casefold()
@@ -43,6 +47,28 @@ def member_names(frozen):
             seen.add(key)
             names.append((sample, role, name))
     return names
+
+
+def _image_name(manifest):
+    return 'image.jpg' if manifest.original_image.content_type == 'image/jpeg' else 'image.png'
+
+
+def native_annotation(content, manifest):
+    """One native document per selected image, preserving source fields and IDs.
+
+    File references are explicitly rebased to the adjacent exported image.
+    Other samples from a shared COCO document are not leaked into this export.
+    """
+    from copy import deepcopy
+    from ..datasets.json_sample import read_annotation
+    document, record = read_annotation(content, manifest.annotation_format, manifest.image_key)
+    result = deepcopy(document.source)
+    if document.format == 'coco':
+        result['images'] = [{**deepcopy(record.source), 'file_name': _image_name(manifest)}]
+        result['annotations'] = [deepcopy(obj.source) for obj in record.annotations]
+    else:
+        result['imagePath'] = _image_name(manifest)
+    return (json.dumps(result, ensure_ascii=True, allow_nan=False) + '\n').encode('utf-8')
 
 
 class _BoundedOutput:
@@ -91,8 +117,12 @@ def _readme(frozen):
         'pending_review and needs_correction samples are excluded. See every decision in manifest.json.\n'
         + ('Original images are included.\n' if frozen.manifest.include_images else
            'Original images were explicitly omitted; this archive is not a standalone image dataset.\n')
-        + 'Captured annotation text, masks and requested images are copied without transformation.\n'
-        'Layout is not a certificate of valid content. No annotation correction or recheck is performed.\n'
+        + ('Captured annotation text, masks and requested images are copied without transformation.\n'
+           if frozen.manifest.format == 'penn_fudan' else
+           'Each data/<sample>/ directory contains a native JSON document for that image. Image references are rebased.\n'
+           'COCO documents contain only that image and its assigned annotations; categories and other source fields are retained.\n'
+           'Original image bytes are unchanged. Structural problems and unsupported annotations may still be present.\n')
+        + 'Layout is not a certificate of valid content. No annotation correction or recheck is performed.\n'
         'Zero included samples is a valid manifest-only export. No data files are fabricated.\n'
     ).encode('utf-8')
 
@@ -141,6 +171,8 @@ def build_archive(frozen: FrozenExport, *, settings, directory, stop_event, dead
                         if before.st_size != asset.size_bytes:
                             raise ExportDependencyError('Captured source size does not match.')
                         hashed, count = sha256(), 0
+                        transform = role == 'annotation_text' and frozen.manifest.format != 'penn_fudan'
+                        captured = bytearray()
                         with archive.open(_info(name), 'w', force_zip64=True) as target:
                             while True:
                                 check()
@@ -153,8 +185,20 @@ def build_archive(frozen: FrozenExport, *, settings, directory, stop_event, dead
                                         or total_input > frozen.policy.max_input_bytes):
                                     raise ExportLimitError()
                                 hashed.update(chunk)
-                                target.write(chunk)
+                                if transform:
+                                    captured.extend(chunk)
+                                else:
+                                    target.write(chunk)
                                 check()
+                            if transform:
+                                if count != asset.size_bytes or hashed.hexdigest() != asset.sha256:
+                                    raise ExportDependencyError('Captured annotation integrity verification failed.')
+                                encoded = native_annotation(bytes(captured), sample.manifest)
+                                if len(encoded) > frozen.policy.max_file_bytes:
+                                    raise ExportLimitError()
+                                for offset in range(0, len(encoded), CHUNK_BYTES):
+                                    check()
+                                    target.write(encoded[offset:offset + CHUNK_BYTES])
                         if (count != asset.size_bytes or hashed.hexdigest() != asset.sha256
                                 or fingerprint(before) != fingerprint(os.fstat(source.fileno()))):
                             raise ExportDependencyError('Captured source integrity verification failed.')

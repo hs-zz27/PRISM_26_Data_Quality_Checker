@@ -259,8 +259,8 @@ def test_capabilities_list_exactly_the_registry_checks():
     capabilities = build_capabilities()
     assert [check.name for check in capabilities.checks] == sorted(CHECK_REGISTRY)
     assert {check.implementation for check in capabilities.checks} == {"implemented"}
-    assert capabilities.dataset_formats == ["penn_fudan"] and capabilities.guideline_input_formats == ["plain_text"]
-    assert capabilities.coordinate_convention == "one_based_inclusive" and capabilities.execution_device == "cpu"
+    assert capabilities.dataset_formats == ["penn_fudan", "coco", "labelme"] and capabilities.guideline_input_formats == ["plain_text"]
+    assert capabilities.coordinate_convention == "format_specific" and capabilities.execution_device == "cpu"
 
 
 def test_detection_is_an_evidence_feature_not_a_guideline_check():

@@ -161,9 +161,9 @@ def test_oversized_preview_is_rejected_before_pixel_decoding(monkeypatch):
         render(content)
 
 
-def test_non_png_source_is_not_rendered_under_a_png_manifest():
+def test_unsupported_image_format_is_not_rendered_as_thumbnail():
     output = BytesIO()
-    Image.new("RGB", (2, 2)).save(output, format="JPEG")
+    Image.new("RGB", (2, 2)).save(output, format="GIF")
     with pytest.raises(PreviewUnavailableError, match="not a PNG"):
         render(output.getvalue(), "thumbnail")
 
