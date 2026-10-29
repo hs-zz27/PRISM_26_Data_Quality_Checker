@@ -11,6 +11,8 @@ import { RECHECK_IN_PROGRESS_MESSAGE, useImageRecheckStatus } from '../../hooks/
 import { bboxToCss, defaultNewBbox, isBboxValid, resizeBboxOnCanvas, translateBboxOnCanvas, type BBox1Based, type ResizeHandle } from '../../lib/coords';
 import { formatTimestamp } from '../../lib/format';
 import { jobStatusLabel } from '../../lib/labels';
+import { parseJsonGeometry } from './jsonGeometry';
+import { ReviewCanvas } from '../audits/ReviewCanvas';
 import { validateCorrectionObjects, type EditableObject } from './correctionValidation';
 
 type DragState = { id: number; mode: 'move' | ResizeHandle; x: number; y: number; bbox: BBox1Based };
@@ -39,6 +41,8 @@ export const CorrectionsPage: React.FC = () => {
 
   const [reason, setReason] = useState('');
   const [objects, setObjects] = useState<EditableObject[]>([]);
+  const [jsonText, setJsonText] = useState('[]');
+  const jsonEdit = useMemo(() => { try { return { objects: parseJsonGeometry(jsonText), error: null }; } catch (error) { return { objects: [], error: String(error) }; } }, [jsonText]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [mask, setMask] = useState<File | null>(null);
   const [message, setMessage] = useState<{ tone: 'error' | 'ok'; text: string } | null>(null);
@@ -66,6 +70,7 @@ export const CorrectionsPage: React.FC = () => {
 
   const sample = sampleQuery.data;
   const imageSize = sample?.image_size ?? null;
+  const isJson = sample?.annotation_format === 'coco' || sample?.annotation_format === 'labelme';
   const originalIds = useMemo(() => (sample?.objects ?? []).map((obj) => obj.object_id).sort((a, b) => a - b).join(','), [sample]);
   const currentIds = useMemo(() => objects.map((obj) => obj.object_id).sort((a, b) => a - b).join(','), [objects]);
   const idsChanged = Boolean(sample) && originalIds !== currentIds;
@@ -74,7 +79,8 @@ export const CorrectionsPage: React.FC = () => {
 
   useEffect(() => {
     if (!sample) return;
-    setObjects(sample.objects.map((item) => ({ object_id: item.object_id, label: item.label, bbox: [...item.bbox] as BBox1Based })));
+    setObjects(sample.objects.flatMap((item) => 'coordinate_system' in item ? [] : [{ object_id: item.object_id, label: item.label, bbox: [...item.bbox] as BBox1Based }]));
+    setJsonText(JSON.stringify(sample.objects, null, 2));
     setDirty(false);
     setSelectedId(null);
   }, [sample]);
@@ -86,7 +92,8 @@ export const CorrectionsPage: React.FC = () => {
       if (!reviewerId.trim()) { openPrompt(); throw new Error('Set your reviewer name first (top right).'); }
       if (!sample) throw new Error('Select a sample before saving.');
       if (!reason.trim()) throw new Error('Explain what you corrected — the reason is stored with the revision.');
-      if (problems.length) throw new Error('Fix the highlighted object problems first.');
+      if (isJson && jsonEdit.error) throw new Error(jsonEdit.error);
+      if (!isJson && problems.length) throw new Error('Fix the highlighted object problems first.');
       let mask_upload_id: string | null = null;
       if (mask) {
         const uploaded = await apiPostForm('/datasets/{dataset_id}/samples/{sample_id}/mask-uploads', { path: { dataset_id: datasetId, sample_id: sampleId }, body: { mask, expected_revision: sample.revision } });
@@ -98,7 +105,7 @@ export const CorrectionsPage: React.FC = () => {
           expected_revision: sample.revision,
           reviewer_id: reviewerId.trim(),
           reason: reason.trim(),
-          objects,
+          objects: isJson ? jsonEdit.objects : objects,
           mask_upload_id,
           source_audit_id: auditId && sourceAuditMatches ? auditId : null,
         },
@@ -201,7 +208,8 @@ export const CorrectionsPage: React.FC = () => {
       {sample && (
         <div className="correction-layout">
           <div className="space-y-2">
-            {sample.assets?.image?.url ? (
+            {isJson ? <ReviewCanvas sampleId={sampleId} imageSize={imageSize} assets={sample.assets}
+              objects={jsonEdit.objects} findings={[]} /> : sample.assets?.image?.url ? (
               <div
                 ref={imageRef}
                 className="correction-image"
@@ -236,11 +244,18 @@ export const CorrectionsPage: React.FC = () => {
                 </svg>
               </div>
             ) : <div className="correction-empty">This revision has no image asset.</div>}
-            <p className="text-2xs text-text-muted font-mono">Click a box to select it · drag to move · drag a corner to resize · coordinates are 1-based inclusive pixels</p>
+            <p className="text-2xs text-text-muted font-mono">{isJson ? 'Edit the geometry on the right to update this preview. Coordinates are 0-based continuous.' : 'Click a box to select it · drag to move · drag a corner to resize · coordinates are 1-based inclusive pixels'}</p>
           </div>
 
           <aside className="correction-panel">
-            <section>
+            {isJson ? <section>
+              <h2>{sample.annotation_format} geometry · revision r{sample.revision}</h2>
+              <p className="text-xs text-text-muted">Edit labels, supplied boxes and polygon points. Keep object order, source IDs, source keys and shape types unchanged. COCO labels must name an existing category. Polygon-derived bounds are recalculated before saving.</p>
+              <label className="correction-field">Annotation geometry
+                <textarea aria-label="JSON annotation geometry" rows={18} className="font-mono text-xs" value={jsonText} onChange={(e) => { setJsonText(e.target.value); setDirty(true); setMessage(null); }} />
+              </label>
+              {jsonEdit.error && <p role="alert" className="text-xs text-status-fail">{jsonEdit.error}</p>}
+            </section> : <section>
               <h2>Objects · revision r{sample.revision}</h2>
               <table className="correction-table">
                 <thead><tr><th>ID</th><th>Label</th><th>xmin</th><th>ymin</th><th>xmax</th><th>ymax</th><th /></tr></thead>
@@ -267,16 +282,16 @@ export const CorrectionsPage: React.FC = () => {
               {idsChanged && (
                 <p className="correction-warning"><AlertTriangle size={13} /> Object IDs changed. The mask's region IDs must match the object IDs, so adding or removing objects usually needs a replacement mask below.</p>
               )}
-            </section>
+            </section>}
 
             <section>
               <h2>Save correction</h2>
               <label className="correction-field">Reason (required)
                 <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Tightened box #2 to the person's outline" />
               </label>
-              <label className="correction-field">Replacement mask (optional, PNG with instance IDs)
+              {!isJson && <label className="correction-field">Replacement mask (optional, PNG with instance IDs)
                 <input type="file" accept="image/png" onChange={(e) => setMask(e.target.files?.[0] ?? null)} />
-              </label>
+              </label>}
               {auditId && auditSampleQuery.data && !sourceAuditMatches && (
                 <p className="text-2xs text-text-faint">The selected audit checked r{auditSampleQuery.data.summary.sample_revision}, not r{sample.revision}, so it will not be recorded as the source of this correction.</p>
               )}

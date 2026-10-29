@@ -95,8 +95,12 @@ export const ExportsPage: React.FC = () => {
   // Only finished audits can be exported; running ones return AUDIT_NOT_READY.
   const exportableAudits = useMemo(() => (audits.data?.items ?? []).filter((audit) => audit.status === 'completed'), [audits.data]);
 
+  const datasets = useQuery({ queryKey: queryKeys.datasets(), queryFn: () => apiGetAllPages('/datasets', { query: { limit: 100, offset: 0 } }) });
+  const selectedDatasetId = exportableAudits.find((audit) => audit.audit_id === auditId)?.dataset_id;
+  const exportFormat = datasets.data?.items.find((dataset) => dataset.dataset_id === selectedDatasetId)?.format;
+
   const start = useMutation({
-    mutationFn: () => apiPost<'/exports'>('/exports', { body: { audit_id: auditId, format: 'penn_fudan', selection, include_images: includeImages, include_rechecks: true } }),
+    mutationFn: () => { if (!exportFormat) throw new Error('The source dataset format is unavailable.'); return apiPost<'/exports'>('/exports', { body: { audit_id: auditId, format: exportFormat, selection, include_images: includeImages, include_rechecks: true } }); },
     onSuccess: (result) => {
       setMessage({ tone: 'ok', text: `Export ${result.export.export_id} queued. It appears below and updates automatically.` });
       void client.invalidateQueries({ queryKey: queryKeys.exports() });
@@ -125,6 +129,8 @@ export const ExportsPage: React.FC = () => {
             ))}
           </select>
         </label>
+        <p className="text-xs">Source format: {exportFormat ?? 'Select an audit'}</p>
+        {datasets.error && <p role="alert">Could not load the source dataset format. Refresh to try again.</p>}
         <fieldset className="export-selection">
           <legend>Include</legend>
           {(Object.keys(SELECTION_TEXT) as ExportSelection[]).map((value) => (
@@ -137,7 +143,7 @@ export const ExportsPage: React.FC = () => {
         <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={includeImages} onChange={(event) => setIncludeImages(event.target.checked)} /> Include image files in the ZIP</label>
         <p className="text-2xs text-text-faint">Samples still awaiting review or marked “needs correction” are always left out.</p>
         <div className="flex gap-2">
-          <Button variant="primary" size="sm" disabled={!auditId || start.isPending} isLoading={start.isPending} onClick={() => start.mutate()}>Start export</Button>
+          <Button variant="primary" size="sm" disabled={!auditId || !exportFormat || start.isPending} isLoading={start.isPending} onClick={() => start.mutate()}>Start export</Button>
           <Button variant="secondary" size="sm" leftIcon={<RefreshCw size={13} />} onClick={() => void history.refetch()}>Refresh history</Button>
         </div>
         {message && <p role={message.tone === 'error' ? 'alert' : 'status'} className={`text-xs ${message.tone === 'error' ? 'text-status-fail' : 'text-status-pass'}`}>{message.text}</p>}

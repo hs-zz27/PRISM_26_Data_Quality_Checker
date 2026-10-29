@@ -5,7 +5,7 @@ import { bboxToCss, cssToImageCoord, formatBbox, formatCursorPos, type BBox1Base
 import type { components } from '../../api/generated/openapi';
 
 type Finding = components['schemas']['Finding'];
-export interface CanvasObject { object_id: number; label: string; bbox: BBox1Based }
+export interface CanvasObject { object_id: number; label: string; bbox: BBox1Based | null; coordinate_system?: 'zero_based_continuous'; polygons?: number[][][]; bbox_origin?: string | null }
 export interface CanvasAssets {
   image?: { url: string; content_type?: string; revision?: number } | null;
   mask?: { url: string; content_type?: string; revision?: number } | null;
@@ -25,6 +25,7 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
   const panModeRef = useRef(false);
   const [imageError, setImageError] = useState(false);
   const { showMask, showBoxes, maskOpacity, selectedInstanceId, zoom, pan, toggleMask, toggleBoxes, setMaskOpacity, setSelectedInstanceId, setZoom, setPan } = useCanvasStore();
+  const continuous = objects.some((obj) => obj.coordinate_system === 'zero_based_continuous');
   const width = imageSize?.[0] ?? 640;
   const height = imageSize?.[1] ?? 480;
   const handleFit = useCallback(() => {
@@ -58,8 +59,8 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
     if (!rect || !cursorRef.current) return;
     const x = e.clientX - rect.left; const y = e.clientY - rect.top;
     if (x < 0 || y < 0 || x > rect.width || y > rect.height) { cursorRef.current.textContent = '[X: —, Y: —]'; return; }
-    const [ix, iy] = cssToImageCoord(x, y, zoom);
-    cursorRef.current.textContent = formatCursorPos(Math.max(1, Math.min(ix, width)), Math.max(1, Math.min(iy, height)));
+    const [ix, iy] = continuous ? [x / zoom, y / zoom] : cssToImageCoord(x, y, zoom);
+    cursorRef.current.textContent = formatCursorPos(Math.max(continuous ? 0 : 1, Math.min(ix, width)), Math.max(continuous ? 0 : 1, Math.min(iy, height)));
   };
   const onPointerUp = () => {
     if (dragRef.current) {
@@ -81,12 +82,13 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
       {assets?.image?.url && !imageError ? <img src={assets.image.url} alt={sampleId ?? 'Sample'} draggable={false} onError={() => setImageError(true)}/> : <div className="canvas-empty" role="status">{imageError ? 'Image could not be loaded' : 'No image asset for this revision'}</div>}
       {showMask && (assets?.mask_preview?.url ?? assets?.mask?.url) && <img className="canvas-mask" src={assets.mask_preview?.url ?? assets.mask?.url} alt="Mask preview" style={{ opacity: maskOpacity }} draggable={false} onError={() => setImageError(true)}/>}
       {showBoxes && <svg className="canvas-overlay" viewBox={`0 0 ${width} ${height}`} aria-label="Object boxes">{objects.filter((object) => !hiddenObjectIds.includes(object.object_id)).map((obj) => {
-        const b = bboxToCss(obj.bbox); const state = outcome(obj.object_id); const selected = selectedInstanceId === obj.object_id;
-        return <g key={obj.object_id} role="button" tabIndex={0} aria-label={`Object ${obj.object_id}, ${obj.label}, ${formatBbox(obj.bbox)}`} onClick={(e) => { e.stopPropagation(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); } }} className={`box-${state}${selected ? ' is-selected' : ''}`}>
-          <rect x={b.left} y={b.top} width={b.width} height={b.height}/><text x={b.left + 2} y={Math.max(12,b.top - 3)}>#{obj.object_id} {obj.label}</text>
+        const b = obj.bbox ? (obj.coordinate_system === 'zero_based_continuous' ? { left: obj.bbox[0], top: obj.bbox[1], width: obj.bbox[2] - obj.bbox[0], height: obj.bbox[3] - obj.bbox[1] } : bboxToCss(obj.bbox)) : null; const state = outcome(obj.object_id); const selected = selectedInstanceId === obj.object_id;
+        return <g key={obj.object_id} role="button" tabIndex={0} aria-label={`Object ${obj.object_id}, ${obj.label}, ${obj.bbox ? formatBbox(obj.bbox) : "no box"}`} onClick={(e) => { e.stopPropagation(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); } }} className={`box-${state}${selected ? ' is-selected' : ''}`}>
+          {obj.polygons?.map((part, index) => <polygon key={index} points={part.map((point) => point.join(',')).join(' ')} fill="none" stroke="currentColor" strokeWidth={selected ? 2.5 : 1.5} />)}
+          {b && <>{obj.bbox_origin !== 'derived_from_polygon' && <rect x={b.left} y={b.top} width={b.width} height={b.height}/>}<text x={b.left + 2} y={Math.max(12,b.top - 3)}>#{obj.object_id} {obj.label}</text></>}
         </g>;
       })}</svg>}
     </div>
-    <div className="canvas-readout"><span ref={cursorRef} className="mono">[X: —, Y: —]</span><span className="mono">{width} × {height} px</span><span className="mono">1-based inclusive</span></div>
+    <div className="canvas-readout"><span ref={cursorRef} className="mono">[X: —, Y: —]</span><span className="mono">{width} × {height} px</span><span className="mono">{continuous ? '0-based continuous' : '1-based inclusive'}</span></div>
   </section>;
 };

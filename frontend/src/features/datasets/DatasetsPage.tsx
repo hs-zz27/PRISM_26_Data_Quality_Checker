@@ -25,6 +25,7 @@ export const DatasetsPage: React.FC = () => {
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [datasetName, setDatasetName] = useState('');
+  const [format, setFormat] = useState<'penn_fudan' | 'coco' | 'labelme'>('penn_fudan');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -50,7 +51,7 @@ export const DatasetsPage: React.FC = () => {
       if (!datasetName.trim()) throw new Error('Please enter a dataset name');
 
       return apiPostForm('/datasets', {
-        body: { archive: selectedFile, name: datasetName.trim(), format: 'penn_fudan' },
+        body: { archive: selectedFile, name: datasetName.trim(), format },
         onProgress: (loaded, total) => setUploadProgress(total ? loaded / total : null),
       });
     },
@@ -85,7 +86,7 @@ export const DatasetsPage: React.FC = () => {
             Dataset Catalogue
           </h1>
           <p className="text-xs text-text-muted mt-1">
-            Import Penn-Fudan pedestrian ZIP archives. PRISM catalogs samples, bounding boxes, and instance segmentation masks.
+            Import images and annotations in Penn-Fudan, COCO JSON or LabelMe JSON format.
           </p>
         </div>
         <Button
@@ -137,7 +138,7 @@ export const DatasetsPage: React.FC = () => {
             <FileArchive className="w-8 h-8 text-text-muted mx-auto mb-2 opacity-60" />
             <div className="text-sm text-text font-medium">No datasets found</div>
             <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
-              Upload a Penn-Fudan dataset ZIP archive to begin auditing and reviewing samples.
+              Upload a dataset ZIP archive to begin auditing and reviewing samples.
             </p>
             <Button
               variant="primary"
@@ -279,14 +280,13 @@ export const DatasetsPage: React.FC = () => {
                 <label className="block text-xs font-mono text-text-muted uppercase mb-1">
                   Format
                 </label>
-                <input
-                  type="text"
-                  value="penn_fudan"
-                  disabled
-                  className="w-full bg-base border border-border rounded px-3 py-2 text-xs font-mono text-text-faint cursor-not-allowed"
-                />
+                <select aria-label="Annotation format" value={format} onChange={(e) => setFormat(e.target.value as typeof format)} className="w-full bg-base border border-border rounded px-3 py-2 text-xs">
+                  <option value="penn_fudan">Penn-Fudan boxes and pixel masks</option>
+                  <option value="coco">COCO JSON boxes and polygons</option>
+                  <option value="labelme">LabelMe JSON polygons and rectangles</option>
+                </select>
                 <span className="text-3xs text-text-faint mt-1 block">
-                  Penn-Fudan directory structure: PNGImages/*.png and PedMasks/*.png
+                  {format === 'penn_fudan' ? 'Include PNGImages, Annotation and PedMasks folders.' : format === 'coco' ? 'Include JSON annotations and their images. An annotations/ folder with a sibling images/ folder is supported.' : 'Include one JSON per image. imagePath must point to an image within the ZIP.'}
                 </span>
               </div>
 
@@ -333,7 +333,7 @@ export const DatasetsPage: React.FC = () => {
                           Click to select or drag and drop ZIP archive
                         </div>
                         <div className="text-2xs text-text-muted mt-1">
-                          Standard Penn-Fudan pedestrian dataset archive (.zip)
+                          Images and matching annotation files (.zip)
                         </div>
                       </div>
                     )}

@@ -5,12 +5,12 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { Maximize2, X } from 'lucide-react';
 import { apiGet } from '../../api/client';
 import { queryKeys } from '../../api/queryClient';
-import { bboxToCss, type BBox1Based, type ImageSize } from '../../lib/coords';
+import { bboxToCss, type ImageSize } from '../../lib/coords';
 import { formatTimestamp } from '../../lib/format';
 import { outcomeLabel } from '../../lib/labels';
 import type { FeedbackExample } from './exampleSelection';
 
-type Box = { object_id: number; label: string; bbox: BBox1Based };
+type Box = import('../audits/ReviewCanvas').CanvasObject;
 type Evidence = { imageSize: ImageSize; objects: Box[] };
 
 /**
@@ -29,7 +29,7 @@ function useExactEvidence(example: FeedbackExample) {
       }
       const [width, height] = sample.image_size ?? [0, 0];
       if (!(width > 0 && height > 0)) throw new Error(`Revision r${revision} has no recorded image size, so its boxes cannot be placed.`);
-      return { imageSize: [width, height], objects: sample.objects.map((o) => ({ object_id: o.object_id, label: o.label, bbox: [...o.bbox] as BBox1Based })) };
+      return { imageSize: [width, height], objects: sample.objects };
     },
     staleTime: Infinity, // A stored revision never changes.
   });
@@ -43,11 +43,12 @@ const AnnotatedPhoto: React.FC<{ src: string; alt: string; evidence: Evidence; o
       <img src={src} alt={alt} loading="lazy" onError={onImageError} />
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label={`${evidence.objects.length} annotation boxes`} role="img">
         {evidence.objects.map((object, index) => {
-          const box = bboxToCss(object.bbox);
+          const box = object.bbox ? (object.coordinate_system === 'zero_based_continuous' ? { left: object.bbox[0], top: object.bbox[1], width: object.bbox[2] - object.bbox[0], height: object.bbox[3] - object.bbox[1] } : bboxToCss(object.bbox)) : null;
           return (
             <g key={`${object.object_id}-${index}`}>
-              <rect x={box.left} y={box.top} width={box.width} height={box.height} />
-              <text x={box.left + 2} y={Math.max(11, box.top - 3)}>#{object.object_id} {object.label}</text>
+              {object.polygons?.map((part, i) => <polygon key={i} points={part.map((point) => point.join(',')).join(' ')} fill="none" stroke="currentColor" />)}
+              {box && object.bbox_origin !== 'derived_from_polygon' && <rect x={box.left} y={box.top} width={box.width} height={box.height} />}
+              <text x={(box?.left ?? 0) + 2} y={Math.max(11, (box?.top ?? 0) - 3)}>#{object.object_id} {object.label}</text>
             </g>
           );
         })}

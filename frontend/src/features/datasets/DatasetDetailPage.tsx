@@ -203,7 +203,8 @@ export const DatasetDetailPage: React.FC = () => {
                         </span>
                       </div>
                       <div className="text-2xs text-text-muted">
-                        BBox: {formatBbox(obj.bbox as [number, number, number, number])}
+                        BBox: {obj.bbox ? formatBbox(obj.bbox) : 'Unavailable'}
+                        {'coordinate_system' in obj && <div>0-based continuous · {obj.polygons?.length ?? 0} polygon parts · source {obj.source_key}</div>}
                       </div>
                     </div>
                   ))}

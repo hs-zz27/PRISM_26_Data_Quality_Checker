@@ -227,7 +227,8 @@ export const AuditReviewWorkspace: React.FC = () => {
     return rawSample.objects.map((obj) => ({
       object_id: obj.object_id,
       label: obj.label,
-      bbox: [obj.bbox[0] ?? 1, obj.bbox[1] ?? 1, obj.bbox[2] ?? 1, obj.bbox[3] ?? 1],
+      bbox: obj.bbox,
+      ...('coordinate_system' in obj ? { coordinate_system: obj.coordinate_system, polygons: obj.polygons, bbox_origin: obj.bbox_origin } : {}),
     }));
   }, [rawSample]);
 
@@ -684,6 +685,12 @@ export const AuditReviewWorkspace: React.FC = () => {
                 ))}
               </section>
             )}
+
+            {sampleDetail?.measurements?.source_diagnostics != null && <details className="checklist-section">
+              <summary>Source structure diagnostics</summary>
+              <p className="text-2xs text-text-muted">Format and geometry observations. Final decisions follow the confirmed guidelines.</p>
+              <pre className="text-2xs whitespace-pre-wrap break-all">{JSON.stringify(sampleDetail.measurements.source_diagnostics, null, 2)}</pre>
+            </details>}
 
             <details className="object-visibility">
               <summary>Objects on image · {canvasObjects.length}</summary>
