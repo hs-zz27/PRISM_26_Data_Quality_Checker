@@ -1746,7 +1746,7 @@ export interface components {
          * DatasetFormat
          * @enum {string}
          */
-        DatasetFormat: "penn_fudan";
+        DatasetFormat: "penn_fudan" | "coco" | "labelme";
         /**
          * DatasetStatus
          * @enum {string}
@@ -1809,6 +1809,50 @@ export interface components {
          * @enum {string}
          */
         IntegrityStatus: "valid" | "invalid" | "unavailable";
+        /**
+         * JsonAnnotationObject
+         * @description Display identity is local; source keys/IDs and continuous geometry are retained.
+         */
+        JsonAnnotationObject: {
+            /**
+             * Coordinate System
+             * @constant
+             */
+            coordinate_system: "zero_based_continuous";
+            /** Object Id */
+            object_id: number;
+            /** Source Key */
+            source_key: string;
+            /**
+             * Source Id
+             * @default null
+             */
+            source_id: number | string | null;
+            /**
+             * Group Id
+             * @default null
+             */
+            group_id: number | null;
+            /** Label */
+            label: string;
+            /** Bbox */
+            bbox: [
+                number,
+                number,
+                number,
+                number
+            ] | null;
+            /**
+             * Bbox Origin
+             * @default null
+             */
+            bbox_origin: ("supplied" | "derived_from_polygon") | null;
+            /** Polygons */
+            polygons?: [
+                number,
+                number
+            ][][];
+        };
         /** Sample */
         Sample: {
             /** Sample Id */
@@ -1817,6 +1861,12 @@ export interface components {
             dataset_id: string;
             /** Revision */
             revision: number;
+            /**
+             * Annotation Format
+             * @default penn_fudan
+             * @enum {string}
+             */
+            annotation_format: "penn_fudan" | "coco" | "labelme";
             /** Image Size */
             image_size: [
                 number,
@@ -1824,7 +1874,7 @@ export interface components {
             ] | null;
             integrity_status: components["schemas"]["IntegrityStatus"];
             /** Objects */
-            objects: components["schemas"]["ImportedAnnotationObject"][];
+            objects: (components["schemas"]["ImportedAnnotationObject"] | components["schemas"]["JsonAnnotationObject"])[];
             assets?: components["schemas"]["SampleAssets"];
             /** Issues */
             issues?: components["schemas"]["ErrorDetail"][];
@@ -1861,9 +1911,9 @@ export interface components {
             name: string;
             /**
              * Format
-             * @constant
+             * @enum {string}
              */
-            format: "penn_fudan";
+            format: "penn_fudan" | "coco" | "labelme";
         };
         /**
          * ExportSelection
@@ -1876,9 +1926,9 @@ export interface components {
             audit_id: string;
             /**
              * Format
-             * @constant
+             * @enum {string}
              */
-            format: "penn_fudan";
+            format: "penn_fudan" | "coco" | "labelme";
             selection: components["schemas"]["ExportSelection"];
             /** Include Images */
             include_images: boolean;
@@ -1894,9 +1944,9 @@ export interface components {
             audit_id: string;
             /**
              * Format
-             * @constant
+             * @enum {string}
              */
-            format: "penn_fudan";
+            format: "penn_fudan" | "coco" | "labelme";
             selection: components["schemas"]["ExportSelection"];
             /** Include Images */
             include_images: boolean;
@@ -2009,9 +2059,9 @@ export interface components {
             /**
              * Format
              * @default penn_fudan
-             * @constant
+             * @enum {string}
              */
-            format: "penn_fudan";
+            format: "penn_fudan" | "coco" | "labelme";
             /** Export Id */
             export_id: string;
             /** Audit Id */
@@ -2090,6 +2140,50 @@ export interface components {
              */
             expires_at: string;
         };
+        /**
+         * JsonCorrectionObject
+         * @description Native JSON geometry edits; identity changes are checked against the source.
+         */
+        JsonCorrectionObject: {
+            /**
+             * Coordinate System
+             * @constant
+             */
+            coordinate_system: "zero_based_continuous";
+            /** Object Id */
+            object_id: number;
+            /** Source Key */
+            source_key: string;
+            /**
+             * Source Id
+             * @default null
+             */
+            source_id: number | string | null;
+            /**
+             * Group Id
+             * @default null
+             */
+            group_id: number | null;
+            /** Label */
+            label: string;
+            /** Bbox */
+            bbox: [
+                number,
+                number,
+                number,
+                number
+            ] | null;
+            /**
+             * Bbox Origin
+             * @default null
+             */
+            bbox_origin: ("supplied" | "derived_from_polygon") | null;
+            /** Polygons */
+            polygons?: [
+                number,
+                number
+            ][][];
+        };
         /** CorrectionRequest */
         CorrectionRequest: {
             /** Expected Revision */
@@ -2099,7 +2193,7 @@ export interface components {
             /** Reason */
             reason: string;
             /** Objects */
-            objects: components["schemas"]["CorrectionObject"][];
+            objects: (components["schemas"]["CorrectionObject"] | components["schemas"]["JsonCorrectionObject"])[];
             /**
              * Mask Upload Id
              * @default null
@@ -2122,7 +2216,7 @@ export interface components {
             /** Parent Revision */
             parent_revision: number | null;
             /** Objects */
-            objects: components["schemas"]["ImportedAnnotationObject"][];
+            objects: (components["schemas"]["ImportedAnnotationObject"] | components["schemas"]["JsonAnnotationObject"])[];
             /** Mask Changed */
             mask_changed: boolean | null;
             /** Reviewer Id */
@@ -2851,10 +2945,10 @@ export interface components {
             guideline_input_formats: string[];
             /**
              * Coordinate Convention
-             * @description Annotation boxes. Detection evidence documents its own zero-based pixel-edge convention inside each evidence record.
+             * @description Penn-Fudan uses one-based inclusive boxes. COCO and LabelMe use zero-based continuous coordinates. Detection evidence documents its own convention.
              * @constant
              */
-            coordinate_convention: "one_based_inclusive";
+            coordinate_convention: "format_specific";
             /**
              * Checks
              * @description Executable guideline checks. Detection evidence is listed separately. A listed check can still report unavailable results for a sample when its inputs are missing; model-assisted checks, for example, need the configured local model (see system status).
@@ -3049,12 +3143,14 @@ export interface operations {
                     /**
                      * @example {
                      *       "dataset_formats": [
-                     *         "penn_fudan"
+                     *         "penn_fudan",
+                     *         "coco",
+                     *         "labelme"
                      *       ],
                      *       "guideline_input_formats": [
                      *         "plain_text"
                      *       ],
-                     *       "coordinate_convention": "one_based_inclusive",
+                     *       "coordinate_convention": "format_specific",
                      *       "checks": [
                      *         {
                      *           "name": "allowed_labels",
@@ -3106,6 +3202,10 @@ export interface operations {
                      *         },
                      *         {
                      *           "name": "pedestrian_box_enclosure",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "polygon_validity",
                      *           "implementation": "implemented"
                      *         }
                      *       ],
@@ -4541,9 +4641,9 @@ export interface operations {
                     name: string;
                     /**
                      * Format
-                     * @constant
+                     * @enum {string}
                      */
-                    format: "penn_fudan";
+                    format: "penn_fudan" | "coco" | "labelme";
                 };
             };
         };
@@ -4776,6 +4876,7 @@ export interface operations {
                      *           "sample_id": "sample_001",
                      *           "dataset_id": "dataset_demo",
                      *           "revision": 1,
+                     *           "annotation_format": "penn_fudan",
                      *           "image_size": [
                      *             4,
                      *             3
@@ -4926,6 +5027,7 @@ export interface operations {
                      *       "sample_id": "sample_001",
                      *       "dataset_id": "dataset_demo",
                      *       "revision": 1,
+                     *       "annotation_format": "penn_fudan",
                      *       "image_size": [
                      *         4,
                      *         3
