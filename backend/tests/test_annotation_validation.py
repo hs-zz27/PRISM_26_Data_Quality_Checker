@@ -97,11 +97,15 @@ def test_symlink_escape_is_rejected(tmp_path):
     root = tmp_path / "dataset"
     root.mkdir()
     path = save_image(tmp_path)
-    (root / "image.png").symlink_to(path)
+    try:
+        (root / "image.png").symlink_to(path)
+    except (OSError, NotImplementedError):
+        pytest.skip("Creating symlinks needs extra privileges on this platform.")
     report = inspect_document(parse_labelme(annotation()), root)
     assert "unsafe_image_reference" in codes(report)
 
 
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFOs are POSIX-only")
 def test_fifo_does_not_block(tmp_path):
     os.mkfifo(tmp_path / "image.png")
     report = inspect_document(parse_labelme(annotation()), tmp_path)

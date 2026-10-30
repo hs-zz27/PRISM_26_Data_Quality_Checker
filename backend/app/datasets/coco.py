@@ -50,6 +50,17 @@ def parse_coco(data: dict) -> AnnotationDocument:
         if len(matches) > 1:
             for image in matches:
                 issue(image, "duplicate_image_id", image.key, "Image ID is ambiguous.")
+    # Two image records naming one file split its annotations between identities.
+    # Both records are kept; the reviewer decides which identity is intended.
+    references = defaultdict(list)
+    for image in result.images:
+        if image.file_name is not None:
+            references[image.file_name].append(image)
+    for matches in references.values():
+        if len(matches) > 1:
+            for image in matches:
+                issue(image, "duplicate_image_reference", image.key + "/file_name",
+                      "Another image record uses the same file_name; records remain separate.")
 
     ids = defaultdict(list)
     for index, raw in enumerate(source["annotations"]):
