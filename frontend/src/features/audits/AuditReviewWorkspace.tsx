@@ -25,6 +25,7 @@ import { useCanvasStore } from '../../store/canvasStore';
 import { Badge, type BadgeVariant } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { ReviewCanvas, type CanvasObject } from './ReviewCanvas';
+import { correctionPreview, reviewFeedbackComment } from './reviewFeedback';
 import { FindingCard, type FindingDecision } from './FindingCard';
 import { KeyboardHelpModal } from '../../components/ui/KeyboardHelpModal';
 import { isTypingTarget } from '../../lib/keyboard';
@@ -72,6 +73,8 @@ export const AuditReviewWorkspace: React.FC = () => {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [hiddenObjectIds, setHiddenObjectIds] = useState<number[]>([]);
   const [reviewComment, setReviewComment] = useState<string>('');
+  const [previewCorrection, setPreviewCorrection] = useState(false);
+  const [savedCorrection, setSavedCorrection] = useState<{ sampleId: string; revision: number } | null>(null);
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState<boolean>(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   // Separate from reviewError: loading the other recheck's new attempt must not hide it.
@@ -164,18 +167,23 @@ export const AuditReviewWorkspace: React.FC = () => {
     setHistoryFindingId(null);
     setReviewComment('');
     setReviewError(null);
-  }, [sampleDetail?.audit_id]);
+    setPreviewCorrection(false);
+    setSavedCorrection(null);
+  }, [sampleDetail?.audit_id, activeSampleId]);
 
   const recheckMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (options?: { feedback?: boolean; propose?: boolean }) => {
       if (!reviewerId.trim()) { openPrompt(); throw new Error('Set your reviewer name first (top right).'); }
+      if (options?.feedback && !reviewComment.trim()) throw new Error('Enter feedback for this image first.');
       if (!auditId || !activeSampleId || !latestDetail.data) throw new Error('Load the image first.');
       return apiPost('/audits/{audit_id}/rechecks', {
-        path: { audit_id: auditId },
+        path: { audit_id: options?.feedback ? sampleDetail!.audit_id : auditId },
         body: {
           sample_ids: [activeSampleId],
-          sample_revisions: { [activeSampleId]: latestDetail.data.summary.sample_revision },
+          sample_revisions: { [activeSampleId]: savedCorrection?.sampleId === activeSampleId ? savedCorrection.revision : latestDetail.data.summary.sample_revision },
           reviewer_id: reviewerId.trim(),
+          feedback: options?.feedback ? reviewComment.trim() : null,
+          propose_correction: options?.propose ?? false,
         },
       });
     },
@@ -198,8 +206,6 @@ export const AuditReviewWorkspace: React.FC = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.audit(auditId!) });
     },
   });
-  const canReview = !!sampleDetail && !latestDetail.error && !historicalAttemptId
-    && ['completed', 'failed'].includes(sampleDetail.summary.processing_status) && !recheckMutation.isPending;
 
   useEffect(() => {
     const root = latestDetail.data?.workspace_audit_id;
@@ -232,7 +238,42 @@ export const AuditReviewWorkspace: React.FC = () => {
     }));
   }, [rawSample]);
 
+  const proposal = useMemo(() => correctionPreview(sampleDetail?.measurements?.correction_proposal), [sampleDetail]);
+  const proposalMatches = proposal?.sample_id === activeSampleId && proposal?.dataset_id === sampleDetail?.dataset_id
+    && proposal?.sample_revision === sampleDetail?.summary.sample_revision;
+  const applyProposal = useMutation({
+    mutationFn: async () => {
+      if (!reviewerId.trim()) { openPrompt(); throw new Error('Set your reviewer name first.'); }
+      if (!proposalMatches || !proposal?.objects || !sampleDetail || historicalAttemptId) throw new Error('Load the current proposal first.');
+      return apiPost('/datasets/{dataset_id}/samples/{sample_id}/revisions', {
+        path: { dataset_id: proposal.dataset_id, sample_id: proposal.sample_id },
+        body: { expected_revision: proposal.sample_revision, reviewer_id: reviewerId.trim(),
+          reason: proposal.feedback.comment, objects: proposal.objects, mask_upload_id: null, source_audit_id: sampleDetail.audit_id },
+      });
+    },
+    onSuccess: async (saved) => {
+      setSavedCorrection({ sampleId: saved.sample_id, revision: saved.revision });
+      setPreviewCorrection(false);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.datasetSample(saved.dataset_id, saved.sample_id) });
+      try {
+        const result = await apiPost('/audits/{audit_id}/rechecks', {
+          path: { audit_id: auditId! }, body: { sample_ids: [saved.sample_id],
+            sample_revisions: { [saved.sample_id]: saved.revision }, reviewer_id: reviewerId.trim(), feedback: null, propose_correction: false },
+        });
+        recheckStatus.track(result.job.job_id);
+        setReviewError(null);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
+      } catch (error) {
+        setReviewError(`Correction saved as r${saved.revision}, but recheck could not start. Use Re-check this image to retry. ${error instanceof Error ? error.message : ''}`);
+      }
+    },
+    onError: (error) => setReviewError(error.message),
+  });
+
   const findings: Finding[] = useMemo(() => sampleDetail?.findings ?? [], [sampleDetail]);
+  const canReview = !!sampleDetail && !latestDetail.error && !historicalAttemptId
+    && ['completed', 'failed'].includes(sampleDetail.summary.processing_status)
+    && !recheckMutation.isPending && !applyProposal.isPending && !savedCorrection;
   const { attention, passed } = useMemo(() => groupFindings(findings), [findings]);
   const notEvaluated = useMemo(() => rulesWithoutFindings(rulebook?.rules, findings), [rulebook, findings]);
   const currentReview = sampleDetail?.review;
@@ -251,6 +292,7 @@ export const AuditReviewWorkspace: React.FC = () => {
   });
 
   const currentIndex = filteredQueue.findIndex((item) => item.sample_id === activeSampleId);
+  const submittingImageChange = recheckMutation.isPending || applyProposal.isPending;
 
   const resizePane = (side: 'left' | 'right', delta: number) => {
     if (side === 'left') setLeftWidth((width) => persistPaneWidth('left', width + delta));
@@ -259,22 +301,23 @@ export const AuditReviewWorkspace: React.FC = () => {
 
   const navigateQueue = useCallback(
     (direction: 'next' | 'prev') => {
-      if (filteredQueue.length === 0) return;
+      if (submittingImageChange || filteredQueue.length === 0) return;
       let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
       if (nextIndex >= filteredQueue.length) nextIndex = 0;
       if (nextIndex < 0) nextIndex = filteredQueue.length - 1;
       const target = filteredQueue[nextIndex];
       if (target) setActiveSampleId(target.sample_id);
     },
-    [filteredQueue, currentIndex],
+    [filteredQueue, currentIndex, submittingImageChange],
   );
 
   const jumpToNextUnreviewed = useCallback(() => {
+    if (submittingImageChange) return;
     const index = nextUnreviewedIndex(filteredQueue, currentIndex);
     const target = index >= 0 ? filteredQueue[index] : undefined;
     if (target) setActiveSampleId(target.sample_id);
     else setReviewError('Every sample in this view has a decision.');
-  }, [filteredQueue, currentIndex]);
+  }, [filteredQueue, currentIndex, submittingImageChange]);
 
   /** Enforce the "every override needs a reason" rule before any write. */
   const ensureReason = useCallback((required: boolean, what: string): boolean => {
@@ -569,6 +612,7 @@ export const AuditReviewWorkspace: React.FC = () => {
                   <button
                     type="button"
                     key={item.sample_id}
+                    disabled={submittingImageChange}
                     onClick={() => setActiveSampleId(item.sample_id)}
                     aria-current={isActive ? 'true' : undefined}
                     className={`queue-item${isActive ? ' is-active' : ''}`}
@@ -608,8 +652,9 @@ export const AuditReviewWorkspace: React.FC = () => {
           <ReviewCanvas
             sampleId={activeSampleId ?? undefined}
             imageSize={rawSample?.image_size}
+            annotationFormat={rawSample?.annotation_format}
             assets={sampleDetail?.assets ?? rawSample?.assets}
-            objects={canvasObjects}
+            objects={previewCorrection && proposalMatches && proposal?.objects ? proposal.objects : canvasObjects}
             hiddenObjectIds={hiddenObjectIds}
             findings={findings}
             onSelectObject={selectObject}
@@ -638,10 +683,11 @@ export const AuditReviewWorkspace: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {previewCorrection && <p role="status" className="text-xs text-status-unsure">Previewing a proposed correction. Nothing has been saved.</p>}
             <section className="checklist-section" aria-label="Image rechecks">
               <Button size="sm" variant="secondary" leftIcon={<RefreshCw size={13} />}
                 onClick={() => recheckMutation.mutate()} isLoading={recheckMutation.isPending}
-                disabled={!latestDetail.data || attemptRunning || !recheckStatus.canRecheck || !!historicalAttemptId || sampleReviewMutation.isPending || findingReviewMutation.isPending || !audit || !['completed', 'failed', 'cancelled'].includes(audit.status)}>
+                disabled={!latestDetail.data || attemptRunning || applyProposal.isPending || !recheckStatus.canRecheck || !!historicalAttemptId || sampleReviewMutation.isPending || findingReviewMutation.isPending || !audit || !['completed', 'failed', 'cancelled'].includes(audit.status)}>
                 Re-check this image
               </Button>
               <p className="text-2xs text-text-muted mt-2">
@@ -662,7 +708,7 @@ export const AuditReviewWorkspace: React.FC = () => {
               {(latestDetail.data?.attempts?.length ?? 0) > 1 && (
                 <label className="block text-2xs mt-2">Attempt history
                   <select aria-label="Attempt history" className="w-full mt-1" value={historicalAttemptId ?? ''}
-                    disabled={sampleReviewMutation.isPending || findingReviewMutation.isPending || recheckMutation.isPending}
+                    disabled={sampleReviewMutation.isPending || findingReviewMutation.isPending || submittingImageChange}
                     onChange={(event) => setHistoricalAttemptId(event.target.value || null)}>
                     <option value="">Latest attempt</option>
                     {latestDetail.data!.attempts!.slice(1).map((attempt) => (
@@ -692,6 +738,22 @@ export const AuditReviewWorkspace: React.FC = () => {
               <pre className="text-2xs whitespace-pre-wrap break-all">{JSON.stringify(sampleDetail.measurements.source_diagnostics, null, 2)}</pre>
             </details>}
 
+            {proposalMatches && proposal && <section className="checklist-section" aria-label="Proposed correction">
+              <h3>Correction proposal</h3>
+              <p className="text-xs">{proposal.reason}</p>
+              <p className="text-2xs text-text-muted">Feedback: {proposal.feedback.comment}</p>
+              {proposal.status === 'proposed' && proposal.objects && <div className="flex flex-wrap gap-2 mt-2">
+                <Button size="sm" variant="secondary" onClick={() => setPreviewCorrection((value) => !value)}>{previewCorrection ? 'Show original' : 'Preview correction'}</Button>
+                <Button size="sm" variant="primary" disabled={!previewCorrection || !canReview || attemptRunning || !recheckStatus.canRecheck || sampleReviewMutation.isPending || findingReviewMutation.isPending}
+                  isLoading={applyProposal.isPending} onClick={() => applyProposal.mutate()}>Apply correction and recheck</Button>
+              </div>}
+              <p className="text-2xs text-text-muted mt-2">Preview first, then apply. Applying creates a new revision and checks this image again. Your final review is still required.</p>
+            </section>}
+            {!proposal && reviewFeedbackComment(sampleDetail?.measurements?.reviewer_feedback) && <section className="checklist-section" aria-label="Feedback used for this recheck">
+              <h3>Feedback used for this recheck</h3>
+              <p className="text-xs">{reviewFeedbackComment(sampleDetail?.measurements?.reviewer_feedback)}</p>
+              <p className="text-2xs text-text-muted mt-2">The confirmed guidelines remain unchanged. Structural checks use the annotation data; available visual checks also consider this feedback.</p>
+            </section>}
             <details className="object-visibility">
               <summary>Objects on image · {canvasObjects.length}</summary>
               <div>{canvasObjects.map((object) => {
@@ -753,13 +815,14 @@ export const AuditReviewWorkspace: React.FC = () => {
           {/* Sample decision */}
           <div className="p-3 border-t border-border space-y-2">
             <div className="flex items-center justify-between">
-              <label htmlFor="review-comment" className="text-2xs font-mono uppercase tracking-wider text-text font-semibold">Reason / comment</label>
+              <label htmlFor="review-comment" className="text-2xs font-mono uppercase tracking-wider text-text font-semibold">Feedback for this image</label>
               <span className="text-3xs font-mono text-text-faint">as {reviewerId || 'no reviewer set'}</span>
             </div>
             <textarea
               id="review-comment"
               ref={commentRef}
-              rows={2}
+              rows={3}
+              maxLength={4096}
               value={reviewComment}
               onChange={(e) => { setReviewComment(e.target.value); if (reviewError?.startsWith('Type a reason')) setReviewError(null); }}
               placeholder="Why? e.g. “Box misses the left arm” — required for overrides, rejects and corrections"
@@ -767,6 +830,13 @@ export const AuditReviewWorkspace: React.FC = () => {
               aria-describedby="review-comment-hint"
             />
             {reasonNeededHint && <p id="review-comment-hint" className="text-3xs text-text-faint">{reasonNeededHint}</p>}
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" disabled={!canReview || !reviewComment.trim() || !recheckStatus.canRecheck || applyProposal.isPending}
+                onClick={() => recheckMutation.mutate({ feedback: true })}>Recheck with feedback</Button>
+              <Button size="sm" variant="secondary" disabled={!canReview || !reviewComment.trim() || !recheckStatus.canRecheck || applyProposal.isPending}
+                onClick={() => recheckMutation.mutate({ feedback: true, propose: true })}>Suggest a correction</Button>
+            </div>
+            <p className="text-3xs text-text-faint">Feedback applies to this image only. It does not activate changes for future batches.</p>
             <div className="grid grid-cols-3 gap-2">
               <Button variant="primary" size="sm" leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />} disabled={!canReview || findingReviewMutation.isPending} isLoading={sampleReviewMutation.isPending} onClick={() => decideSample('accepted')} title="Accept sample (Shift+A)" className="bg-status-accepted hover:bg-status-accepted/90 text-base-pure font-bold">
                 Accept

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { EnclosureEvidence, readEnclosureEvidence } from './EnclosureEvidence';
+import { EnclosureEvidence } from './EnclosureEvidence';
+import { readEnclosureEvidence } from './enclosureEvidenceValue';
 
 const box = { annotation_index: 0, box_number: 1, object_id: 4,
   outcome: 'fail', model_verified: true, reason: 'Background only', bbox: [1, 1, 80, 55] };

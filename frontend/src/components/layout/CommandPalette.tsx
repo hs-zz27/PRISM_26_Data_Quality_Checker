@@ -13,7 +13,7 @@ const screens: PaletteItem[] = [
   { label: 'Datasets', detail: 'Imported catalogues', path: '/datasets', kind: 'screen' },
   { label: 'Corrections', detail: 'Annotation revisions', path: '/corrections', kind: 'screen' },
   { label: 'Exports', detail: 'Export history', path: '/exports', kind: 'screen' },
-  { label: 'Feedback', detail: 'Evaluation and activation', path: '/feedback', kind: 'screen' },
+  { label: 'Policy evaluation', detail: 'Evaluate changes before future batches', path: '/feedback', kind: 'screen' },
 ];
 const itemIcon = { screen: Search, audit: SearchCode, dataset: Database, rulebook: BookOpen };
 

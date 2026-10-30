@@ -69,7 +69,7 @@ describe('AuditReviewWorkspace', () => {
     expect(await screen.findByText(/Type a reason in the comment box before you override the tool/)).toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')).toBe(false);
 
-    fireEvent.change(screen.getByLabelText('Reason / comment'), { target: { value: 'Vehicle label is correct for this crop' } });
+    fireEvent.change(screen.getByLabelText('Feedback for this image'), { target: { value: 'Vehicle label is correct for this crop' } });
     fireEvent.click(within(card).getByRole('button', { name: 'Override' }));
 
     await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')).toBe(true));
@@ -111,6 +111,63 @@ describe('rechecks inside the original workspace', () => {
   beforeEach(() => useReviewerStore.setState({ reviewerId: 'rev_test' }));
   afterEach(() => vi.unstubAllGlobals());
 
+  it('submits feedback for the selected image without saving a correction', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST' && url.includes('/rechecks')) {
+        return json({ audit: { audit_id: 'child-1' }, job: { job_id: 'child-job' }, parent_audit_id: 'audit-1' }, 202);
+      }
+      if (url.includes('/jobs/child-job')) return json({ job_id: 'child-job', kind: 'audit', status: 'queued', progress: { phase: 'queued', processed: 0, total: 1, fraction: 0 } });
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkspace();
+    await screen.findByRole('article', { name: 'Rule LBL-1: Fail' });
+    // Canvas pan shortcuts must not swallow spaces typed in reviewer feedback.
+    expect(fireEvent.keyDown(screen.getByLabelText('Feedback for this image'), { key: ' ', code: 'Space' })).toBe(true);
+    fireEvent.change(screen.getByLabelText('Feedback for this image'), { target: { value: 'The box misses the feet' } });
+    const suggest = screen.getByRole('button', { name: 'Suggest a correction' });
+    await waitFor(() => expect(suggest).toBeEnabled());
+    fireEvent.click(suggest);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(true));
+    const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST');
+    expect(posts).toHaveLength(1);
+    expect(posts[0]![0]).toContain('/audits/audit-1/rechecks');
+    expect(JSON.parse(String(posts[0]![1]?.body))).toEqual({ sample_ids: ['sample-1'], sample_revisions: { 'sample-1': 1 },
+      reviewer_id: 'rev_test', feedback: 'The box misses the feet', propose_correction: true });
+  });
+
+  it('requires preview and explicit apply before saving a draft then rechecks the saved revision', async () => {
+    const objects = [{ object_id: 1, label: 'vehicle', bbox: [10, 10, 40, 50] }];
+    const draft = { ...sample, measurements: { ...sample.measurements, correction_proposal: {
+      protocol: 'review-correction-v1', annotation_format: 'penn_fudan', dataset_id: 'dataset-1', sample_id: 'sample-1',
+      sample_revision: 1, status: 'proposed', reason: 'Extend the lower edge.', feedback: { comment: 'Check feet' }, objects,
+    } } };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url, 'http://localhost').pathname;
+      if (init?.method === 'POST' && path.endsWith('/revisions')) return json({ dataset_id: 'dataset-1', sample_id: 'sample-1', revision: 2 });
+      if (init?.method === 'POST' && path.endsWith('/rechecks')) return json({ audit: { audit_id: 'child-1' }, job: { job_id: 'child-job' }, parent_audit_id: 'audit-1' }, 202);
+      if (path === '/api/v1/jobs/child-job') return json({ job_id: 'child-job', kind: 'audit', status: 'queued', progress: { phase: 'queued', processed: 0, total: 1, fraction: 0 } });
+      if (path === '/api/v1/audits/audit-1/samples/sample-1') return json(draft);
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkspace();
+    const apply = await screen.findByRole('button', { name: 'Apply correction and recheck' });
+    expect(apply).toBeDisabled();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview correction' }));
+    expect(screen.getByText(/Nothing has been saved/)).toBeInTheDocument();
+    await waitFor(() => expect(apply).toBeEnabled());
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+    fireEvent.click(apply);
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(2));
+    const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST');
+    expect(posts[0]![0]).toContain('/revisions');
+    expect(JSON.parse(String(posts[0]![1]?.body))).toMatchObject({ expected_revision: 1, objects, reason: 'Check feet', source_audit_id: 'audit-1' });
+    expect(posts[1]![0]).toContain('/rechecks');
+    expect(JSON.parse(String(posts[1]![1]?.body))).toMatchObject({ sample_ids: ['sample-1'], sample_revisions: { 'sample-1': 2 }, feedback: null, propose_correction: false });
+  });
+
   it('submits a recheck without navigating away and displays its pending state', async () => {
     let submitted = false;
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -136,7 +193,7 @@ describe('rechecks inside the original workspace', () => {
     expect(screen.getByRole('button', { name: /^Accept$/ })).toBeDisabled();
     expect(screen.getByText('audit-1')).toBeInTheDocument();
     const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
-    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ sample_ids: ['sample-1'], sample_revisions: { 'sample-1': 1 }, reviewer_id: 'rev_test' });
+    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ sample_ids: ['sample-1'], sample_revisions: { 'sample-1': 1 }, reviewer_id: 'rev_test', feedback: null, propose_correction: false });
     expect(fetchMock.mock.calls.some(([url]) => url.includes('/samples/sample-1?include_rechecks=true'))).toBe(true);
   });
 
