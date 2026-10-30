@@ -17,6 +17,7 @@ from .detection_evidence import DetectorConfiguration
 from .job import JobStatus
 from .enclosure import EnclosureRuntime
 from .feedback import FeedbackRuntime
+from .review_feedback import ImageReviewFeedback
 
 
 NonBlank = Annotated[str, StringConstraints(min_length=1, pattern=r"\S")]
@@ -56,6 +57,7 @@ class BatchAuditRequest(BaseModel):
     detector: DetectorConfiguration | None = None
     enclosure_runtime: EnclosureRuntime | None = None
     source_mode: AuditSourceMode = Field(default=AuditSourceMode.LEGACY, strict=False)
+    reviewer_feedback: dict[str, ImageReviewFeedback] = Field(default_factory=dict)
 
     @field_validator("sample_ids")
     @classmethod
@@ -88,6 +90,10 @@ class BatchAuditRequest(BaseModel):
     @model_validator(mode="after")
     def reject_unknown_revision_keys(self) -> "BatchAuditRequest":
         unknown = set(self.sample_revisions).difference(self.sample_ids)
+        if set(self.reviewer_feedback).difference(self.sample_ids):
+            raise ValueError('Reviewer feedback must belong to a selected image.')
+        if self.reviewer_feedback and self.source_mode is not AuditSourceMode.SNAPSHOT:
+            raise ValueError('Reviewer feedback requires pinned snapshot evidence.')
         if unknown:
             raise ValueError("sample_revisions may only contain requested sample IDs.")
         return self

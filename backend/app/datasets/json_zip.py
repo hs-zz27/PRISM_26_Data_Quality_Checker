@@ -128,7 +128,16 @@ def unpack_archive(path, destination, request):
             try:
                 document = load_document(annotation, parser, max_bytes=request.policy.max_annotation_bytes)
             except AnnotationReadError:
-                if annotation.name == "manifest.json":
+                if annotation == destination / "manifest.json":
+                    # Only our validated export metadata may be skipped. A broken
+                    # annotation named manifest.json is still an import error.
+                    from ..models.export import ExportManifest
+                    try:
+                        metadata = ExportManifest.model_validate_json(annotation.read_bytes())
+                    except ValueError:
+                        raise ImportInputError("INVALID_LAYOUT")
+                    if metadata.format != request.format:
+                        raise ImportInputError("INVALID_LAYOUT")
                     used.add(annotation)
                     continue
                 raise

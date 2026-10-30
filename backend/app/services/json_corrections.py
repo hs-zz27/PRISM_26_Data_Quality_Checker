@@ -37,6 +37,10 @@ def prepare_json_correction(base, request, settings):
                 'object_id', 'source_key', 'source_id', 'group_id', 'bbox_origin', 'coordinate_system',
             )):
                 raise ValueError('Source identities must remain unchanged.')
+            if old.model_dump() == new.model_dump():
+                continue  # Retain other problematic records exactly; one edit need not fix all of them.
+            if new.label != old.label and not new.label.strip():
+                raise ValueError('A replacement label must be nonblank.')
             if source.mask is not None or any(i.severity == 'unsupported' for i in source.issues):
                 raise ValueError('Unsupported annotation encoding.')
             index = int(source.key.rsplit('/', 1)[1])
@@ -46,7 +50,7 @@ def prepare_json_correction(base, request, settings):
                 if len(categories) != 1:
                     raise ValueError('Select one existing unambiguous category.')
                 target['category_id'] = categories[0]['id']
-                if source.bbox_origin == 'supplied':
+                if source.bbox_origin == 'supplied' and new.bbox != old.bbox:
                     if new.bbox is None:
                         raise ValueError('A supplied box cannot be removed.')
                     x1, y1, x2, y2 = new.bbox
@@ -73,12 +77,20 @@ def prepare_json_correction(base, request, settings):
         checked_document = parser(updated)
         checked_record = next(item for item in checked_document.images if item.key == before.image_key)
         # Validate before calling native polygon rasterization (bounded, in-image vertices).
-        errors = [*checked_document.issues, *checked_record.issues]
-        for obj in checked_record.annotations:
-            errors.extend(obj.issues)
-            errors.extend(_geometry_issues(obj, (width, height), limits))
-        if errors or checked_document.unassigned_annotations:
-            raise ValueError('The resulting sample still contains structural/unsupported issues.')
+        for old, new, previous, obj in zip(prior, request.objects, record.annotations, checked_record.annotations):
+            if old.model_dump() == new.model_dump():
+                continue
+            errors = [*obj.issues, *_geometry_issues(obj, (width, height), limits)]
+            # These bounds protect native rasterization and preserve the geometry
+            # type. Other structural diagnostics remain visible after a partial fix.
+            blocking = {'invalid_polygon', 'degenerate_polygon', 'invalid_bbox', 'degenerate_box',
+                        'box_outside_image', 'polygon_outside_image', 'polygon_topology_limit'}
+            if any(issue.code in blocking or issue.severity == 'unsupported' for issue in errors):
+                raise ValueError('The edited geometry is not representable within supported bounds.')
+            existing = {(issue.code, issue.location) for issue in
+                        [*previous.issues, *_geometry_issues(previous, (width, height), limits)]}
+            if any((issue.code, issue.location) not in existing for issue in errors):
+                raise ValueError('The edit introduces a new structural error.')
         if [obj.model_dump() for obj in display_objects(checked_record)] != [obj.model_dump() for obj in request.objects]:
             raise ValueError('Derived bounds must match the edited polygon geometry.')
         if document.format == 'coco':
@@ -99,6 +111,4 @@ def prepare_json_correction(base, request, settings):
     policy = ImportPolicy(max_annotation_bytes=settings.policy.max_annotation_bytes,
         max_file_bytes=settings.policy.max_asset_bytes, max_image_pixels=settings.policy.max_pixels)
     revised = publication(manifest, base.ordinal, AssetStorageSettings(root=settings.asset_root), policy)
-    if revised.sample.integrity_status.value != 'valid':
-        raise CorrectionError('JSON_SOURCE_NOT_CORRECTABLE')
     return PreparedCorrection(request=request, base=base, revised=revised)

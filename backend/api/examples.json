@@ -2047,7 +2047,9 @@
           "sample_revisions": {
             "sample_001": 2
           },
-          "reviewer_id": "reviewer_demo"
+          "reviewer_id": "reviewer_demo",
+          "feedback": null,
+          "propose_correction": false
         }
       },
       "response": {

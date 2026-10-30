@@ -21,7 +21,7 @@ class CorrectionError(RuntimeError):
         'AUDIT_NOT_RECHECKABLE': (409, 'The parent audit has no supported immutable catalogue lineage or feedback policy.'),
         'SOURCE_AUDIT_MISMATCH': (409, 'Refresh the sample: the source audit does not pin this exact base revision.'),
         'SOURCE_NOT_CORRECTABLE': (422, 'A verified PNG image and a valid resulting integer-ID mask are required.'),
-        'JSON_SOURCE_NOT_CORRECTABLE': (422, 'JSON corrections require supported geometry and a verified image. Keep source identities and shape types unchanged and resolve structural issues in the edited sample.'),
+        'JSON_SOURCE_NOT_CORRECTABLE': (422, 'JSON corrections require a verified image and supported edited geometry. Keep source identities and shape types unchanged; edited geometry must stay within image bounds.'),
         'VALIDATION_ERROR': (422, 'One or more correction or recheck fields are invalid.'),
         'UPLOAD_TOO_LARGE': (413, 'The correction request exceeds a configured resource limit.'),
         'UNSUPPORTED_MEDIA_TYPE': (415, 'Upload a multipart PNG mask without content encoding.'),

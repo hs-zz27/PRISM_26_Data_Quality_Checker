@@ -56,8 +56,8 @@ def test_spawned_import_and_native_correction_are_durable(dataset_database_setti
 
 
 def test_legacy_manifest_serialization_keeps_feedback_hash_identity():
-    from backend.tests.test_asset_manifest import manifest
-    value = manifest()
+    from backend.tests.test_asset_manifest import make_manifest
+    value = make_manifest()
     serialized = value.model_dump(mode='json')
     assert set(serialized) == {'dataset_id', 'sample_id', 'sample_revision', 'original_image', 'raw_mask', 'annotation_text'}
     assert value.annotation_format == 'penn_fudan'

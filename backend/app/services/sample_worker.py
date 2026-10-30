@@ -102,6 +102,7 @@ def run_sample_child(
     feedback_runtime: Any = None,
     enclosure_runtime: Any = None,
     processing_deadline: datetime | None = None,
+    reviewer_feedback: Any = None,
 ) -> None:
     """Collect and evaluate one sample without opening the workflow database."""
     _clear_database_environment()
@@ -142,7 +143,8 @@ def run_sample_child(
                         raise SampleComputationError("Model checks require immutable snapshot evidence.")
                     from .feedback import augment_evaluation
                     evaluation = augment_evaluation(evaluation,rulebook,snapshot_manifest,feedback_runtime,asset_settings,
-                        audit_id=audit_id,sample_id=sample_id,sample_revision=sample_revision)
+                        audit_id=audit_id,sample_id=sample_id,sample_revision=sample_revision,
+                        **({'reviewer_feedback': reviewer_feedback} if reviewer_feedback is not None else {}))
                 if enclosure_runtime is not None:
                     if snapshot_manifest is None or asset_settings is None:
                         raise SampleComputationError("Model checks require immutable snapshot evidence.")
@@ -150,8 +152,13 @@ def run_sample_child(
                     evaluation = augment_enclosure(evaluation, rulebook, snapshot_manifest, enclosure_runtime, asset_settings,
                         processing_deadline=processing_deadline,
                         audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision,
+                        **({'reviewer_feedback': reviewer_feedback} if reviewer_feedback is not None else {}),
                         **({'feedback_policy': feedback_runtime.policy} if feedback_runtime is not None
                             and feedback_runtime.execution.enclosure is not None else {}))
+                if reviewer_feedback is not None:
+                    from .review_correction import attach_review_context
+                    measurements = attach_review_context(measurements, reviewer_feedback, snapshot_manifest,
+                        rulebook, asset_settings, feedback_runtime, enclosure_runtime)
                 message = (
                     "success", measurements, evaluation.findings,
                     evaluation.internal_check_failures,

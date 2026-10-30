@@ -66,7 +66,7 @@ def test_import_preserves_originals_and_uses_native_coordinates(tmp_path, format
     assets = AssetStorageSettings(root=settings.asset_root)
     assert publication.sample.annotation_format == format
     assert publication.sample.integrity_status.value == 'valid'
-    assert publication.manifest.raw_mask.availability.value == 'missing'
+    assert publication.manifest.raw_mask.availability.value == 'not_supplied'
     assert read_manifest_asset_file(publication.manifest, 'annotation_text', assets)[1] == raw
     assert read_manifest_asset_file(publication.manifest, 'original_image', assets)[1] == image
     obj = publication.sample.objects[0]
@@ -130,7 +130,7 @@ def test_native_export_roundtrips_to_import(tmp_path, format):
     entry = ExportManifestEntry(sample_id=source.sample_id, sample_revision=1, ordinal=0,
         processing_state='completed', included=True, review_decision='accepted', review_revision=1,
         reviewer_id='student', reviewed_at=now, availability=CapturedAvailability(
-            annotation_text='available', raw_mask='missing', original_image='available'), reason=None)
+            annotation_text='available', raw_mask='not_supplied', original_image='available'), reason=None)
     document = ExportManifest(format=format, export_id='export_demo', audit_id='audit_demo',
         dataset_id=source.dataset_id, source_mode='snapshot', rulebook_id='book', rulebook_version=1,
         selection='accepted_only', include_images=True, selected_at=now, entries=[entry])
@@ -163,6 +163,11 @@ def test_ambiguous_coco_image_binding_rejected(tmp_path):
         imported(tmp_path, 'coco', extras=[('annotations/person.jpg', image.getvalue())])
 
 
+def test_broken_annotation_named_manifest_is_not_silently_ignored(tmp_path):
+    with pytest.raises(ImportInputError):
+        imported(tmp_path, 'labelme', extras=[('manifest.json', b'{broken')])
+
+
 def test_unsupported_rle_is_retained_and_visible(tmp_path):
     data = documents('coco'); data['annotations'][0]['segmentation'] = {'size': [16, 20], 'counts': [320]}
     pubs, settings, raw, _ = imported(tmp_path, 'coco', data=data)
@@ -186,3 +191,38 @@ def test_empty_annotation_can_pass_labels_without_fabricated_objects(tmp_path):
     report = audit_json_sample(pubs[0].manifest, AssetStorageSettings(root=settings.asset_root))
     findings = evaluate_rules(confirmed_book(label_rule()), report, audit_id='a', sample_id=pubs[0].sample.sample_id, sample_revision=1)
     assert len(findings) == 1 and findings[0].outcome.value == 'pass'
+
+
+@pytest.mark.parametrize('format', ['coco', 'labelme'])
+def test_one_fix_can_be_saved_while_other_annotation_errors_remain(tmp_path, format):
+    data = documents(format)
+    if format == 'coco':
+        data['annotations'].append({'id': 91, 'image_id': 7, 'category_id': 3,
+            'bbox': [1, 1, 2, 2], 'segmentation': {'size': [16, 20], 'counts': [320]}})
+        other = deepcopy(data['annotations'][1])
+    else:
+        data['shapes'].append({'label': '', 'shape_type': 'polygon', 'points': [[1, 1], [3, 3], [5, 5]], 'group_id': None})
+        other = deepcopy(data['shapes'][1])
+    pubs, settings, original, _ = imported(tmp_path, format, data=data)
+    base = pubs[0]
+    objects = [obj.model_dump(mode='json') for obj in base.sample.objects]
+    objects[0]['polygons'] = [[[2, 2], [8, 2], [8, 10], [2, 10]]]
+    if format == 'labelme': objects[0]['bbox'] = [2, 2, 8, 10]
+    request = CorrectionRequest.model_validate(dict(expected_revision=1, reviewer_id='reviewer', reason='Fix one outline', objects=objects))
+    revised = prepare_json_correction(base, request, CorrectionSettings(asset_root=settings.asset_root)).revised
+    assets = AssetStorageSettings(root=settings.asset_root)
+    saved = json.loads(read_manifest_asset_file(revised.manifest, 'annotation_text', assets)[1])
+    assert saved['annotations' if format == 'coco' else 'shapes'][1] == other
+    assert read_manifest_asset_file(base.manifest, 'annotation_text', assets)[1] == original
+    assert revised.sample.revision == 2
+    assert audit_json_sample(revised.manifest, assets)['source_diagnostics']
+
+
+def test_partial_fix_cannot_introduce_new_polygon_errors(tmp_path):
+    pubs, settings, _, _ = imported(tmp_path, 'labelme')
+    objects = [obj.model_dump(mode='json') for obj in pubs[0].sample.objects]
+    objects[0]['polygons'] = [[[1, 1], [4, 4], [1, 4], [4, 1]]]
+    objects[0]['bbox'] = [1, 1, 4, 4]
+    request = CorrectionRequest.model_validate(dict(expected_revision=1, reviewer_id='reviewer', reason='Synthetic crossing', objects=objects))
+    with pytest.raises(CorrectionError):
+        prepare_json_correction(pubs[0], request, CorrectionSettings(asset_root=settings.asset_root))

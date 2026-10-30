@@ -516,6 +516,7 @@ class BatchAuditService:
                 kwargs={"snapshot_manifest": manifest, "asset_settings": asset_settings,
                         "feedback_runtime":request.feedback_runtime,
                         "enclosure_runtime": request.enclosure_runtime,
+                        "reviewer_feedback": request.reviewer_feedback.get(sample_claim.sample_id),
                         "processing_deadline": sample_claim.processing_deadline},
                 daemon=True,
             )
@@ -613,6 +614,9 @@ class BatchAuditService:
 
     def _collect_sample(self, request: BatchAuditRequest, sample_claim) -> Mapping[str, Any]:
         manifest = self._snapshot_for_claim(request, sample_claim)
+        if manifest is not None and manifest.annotation_format != "penn_fudan":
+            from .json_audit import audit_json_sample
+            return audit_json_sample(manifest, self.manifest_repository.asset_settings, request.allowed_labels)
         with ExitStack() as resources:
             collection_root = request.dataset_root
             if manifest is not None:
@@ -743,7 +747,9 @@ class BatchAuditService:
                         from .feedback import augment_evaluation
                         evaluation=augment_evaluation(evaluation,rulebook,self._snapshot_for_claim(request,sample_claim),
                             request.feedback_runtime,self.manifest_repository.asset_settings,
-                            audit_id=sample_claim.audit_id,sample_id=sample_claim.sample_id,sample_revision=sample_claim.sample_revision)
+                            audit_id=sample_claim.audit_id,sample_id=sample_claim.sample_id,sample_revision=sample_claim.sample_revision,
+                            **({'reviewer_feedback': request.reviewer_feedback[sample_claim.sample_id]}
+                               if sample_claim.sample_id in request.reviewer_feedback else {}))
                     if request.enclosure_runtime is not None:
                         from .enclosure import augment_enclosure
                         evaluation = augment_enclosure(evaluation, rulebook, self._snapshot_for_claim(request, sample_claim),
@@ -752,8 +758,15 @@ class BatchAuditService:
                             checkpoint=lambda: self._checkpoint(sample_claim, renew=False),
                             audit_id=sample_claim.audit_id, sample_id=sample_claim.sample_id,
                             sample_revision=sample_claim.sample_revision,
+                            **({'reviewer_feedback': request.reviewer_feedback[sample_claim.sample_id]}
+                               if sample_claim.sample_id in request.reviewer_feedback else {}),
                             **({'feedback_policy': request.feedback_runtime.policy} if request.feedback_runtime is not None
                                 and request.feedback_runtime.execution.enclosure is not None else {}))
+                    if sample_claim.sample_id in request.reviewer_feedback:
+                        from .review_correction import attach_review_context
+                        measurements = attach_review_context(measurements, request.reviewer_feedback[sample_claim.sample_id],
+                            self._snapshot_for_claim(request, sample_claim), rulebook, self.manifest_repository.asset_settings,
+                            request.feedback_runtime, request.enclosure_runtime)
                 # Preserve the collector's source-processing status. The
                 # durable incomplete flag also records evaluator health.
                 stored_measurements = deepcopy(dict(measurements))

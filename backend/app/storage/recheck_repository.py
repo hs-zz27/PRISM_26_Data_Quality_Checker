@@ -3,6 +3,7 @@ from ..core.correction import CorrectionError, CorrectionStorageError
 from ..models.audit import BatchAuditRequest
 from ..models.audit_submission import AuditStarted
 from ..models.correction import RecheckRequest
+from ..models.review_feedback import ImageReviewFeedback
 from .correction_repository import CorrectionRepository, checked
 from .dataset_repository import _identifier
 from .workflow_repository import AuditRepository, AuditNotFoundError, _decode_audit
@@ -74,7 +75,10 @@ class RecheckRepository(CorrectionRepository):
                 raise CorrectionError('STALE_SAMPLE_REVISION')
             pins={sample_id:self._get_publication(connection,current['dataset_id'],sample_id,request.sample_revisions[sample_id]).manifest for sample_id in request.sample_ids}
             batch=BatchAuditRequest.model_validate({**original.model_dump(),'dataset_root':'','sample_ids':request.sample_ids,
-                'sample_revisions':request.sample_revisions,'source_mode':'snapshot'})
+                'sample_revisions':request.sample_revisions,'source_mode':'snapshot',
+                'reviewer_feedback': {} if request.feedback is None else {request.sample_ids[0]: ImageReviewFeedback(
+                    reviewer_id=request.reviewer_id, source_audit_id=parent_audit_id,
+                    comment=request.feedback, propose_correction=request.propose_correction)}})
             # Private shared insertion seam; no second connection or generic queue.
             audit,job=AuditRepository(settings=self.settings)._start_audit_locked(
                 connection,batch,sample_manifests=pins,preserve_enclosure_runtime=True)

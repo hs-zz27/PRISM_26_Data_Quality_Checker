@@ -62,7 +62,7 @@ def prepare_runtime(connection,request,book,*,settings,preserve_enclosure_runtim
     return request.model_copy(update={'feedback_runtime':runtime})
 
 
-def augment_evaluation(evaluation,rulebook,manifest,runtime,asset_settings,*,audit_id,sample_id,sample_revision):
+def augment_evaluation(evaluation,rulebook,manifest,runtime,asset_settings,*,audit_id,sample_id,sample_revision,reviewer_feedback=None):
     if runtime is None: return evaluation
     runtime=checked(FeedbackRuntime,runtime)
     if runtime.execution.enclosure is not None:
@@ -77,10 +77,12 @@ def augment_evaluation(evaluation,rulebook,manifest,runtime,asset_settings,*,aud
             examples=[]
             if runtime.policy is not None and runtime.policy.cases[0].target==target:
                 examples=runtime.policy.cases
-            recorded=client.predict(manifest,target,examples,asset_settings)
+            recorded=client.predict(manifest,target,examples,asset_settings,
+                **({'reviewer_feedback': reviewer_feedback} if reviewer_feedback is not None else {}))
             findings.append(_make_finding(rule=rule,outcome=FindingOutcome(recorded.prediction.outcome),
                 reason=recorded.prediction.reason,object_id=None,occurrence='sample',
                 evidence={'model_proposal':recorded.model_dump(mode='json'),
+                    **({'reviewer_feedback': reviewer_feedback.model_dump(mode='json')} if reviewer_feedback is not None else {}),
                     'execution':runtime.execution.model_dump(mode='json'),
                     'policy_id':None if not examples else runtime.policy.resource_id,
                     'policy_sha256':None if not examples else fingerprint(runtime.policy),

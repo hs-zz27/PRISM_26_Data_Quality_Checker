@@ -72,7 +72,7 @@ def _box_record(view: ContextView, call: Any, failure: str | None, request_sha25
 def _judge_boxes(views: tuple[ContextView, ...], rule: dict[str, Any], case_id: str, runtime: EnclosureRuntime,
                  clock: Callable[[], float], transport: httpx.BaseTransport | None, *,
                  deadline: float, checkpoint: Callable[[], None] | None = None,
-                 examples: tuple | list = ()) -> list[dict[str, Any]]:
+                 examples: tuple | list = (), reviewer_feedback=None) -> list[dict[str, Any]]:
     pin = runtime.execution
     records: list[dict[str, Any]] = []
     client = EnclosureClient(pin, transport=transport, clock=clock)
@@ -86,6 +86,9 @@ def _judge_boxes(views: tuple[ContextView, ...], rule: dict[str, Any], case_id: 
                     prepared = build_feedback_request(pin, rule, case_id, view, examples)
                 else:
                     prepared = build_request(pin, rule, case_id, view)
+                if reviewer_feedback is not None:
+                    from .enclosure_prompt import with_reviewer_feedback
+                    prepared = with_reviewer_feedback(prepared, pin, reviewer_feedback)
             except ContextNotRepresentable as error:
                 records.append(_box_record(view, None, error.code, None))
                 continue
@@ -120,7 +123,7 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
                       evidence_reader: Callable[..., Any] = read_evidence,
                       processing_deadline: datetime | None = None,
                       checkpoint: Callable[[], None] | None = None,
-                      feedback_policy: Any = None) -> Any:
+                      feedback_policy: Any = None, reviewer_feedback=None) -> Any:
     """Replace each enclosure rule's placeholder with one finding holding every box's proposal."""
     if runtime is None:
         return evaluation
@@ -158,14 +161,15 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
                  "boxes_intended": None}
     for rule in targets:
         examples = ()
-        policy_facts = {}
+        policy_facts = ({} if reviewer_feedback is None else
+                        {"reviewer_feedback": reviewer_feedback.model_dump(mode="json")})
         if feedback_policy is not None and feedback_policy.cases[0].target.rule.rule_id == rule.rule_id:
             from ..models.feedback import FrozenSet, RulePin, checked, fingerprint
             from .enclosure_feedback import example_views
             policy = checked(FrozenSet, feedback_policy)
             target = RulePin(rulebook_id=rulebook.rulebook_id, rulebook_version=rulebook.version, rule=rule)
             examples = example_views(manifest, target, policy.cases, pin, asset_settings)
-            policy_facts = {'feedback_policy_id': policy.resource_id, 'feedback_policy_sha256': fingerprint(policy)}
+            policy_facts.update({'feedback_policy_id': policy.resource_id, 'feedback_policy_sha256': fingerprint(policy)})
         rule_document = rule.model_dump(mode="json")
         failure, views = ("evidence_unavailable" if inputs is None else None), ()
         if inputs is not None:
@@ -186,7 +190,8 @@ def augment_enclosure(evaluation: Any, rulebook: Any, manifest: Any, runtime: An
                                 rule_id=rule.rule_id, sample_id=sample_id, sample_revision=sample_revision,
                                 image_sha256=facts["image_sha256"], annotation_sha256=facts["annotation_sha256"])
         boxes = _judge_boxes(views, rule_document, case_id, runtime, clock, transport,
-                             deadline=deadline, checkpoint=checkpoint, examples=examples)
+                             deadline=deadline, checkpoint=checkpoint, examples=examples,
+                             reviewer_feedback=reviewer_feedback)
         outcome, label = aggregate_sample([BoxVerdict(outcome=b["outcome"], model_verified=b["model_verified"])
                                            for b in boxes])
         marked = [str(b["box_number"]) for b in boxes if b["outcome"] == outcome and outcome != "pass"]

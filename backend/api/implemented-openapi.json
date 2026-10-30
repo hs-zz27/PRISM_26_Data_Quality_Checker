@@ -9284,7 +9284,9 @@
                 "sample_revisions": {
                   "sample_001": 2
                 },
-                "reviewer_id": "reviewer_demo"
+                "reviewer_id": "reviewer_demo",
+                "feedback": null,
+                "propose_correction": false
               }
             }
           }
@@ -12906,7 +12908,8 @@
         "enum": [
           "available",
           "missing",
-          "unreadable"
+          "unreadable",
+          "not_supplied"
         ],
         "title": "AssetAvailability",
         "type": "string"
@@ -17023,6 +17026,26 @@
             "pattern": "\\S",
             "title": "Reviewer Id",
             "type": "string"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Feedback"
+          },
+          "propose_correction": {
+            "default": false,
+            "title": "Propose Correction",
+            "type": "boolean"
           }
         },
         "required": [

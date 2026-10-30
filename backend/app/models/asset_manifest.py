@@ -24,6 +24,7 @@ class AssetAvailability(StrEnum):
     AVAILABLE = "available"
     MISSING = "missing"
     UNREADABLE = "unreadable"
+    NOT_SUPPLIED = "not_supplied"
 
 
 class AssetManifestEntry(BaseModel):
@@ -86,6 +87,11 @@ class SampleAssetManifest(BaseModel):
 
     @model_validator(mode="after")
     def format_binding(self):
+        if any(entry.availability is AssetAvailability.NOT_SUPPLIED for entry in
+               (self.original_image, self.annotation_text)):
+            raise ValueError("An image or annotation reference cannot be marked not_supplied.")
+        if self.annotation_format == "penn_fudan" and self.raw_mask.availability is AssetAvailability.NOT_SUPPLIED:
+            raise ValueError("Penn-Fudan expects a supplied pixel mask.")
         if self.annotation_format == "penn_fudan" and self.image_key is not None:
             raise ValueError("Penn-Fudan does not use a JSON image key.")
         if self.annotation_format != "penn_fudan" and self.image_key is None:

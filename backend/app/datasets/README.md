@@ -1,9 +1,10 @@
 # Annotation readers and structural inspection: phases 1–3
 
-These are standalone backend readers. The running application's upload, catalogue,
-audit, correction and export paths still use Penn-Fudan. Neither a successful
-parse nor an empty issue list proves annotation quality or image compatibility.
-Existing Penn-Fudan readers and API contracts are unchanged.
+These readers also feed the managed COCO and LabelMe import, audit, correction
+and native export paths. See [format integration](../../api/ANNOTATION_FORMATS.md)
+for the supported workflow and remaining limitations. The description below covers
+the standalone reader layer. Neither a successful parse nor an empty issue list
+proves annotation quality or image compatibility.
 
 ## Usage
 
