@@ -9,7 +9,7 @@ Source: `synthetic_samples.py`; every document carries a SYNTHETIC marker.
 
 | Run | Result |
 |---|---|
-| Linux sandbox (Claude), readers + validation + summary + demo + Penn-Fudan tests | **122 passed** |
+| Linux sandbox (Claude), readers + validation + summary + demo + Penn-Fudan tests | **136 passed** after the preview changes in section D (122 before) |
 | Windows 11, Python 3.12.10, user's machine, same files at the earlier count | **118 passed, 2 skipped** of 120 (FIFO and symlink tests skip on Windows). Two tests were added afterwards |
 | Same files before this change (readers, validation, Penn-Fudan) | 94 passed |
 | `preview_annotations synthetic <new dir> --max-images 0`, Linux and Windows | **identical totals on both**: images=14, objects=19, unassigned=1, unreadable files=1; labels gadget x4, widget x16; box states derived 5 / malformed 1 / not_supplied 3 / supplied 10; polygon supplied 8 / not_supplied 11; mask not_supplied 18 / retained_not_decoded 1; diagnostics reader 10, geometry 4, image 4. Exit code 1 |
@@ -81,9 +81,46 @@ Limits of this check: 3 of 33 real images, judged visually and not measured, and
 flagged polygons were not zoomed into. In the crowded scene the text labels overlap; this is a
 readability issue only, not a coordinate issue.
 
+## D. Preview improvements and safety (review of PR #15)
+
+The pushed branch (455a2d5) did not contain the safety fixes. Before changing anything, the
+old code was probed with small synthetic inputs (Linux):
+
+| Scenario | Before | After |
+|---|---|---|
+| Negative-width box `[50, 10, -20, 30]` | The whole preview aborted: exit 2, `x1 must be greater than or equal to x0`, nothing printed | Other objects are drawn; the inverted box is drawn from its supplied corners and keeps its diagnostics |
+| Polygon with coordinates of 1e12 and no box | The derived-box dashing loop did not finish within 8 seconds (killed) | Reported as not drawn ("beyond the preview limit"); finishes in under 5 seconds (test) |
+| Box of 1e12 | Finished after 2.8 seconds | Same limit and report as above |
+| An output file with the generated name already existed | Overwritten | Kept; the new overlay is written as `...-2.png` |
+| `--out` is the image folder | Overwrite was possible for a source image with the generated name | Files are created exclusively; test with a source image of that exact name |
+| Huge `--scale` | Not probed before | Skipped before any canvas is allocated; a test asserts no allocation happens |
+
+Regression tests added for each row, plus one failing image not stopping the others, object
+numbers versus source identifiers, annotation data unchanged by drawing, marker placement in a
+crowd, colour consistency and legend wrapping. Mutation checks (code deliberately broken, the
+test must fail): allowing overwrite failed 3 tests; removing the coordinate limit and removing
+the size check each failed their test.
+
+Real data, regenerated with the new renderer, using the datasets on `main`:
+- COCO `coco_people_30`: 30 images, 242 objects, 34 geometry diagnostics. Unchanged from section B.
+- LabelMe examples: 3 images, 18 objects, 3 geometry diagnostics. Unchanged.
+- Source files: SHA-256 over all 48 files under `datasets/` was identical before and after a run.
+- Inspected at full size by Claude: COCO `000000001000` (crowded tennis scene), `000000394275`
+  (bus with small people), `000000488592` (bicycles and small objects near the bottom),
+  `000000367680` (cars, bus, truck and people around the centre) and LabelMe `2011_000006`.
+  Markers did not overlap, each object could be matched to its list entry and source ID,
+  solid and dashed geometry stayed distinguishable, and diagnostics and clipped geometry were
+  listed. Before/after sheets were also made for six images. The other 26 COCO and 2 LabelMe
+  overlays were generated without error but not individually inspected.
+
+Not claimed: no upload, audit or correction workflow was run for this section.
+
 ## C. Limitations found
 - COCO RLE and keypoints, LabelMe embedded images and shape masks are kept, not decoded.
 - Images with EXIF rotation are skipped (no coordinate mapping).
 - Overlay alignment was judged by eye, not measured.
+- Very small objects are tiny at the default scale; use `--scale` to magnify them.
+- Marker placement is a heuristic. In extreme crowding some markers sit away from their object and are tied back with a leader line.
+- Markers can cover image content next to an object. The text uses Pillow's default font.
 - No end-to-end ZIP upload was run (needs the database and a POSIX host).
 - Windows: the readers and demo are portable; managed import and export are not (see checklist).

@@ -14,26 +14,22 @@ import argparse
 from collections import Counter
 from dataclasses import replace
 from fnmatch import fnmatch
-from io import BytesIO
 import json
 from pathlib import Path
 import re
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
 
 from ..models.annotation_document import AnnotationDocument, ReaderIssue
 from .annotation_reader import AnnotationReadError
 from .annotation_summary import summarize_annotation
 from .annotation_validation import _decode_metadata, _image_bytes, image_path_for, inspect_document
+from .overlay_render import OverlayObject, OverlayTooLarge, PALETTE, render_overlay  # noqa: F401
 from ..models.annotation_validation import ValidationLimits
 from .coco import read_coco
 from .labelme import read_labelme
 from .synthetic_samples import COCO_MARKER, write_synthetic_dataset
 
-PALETTE = [(230, 25, 75), (60, 180, 75), (0, 130, 200), (245, 130, 48),
-           (145, 30, 180), (0, 170, 170), (240, 50, 230), (128, 128, 0)]
-MIN_LEGEND_WIDTH = 640
 
 
 def is_synthetic(document: AnnotationDocument) -> bool:
@@ -195,8 +191,15 @@ def render_text(report, overlays=None) -> str:
                 out.extend(_object_lines(obj))
             if not image["objects"]:
                 out.append("    (no objects)")
-            if image["key"] in overlays.get((doc["number"]), {}):
-                out.append(f"    overlay: {overlays[doc['number']][image['key']]}")
+            result = overlays.get(doc["number"], {}).get(image["key"])
+            if result and result["status"] == "written":
+                renamed = "  (name taken: existing file kept, new file added)" if result["renamed"] else ""
+                out.append(f"    overlay: {result['path']}  scale {result['scale']}x{renamed}")
+                for item in result["objects"]:
+                    for text in item["notes"]:
+                        out.append(f"      preview #{item['number']}: {item['render']}: {text}")
+            elif result:
+                out.append(f"    overlay skipped: {result['reason']}")
         if doc["unassigned"]:
             out.append("  Unassigned annotations (no unambiguous image):")
             for obj in doc["unassigned"]:
@@ -220,7 +223,7 @@ def render_text(report, overlays=None) -> str:
 
 
 def _object_lines(obj):
-    head = (f"    object {obj['key']}  source_id={obj['source_id']}  label={obj['label']!r}  "
+    head = (f"    object {obj['key']} (preview #{obj['index']})  source_id={obj['source_id']}  label={obj['label']!r}  "
             f"group={obj['group_id'] if obj['group_id'] is not None else '-'}")
     if obj["source_shape_type"] is not None:
         head += f"  shape_type={obj['source_shape_type']}"
@@ -246,120 +249,88 @@ def _object_lines(obj):
 
 # ---------------------------------------------------------------------- overlay
 
-def _font(size):
-    try:
-        return ImageFont.load_default(size=size)
-    except TypeError:  # very old Pillow
-        return ImageFont.load_default()
+def _empty_reason(obj, entry):
+    if any(i["code"] == "unsupported_shape" for i in entry["issues"]):
+        kind = entry["source_shape_type"] if entry["source_shape_type"] is not None else "missing"
+        return f"shape_type {kind!r} is not normalized by the readers, so there is no geometry to draw."
+    if entry["box"]["state"] == "malformed" or entry["polygon"]["state"] == "malformed":
+        return "The supplied box or polygon could not be parsed (see diagnostics); the original is kept in the source."
+    if entry["mask"]["state"] == "retained_not_decoded":
+        return f"The mask ({entry['mask']['encoding']}) is kept as supplied and is not decoded, so it is not drawn."
+    return "The object has no box or polygon geometry."
 
 
-def _dashed_line(draw, start, end, color, width=1, dash=6, gap=4):
-    (x1, y1), (x2, y2) = start, end
-    length = max(((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5, 1e-9)
-    ux, uy, position = (x2 - x1) / length, (y2 - y1) / length, 0.0
-    while position < length:
-        stop = min(position + dash, length)
-        draw.line([(x1 + ux * position, y1 + uy * position), (x1 + ux * stop, y1 + uy * stop)],
-                  fill=color, width=width)
-        position += dash + gap
+def overlay_objects(record, image_entry):
+    """Plain drawing input. Geometry is passed through unchanged; only labels are shortened."""
+    items = []
+    for obj, entry in zip(record.annotations, image_entry["objects"]):
+        ident = str(obj.source_id) if obj.source_id is not None else obj.key
+        if obj.group_id is not None:
+            ident += f" group {obj.group_id}"
+        label = (obj.label if obj.label is not None else "(no label)")
+        items.append(OverlayObject(
+            number=entry["index"], label=label if len(label) <= 28 else label[:25] + "...",
+            ident=ident, box=obj.bbox, box_origin=obj.bbox_origin if obj.bbox is not None else None,
+            polygons=obj.polygons, diagnostics=[(i["code"], i["message"]) for i in entry["issues"]],
+            empty_reason=_empty_reason(obj, entry)))
+    return items
 
 
-def _dashed_rectangle(draw, box, color, width=1):
-    left, top, right, bottom = box
-    corners = [(left, top), (right, top), (right, bottom), (left, bottom)]
-    for start, end in zip(corners, corners[1:] + corners[:1]):
-        _dashed_line(draw, start, end, color, width)
-
-
-def draw_overlay(image_bytes: bytes, record, objects, *, synthetic: bool, scale: int | None,
-                 declared_mismatch: str | None, out_path: Path) -> dict:
-    """Draw original (solid) and derived (dashed) geometry; coordinates stay unscaled."""
-    with Image.open(BytesIO(image_bytes)) as source:
-        base = source.convert("RGB")
-    width, height = base.size
-    factor = scale or max(1, min(4, 640 // max(width, height)))
-    if factor > 1:
-        base = base.resize((width * factor, height * factor), Image.NEAREST)
-    font = _font(13)
-    notes = [("SYNTHETIC FIXTURE - not a real dataset" if synthetic else None),
-             "solid = ORIGINAL geometry as supplied     dashed = DERIVED by this tool (not in source)",
-             "* = derived box     ! = has diagnostics     "
-             f"coordinates are drawn unscaled (image shown at {factor}x)"]
-    if declared_mismatch:
-        notes.append(declared_mismatch)
-    not_drawn = 0
-    canvas_w = max(base.width, MIN_LEGEND_WIDTH)
-    legend_h = 18 * (len([n for n in notes if n]) + 1) + 6
-    canvas = Image.new("RGB", (canvas_w, base.height + legend_h), (255, 255, 255))
-    canvas.paste(base, (0, 0))
-    draw = ImageDraw.Draw(canvas)
-
-    def at(point):
-        return (point[0] * factor, point[1] * factor)
-
-    for index, (obj, entry) in enumerate(zip(record.annotations, objects)):
-        color = PALETTE[index % len(PALETTE)]
-        drawn = False
-        for part in obj.polygons:
-            points = [at(p) for p in part]
-            if len(points) >= 2:
-                draw.line(points + [points[0]], fill=color, width=2)
-                for x, y in points:
-                    draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=color)
-                drawn = True
-        mark = ""
-        if obj.bbox is not None and obj.bbox_origin == "supplied":
-            draw.rectangle([*at(obj.bbox[:2]), *at(obj.bbox[2:])], outline=color, width=2)
-            drawn = True
-        elif obj.bbox is not None and obj.bbox_origin == "derived_from_polygon":
-            _dashed_rectangle(draw, [*at(obj.bbox[:2]), *at(obj.bbox[2:])], color)
-            mark, drawn = "*", True
-        if not drawn:
-            not_drawn += 1
+def create_unique(path: Path):
+    """Create a new file; never overwrite. If the name is taken, use -2, -3, ... instead."""
+    for attempt in range(1, 1000):
+        candidate = path if attempt == 1 else path.with_name(f"{path.stem}-{attempt}{path.suffix}")
+        try:
+            return open(candidate, "xb"), candidate
+        except FileExistsError:
             continue
-        anchor = obj.bbox[:2] if obj.bbox is not None else obj.polygons[0][0]
-        flag = "!" if entry["issues"] else ""
-        text = f"{index + 1}:{obj.label or '?'}{mark}{flag}"
-        x, y = at(anchor)
-        draw.text((max(0, x), max(0, y - 14)), text, fill=color, font=font)
-    if not_drawn:
-        notes.append(f"{not_drawn} object(s) not drawn: no supported box or polygon geometry")
-    y = base.height + 4
-    for line in (n for n in notes if n):
-        draw.text((4, y), line, fill=(0, 0, 0), font=font)
-        y += 18
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    canvas.save(out_path, format="PNG")
-    return {"path": str(out_path), "not_drawn": not_drawn, "scale": factor}
+    raise OSError("Could not find an unused output file name.")
 
 
-def write_overlays(documents, report, *, image_root, reference_base, out_dir: Path, scale):
-    """Return {document number: {image key: overlay path or skip reason}}."""
+def write_overlays(documents, report, *, image_root, reference_base, out_dir: Path, scale,
+                   show_vertices=False):
+    """Return {document number: {image key: result}}. One bad image never stops the others."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if not out_dir.is_dir():
+        raise ValueError("--out must be a directory.")
     written = {}
     for document, entry in zip(documents, report["documents"]):
         root = image_root(document) if callable(image_root) else image_root
         results = written.setdefault(entry["number"], {})
         for position, (record, image) in enumerate(zip(document.images, entry["images"]), 1):
+            def skip(reason):
+                results[record.key] = {"status": "skipped", "path": None, "reason": reason}
             if image["availability"] != "available" or record.file_name is None:
-                results[record.key] = "skipped: image not available"
-                continue
+                skip("image not available"); continue
             if any(i["code"] in {"unsupported_image_orientation", "embedded_image_unavailable"}
                    for i in image["issues"]):
-                results[record.key] = "skipped: coordinate mapping for this image is unsupported"
-                continue
-            path = image_path_for(document, record.file_name, root, reference_base=reference_base)
-            raw = _image_bytes(path, ValidationLimits())
-            _decode_metadata(raw, ValidationLimits())  # same safety limits as inspection
-            mismatch = None
-            if image["decoded_size"] and image["declared_size"] != image["decoded_size"]:
-                mismatch = ("DECLARED SIZE %sx%s != DECODED %sx%s (coordinates drawn unscaled)"
-                            % (*image["declared_size"], *image["decoded_size"]))
-            stem = re.sub(r"[^A-Za-z0-9_.-]", "_", Path(record.file_name).stem) or "image"
-            # The position keeps two records that name the same file from overwriting each other.
-            target = out_dir / f"{entry['number']:02d}_{position:03d}_{stem}.overlay.png"
-            info = draw_overlay(raw, record, image["objects"], synthetic=entry["synthetic"],
-                                scale=scale, declared_mismatch=mismatch, out_path=target)
-            results[record.key] = info["path"]
+                skip("coordinate mapping for this image is unsupported"); continue
+            try:
+                path = image_path_for(document, record.file_name, root, reference_base=reference_base)
+                raw = _image_bytes(path, ValidationLimits())
+                _decode_metadata(raw, ValidationLimits())  # same safety limits as inspection
+                note = None
+                if image["decoded_size"] and image["declared_size"] != image["decoded_size"]:
+                    note = ("The file declares %sx%s but decodes to %sx%s; the image is drawn from its "
+                            "decoded size." % (*image["declared_size"], *image["decoded_size"]))
+                canvas, info = render_overlay(
+                    raw, overlay_objects(record, image), scale=scale, synthetic=entry["synthetic"],
+                    declared_note=note, show_vertices=show_vertices)
+                stem = re.sub(r"[^A-Za-z0-9_.-]", "_", Path(record.file_name).stem) or "image"
+                # The position keeps two records that name the same file from sharing a name.
+                wanted = out_dir / f"{entry['number']:02d}_{position:03d}_{stem}.overlay.png"
+                handle, target = create_unique(wanted)
+                with handle:
+                    canvas.save(handle, format="PNG")
+                results[record.key] = {
+                    "status": "written", "path": str(target), "renamed": target != wanted,
+                    "scale": round(info.scale, 4), "canvas": list(info.canvas_size),
+                    "objects": [{"number": o.number, "render": o.status, "notes": o.notes}
+                                for o in info.outcomes]}
+            except OverlayTooLarge as error:
+                skip(f"preview would exceed the size limits: {error}")
+            except Exception as error:  # noqa: BLE001 - isolate one image; the reason is reported
+                skip(f"preview failed for this image ({type(error).__name__}: {str(error)[:120]})")
     return written
 
 
@@ -375,7 +346,8 @@ def _parser():
         p.add_argument("--json", action="store_true", help="Print the full report as JSON")
         p.add_argument("--max-images", type=int, default=5,
                        help="Images to detail and overlay per document; 0 means all (default 5)")
-        p.add_argument("--scale", type=int, help="Integer overlay magnification (default: automatic)")
+        p.add_argument("--scale", type=float, help="Preview scale from the decoded image size (default: automatic, about 1000 px on the long side)")
+        p.add_argument("--vertices", action="store_true", help="Also mark polygon vertices (off by default; clutters crowded scenes)")
         p.add_argument("--reference-base", help="Override the directory relative image references start from")
 
     coco = sub.add_parser("coco", help="One COCO instances JSON file")
@@ -415,7 +387,8 @@ def _run(jobs, args, out_dir):
     overlays = {}
     if not args.no_overlay:
         overlays = write_overlays(documents, report, image_root=resolver,
-                                  reference_base=args.reference_base, out_dir=out_dir, scale=args.scale)
+                                  reference_base=args.reference_base, out_dir=out_dir, scale=args.scale,
+                                  show_vertices=args.vertices)
     return report, overlays
 
 
@@ -425,8 +398,8 @@ def main(argv=None):
     except (AttributeError, ValueError):
         pass
     args = _parser().parse_args(argv)
-    if args.max_images < 0 or (args.scale is not None and args.scale < 1):
-        print(json.dumps({"error": "--max-images must be >= 0 and --scale >= 1"}), file=sys.stderr)
+    if args.max_images < 0 or (args.scale is not None and not (args.scale > 0 and args.scale < 1e6)):
+        print(json.dumps({"error": "--max-images must be >= 0 and --scale a positive number"}), file=sys.stderr)
         return 2
     try:
         if args.command == "synthetic":

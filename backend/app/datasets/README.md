@@ -146,33 +146,64 @@ and say so (`polygon_topology_limit`).
 ## Verification demo
 
 Read-only. Prints each image, object, label, which geometry types are present and where
-each came from, and every diagnostic. Writes overlay PNGs. No audit, no model, no source
-file modified.
+each came from, and every diagnostic. Writes one overlay PNG per image. No audit, no model,
+no source file modified.
 
 ```powershell
 # Synthetic fixtures (writes them to a NEW directory, then previews them)
 python -B -m backend.app.datasets.preview_annotations synthetic .\synthetic_demo --max-images 0
 
 # Your COCO subset
-python -B -m backend.app.datasets.preview_annotations coco datasets\coco_people_30\annotations\instances_people30.json --image-root datasets\coco_people_30\images --out preview_coco --max-images 5
+python -B -m backend.app.datasets.preview_annotations coco datasets\coco_people_30\annotations\instances_people30.json --image-root datasets\coco_people_30\images --out preview_coco --max-images 0
 
 # LabelMe: one file, or a directory of files (skip companion report files explicitly)
 python -B -m backend.app.datasets.preview_annotations labelme datasets\labelme_people_examples --pattern "2011_*.json" --exclude "*.validation.json" --out preview_labelme --max-images 0
 ```
 
 (On macOS/Linux use `/` in paths.) Options: `--json` full machine-readable report,
-`--no-overlay`, `--exclude PATTERN` (LabelMe directories; repeatable), `--max-images N` (0 = all; detail, image checks and overlays cover the first
-N images per document, totals always cover every image), `--scale N`, `--reference-base`.
-Exit code `0` no diagnostics, `1` diagnostics or unreadable files, `2` nothing usable or bad
-arguments.
+`--no-overlay`, `--exclude PATTERN` (LabelMe directories; repeatable), `--max-images N`
+(0 = all; detail, image checks and overlays cover the first N images per document, totals
+always cover every image), `--scale S` (default: automatic, about 1000 px on the long
+side; use a larger value to magnify small objects), `--vertices` (also mark polygon
+vertices; off by default because they clutter crowded scenes), `--reference-base`.
+Exit code `0` no diagnostics, `1` diagnostics or unreadable files, `2` nothing usable or
+bad arguments. A skipped overlay is reported in the output and does not change the exit code.
 
-Overlay legend, written onto every image: **solid** lines are original supplied geometry,
-**dashed** lines are geometry derived by this tool (a box computed from polygon vertices),
-`*` marks a derived box, `!` marks an object with diagnostics. Coordinates are drawn
-unscaled even when the declared size disagrees with the image; small images are
-magnified for visibility, and the legend strip sits below the image so coordinates are not
-shifted. Objects with no supported geometry (circles, malformed boxes) are counted as not
-drawn, never invented.
+### What an overlay shows
+
+- **Image panel (left).** Drawn at one uniform scale computed from the *decoded* image size.
+  The declared size is never used, so a wrong declared size cannot shift anything.
+  Coordinates are only multiplied by that scale, never rounded, tightened or repaired.
+- **Solid lines** are original geometry exactly as supplied (boxes, polygons, every part of
+  a multipart polygon). **Dashed lines** are a box this tool derived from polygon vertices;
+  it is not in the source file. An object keeps one colour for its lines, its number and its
+  list entry. A thin dark outline keeps lines visible on any background.
+- **Numbered markers** sit next to their objects and are placed to avoid each other (small
+  objects first). A marker pushed away from its object is tied back with a leader line.
+  The number is a preview number only. `*` after a number: the object's box is derived.
+  `!` after a number: the object has diagnostics.
+- **Object list (right).** Colour, number, class and the source identifier (the COCO
+  annotation ID; for LabelMe the JSON pointer and `group_id`). Source identifiers are never
+  replaced by display numbers.
+- **Below the image,** separate from it and wrapped: how to read the picture, the scale,
+  any declared-size mismatch, every diagnostic with its message, and every object or part
+  that was not drawn or only partly drawn, with the reason.
+
+### Safety behaviour
+
+- **Never overwrites.** Overlays are created exclusively. If the name is taken, the new file
+  gets `-2`, `-3`, ... and the existing file is left alone. Pointing `--out` at the image
+  folder is therefore safe. `--out` naming a file is an error.
+- **One bad image never stops the rest.** A failure becomes `overlay skipped: <reason>`.
+- **Invalid boxes** (for example negative width) are drawn from their supplied corners, not
+  normalized, and keep their diagnostics.
+- **Extreme coordinates** (beyond +-1e7, non-finite, or an element with over 50,000
+  vertices) are not drawn. The object stays in the report with the reason. Lines are
+  clipped to the image panel analytically, so large values cannot cause long loops.
+  Geometry that extends beyond the image is clipped at the edge in the preview only, and
+  the preview says so.
+- **Output size is validated before allocating:** panel up to 24 million pixels, canvas up to
+  36 million pixels and 12,000 pixels per side; otherwise the overlay is skipped with the reason.
 
 The older JSON-only inspector `inspect_annotations.py` still works.
 
