@@ -11,6 +11,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import zipfile
 from decimal import Decimal
 from pathlib import Path
@@ -52,6 +53,18 @@ def test_two_builds_are_byte_identical(built, tmp_path):
     second = sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*") if p.is_file())
     assert first == second and len(first) == 13
     assert all((out / p).read_bytes() == (tmp_path / p).read_bytes() for p in first)
+
+
+def test_check_uses_custom_output_and_detects_changed_files(built, tmp_path, capsys):
+    out = tmp_path / "custom-output"
+    shutil.copytree(built[0], out)
+    assert bp.main(["--out", str(out), "--check"]) == 0
+    assert str(out) in capsys.readouterr().out
+
+    (out / "answer_key.json").write_text("{}\n", encoding="utf-8")
+    assert bp.main(["--out", str(out), "--check"]) == 1
+    report = capsys.readouterr().out
+    assert str(out) in report and "answer_key.json" in report
 
 
 def test_archive_contents_exactly_match_the_task(built):

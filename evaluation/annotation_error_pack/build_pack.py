@@ -1174,20 +1174,21 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", type=Path, default=HERE, help="Output directory (default: this folder)")
     parser.add_argument("--check", action="store_true",
-                        help="Rebuild into a temporary directory and require byte-identical outputs")
+                        help="Rebuild temporarily and compare against --out (archives/JSON bytes, PNG pixels)")
     parser.add_argument("--no-verify", action="store_true", help="Skip the verification step")
     args = parser.parse_args(argv)
     try:
         if args.check:
+            output_dir = check_output_dir(args.out)
             with tempfile.TemporaryDirectory() as temp:
                 build(Path(temp))
                 produced = sorted(p for p in Path(temp).rglob("*") if p.is_file())
                 differing = [str(p.relative_to(temp)) for p in produced
-                             if not same_output(p, HERE / p.relative_to(temp))]
+                             if not same_output(p, output_dir / p.relative_to(temp))]
             if differing:
-                print("Rebuild differs from the outputs in this folder:\n  " + "\n  ".join(differing))
+                print(f"Rebuild differs from the outputs in {output_dir}:\n  " + "\n  ".join(differing))
                 return 1
-            print(f"Rebuild matches all {len(produced)} generated files in {HERE} "
+            print(f"Rebuild matches all {len(produced)} generated files in {output_dir} "
                   "(archives and answer key byte-identical; PNGs pixel-identical)")
             return 0
         before = snapshot(PROTECTED_ROOTS)

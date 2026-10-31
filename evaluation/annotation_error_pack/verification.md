@@ -1,5 +1,29 @@
 # Verification record
 
+## PR review follow-up — 31 October 2026
+
+Reviewed PR head `2fdfa5bff500b7500a82d854904cf371181527a3` against `main`
+at `d8f6041e9f947229243d24adaf50ee4311993681` in an isolated macOS checkout.
+The base is already an ancestor of the PR head; no merge conflict was present.
+
+- Original pack tests: **23 passed**, including the four real-importer cases.
+- Found and reproduced a CLI defect: `--check --out DIR` compared against the
+  default folder rather than `DIR`. Fixed the comparison and its output messages.
+- Added a regression that checks an existing custom output directory, then changes
+  its answer key and verifies that the comparison fails and names that file.
+- Pack tests after the fix: **24 passed**, with no skipped tests, using
+  `.venv/bin/python -B -m pytest evaluation/annotation_error_pack/tests -q -p no:cacheprovider`.
+- The freshly generated answer key was byte-identical to the committed answer key.
+- Inspected all eight generated comparison PNGs. The seven deliberate edits are
+  visible; L01 is explicitly labelled blocked and unchanged.
+- No application services or model inference were started for this review. This
+  run does not establish audit accuracy, feedback quality, correction or export.
+
+Human confirmation of the visual answer key and approval of the proposed 3-pixel
+tolerance remain pending. The blocked L01 pair remains excluded from evaluation.
+
+## Contributor verification record
+
 Prepared on 31 October 2026 by claude-ai-assistant (AI assistant), working with the repository
 owner. Visual judgements below are the assistant's; a human reviewer has not yet confirmed them.
 

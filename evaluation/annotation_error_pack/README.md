@@ -81,6 +81,10 @@ python -B evaluation/annotation_error_pack/build_pack.py
 # rebuild in a temporary folder and confirm the outputs here are reproduced exactly
 python -B evaluation/annotation_error_pack/build_pack.py --check
 
+# build and check a custom output directory
+python -B evaluation/annotation_error_pack/build_pack.py --out /tmp/annotation-evaluation
+python -B evaluation/annotation_error_pack/build_pack.py --out /tmp/annotation-evaluation --check
+
 # the builder's tests (the 4 real-importer tests run only on Linux/WSL/Docker)
 python -B -m pytest evaluation/annotation_error_pack/tests -q -p no:cacheprovider
 ```
