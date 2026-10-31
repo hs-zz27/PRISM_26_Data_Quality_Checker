@@ -39,6 +39,51 @@ are failures, never silently empty output. Initial review history is empty. Use
 existing edit/confirm/reject/revision APIs; later versions do not change the pin.
 Extraction/citations are proposals, not evidence of semantic correctness.
 
+The extraction prompt distinguishes writing a visual checking rule from evaluating
+an image: no image is required to extract a visual requirement. Nonblank source
+lines receive request-local IDs; blank lines remain in the saved guideline text.
+A one-line paragraph can support more than one check mapping. The model returns
+only requirement/context references, a catalog check ID and parameters. It does
+not regenerate descriptions, citations or rule IDs. The backend copies the
+referenced requirement into `source_sentence`, includes its selected context lines
+in `description`, assigns unique rule IDs and validates exact check parameters.
+Unknown, repeated or malformed references and duplicate mappings are rejected.
+Unsupported requirements use check ID 0 with empty parameters and are retained.
+
+The generation schema has one compact rule shape with typed parameter values.
+The executable registry independently checks each selected check's required and
+forbidden parameters. Scope/context selection, requirement coverage and check
+mapping remain model proposals requiring reviewer inspection; copying source text
+does not establish correct interpretation. The full-model CPU run must be verified
+after deployment. Mocked tests do not establish its quality or latency.
+
+### Owner-run observations and remaining work (31 October 2026)
+
+With `qwen3-vl:4b-instruct` on CPU, the owner reported a four-line example
+completing in 58.9 seconds with the correct visual label-matching rule, attached
+class definitions and a separate allowed-label vocabulary rule. A subsequent
+local run of `evaluation/annotation_error_pack/guidelines.txt` completed in
+64.8 seconds and returned 12 proposals. These are individual observations, not
+a latency benchmark or an end-to-end API/audit validation.
+
+The full draft is not yet semantically ready for confirmation:
+
+- Scope and class definitions were emitted as standalone visual checks.
+- Most checks did not retain applicable scope, definitions and exceptions as
+  context. The audit prompt sends one target rule, not the entire rulebook.
+- The exact 3-pixel tolerance was assigned to `annotation_guideline`, although
+  that check is not a numeric measurement fallback. Retain this requirement as
+  unsupported unless an appropriate measurement check exists; its reviewer
+  approval condition must also remain visible.
+- The uncertainty instruction was emitted as a separate rule rather than
+  being attached to the affected checks.
+
+Preserving every source line does not prove that every executable rule has the
+right meaning. Follow-up must verify context propagation through the actual
+audit payload, unsupported-rule handling and reviewer visibility. Automated
+tests for this change were not run by the assistant; the reported local model
+runs do not establish that the test suite passes.
+
 Cancel with the existing `POST /api/v1/jobs/{job_id}/cancel` route, no body.
 Queued jobs cancel immediately; running jobs enter cancelling, then the supervisor
 stops the local child and acknowledges at a checked boundary. Repeated cancelling
@@ -92,12 +137,19 @@ settings. Workers use the saved snapshot, not subsequently edited configuration.
 Loopback, CPU, disabled proxy/redirect and local metadata verification policies
 remain those of the existing client. There is no download/startup or readiness claim.
 
-Default private policy: 300-second processing deadline, 30-second lease,
+Default private policy: 900-second processing deadline, 30-second lease,
 0.2-second poll interval, 5-second renewal cadence. The validated server-only
 `ExtractionPolicy` permits finite execution limits up to 86400 seconds and requires
 poll <= renew < half the lease. It is not exposed through HTTP/worker CLI. The
 processing start and deadline are persisted once and never reset. Changing defaults
 affects new acceptances only; it does not change queued/running saved policies.
+
+The 900-second job budget accommodates the shipped 600-second Ollama HTTP timeout
+plus setup and publication overhead on CPU. It is still a hard whole-job limit,
+not a guarantee that inference will complete. The HTTP timeout and model output
+limits remain independent. Rebuild the API and extraction worker after this
+change; an already failed job is not resumed. A newly submitted extraction gets
+the new policy, while previously accepted jobs retain their saved limits.
 
 The parent owns claims and all database writes; the child gets only text,
 serialized settings and reserved output ID. No connection, repository or live

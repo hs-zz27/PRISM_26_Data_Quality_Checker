@@ -4,11 +4,11 @@ from unittest.mock import Mock
 
 import httpx
 import pytest
-from pydantic import ValidationError
 
 from backend.app.checks.registry import CHECK_REGISTRY, extraction_check_catalog
 from backend.app.core.config import OllamaSettings, load_ollama_settings
 from backend.app.inference.ollama_client import OllamaClientError, propose_rules
+from backend.app.inference.rule_proposals import compact_response_schema, extraction_catalog
 from backend.app.models.rule import RuleProposal
 from backend.app.services import rule_extraction
 from backend.app.storage.repository import RulebookRepository
@@ -16,11 +16,21 @@ from backend.app.storage.repository import RulebookRepository
 
 GUIDELINES = "Allowed labels are person and vehicle."
 PROPOSAL = {
-    "rule_id": "LBL-1",
-    "description": "Use an allowed label.",
+    "rule_id": "RULE-1",
+    "description": GUIDELINES,
     "check_name": "allowed_labels",
     "parameters": {"allowed_labels": ["person", "vehicle"]},
     "source_sentence": GUIDELINES,
+}
+
+
+def check_id(name):
+    return next(entry['check_id'] for entry in extraction_catalog() if entry['check_name'] == name)
+
+
+WIRE_PROPOSAL = {
+    'source_id': 1, 'context_ids': [], 'check_id': check_id('allowed_labels'),
+    'parameters': {'allowed_labels': ['person', 'vehicle']},
 }
 
 
@@ -41,7 +51,7 @@ def fake_server():
         "show": {"model_info": {"general.architecture": "qwen3vl"}},
         "chat_status": 200,
         "chat": {"done": True, "done_reason": "stop", "message": {
-            "content": json.dumps({"rules": [PROPOSAL]})
+            "content": json.dumps({"rules": [WIRE_PROPOSAL]})
         }},
     }
 
@@ -71,15 +81,13 @@ def test_valid_proposals_preserve_content_and_request_uses_cpu_schema(fake_serve
     assert request["model"] == load_ollama_settings().model and request["stream"] is False
     assert request["options"]["num_gpu"] == 0 and request["options"]["temperature"] == 0
     assert request["keep_alive"] == 300
-    assert request["messages"][1]["content"] == GUIDELINES
+    assert json.loads(request["messages"][1]["content"]) == {
+        'sources': [{'source_id': 1, 'text': GUIDELINES}],
+    }
     schema = request["format"]
-    variants = schema["properties"]["rules"]["items"]["anyOf"]
-    for reference in variants:
-        rule_schema = schema["$defs"][reference["$ref"].rsplit("/", 1)[1]]
-        assert "origin" not in rule_schema["properties"]
-        assert "confirmation_state" not in rule_schema["properties"]
-        assert {"source_sentence", "parameters", "check_name"} <= set(rule_schema["required"])
-        assert rule_schema["additionalProperties"] is False
+    rule_schema = schema['properties']['rules']['items']
+    assert set(rule_schema['properties']) == {'source_id', 'context_ids', 'check_id', 'parameters'}
+    assert rule_schema['additionalProperties'] is False
     assert GUIDELINES not in json.dumps(state["requests"][0][1])
     instructions = request["messages"][0]["content"]
     for entry in extraction_check_catalog():
@@ -103,10 +111,13 @@ def test_empty_proposals_are_valid(fake_server):
     ("confirmation_state", "draft"),
     ("confirmation_state", "confirmed"),
     ("confirmation_state", "rejected"),
+    ('rule_id', 'invented'),
+    ('description', 'Invented requirement.'),
+    ('source_sentence', 'Invented citation.'),
 ])
-def test_model_cannot_supply_application_owned_metadata(fake_server, field, value):
+def test_model_cannot_supply_text_or_application_owned_metadata(fake_server, field, value):
     state, transport = fake_server
-    state["chat"]["message"]["content"] = json.dumps({"rules": [{**PROPOSAL, field: value}]})
+    state["chat"]["message"]["content"] = json.dumps({"rules": [{**WIRE_PROPOSAL, field: value}]})
     with pytest.raises(OllamaClientError) as caught:
         propose_rules(GUIDELINES, transport=transport)
     assert caught.value.reason == "invalid_rule_proposals"
@@ -115,7 +126,7 @@ def test_model_cannot_supply_application_owned_metadata(fake_server, field, valu
 def test_ambiguous_requirement_is_retained_without_check(fake_server):
     state, transport = fake_server
     state["chat"]["message"]["content"] = json.dumps({
-        "rules": [{**PROPOSAL, "check_name": None, "parameters": {}}],
+        "rules": [{**WIRE_PROPOSAL, "check_id": 0, "parameters": {}}],
     })
     proposal = propose_rules(GUIDELINES, transport=transport)[0]
     assert proposal.check_name is None and proposal.parameters == {}
@@ -124,7 +135,7 @@ def test_ambiguous_requirement_is_retained_without_check(fake_server):
 def test_unknown_non_null_check_is_rejected(fake_server):
     state, transport = fake_server
     state["chat"]["message"]["content"] = json.dumps({
-        "rules": [{**PROPOSAL, "check_name": "future_check", "parameters": {}}],
+        "rules": [{**WIRE_PROPOSAL, "check_id": len(extraction_catalog()) + 1, "parameters": {}}],
     })
     with pytest.raises(OllamaClientError) as caught:
         propose_rules(GUIDELINES, transport=transport)
@@ -135,11 +146,8 @@ def test_fraction_requirement_mapping_is_preserved_and_validated(fake_server):
     state, transport = fake_server
     source = "At most 5% of the mask may be outside the box."
     state["chat"]["message"]["content"] = json.dumps({"rules": [{
-        "rule_id": "MASK-1",
-        "description": "No more than five percent of a mask is outside its box.",
-        "check_name": "mask_outside_box",
+        "source_id": 1, "context_ids": [], "check_id": check_id('mask_outside_box'),
         "parameters": {"max_outside_fraction": 0.05},
-        "source_sentence": source,
     }]})
     proposal = propose_rules(source, transport=transport)[0]
     assert proposal.check_name == "mask_outside_box"
@@ -147,16 +155,17 @@ def test_fraction_requirement_mapping_is_preserved_and_validated(fake_server):
 
 
 @pytest.mark.parametrize("changes", [
-    {"check_name": "mask_outside_box", "parameters": {}},
-    {"check_name": "mask_outside_box", "parameters": {"max_outside_fraction": 1.1}},
-    {"check_name": "mask_outside_box", "parameters": {"max_outside_fraction": "0.05"}},
-    {"check_name": "box_validity", "parameters": {"unexpected": True}},
-    {"check_name": None, "parameters": {"max_outside_fraction": 0.05}},
+    {"check_id": check_id('mask_outside_box'), "parameters": {}},
+    {"check_id": check_id('mask_outside_box'), "parameters": {"max_outside_fraction": 1.1}},
+    {"check_id": check_id('mask_outside_box'), "parameters": {"max_outside_fraction": "0.05"}},
+    {"check_id": check_id('box_validity'), "parameters": {"unexpected": True}},
+    {"check_id": check_id('box_validity'), "parameters": {"allowed_labels": ['person']}},
+    {"check_id": 0, "parameters": {"max_outside_fraction": 0.05}},
 ])
 def test_known_check_mappings_are_validated_against_the_registry(fake_server, changes):
     state, transport = fake_server
     state["chat"]["message"]["content"] = json.dumps({
-        "rules": [{**PROPOSAL, **changes}],
+        "rules": [{**WIRE_PROPOSAL, **changes}],
     })
     with pytest.raises(OllamaClientError) as caught:
         propose_rules(GUIDELINES, transport=transport)
@@ -171,6 +180,66 @@ def test_registry_catalog_is_complete():
     assert {entry["scope"] for entry in catalog} == {
         definition.scope for definition in CHECK_REGISTRY.values()
     }
+
+
+def test_source_context_is_retained_verbatim_without_model_copying(fake_server):
+    state, transport = fake_server
+    lines = [
+        '1. Scope: only person annotations are assessed.',
+        '  2. A person means a visible human, not a person on a poster.',
+        '3. A fully visible person must have their feet inside the box.',
+        '4. For an occluded person, annotate only the visible portion.',
+    ]
+    text = '\r\n' + '\r\n'.join(lines) + '\r\n\r\n'
+    state['chat']['message']['content'] = json.dumps({'rules': [{
+        'source_id': 3, 'context_ids': [1, 2, 4],
+        'check_id': check_id('annotation_guideline'), 'parameters': {},
+    }]})
+    proposal = propose_rules(text, transport=transport)[0]
+    assert proposal.source_sentence == lines[2] and proposal.source_sentence in text
+    assert proposal.description == '\n'.join([lines[2], lines[0], lines[1], lines[3]])
+    supplied = json.loads(state['requests'][1][1]['messages'][1]['content'])['sources']
+    assert supplied == [{'source_id': i, 'text': line} for i, line in enumerate(lines, start=1)]
+    assert proposal.check_name == 'annotation_guideline' and proposal.parameters == {}
+
+
+def test_distinct_checks_can_reference_the_same_one_line_paragraph(fake_server):
+    state, transport = fake_server
+    text = GUIDELINES + ' Every bounding box must be inside the image.'
+    state['chat']['message']['content'] = json.dumps({'rules': [
+        WIRE_PROPOSAL,
+        {'source_id': 1, 'context_ids': [], 'check_id': check_id('box_validity'), 'parameters': {}},
+    ]})
+    proposals = propose_rules(text, transport=transport)
+    assert [p.rule_id for p in proposals] == ['RULE-1', 'RULE-2']
+    assert [p.check_name for p in proposals] == ['allowed_labels', 'box_validity']
+    assert all(p.source_sentence == text and p.description == text for p in proposals)
+
+
+@pytest.mark.parametrize('change', [
+    {'source_id': 0}, {'source_id': True}, {'source_id': 1.0}, {'source_id': '1'},
+    {'source_id': 3}, {'context_ids': [0]}, {'context_ids': [True]},
+    {'context_ids': [1]}, {'context_ids': [2, 2]}, {'context_ids': [3]},
+    {'check_id': -1}, {'check_id': True}, {'check_id': 1.0},
+])
+def test_invalid_source_and_check_references_are_rejected(fake_server, change):
+    state, transport = fake_server
+    state['chat']['message']['content'] = json.dumps({'rules': [{**WIRE_PROPOSAL, **change}]})
+    with pytest.raises(OllamaClientError) as caught:
+        propose_rules(GUIDELINES + '\nOnly visible objects are in scope.', transport=transport)
+    assert caught.value.reason == 'invalid_rule_proposals'
+
+
+def test_unmapped_requirement_keeps_original_text_and_context(fake_server):
+    state, transport = fake_server
+    lines = ['Only people are in scope.', 'A person must appear in the next video frame.']
+    state['chat']['message']['content'] = json.dumps({'rules': [{
+        'source_id': 2, 'context_ids': [1], 'check_id': 0, 'parameters': {},
+    }]})
+    proposal = propose_rules('\n'.join(lines), transport=transport)[0]
+    assert proposal.check_name is None
+    assert proposal.source_sentence == lines[1]
+    assert proposal.description == '\n'.join([lines[1], lines[0]])
 
 
 def test_missing_model_never_sends_guidelines(fake_server):
@@ -240,9 +309,9 @@ def test_incomplete_generation_is_not_accepted(fake_server, changes):
 
 @pytest.mark.parametrize("content", [
     "not JSON", '{}', '{"rules": "wrong"}',
-    json.dumps({"rules": [{**PROPOSAL, "source_sentence": None}]}),
-    json.dumps({"rules": [{key: value for key, value in PROPOSAL.items() if key != "source_sentence"}]}),
-    json.dumps({"rules": [{**PROPOSAL, "source_sentence": " "}]}),
+    json.dumps({"rules": [{**WIRE_PROPOSAL, "source_id": None}]}),
+    json.dumps({"rules": [{key: value for key, value in WIRE_PROPOSAL.items() if key != "source_id"}]}),
+    json.dumps({"rules": [{**WIRE_PROPOSAL, "source_sentence": "Invented citation."}]}),
 ])
 def test_invalid_structured_model_output_is_rejected(fake_server, content):
     state, transport = fake_server
@@ -252,21 +321,21 @@ def test_invalid_structured_model_output_is_rejected(fake_server, content):
     assert caught.value.reason == "invalid_rule_proposals"
 
 
-@pytest.mark.parametrize("proposals, error", [
-    ([PROPOSAL, PROPOSAL], "Rule IDs must be unique"),
-    ([{**PROPOSAL, "source_sentence": "Invented citation."}], "text absent from the guidelines"),
+@pytest.mark.parametrize("proposals", [
+    [WIRE_PROPOSAL, WIRE_PROPOSAL],
+    [{**WIRE_PROPOSAL, "source_id": 999}],
 ])
 def test_invalid_rulebook_content_from_model_is_never_saved(
-    fake_server, monkeypatch, proposals, error
+    fake_server, monkeypatch, proposals
 ):
     state, transport = fake_server
     state["chat"]["message"]["content"] = json.dumps({"rules": proposals})
     monkeypatch.setattr(rule_extraction, "propose_rules", partial(propose_rules, transport=transport))
     repository = Mock(spec_set=RulebookRepository)
 
-    with pytest.raises(ValidationError, match=error):
+    with pytest.raises(OllamaClientError) as caught:
         rule_extraction.extract_and_save_rulebook(GUIDELINES, repository=repository)
-
+    assert caught.value.reason == 'invalid_rule_proposals'
     repository.save_rulebook.assert_not_called()
 
 
@@ -364,21 +433,20 @@ def test_dotenv_model_and_port_reach_requests_with_per_call_precedence(fake_serv
 
 def test_generation_schema_rejects_schema_keywords_in_place_of_label_values():
     from jsonschema import Draft202012Validator
-    from backend.app.inference.ollama_client import _proposal_response_schema
-    validator = Draft202012Validator(_proposal_response_schema())
-    assert not list(validator.iter_errors({"rules": [PROPOSAL]}))
-    malformed = {**PROPOSAL, "parameters": {"allowed_labels": {
+    validator = Draft202012Validator(compact_response_schema(1))
+    assert not list(validator.iter_errors({"rules": [WIRE_PROPOSAL]}))
+    malformed = {**WIRE_PROPOSAL, "parameters": {"allowed_labels": {
         "items": ["person", "PASperson"], "minItems": 2,
     }}}
     assert list(validator.iter_errors({"rules": [malformed]}))
-    assert list(validator.iter_errors({"rules": [{**PROPOSAL, "check_name": "box_validity"}]}))
-    assert not list(validator.iter_errors({"rules": [{**PROPOSAL, "check_name": None, "parameters": {}}]}))
-    assert list(validator.iter_errors({"rules": [{**PROPOSAL, "check_name": None}]}))
+    assert list(validator.iter_errors({'rules': [{**WIRE_PROPOSAL, 'source_id': 2}]}))
+    assert not list(validator.iter_errors({'rules': [{**WIRE_PROPOSAL, 'check_id': 0, 'parameters': {}}]}))
+    assert list(validator.iter_errors({'rules': [{key: value for key, value in WIRE_PROPOSAL.items() if key != 'parameters'}]}))
 
 
 def test_runtime_still_rejects_schema_keywords_instead_of_a_label_list(fake_server):
     state, transport = fake_server
-    state["chat"]["message"]["content"] = json.dumps({"rules": [{**PROPOSAL, "parameters": {
+    state["chat"]["message"]["content"] = json.dumps({"rules": [{**WIRE_PROPOSAL, "parameters": {
         "allowed_labels": {"items": ["person", "PASperson"], "minItems": 2},
     }}]})
     with pytest.raises(OllamaClientError) as caught:

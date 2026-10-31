@@ -64,12 +64,14 @@ def no_output(repository, claim):
     with pytest.raises(RulebookNotFoundError):
         RulebookRepository(settings=repository.settings).get_rulebook(claim.request.rulebook_id)
 
-def test_exact_inputs_are_private_restart_stable_and_acceptance_has_no_book(repository):
-    job = accept(repository)
+@pytest.mark.parametrize('saved_budget', [None, 300])
+def test_exact_inputs_are_private_restart_stable_and_acceptance_has_no_book(repository, saved_budget):
+    policy = {} if saved_budget is None else {'max_seconds': saved_budget}
+    job = accept(repository, **policy)
     row = sql(repository, "SELECT * FROM rule_extraction_requests WHERE job_id=%s", (job.job_id,))[0]
     assert row["guideline_text"] == TEXT
     assert row["settings"] == model_settings().model_dump()
-    assert row["policy"] == ExtractionPolicy().model_dump()
+    assert row["policy"] == ExtractionPolicy(**policy).model_dump()
     assert row["started_at"] is None and row["deadline"] is None
     assert set(job.model_dump()) == {"job_id", "kind", "status", "progress", "result", "error", "created_at", "updated_at"}
     reopened = ExtractionRepository(settings=repository.settings)
@@ -78,7 +80,9 @@ def test_exact_inputs_are_private_restart_stable_and_acceptance_has_no_book(repo
     assert claim.request.settings == model_settings()
     no_output(repository, claim)
     assert sql(repository, "SELECT * FROM rulebook_reviews") == []
-    assert claim.request.deadline - claim.request.started_at == timedelta(seconds=300)
+    # New jobs get the CPU budget; older/explicit budgets must remain pinned
+    # when another worker instance opens the queued request.
+    assert claim.request.deadline - claim.request.started_at == timedelta(seconds=900 if saved_budget is None else saved_budget)
 
 def test_invalid_mutated_public_and_settings_models_rejected_before_connection(repository, monkeypatch):
     def forbid(**kwargs):

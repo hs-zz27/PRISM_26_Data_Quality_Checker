@@ -19,7 +19,9 @@ class ExtractionPolicy(BaseModel):
     """Server-only execution bounds, unrelated to guideline semantics/token limits."""
 
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
-    max_seconds: int = Field(default=300, ge=1, le=86_400)
+    # Allow the configured 600-second CPU inference request plus setup and
+    # publication overhead, while retaining a finite whole-job deadline.
+    max_seconds: int = Field(default=900, ge=1, le=86_400)
     lease_seconds: int = Field(default=30, ge=2, le=300)
     poll_seconds: float = Field(default=0.2, gt=0, le=5, allow_inf_nan=False)
     renew_seconds: float = Field(default=5.0, gt=0, allow_inf_nan=False)
