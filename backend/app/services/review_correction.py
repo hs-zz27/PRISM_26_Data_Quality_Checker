@@ -37,7 +37,7 @@ class Edit(BaseModel):
     object_key: str = Field(min_length=1, max_length=1024)
     label: str | None = Field(max_length=255)
     bbox: tuple[Number, Number, Number, Number] | None
-    polygons: list[Annotated[list[tuple[Number, Number]], Field(min_length=3, max_length=128)]] | None = Field(max_length=8)
+    polygons: list[Annotated[list[tuple[Number, Number]], Field(min_length=3, max_length=128)]] | None = Field(min_length=1, max_length=8)
 
 class ModelProposal(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
@@ -115,7 +115,10 @@ def apply_draft_edits(objects, edits, size, format):
                 raise ValueError('Cannot replace the source geometry type.')
             if format == 'labelme' and len(edit.polygons) != 1:
                 raise ValueError('LabelMe uses one polygon per shape.')
-            if any(_polygon_issues(part, 'proposal', ValidationLimits()) for part in edit.polygons):
+            # The topology helper assumes the reader already checked distinct
+            # vertices. Model-generated points have not passed through that reader.
+            if any(len(set(part)) < 3 or _polygon_issues(part, 'proposal', ValidationLimits())
+                   for part in edit.polygons):
                 raise ValueError('Proposed polygon has structural errors.')
             obj['polygons'] = [[list(point) for point in part] for part in edit.polygons]
             if obj.get('bbox_origin') == 'derived_from_polygon':
@@ -210,7 +213,8 @@ def propose_correction(measurements, feedback, manifest, rulebook, settings, exe
                     continue
                 if source.key != new['source_key'] or source.mask is not None or any(i.severity == 'unsupported' for i in source.issues):
                     raise ValueError('This source encoding cannot be corrected by the current editor.')
-                if document.format == 'coco' and sum(c.get('name') == new['label'] for c in document.source['categories']) != 1:
+                if (document.format == 'coco' and new['label'] != old['label']
+                    and sum(c.get('name') == new['label'] for c in document.source['categories']) != 1):
                     raise ValueError('Select an existing unambiguous source category.')
         return {**base, 'status': 'proposed', 'reason': proposal.reason, 'objects': updated}
     except (ValueError, TypeError, KeyError, IndexError, RecursionError, InferenceUnavailable,

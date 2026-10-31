@@ -88,6 +88,50 @@ def test_model_draft_is_bounded_and_does_not_write_assets(tmp_path, failure):
     assert calls[-1] == 'closed'
 
 
+@pytest.mark.parametrize('edit', ['box', 'ambiguous_label'])
+def test_coco_proposal_preserves_category_identity_unless_relabelled(tmp_path, edit):
+    from backend.app.core.config import AssetStorageSettings
+    from backend.app.models.feedback import ExecutionPin
+    from backend.app.services.json_audit import audit_json_sample
+    from backend.tests.test_json_dataset_workflow import documents, imported
+
+    data = documents('coco')
+    data['categories'] += [{'id': 8, 'name': 'person'}, {'id': 9, 'name': 'car'}, {'id': 10, 'name': 'car'}]
+    pubs, import_settings, _, _ = imported(tmp_path, 'coco', data=data)
+    manifest = pubs[0].manifest
+    settings = AssetStorageSettings(root=import_settings.asset_root)
+    execution = ExecutionPin(model='test-vision', model_digest='sha256:' + 'a' * 64, num_ctx=131072)
+    measurements = audit_json_sample(manifest, settings)
+    unchanged = deepcopy(measurements)
+    original_files = {p.relative_to(settings.root): p.read_bytes() for p in settings.root.rglob('*') if p.is_file()}
+    calls = []
+
+    class Client:
+        def __init__(self, execution): pass
+        def verify(self): calls.append('verified')
+        def close(self): calls.append('closed')
+        def request(self, method, path, payload):
+            context = json.loads(payload['messages'][1]['content'])
+            change = dict(object_key='/annotations/0', label=None, bbox=[1, 2, 8, 9], polygons=None)
+            if edit == 'ambiguous_label':
+                change.update(label='car', bbox=None)
+            draft = dict(case_id=context['case_id'], status='proposed', reason='Synthetic correction.', edits=[change])
+            return dict(model=execution.model, done=True, done_reason='stop', prompt_eval_count=1000,
+                        message={'content': json.dumps(draft)})
+
+    result = propose_correction(measurements, feedback(), manifest, book(), settings, execution, client_factory=Client)
+    assert calls == ['verified', 'verified', 'closed']
+    assert result['status'] == ('proposed' if edit == 'box' else 'unavailable')
+    if edit == 'box':
+        expected = deepcopy([row['annotation'] for row in measurements['objects']])
+        expected[0]['bbox'] = [1, 2, 8, 9]
+        assert result['objects'] == expected
+    else:
+        assert result['objects'] is None
+    assert measurements == unchanged
+    assert original_files == {p.relative_to(settings.root): p.read_bytes() for p in settings.root.rglob('*') if p.is_file()}
+
+
 def test_json_polygon_draft_preserves_source_identity_and_updates_derived_bounds():
     obj = dict(object_id=1, source_key='/shapes/4', source_id=None, group_id=17,
                coordinate_system='zero_based_continuous', label='person', bbox=[1, 1, 4, 4],
@@ -104,3 +148,34 @@ def test_missing_model_returns_explanation_without_calling_model(tmp_path):
     frozen = inputs(tmp_path)
     result = propose_correction({}, feedback(), frozen.truth.cases[0].manifest, book(), assets(tmp_path), None)
     assert result['status'] == 'unavailable' and result['objects'] is None
+
+
+@pytest.mark.parametrize('polygons', [
+    [],
+    [[[1, 1], [1, 1], [1, 1]]],
+    [[[1, 1], [4, 4], [1, 1]]],
+    [[[1, 1], [4, 1], [4, 4]], [[2, 2], [2, 2], [2, 2]]],
+])
+def test_coco_draft_cannot_remove_polygons_or_offer_degenerate_parts(polygons):
+    obj = dict(object_id=1, source_key='/annotations/0', source_id=90, group_id=None,
+               coordinate_system='zero_based_continuous', label='person', bbox=[0, 0, 6, 6],
+               bbox_origin='supplied', polygons=[[[1, 1], [4, 1], [4, 4]]])
+    original = deepcopy(obj)
+    with pytest.raises(ValueError):
+        edit = Edit.model_validate_json(json.dumps(dict(
+            object_key='/annotations/0', label=None, bbox=None, polygons=polygons)))
+        apply_draft_edits([obj], [edit], (20, 20), 'coco')
+    assert obj == original
+
+
+def test_coco_draft_keeps_valid_explicit_polygon_closure():
+    obj = dict(object_id=1, source_key='/annotations/0', source_id=90, group_id=None,
+               coordinate_system='zero_based_continuous', label='person', bbox=[0, 0, 6, 6],
+               bbox_origin='supplied', polygons=[[[1, 1], [4, 1], [4, 4]]])
+    polygon = [[1, 1], [5, 1], [5, 5], [1, 1]]
+    edit = Edit.model_validate_json(json.dumps(dict(
+        object_key='/annotations/0', label=None, bbox=None, polygons=[polygon])))
+    result = apply_draft_edits([obj], [edit], (20, 20), 'coco')
+    assert result[0]['polygons'] == [polygon]
+    assert result[0]['bbox'] == obj['bbox']
+    assert result[0]['source_id'] == 90

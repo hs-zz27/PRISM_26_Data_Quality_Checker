@@ -112,6 +112,85 @@ def test_revision_edits_preserve_metadata_ids_and_original_hashes(tmp_path, form
         assert changed['shapes'][0]['flags'] == {'custom': True}
 
 
+@pytest.mark.parametrize('edit', ['box', 'ambiguous_label'])
+def test_coco_preserves_category_identity_unless_relabelled(tmp_path, edit):
+    data = documents('coco')
+    data['categories'] += [{'id': 8, 'name': 'person'}, {'id': 9, 'name': 'car'}, {'id': 10, 'name': 'car'}]
+    pubs, settings, original, _ = imported(tmp_path, 'coco', data=data)
+    base = pubs[0]
+    objects = [obj.model_dump(mode='json') for obj in base.sample.objects]
+    if edit == 'box':
+        objects[0]['bbox'] = [1, 2, 8, 9]
+    else:
+        objects[0]['label'] = 'car'
+    request = CorrectionRequest.model_validate({'expected_revision': 1, 'reviewer_id': 'student',
+        'reason': 'Correct this object', 'objects': objects})
+    correction_settings = CorrectionSettings(asset_root=settings.asset_root)
+    assets = AssetStorageSettings(root=settings.asset_root)
+    if edit == 'ambiguous_label':
+        with pytest.raises(CorrectionError):
+            prepare_json_correction(base, request, correction_settings)
+        assert not (settings.asset_root / 'corrections').exists()
+    else:
+        revised = prepare_json_correction(base, request, correction_settings).revised
+        expected = deepcopy(data)
+        expected['annotations'][0]['bbox'] = [1, 2, 7, 7]
+        assert json.loads(read_manifest_asset_file(revised.manifest, 'annotation_text', assets)[1]) == expected
+        assert revised.sample.revision == 2
+    assert read_manifest_asset_file(base.manifest, 'annotation_text', assets)[1] == original
+
+
+def test_labelme_relabel_preserves_original_rectangle_corner_order(tmp_path):
+    data = documents('labelme')
+    data['shapes'][0].update(shape_type='rectangle', points=[[9, 10], [1, 2]])
+    pubs, settings, original, _ = imported(tmp_path, 'labelme', data=data)
+    base = pubs[0]
+    objects = [obj.model_dump(mode='json') for obj in base.sample.objects]
+    objects[0]['label'] = 'pedestrian'
+    request = CorrectionRequest.model_validate({'expected_revision': 1, 'reviewer_id': 'student',
+        'reason': 'Correct label only', 'objects': objects})
+    revised = prepare_json_correction(base, request, CorrectionSettings(asset_root=settings.asset_root)).revised
+    expected = deepcopy(data)
+    expected['shapes'][0]['label'] = 'pedestrian'
+    assets = AssetStorageSettings(root=settings.asset_root)
+    assert json.loads(read_manifest_asset_file(revised.manifest, 'annotation_text', assets)[1]) == expected
+    assert read_manifest_asset_file(base.manifest, 'annotation_text', assets)[1] == original
+
+
+@pytest.mark.parametrize('edit', ['label', 'box_with_polygon', 'box_only'])
+def test_coco_non_polygon_edits_do_not_require_rasterizer(tmp_path, monkeypatch, edit):
+    import builtins
+
+    data = documents('coco')
+    data['categories'].append({'id': 8, 'name': 'pedestrian'})
+    if edit == 'box_only':
+        del data['annotations'][0]['segmentation']
+    pubs, settings, _, _ = imported(tmp_path, 'coco', data=data)
+    objects = [obj.model_dump(mode='json') for obj in pubs[0].sample.objects]
+    expected = deepcopy(data)
+    if edit == 'label':
+        objects[0]['label'] = 'pedestrian'
+        expected['annotations'][0]['category_id'] = 8
+    else:
+        objects[0]['bbox'] = [1, 2, 8, 9]
+        expected['annotations'][0]['bbox'] = [1, 2, 7, 7]
+        if edit == 'box_only':
+            expected['annotations'][0]['area'] = 49
+    request = CorrectionRequest.model_validate({'expected_revision': 1, 'reviewer_id': 'student',
+        'reason': 'Edit without changing any polygon', 'objects': objects})
+    original_import = builtins.__import__
+
+    def without_rasterizer(name, *args, **kwargs):
+        if name == 'pycocotools' or name.startswith('pycocotools.'):
+            raise AssertionError('This correction must not load the polygon rasterizer.')
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', without_rasterizer)
+    revised = prepare_json_correction(pubs[0], request, CorrectionSettings(asset_root=settings.asset_root)).revised
+    assets = AssetStorageSettings(root=settings.asset_root)
+    assert json.loads(read_manifest_asset_file(revised.manifest, 'annotation_text', assets)[1]) == expected
+
+
 def test_identity_edits_are_rejected_before_publication(tmp_path):
     pubs, settings, _, _ = imported(tmp_path, 'labelme')
     objects = [obj.model_dump(mode='json') for obj in pubs[0].sample.objects]
@@ -226,3 +305,31 @@ def test_partial_fix_cannot_introduce_new_polygon_errors(tmp_path):
     request = CorrectionRequest.model_validate(dict(expected_revision=1, reviewer_id='reviewer', reason='Synthetic crossing', objects=objects))
     with pytest.raises(CorrectionError):
         prepare_json_correction(pubs[0], request, CorrectionSettings(asset_root=settings.asset_root))
+
+
+@pytest.mark.parametrize('problem', [None, 'duplicate_image_reference', 'invalid_image_id'])
+def test_coco_metadata_findings_include_image_identity_diagnostics(tmp_path, problem):
+    data = documents('coco')
+    if problem == 'duplicate_image_reference':
+        data['images'].append({**data['images'][0], 'id': 8})
+        data['annotations'].append({**deepcopy(data['annotations'][0]), 'id': 91, 'image_id': 8})
+    elif problem == 'invalid_image_id':
+        # No unassigned annotations: the image-ID diagnostic itself must prevent a pass.
+        data['images'][0]['id'] = 'not-an-integer'
+        data['annotations'] = []
+    pubs, settings, original, _ = imported(tmp_path, 'coco', data=data)
+    assets = AssetStorageSettings(root=settings.asset_root)
+    rule = label_rule(rule_id='metadata', check_name='annotation_metadata', parameters={})
+    for publication in pubs:
+        report = audit_json_sample(publication.manifest, assets)
+        metadata = report['checks']['annotation_metadata']
+        assert metadata['status'] == 'completed'
+        assert metadata['result']['matches'] is (problem is None)
+        if problem is not None:
+            assert problem in {issue['code'] for issue in metadata['result']['issues']}
+        findings = evaluate_rules(confirmed_book(rule), report, audit_id='metadata-audit',
+                                 sample_id=publication.sample.sample_id, sample_revision=1)
+        assert len(findings) == 1
+        assert findings[0].outcome.value == ('pass' if problem is None else 'fail')
+        assert findings[0].review.resolution.value == 'pending'
+        assert read_manifest_asset_file(publication.manifest, 'annotation_text', assets)[1] == original

@@ -22,6 +22,7 @@ def audit_json_sample(manifest, asset_settings, allowed_labels=None):
               for name in ("mask_ids", "mask_dimensions")}
     metadata_issues = [issue for issue in issues if issue.code in {
         "invalid_dimensions", "dimension_mismatch", "unassigned_annotations", "duplicate_image_id",
+        "invalid_image_id", "duplicate_image_reference", "missing_image_reference",
     }]
     checks["annotation_metadata"] = (completed({
         "matches": not metadata_issues, "declared": {"object_count": len(objects),

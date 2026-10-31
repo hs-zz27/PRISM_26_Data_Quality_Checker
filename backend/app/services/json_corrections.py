@@ -46,10 +46,11 @@ def prepare_json_correction(base, request, settings):
             index = int(source.key.rsplit('/', 1)[1])
             if document.format == 'coco':
                 target = updated['annotations'][index]
-                categories = [c for c in updated['categories'] if c.get('name') == new.label]
-                if len(categories) != 1:
-                    raise ValueError('Select one existing unambiguous category.')
-                target['category_id'] = categories[0]['id']
+                if new.label != old.label:
+                    categories = [c for c in updated['categories'] if c.get('name') == new.label]
+                    if len(categories) != 1:
+                        raise ValueError('Select one existing unambiguous category.')
+                    target['category_id'] = categories[0]['id']
                 if source.bbox_origin == 'supplied' and new.bbox != old.bbox:
                     if new.bbox is None:
                         raise ValueError('A supplied box cannot be removed.')
@@ -61,16 +62,19 @@ def prepare_json_correction(base, request, settings):
                     target['segmentation'] = [[v for point in part for v in point] for part in new.polygons]
             else:
                 target = updated['shapes'][index]
-                target['label'] = new.label
+                if new.label != old.label:
+                    target['label'] = new.label
                 if target['shape_type'] == 'rectangle':
                     if new.bbox is None or new.polygons:
                         raise ValueError('A rectangle needs a box.')
-                    x1, y1, x2, y2 = new.bbox
-                    target['points'] = [[x1, y1], [x2, y2]]
+                    if new.bbox != old.bbox:
+                        x1, y1, x2, y2 = new.bbox
+                        target['points'] = [[x1, y1], [x2, y2]]
                 elif target['shape_type'] == 'polygon':
                     if len(new.polygons) != 1:
                         raise ValueError('A LabelMe polygon shape needs exactly one polygon.')
-                    target['points'] = [list(point) for point in new.polygons[0]]
+                    if new.polygons != old.polygons:
+                        target['points'] = [list(point) for point in new.polygons[0]]
                 else:
                     raise ValueError('Unsupported shape type.')
         parser = parse_coco if document.format == 'coco' else parse_labelme
@@ -94,10 +98,10 @@ def prepare_json_correction(base, request, settings):
         if [obj.model_dump() for obj in display_objects(checked_record)] != [obj.model_dump() for obj in request.objects]:
             raise ValueError('Derived bounds must match the edited polygon geometry.')
         if document.format == 'coco':
-            from pycocotools import mask as coco_mask
             for old, new, source in zip(prior, request.objects, checked_record.annotations):
                 target = updated['annotations'][int(source.key.rsplit('/', 1)[1])]
                 if new.polygons != old.polygons and 'area' in target:
+                    from pycocotools import mask as coco_mask
                     encoded = coco_mask.frPyObjects(target['segmentation'], height, width)
                     target['area'] = int(coco_mask.area(coco_mask.merge(encoded)))
                 elif not new.polygons and new.bbox != old.bbox and 'area' in target:
