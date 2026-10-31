@@ -1,5 +1,9 @@
 # Verification results
 
+PR #15 merged into `main` as `d8f6041e9f947229243d24adaf50ee4311993681`
+on 31 October 2026. Sections A–E record earlier contributor runs; they are not a
+fresh test result for the current checkout. See section F for the follow-up status.
+
 Recorded 29 October 2026. Synthetic fixtures and real public data are kept apart on
 purpose. **Nothing here was tested on Samsung data**, which has not been supplied.
 
@@ -144,3 +148,31 @@ this change merged. They do not show that a real upload, audit, correction or ex
 - Markers can cover image content next to an object. The text uses Pillow's default font.
 - No end-to-end ZIP upload was run (needs the database and a POSIX host).
 - Windows: the readers and demo are portable; managed import and export are not (see checklist).
+
+## F. Follow-up after the PR merge
+
+The original `test_one_failing_image_does_not_stop_the_others` used only one image.
+It verified failure reporting but did not establish that rendering continued.
+The revised test supplies two images, fails rendering only for the first, and
+requires the second to produce a readable PNG. It also checks per-image report
+outcomes, absence of an output for the failed image, and unchanged input bytes.
+
+**Execution status: pending user run.** No new passing count is claimed here.
+From the repository root, using the existing virtual environment:
+
+```bash
+.venv/bin/python -B -m pytest \
+  backend/tests/test_annotation_readers.py \
+  backend/tests/test_annotation_validation.py \
+  backend/tests/test_annotation_summary.py \
+  backend/tests/test_annotation_demo.py \
+  backend/tests/test_penn_fudan.py -q -p no:cacheprovider
+```
+
+Record the tested commit plus any local changes, platform, pass/skip/fail counts
+and failure output after running. A skipped test does not verify its behaviour.
+
+The application smoke check is also pending. Follow
+[the upload-to-export checklist](../../api/ANNOTATION_FORMATS.md#manual-upload-to-export-check)
+on the rebuilt Docker stack. Standalone preview tests do not validate that workflow
+or change the web audit screen's renderer.

@@ -335,14 +335,40 @@ def test_output_size_is_validated_before_a_canvas_is_allocated(tmp_path, monkeyp
 
 def test_one_failing_image_does_not_stop_the_others(tmp_path, monkeypatch, capsys):
     path, images = one_image_dataset(tmp_path, [{"bbox": [1, 1, 5, 5]}])
+    Image.new("RGB", (100, 80), (100, 150, 200)).save(images / "b.png")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["images"].append({"id": 2, "file_name": "b.png", "width": 100, "height": 80})
+    document["annotations"].append({
+        "id": 2, "image_id": 2, "category_id": 1, "iscrowd": 0, "bbox": [10, 10, 20, 30],
+    })
+    path.write_text(json.dumps(document), encoding="utf-8")
+    source_before = snapshot(images)
+    annotations_before = path.read_bytes()
     calls = []
     real = overlay_render.render_overlay
+
     def flaky(*args, **kwargs):
-        calls.append(1)
-        raise RuntimeError("boom")
+        calls.append(args[0])
+        if len(calls) == 1:
+            raise RuntimeError("boom")
+        return real(*args, **kwargs)
+
     monkeypatch.setattr(demo, "render_overlay", flaky)
-    assert run_coco(path, images, tmp_path / "out") == 0
-    assert "preview failed for this image (RuntimeError: boom)" in capsys.readouterr().out
+    out = tmp_path / "out"
+    assert run_coco(path, images, out) == 0
+    text = capsys.readouterr().out
+    assert calls == [(images / "a.png").read_bytes(), (images / "b.png").read_bytes()]
+    first_report, second_report = text.split("file=b.png", 1)
+    assert "overlay skipped: preview failed for this image (RuntimeError: boom)" in first_report
+    expected = out / "01_002_b.overlay.png"
+    assert f"overlay: {expected}" in second_report
+    assert "overlay skipped:" not in second_report
+    assert list(out.glob("*.png")) == [expected]
+    with Image.open(expected) as preview:
+        assert preview.format == "PNG"
+        preview.verify()
+    assert snapshot(images) == source_before
+    assert path.read_bytes() == annotations_before
 
 
 # ------------------------------------------------------------- identity, data and labels

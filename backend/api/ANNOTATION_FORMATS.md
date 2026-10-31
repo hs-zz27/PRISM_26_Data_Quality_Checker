@@ -77,3 +77,47 @@ responses; a real local-model quality and latency evaluation remains necessary.
 Database migrations 014 and 015 add format metadata and the optional-mask state.
 API and worker processes must use the same updated code and migrated schema.
 Code/test completion does not mean an already running Docker stack has been rebuilt.
+
+## Manual upload-to-export check
+
+Status: pending user execution after PR #15. Run separately for a small COCO ZIP
+and a small LabelMe ZIP, each with at least two images and its referenced external
+image files. Use a new test dataset so the original review history remains intact.
+The standalone preview command does not exercise these steps.
+
+1. Upload the ZIP with the matching format. Record the dataset and import IDs.
+   Check that both images, object labels and supplied geometries appear. Confirm
+   that LabelMe polygon-derived boxes are distinguished from supplied boxes and
+   that missing optional masks are not described as missing required files.
+2. Enter explicit plain-text guidelines, inspect the extracted rules and confirm
+   them. Start an audit and record its ID. Inspect both flagged and apparently
+   correct images. Unsupported checks must remain visibly unavailable. A structural
+   `invalid` label must not be mistaken for a final reviewer rejection.
+3. Select one image, record its revision and the other image's attempt/revision,
+   and submit a concrete observation through **Recheck with feedback**. Verify
+   that the comment belongs to the selected image's new attempt, the annotation
+   revision is unchanged, and the other image was not rechecked or edited.
+4. On an image with a visible annotation issue, choose **Suggest a correction**.
+   If the model returns a proposal, use **Preview correction** and **Show original**
+   to compare it. Neither action should save a revision. Inspect whether the draft
+   actually follows the confirmed guideline and addresses the comment. If the model
+   is unavailable or unsure, record that outcome; the successful proposal/apply
+   path remains unverified until a usable proposal is returned.
+5. Apply a suitable proposal with **Apply correction and recheck**. Verify that a
+   new revision is saved for that image, reviewer/reason information is retained,
+   and the recheck uses that revision. Check that the other image and confirmed
+   guidelines are unchanged. The reviewer must still make the final decision.
+   If saving succeeds but rechecking fails, record the saved revision and retry
+   its recheck rather than applying the same correction again.
+6. After the audit/rechecks complete, make the intended review decisions and export
+   with images included and a selection that includes the corrected image. Inspect
+   the export manifest for the selected revision. Re-import the exported ZIP as a
+   new dataset of the same format and verify the corrected geometry/label, source
+   identity mapping and image alignment. Check that unrelated annotations remain
+   present; JSON byte equality is not expected because image paths are rebased.
+
+For each format, record the tested commit/local changes, dataset and audit IDs,
+sample IDs, before/after revisions, export ID, model tag, observed model latency
+and result of each step. Capture error messages and relevant screenshots when a
+step fails. Keep a failed or unrun step marked as such; a preview test or mocked
+model test cannot substitute for this run.
