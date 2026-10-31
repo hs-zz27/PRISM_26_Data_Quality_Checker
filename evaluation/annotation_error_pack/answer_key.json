@@ -1,0 +1,1591 @@
+{
+  "description": "Answer key for the PRISM annotation evaluation pack. Keep it out of upload archives and out of model prompts during evaluation.",
+  "guidelines": "guidelines.txt (team-authored development guidelines, not Samsung-provided requirements)",
+  "coordinate_systems": {
+    "coco": "zero-based continuous pixels, bbox [x, y, width, height]",
+    "labelme": "zero-based continuous pixels, points [[x, y], ...]"
+  },
+  "entries": [
+    {
+      "case_id": "C01-baseline",
+      "variant": "baseline",
+      "paired_case_id": "C01-altered",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_baseline_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000199055.jpg",
+      "image_file_in_zip": "images/000000199055.jpg",
+      "image_sha256": "b1dda03e61f7c502aaf30959faf6dd86e522372106a7389e5934f0e8b931c604",
+      "source_image_id": 199055,
+      "source_annotation_id": 424921,
+      "source_json_pointer": "/annotations/91",
+      "packaged_json_pointer": "/annotations/0",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": null,
+      "original_field_value": null,
+      "modified_field_value": null,
+      "transformation": null,
+      "applicable_guidelines": [
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        12
+      ],
+      "primary_guideline": 6,
+      "expected_target_result": "pass",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A man standing on a skateboard."
+        },
+        "5": {
+          "status": "satisfied",
+          "note": "Top of the hair touches the box top edge."
+        },
+        "6": {
+          "status": "satisfied",
+          "note": "Both white shoes are inside the box; the box bottom is at the lowest shoe point."
+        },
+        "7": {
+          "status": "satisfied",
+          "note": "The raised right hand and the left elbow reach the side edges and are inside."
+        },
+        "8": {
+          "status": "not_applicable",
+          "note": "Fully visible; the skateboard only partly covers the right shoe, which is outlined by its own polygon part."
+        },
+        "9": {
+          "status": "satisfied",
+          "note": "Box equals the polygon extent on all four sides (0.00 px). Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [],
+      "known_unrelated_issues": [
+        "No reader or geometry diagnostics in this image.",
+        "The skateboard annotation (id 638445) overlaps the person's feet; this is expected scene overlap, not an annotation error."
+      ],
+      "known_unrelated_issue_packaged_pointers": {},
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C01.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "The person polygon is coarse (43 + 11 vertices) around the raised arm.",
+        "Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "C02-baseline",
+      "variant": "baseline",
+      "paired_case_id": "C02-altered",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_baseline_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000001000.jpg",
+      "image_file_in_zip": "images/000000001000.jpg",
+      "image_sha256": "24bb77a31928404e45a0454b06f6a0bd54a8db103590c9d7917288a1e0269f05",
+      "source_image_id": 1000,
+      "source_annotation_id": 1234574,
+      "source_json_pointer": "/annotations/139",
+      "packaged_json_pointer": "/annotations/14",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": null,
+      "original_field_value": null,
+      "modified_field_value": null,
+      "transformation": null,
+      "applicable_guidelines": [
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        12
+      ],
+      "primary_guideline": 5,
+      "expected_target_result": "pass",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A child standing with hands on hips, wearing a cap."
+        },
+        "5": {
+          "status": "satisfied",
+          "note": "The top of the cap touches the box top edge."
+        },
+        "6": {
+          "status": "satisfied",
+          "note": "Both shoes are inside the box bottom edge."
+        },
+        "7": {
+          "status": "satisfied",
+          "note": "Both elbows reach the side edges and are inside."
+        },
+        "8": {
+          "status": "not_applicable",
+          "note": "Fully visible; a neighbour's arm enters the box from the right."
+        },
+        "9": {
+          "status": "satisfied",
+          "note": "Box equals the polygon extent on all four sides (0.00 px). Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [],
+      "known_unrelated_issues": [
+        "Source /annotations/143 (person 1303041) and /annotations/144 (person 1304800) carry repeated_polygon_vertex and self_intersecting_polygon diagnostics; they are not the target.",
+        "Crowded group scene: several person boxes overlap the target box."
+      ],
+      "known_unrelated_issue_packaged_pointers": {
+        "/annotations/143": "/annotations/18",
+        "/annotations/144": "/annotations/19"
+      },
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C02.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "The target polygon is coarse (22 vertices) and cuts a V between the legs.",
+        "Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "C03-baseline",
+      "variant": "baseline",
+      "paired_case_id": "C03-altered",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_baseline_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000153229.jpg",
+      "image_file_in_zip": "images/000000153229.jpg",
+      "image_sha256": "6fa2b9017bab8ceb1635e1eff3ffd43225127d2149f0d465fdc5e30d41174003",
+      "source_image_id": 153229,
+      "source_annotation_id": 495199,
+      "source_json_pointer": "/annotations/93",
+      "packaged_json_pointer": "/annotations/1",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": null,
+      "original_field_value": null,
+      "modified_field_value": null,
+      "transformation": null,
+      "applicable_guidelines": [
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        12
+      ],
+      "primary_guideline": 9,
+      "expected_target_result": "pass",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A player in a green shirt and red cap, seen from behind."
+        },
+        "5": {
+          "status": "satisfied",
+          "note": "The top of the cap touches the box top edge."
+        },
+        "6": {
+          "status": "satisfied",
+          "note": "The standing foot is at the bottom edge and the raised foot at the right edge."
+        },
+        "7": {
+          "status": "satisfied",
+          "note": "Arms and the raised leg are inside the box."
+        },
+        "8": {
+          "status": "not_applicable",
+          "note": "Fully visible."
+        },
+        "9": {
+          "status": "satisfied",
+          "note": "Box equals the polygon extent on all four sides (0.00 px). Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [],
+      "known_unrelated_issues": [
+        "EXISTING on the target itself (not introduced by this case): source /annotations/93 has repeated_polygon_vertex and self_intersecting_polygon diagnostics near the left leg. They are present in both the baseline and the altered archive.",
+        "Because of that self-intersection, guideline 10 (polygon follows the person) is uncertain for this target in both versions; guideline 10 is not tested by this case."
+      ],
+      "known_unrelated_issue_packaged_pointers": {
+        "/annotations/93": "/annotations/1"
+      },
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C03.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "C04-baseline",
+      "variant": "baseline",
+      "paired_case_id": "C04-altered",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_baseline_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000100624.jpg",
+      "image_file_in_zip": "images/000000100624.jpg",
+      "image_sha256": "853ddfac5c8827aa25601a84670c8b162830421f9759ef0e21f9be980aa1ae98",
+      "source_image_id": 100624,
+      "source_annotation_id": 494051,
+      "source_json_pointer": "/annotations/215",
+      "packaged_json_pointer": "/annotations/51",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": null,
+      "original_field_value": null,
+      "modified_field_value": null,
+      "transformation": null,
+      "applicable_guidelines": [
+        1,
+        2,
+        3,
+        4,
+        12
+      ],
+      "primary_guideline": 4,
+      "expected_target_result": "pass",
+      "guideline_assessment": {
+        "1": {
+          "status": "satisfied",
+          "note": "A visible person with a person label is in scope."
+        },
+        "2": {
+          "status": "satisfied",
+          "note": "A woman talking on a phone, cut off by the bottom image edge."
+        },
+        "3": {
+          "status": "not_applicable",
+          "note": "The object is not a car."
+        },
+        "4": {
+          "status": "satisfied",
+          "note": "Labelled person and visibly a person."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [],
+      "known_unrelated_issues": [
+        "No reader or geometry diagnostics in this image.",
+        "BASELINE CONFLICT, recorded not resolved: the target's box and polygon include the worn backpack on the left, which also has its own annotation (backpack 1170623). The guidelines do not say whether worn items count as part of the person, so guidelines 9 and 10 are uncertain for this target. They are not tested by this case.",
+        "The woman is cut off by the bottom image edge (guideline 8 applies; guideline 6 does not)."
+      ],
+      "known_unrelated_issue_packaged_pointers": {},
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C04.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "Guideline 9/10 status depends on a worn-item decision the guidelines do not make."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "C05-baseline",
+      "variant": "baseline",
+      "paired_case_id": "C05-altered",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_baseline_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000085157.jpg",
+      "image_file_in_zip": "images/000000085157.jpg",
+      "image_sha256": "027adfd5c8d13be607a05da2098af34e7350b5f70a5bfd16f266e8c802a3a59b",
+      "source_image_id": 85157,
+      "source_annotation_id": 430467,
+      "source_json_pointer": "/annotations/169",
+      "packaged_json_pointer": "/annotations/32",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": null,
+      "original_field_value": null,
+      "modified_field_value": null,
+      "transformation": null,
+      "applicable_guidelines": [
+        2,
+        8,
+        10,
+        11,
+        12
+      ],
+      "primary_guideline": 10,
+      "expected_target_result": "pass",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A seated woman behind a table, talking."
+        },
+        "8": {
+          "status": "satisfied",
+          "note": "The lower body is hidden by the table and glasses; the polygon stops at the table and invents no hidden anatomy."
+        },
+        "10": {
+          "status": "satisfied",
+          "note": "The polygon follows the visible head, hair, arms and hands (coarse, 34 vertices)."
+        },
+        "11": {
+          "status": "satisfied",
+          "note": "Single polygon part outlining this person."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [],
+      "known_unrelated_issues": [
+        "Source /annotations/167 (chair 387255) and /annotations/174 (bowl 709624) carry repeated_polygon_vertex and self_intersecting_polygon diagnostics; they are not the target.",
+        "Crowded dining scene with many overlapping annotations."
+      ],
+      "known_unrelated_issue_packaged_pointers": {
+        "/annotations/167": "/annotations/30",
+        "/annotations/174": "/annotations/37"
+      },
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C05.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "The baseline polygon is coarse; its fit was judged by eye."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "C01-altered",
+      "variant": "altered",
+      "paired_case_id": "C01-baseline",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_errors_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000199055.jpg",
+      "image_file_in_zip": "images/000000199055.jpg",
+      "image_sha256": "b1dda03e61f7c502aaf30959faf6dd86e522372106a7389e5934f0e8b931c604",
+      "source_image_id": 199055,
+      "source_annotation_id": 424921,
+      "source_json_pointer": "/annotations/91",
+      "packaged_json_pointer": "/annotations/0",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": "bbox",
+      "original_field_value": [
+        143.5,
+        34.61,
+        248.25,
+        565.38
+      ],
+      "modified_field_value": [
+        143.5,
+        34.61,
+        248.25,
+        452.304
+      ],
+      "transformation": {
+        "description": "Bottom edge raised by 20% of the original box height (height x 0.8); x, y and width unchanged.",
+        "type": "move_bottom_edge_up",
+        "edge": "bottom",
+        "pixel_displacement": 113.076,
+        "rule": "height = 0.8 x original height; x, y and width unchanged"
+      },
+      "applicable_guidelines": [
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        12
+      ],
+      "primary_guideline": 6,
+      "expected_target_result": "fail",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A man standing on a skateboard."
+        },
+        "5": {
+          "status": "satisfied",
+          "note": "Top of the hair touches the box top edge."
+        },
+        "6": {
+          "status": "not_satisfied",
+          "note": "The bottom edge is 113.076 px higher and excludes both feet and the lower legs."
+        },
+        "7": {
+          "status": "not_satisfied",
+          "note": "Covered more specifically by guideline 6: the feet are visible body parts outside the box."
+        },
+        "8": {
+          "status": "not_applicable",
+          "note": "Fully visible; the skateboard only partly covers the right shoe, which is outlined by its own polygon part."
+        },
+        "9": {
+          "status": "satisfied",
+          "note": "Box equals the polygon extent on all four sides (0.00 px). Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [
+        "Segmentation now extends 113.076 px below the box bottom edge (box/polygon disagreement); the polygon itself is unchanged.",
+        "The 'area' field is unchanged; it describes the unchanged polygon."
+      ],
+      "known_unrelated_issues": [
+        "No reader or geometry diagnostics in this image.",
+        "The skateboard annotation (id 638445) overlaps the person's feet; this is expected scene overlap, not an annotation error."
+      ],
+      "known_unrelated_issue_packaged_pointers": {},
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C01.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "The person polygon is coarse (43 + 11 vertices) around the raised arm.",
+        "Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "C02-altered",
+      "variant": "altered",
+      "paired_case_id": "C02-baseline",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_errors_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000001000.jpg",
+      "image_file_in_zip": "images/000000001000.jpg",
+      "image_sha256": "24bb77a31928404e45a0454b06f6a0bd54a8db103590c9d7917288a1e0269f05",
+      "source_image_id": 1000,
+      "source_annotation_id": 1234574,
+      "source_json_pointer": "/annotations/139",
+      "packaged_json_pointer": "/annotations/14",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": "bbox",
+      "original_field_value": [
+        115.16,
+        152.13,
+        83.23,
+        228.41
+      ],
+      "modified_field_value": [
+        115.16,
+        197.812,
+        83.23,
+        182.728
+      ],
+      "transformation": {
+        "description": "Top edge lowered by 20% of the original box height; bottom edge, x and width unchanged.",
+        "type": "move_top_edge_down",
+        "edge": "top",
+        "pixel_displacement": 45.682,
+        "rule": "y = original y + 0.2 x original height; height = 0.8 x original height"
+      },
+      "applicable_guidelines": [
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        12
+      ],
+      "primary_guideline": 5,
+      "expected_target_result": "fail",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A child standing with hands on hips, wearing a cap."
+        },
+        "5": {
+          "status": "not_satisfied",
+          "note": "The top edge is 45.682 px lower and excludes the whole head and cap (the head is about 35-40 px tall)."
+        },
+        "6": {
+          "status": "satisfied",
+          "note": "Both shoes are inside the box bottom edge."
+        },
+        "7": {
+          "status": "not_satisfied",
+          "note": "Covered more specifically by guideline 5: the head is a visible body part outside the box."
+        },
+        "8": {
+          "status": "not_applicable",
+          "note": "Fully visible; a neighbour's arm enters the box from the right."
+        },
+        "9": {
+          "status": "satisfied",
+          "note": "Box equals the polygon extent on all four sides (0.00 px). Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [
+        "Segmentation now extends 45.682 px above the box top edge (box/polygon disagreement); the polygon itself is unchanged.",
+        "The 'area' field is unchanged; it describes the unchanged polygon."
+      ],
+      "known_unrelated_issues": [
+        "Source /annotations/143 (person 1303041) and /annotations/144 (person 1304800) carry repeated_polygon_vertex and self_intersecting_polygon diagnostics; they are not the target.",
+        "Crowded group scene: several person boxes overlap the target box."
+      ],
+      "known_unrelated_issue_packaged_pointers": {
+        "/annotations/143": "/annotations/18",
+        "/annotations/144": "/annotations/19"
+      },
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C02.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "The target polygon is coarse (22 vertices) and cuts a V between the legs.",
+        "Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "C03-altered",
+      "variant": "altered",
+      "paired_case_id": "C03-baseline",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_errors_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000153229.jpg",
+      "image_file_in_zip": "images/000000153229.jpg",
+      "image_sha256": "6fa2b9017bab8ceb1635e1eff3ffd43225127d2149f0d465fdc5e30d41174003",
+      "source_image_id": 153229,
+      "source_annotation_id": 495199,
+      "source_json_pointer": "/annotations/93",
+      "packaged_json_pointer": "/annotations/1",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": "bbox",
+      "original_field_value": [
+        339.4,
+        147.26,
+        155.77,
+        297.1
+      ],
+      "modified_field_value": [
+        339.4,
+        87.84,
+        155.77,
+        356.52
+      ],
+      "transformation": {
+        "description": "Top edge moved outward (upward) by 20% of the original box height into clear background.",
+        "type": "move_edge_outward",
+        "edge": "top",
+        "pixel_displacement": 59.42,
+        "rule": "top edge moved outward by 0.2 x the original box height"
+      },
+      "applicable_guidelines": [
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        12
+      ],
+      "primary_guideline": 9,
+      "expected_target_result": "fail",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A player in a green shirt and red cap, seen from behind."
+        },
+        "5": {
+          "status": "satisfied",
+          "note": "The top of the cap touches the box top edge."
+        },
+        "6": {
+          "status": "satisfied",
+          "note": "The standing foot is at the bottom edge and the raised foot at the right edge."
+        },
+        "7": {
+          "status": "satisfied",
+          "note": "Arms and the raised leg are inside the box."
+        },
+        "8": {
+          "status": "not_applicable",
+          "note": "Fully visible."
+        },
+        "9": {
+          "status": "not_satisfied",
+          "note": "The top edge is 59.42 px above the top of the cap, far more than the proposed 3-pixel tolerance; the added strip is clear background."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [
+        "The box now extends 59.42 px above the top of the polygon (box/polygon disagreement); the polygon itself is unchanged."
+      ],
+      "known_unrelated_issues": [
+        "EXISTING on the target itself (not introduced by this case): source /annotations/93 has repeated_polygon_vertex and self_intersecting_polygon diagnostics near the left leg. They are present in both the baseline and the altered archive.",
+        "Because of that self-intersection, guideline 10 (polygon follows the person) is uncertain for this target in both versions; guideline 10 is not tested by this case."
+      ],
+      "known_unrelated_issue_packaged_pointers": {
+        "/annotations/93": "/annotations/1"
+      },
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C03.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "Box edges were compared with polygon extremes (measured) and polygon extremes with the visible person by eye at 2-3x zoom; the exact 3-pixel tolerance was not pixel-measured against a true person boundary."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "C04-altered",
+      "variant": "altered",
+      "paired_case_id": "C04-baseline",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_errors_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000100624.jpg",
+      "image_file_in_zip": "images/000000100624.jpg",
+      "image_sha256": "853ddfac5c8827aa25601a84670c8b162830421f9759ef0e21f9be980aa1ae98",
+      "source_image_id": 100624,
+      "source_annotation_id": 494051,
+      "source_json_pointer": "/annotations/215",
+      "packaged_json_pointer": "/annotations/51",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "car",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": "category_id",
+      "original_field_value": 1,
+      "modified_field_value": 3,
+      "transformation": {
+        "description": "category_id changed from the source person category to the source car category.",
+        "type": "relabel",
+        "from_category": {
+          "id": 1,
+          "name": "person"
+        },
+        "to_category": {
+          "id": 3,
+          "name": "car"
+        },
+        "pixel_displacement": null
+      },
+      "applicable_guidelines": [
+        1,
+        2,
+        3,
+        4,
+        12
+      ],
+      "primary_guideline": 4,
+      "expected_target_result": "fail",
+      "guideline_assessment": {
+        "1": {
+          "status": "satisfied",
+          "note": "Still in scope: the guidelines apply to image content, so the car label does not remove the person from evaluation."
+        },
+        "2": {
+          "status": "satisfied",
+          "note": "A woman talking on a phone, cut off by the bottom image edge."
+        },
+        "3": {
+          "status": "not_applicable",
+          "note": "The object is not a car."
+        },
+        "4": {
+          "status": "not_satisfied",
+          "note": "Labelled car, but the outlined object is visibly a person."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [
+        "Only the category changes; the geometry still outlines a person, so a label-versus-content check is the only way to detect it.",
+        "The car category already exists in the source categories; no category was created."
+      ],
+      "known_unrelated_issues": [
+        "No reader or geometry diagnostics in this image.",
+        "BASELINE CONFLICT, recorded not resolved: the target's box and polygon include the worn backpack on the left, which also has its own annotation (backpack 1170623). The guidelines do not say whether worn items count as part of the person, so guidelines 9 and 10 are uncertain for this target. They are not tested by this case.",
+        "The woman is cut off by the bottom image edge (guideline 8 applies; guideline 6 does not)."
+      ],
+      "known_unrelated_issue_packaged_pointers": {},
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C04.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "Guideline 9/10 status depends on a worn-item decision the guidelines do not make."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "C05-altered",
+      "variant": "altered",
+      "paired_case_id": "C05-baseline",
+      "status": "ready",
+      "annotation_format": "coco",
+      "zip_file": "coco_errors_5.zip",
+      "annotation_file_in_zip": "annotations/instances.json",
+      "image_file": "000000085157.jpg",
+      "image_file_in_zip": "images/000000085157.jpg",
+      "image_sha256": "027adfd5c8d13be607a05da2098af34e7350b5f70a5bfd16f266e8c802a3a59b",
+      "source_image_id": 85157,
+      "source_annotation_id": 430467,
+      "source_json_pointer": "/annotations/169",
+      "packaged_json_pointer": "/annotations/32",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "category_ids_from_source": {
+        "person": 1,
+        "car": 3
+      },
+      "edited_field": "segmentation",
+      "original_field_value": [
+        [
+          233.54,
+          234.74,
+          230.31,
+          188.47,
+          264.75,
+          168.02,
+          261.52,
+          143.26,
+          261.52,
+          133.58,
+          271.21,
+          119.59,
+          280.9,
+          113.13,
+          303.5,
+          121.74,
+          315.34,
+          131.43,
+          313.18,
+          148.65,
+          317.49,
+          159.41,
+          316.41,
+          169.09,
+          327.17,
+          175.55,
+          336.86,
+          199.23,
+          343.32,
+          215.37,
+          332.56,
+          214.3,
+          322.87,
+          215.37,
+          318.57,
+          217.52,
+          306.73,
+          222.91,
+          293.81,
+          223.98,
+          297.04,
+          244.43,
+          280.9,
+          248.74,
+          263.68,
+          251.96,
+          261.52,
+          257.35,
+          256.14,
+          261.65,
+          248.61,
+          258.42,
+          247.53,
+          247.66,
+          242.15,
+          245.51,
+          243.23,
+          235.82,
+          237.85,
+          236.9,
+          236.77,
+          244.43,
+          235.7,
+          248.74,
+          233.54,
+          242.28,
+          232.47,
+          230.44
+        ]
+      ],
+      "modified_field_value": [
+        [
+          297.54,
+          234.74,
+          294.31,
+          188.47,
+          328.75,
+          168.02,
+          325.52,
+          143.26,
+          325.52,
+          133.58,
+          335.21,
+          119.59,
+          344.9,
+          113.13,
+          367.5,
+          121.74,
+          379.34,
+          131.43,
+          377.18,
+          148.65,
+          381.49,
+          159.41,
+          380.41,
+          169.09,
+          391.17,
+          175.55,
+          400.86,
+          199.23,
+          407.32,
+          215.37,
+          396.56,
+          214.3,
+          386.87,
+          215.37,
+          382.57,
+          217.52,
+          370.73,
+          222.91,
+          357.81,
+          223.98,
+          361.04,
+          244.43,
+          344.9,
+          248.74,
+          327.68,
+          251.96,
+          325.52,
+          257.35,
+          320.14,
+          261.65,
+          312.61,
+          258.42,
+          311.53,
+          247.66,
+          306.15,
+          245.51,
+          307.23,
+          235.82,
+          301.85,
+          236.9,
+          300.77,
+          244.43,
+          299.7,
+          248.74,
+          297.54,
+          242.28,
+          296.47,
+          230.44
+        ]
+      ],
+      "transformation": {
+        "description": "Every vertex of segmentation part 0 shifted right by 10% of the image width.",
+        "type": "translate_polygon_part",
+        "part_index": 0,
+        "axis": "x",
+        "direction": "right",
+        "fraction_of_image_width": "0.1",
+        "pixel_displacement": 64,
+        "vertex_count": 34,
+        "vertex_order_preserved": true,
+        "directions_keeping_all_vertices_inside": [
+          "left",
+          "right"
+        ]
+      },
+      "applicable_guidelines": [
+        2,
+        8,
+        10,
+        11,
+        12
+      ],
+      "primary_guideline": 10,
+      "expected_target_result": "fail",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A seated woman behind a table, talking."
+        },
+        "8": {
+          "status": "satisfied",
+          "note": "The lower body is hidden by the table and glasses; the polygon stops at the table and invents no hidden anatomy."
+        },
+        "10": {
+          "status": "not_satisfied",
+          "note": "The whole outline is displaced 64 px to the right of the person."
+        },
+        "11": {
+          "status": "uncertain",
+          "note": "The displaced part now outlines mostly background and part of the neighbouring person; whether that counts as outlining a different person is a reviewer judgement."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [
+        "The polygon now extends 64 px beyond the box right edge and leaves a 64 px gap inside the box left edge (box/polygon disagreement); the box is unchanged.",
+        "The 'area' field is unchanged; a translation does not change polygon area."
+      ],
+      "known_unrelated_issues": [
+        "Source /annotations/167 (chair 387255) and /annotations/174 (bowl 709624) carry repeated_polygon_vertex and self_intersecting_polygon diagnostics; they are not the target.",
+        "Crowded dining scene with many overlapping annotations."
+      ],
+      "known_unrelated_issue_packaged_pointers": {
+        "/annotations/167": "/annotations/30",
+        "/annotations/174": "/annotations/37"
+      },
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "2-3x zoomed source crop with box and polygon; comparisons/C05.png"
+      },
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "uncertainty_and_limitations": [
+        "The baseline polygon is coarse; its fit was judged by eye."
+      ],
+      "whole_image_reviewed": false
+    },
+    {
+      "case_id": "L01-baseline",
+      "variant": "baseline",
+      "paired_case_id": "L01-altered",
+      "status": "blocked",
+      "annotation_format": "labelme",
+      "zip_file": "labelme_baseline_3.zip",
+      "annotation_file_in_zip": "2011_000025.json",
+      "image_file": "2011_000025.jpg",
+      "image_file_in_zip": "2011_000025.jpg",
+      "image_sha256": "5dfbdc6981c971986773e226d827f44f7497cf5ca0d4fa1556fd7575aba301ce",
+      "source_image_id": null,
+      "source_annotation_id": null,
+      "applicable_guidelines": [
+        2,
+        8,
+        10,
+        11,
+        12
+      ],
+      "primary_guideline": 10,
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "whole_image_reviewed": false,
+      "required_case": "horizontal 10% shift of a person shape in a third distinct image",
+      "blocker": "2011_000025 contains no person-labelled shape (two bus shapes and one car shape). Only 2011_000003 and 2011_000006 contain persons and they are used by L03 and L02, so no third distinct LabelMe image with a person exists. The image is packaged unchanged in both LabelMe archives; no substitute image, object or task was used.",
+      "source_json_pointer": null,
+      "packaged_json_pointer": null,
+      "labelme_group_id": null,
+      "original_target_label": null,
+      "current_target_label": null,
+      "edited_field": null,
+      "original_field_value": null,
+      "modified_field_value": null,
+      "transformation": null,
+      "expected_target_result": "not_applicable_blocked",
+      "guideline_assessment": {},
+      "related_findings_from_edit": [],
+      "packaged_annotation_identical_to_baseline": true,
+      "known_unrelated_issues": [
+        "No reader or geometry diagnostics in 2011_000025.",
+        "On inspection no person is visible either (the bus cab is empty), so the blocker is about image content as well as labels.",
+        "/shapes/2 is labelled car; the vehicle is only partly visible at the right edge and whether it meets guideline 3 (passenger car rather than van) was not determined."
+      ],
+      "visual_verification": {
+        "status": "verified_no_person_present",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "source overlay and comparisons/L01.png"
+      },
+      "uncertainty_and_limitations": [
+        "Blocked: no person shape exists in the only remaining LabelMe image."
+      ]
+    },
+    {
+      "case_id": "L02-baseline",
+      "variant": "baseline",
+      "paired_case_id": "L02-altered",
+      "status": "ready",
+      "annotation_format": "labelme",
+      "zip_file": "labelme_baseline_3.zip",
+      "annotation_file_in_zip": "2011_000006.json",
+      "image_file": "2011_000006.jpg",
+      "image_file_in_zip": "2011_000006.jpg",
+      "image_sha256": "a0d04eb84ed3cd07282d61833d219c11fd6d98f53dc0135d4b3c720b26cfb244",
+      "source_image_id": null,
+      "source_annotation_id": null,
+      "applicable_guidelines": [
+        2,
+        8,
+        10,
+        11,
+        12
+      ],
+      "primary_guideline": 10,
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "whole_image_reviewed": false,
+      "source_json_pointer": "/shapes/2",
+      "packaged_json_pointer": "/shapes/2",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "edited_field": null,
+      "original_field_value": null,
+      "modified_field_value": null,
+      "transformation": null,
+      "expected_target_result": "pass",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A seated woman in a green top on a sofa."
+        },
+        "8": {
+          "status": "satisfied",
+          "note": "Partly hidden by the sofa arm and her neighbour; only visible parts are outlined."
+        },
+        "10": {
+          "status": "satisfied",
+          "note": "The coarse 16-point outline follows her head, hair, top, arm and jeans."
+        },
+        "11": {
+          "status": "satisfied",
+          "note": "Single shape with group_id null."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [],
+      "known_unrelated_issues": [
+        "/shapes/0 and /shapes/1 (the other two women) carry self_intersecting_polygon diagnostics; /shapes/3 (chair) carries polygon_outside_image. None is the target.",
+        "The image contains an __ignore__ region (/shapes/5) and grouped sofa parts (group_id 0)."
+      ],
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "3x zoomed source crop with polygon; comparisons/L02.png"
+      },
+      "uncertainty_and_limitations": [
+        "The baseline outline is coarse; its fit was judged by eye."
+      ]
+    },
+    {
+      "case_id": "L03-baseline",
+      "variant": "baseline",
+      "paired_case_id": "L03-altered",
+      "status": "ready",
+      "annotation_format": "labelme",
+      "zip_file": "labelme_baseline_3.zip",
+      "annotation_file_in_zip": "2011_000003.json",
+      "image_file": "2011_000003.jpg",
+      "image_file_in_zip": "2011_000003.jpg",
+      "image_sha256": "94bc550055447e1fab3982571d7114eb4a02a868054f34cb15f95cadf3e48c9a",
+      "source_image_id": null,
+      "source_annotation_id": null,
+      "applicable_guidelines": [
+        1,
+        2,
+        3,
+        4,
+        12
+      ],
+      "primary_guideline": 4,
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "whole_image_reviewed": false,
+      "source_json_pointer": "/shapes/0",
+      "packaged_json_pointer": "/shapes/0",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "edited_field": null,
+      "original_field_value": null,
+      "modified_field_value": null,
+      "transformation": null,
+      "expected_target_result": "pass",
+      "guideline_assessment": {
+        "1": {
+          "status": "satisfied",
+          "note": "A visible person with a person label is in scope."
+        },
+        "2": {
+          "status": "satisfied",
+          "note": "A crouching man, fully visible from hat to sandals."
+        },
+        "3": {
+          "status": "not_applicable",
+          "note": "The object is not a car."
+        },
+        "4": {
+          "status": "satisfied",
+          "note": "Labelled person and visibly a person."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [],
+      "known_unrelated_issues": [
+        "No reader or geometry diagnostics in 2011_000003.",
+        "/shapes/2 is a 4-point person part grouped (group_id 0) with /shapes/1 near the bottle; it plausibly outlines that man's hand. Not the target; not verified."
+      ],
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "3x zoomed source crop with polygon; comparisons/L03.png"
+      },
+      "uncertainty_and_limitations": []
+    },
+    {
+      "case_id": "L01-altered",
+      "variant": "altered",
+      "paired_case_id": "L01-baseline",
+      "status": "blocked",
+      "annotation_format": "labelme",
+      "zip_file": "labelme_errors_3.zip",
+      "annotation_file_in_zip": "2011_000025.json",
+      "image_file": "2011_000025.jpg",
+      "image_file_in_zip": "2011_000025.jpg",
+      "image_sha256": "5dfbdc6981c971986773e226d827f44f7497cf5ca0d4fa1556fd7575aba301ce",
+      "source_image_id": null,
+      "source_annotation_id": null,
+      "applicable_guidelines": [
+        2,
+        8,
+        10,
+        11,
+        12
+      ],
+      "primary_guideline": 10,
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "whole_image_reviewed": false,
+      "required_case": "horizontal 10% shift of a person shape in a third distinct image",
+      "blocker": "2011_000025 contains no person-labelled shape (two bus shapes and one car shape). Only 2011_000003 and 2011_000006 contain persons and they are used by L03 and L02, so no third distinct LabelMe image with a person exists. The image is packaged unchanged in both LabelMe archives; no substitute image, object or task was used.",
+      "source_json_pointer": null,
+      "packaged_json_pointer": null,
+      "labelme_group_id": null,
+      "original_target_label": null,
+      "current_target_label": null,
+      "edited_field": null,
+      "original_field_value": null,
+      "modified_field_value": null,
+      "transformation": null,
+      "expected_target_result": "not_applicable_blocked",
+      "guideline_assessment": {},
+      "related_findings_from_edit": [],
+      "packaged_annotation_identical_to_baseline": true,
+      "known_unrelated_issues": [
+        "No reader or geometry diagnostics in 2011_000025.",
+        "On inspection no person is visible either (the bus cab is empty), so the blocker is about image content as well as labels.",
+        "/shapes/2 is labelled car; the vehicle is only partly visible at the right edge and whether it meets guideline 3 (passenger car rather than van) was not determined."
+      ],
+      "visual_verification": {
+        "status": "verified_no_person_present",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "source overlay and comparisons/L01.png"
+      },
+      "uncertainty_and_limitations": [
+        "Blocked: no person shape exists in the only remaining LabelMe image."
+      ]
+    },
+    {
+      "case_id": "L02-altered",
+      "variant": "altered",
+      "paired_case_id": "L02-baseline",
+      "status": "ready",
+      "annotation_format": "labelme",
+      "zip_file": "labelme_errors_3.zip",
+      "annotation_file_in_zip": "2011_000006.json",
+      "image_file": "2011_000006.jpg",
+      "image_file_in_zip": "2011_000006.jpg",
+      "image_sha256": "a0d04eb84ed3cd07282d61833d219c11fd6d98f53dc0135d4b3c720b26cfb244",
+      "source_image_id": null,
+      "source_annotation_id": null,
+      "applicable_guidelines": [
+        2,
+        8,
+        10,
+        11,
+        12
+      ],
+      "primary_guideline": 10,
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "whole_image_reviewed": false,
+      "source_json_pointer": "/shapes/2",
+      "packaged_json_pointer": "/shapes/2",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "edited_field": "points",
+      "original_field_value": [
+        [
+          308.936170212766,
+          115.56382978723406
+        ],
+        [
+          298.936170212766,
+          145.56382978723406
+        ],
+        [
+          309.936170212766,
+          166.56382978723406
+        ],
+        [
+          297.936170212766,
+          200.56382978723406
+        ],
+        [
+          305.936170212766,
+          228.56382978723406
+        ],
+        [
+          262.936170212766,
+          258.56382978723406
+        ],
+        [
+          252.936170212766,
+          284.56382978723406
+        ],
+        [
+          272.936170212766,
+          291.56382978723406
+        ],
+        [
+          281.936170212766,
+          250.56382978723406
+        ],
+        [
+          326.936170212766,
+          235.56382978723406
+        ],
+        [
+          351.936170212766,
+          239.56382978723406
+        ],
+        [
+          365.936170212766,
+          223.56382978723406
+        ],
+        [
+          371.936170212766,
+          187.56382978723406
+        ],
+        [
+          353.936170212766,
+          168.56382978723406
+        ],
+        [
+          344.936170212766,
+          143.56382978723406
+        ],
+        [
+          336.936170212766,
+          115.56382978723406
+        ]
+      ],
+      "modified_field_value": [
+        [
+          308.936170212766,
+          153.06382978723406
+        ],
+        [
+          298.936170212766,
+          183.06382978723406
+        ],
+        [
+          309.936170212766,
+          204.06382978723406
+        ],
+        [
+          297.936170212766,
+          238.06382978723406
+        ],
+        [
+          305.936170212766,
+          266.06382978723406
+        ],
+        [
+          262.936170212766,
+          296.06382978723406
+        ],
+        [
+          252.936170212766,
+          322.06382978723406
+        ],
+        [
+          272.936170212766,
+          329.06382978723406
+        ],
+        [
+          281.936170212766,
+          288.06382978723406
+        ],
+        [
+          326.936170212766,
+          273.06382978723406
+        ],
+        [
+          351.936170212766,
+          277.06382978723406
+        ],
+        [
+          365.936170212766,
+          261.06382978723406
+        ],
+        [
+          371.936170212766,
+          225.06382978723406
+        ],
+        [
+          353.936170212766,
+          206.06382978723406
+        ],
+        [
+          344.936170212766,
+          181.06382978723406
+        ],
+        [
+          336.936170212766,
+          153.06382978723406
+        ]
+      ],
+      "transformation": {
+        "description": "Every point of shape 2 shifted down by 10% of the image height.",
+        "type": "translate_polygon",
+        "axis": "y",
+        "direction": "down",
+        "fraction_of_image_height": "0.1",
+        "pixel_displacement": 37.5,
+        "vertex_count": 16,
+        "vertex_order_preserved": true,
+        "directions_keeping_all_points_inside": [
+          "down",
+          "up"
+        ]
+      },
+      "expected_target_result": "fail",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "A seated woman in a green top on a sofa."
+        },
+        "8": {
+          "status": "satisfied",
+          "note": "Partly hidden by the sofa arm and her neighbour; only visible parts are outlined."
+        },
+        "10": {
+          "status": "not_satisfied",
+          "note": "The whole outline is displaced 37.5 px downward onto the sofa."
+        },
+        "11": {
+          "status": "satisfied",
+          "note": "Single shape with group_id null."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [
+        "The polygon-derived box (LabelMe stores no box) moves down by the same 37.5 px."
+      ],
+      "known_unrelated_issues": [
+        "/shapes/0 and /shapes/1 (the other two women) carry self_intersecting_polygon diagnostics; /shapes/3 (chair) carries polygon_outside_image. None is the target.",
+        "The image contains an __ignore__ region (/shapes/5) and grouped sofa parts (group_id 0)."
+      ],
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "3x zoomed source crop with polygon; comparisons/L02.png"
+      },
+      "uncertainty_and_limitations": [
+        "The baseline outline is coarse; its fit was judged by eye."
+      ]
+    },
+    {
+      "case_id": "L03-altered",
+      "variant": "altered",
+      "paired_case_id": "L03-baseline",
+      "status": "ready",
+      "annotation_format": "labelme",
+      "zip_file": "labelme_errors_3.zip",
+      "annotation_file_in_zip": "2011_000003.json",
+      "image_file": "2011_000003.jpg",
+      "image_file_in_zip": "2011_000003.jpg",
+      "image_sha256": "94bc550055447e1fab3982571d7114eb4a02a868054f34cb15f95cadf3e48c9a",
+      "source_image_id": null,
+      "source_annotation_id": null,
+      "applicable_guidelines": [
+        1,
+        2,
+        3,
+        4,
+        12
+      ],
+      "primary_guideline": 4,
+      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "whole_image_reviewed": false,
+      "source_json_pointer": "/shapes/0",
+      "packaged_json_pointer": "/shapes/0",
+      "labelme_group_id": null,
+      "original_target_label": "person",
+      "current_target_label": "car",
+      "edited_field": "label",
+      "original_field_value": "person",
+      "modified_field_value": "car",
+      "transformation": {
+        "description": "Shape label changed from person to car.",
+        "type": "relabel",
+        "from": "person",
+        "to": "car",
+        "pixel_displacement": null
+      },
+      "expected_target_result": "fail",
+      "guideline_assessment": {
+        "1": {
+          "status": "satisfied",
+          "note": "Still in scope: the car label does not remove the person from evaluation."
+        },
+        "2": {
+          "status": "satisfied",
+          "note": "A crouching man, fully visible from hat to sandals."
+        },
+        "3": {
+          "status": "not_applicable",
+          "note": "The object is not a car."
+        },
+        "4": {
+          "status": "not_satisfied",
+          "note": "Labelled car, but the outlined object is visibly a person."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "Evidence is clear."
+        }
+      },
+      "related_findings_from_edit": [
+        "Only the label changes; the outline still fits a person."
+      ],
+      "known_unrelated_issues": [
+        "No reader or geometry diagnostics in 2011_000003.",
+        "/shapes/2 is a 4-point person part grouped (group_id 0) with /shapes/1 near the bottle; it plausibly outlines that man's hand. Not the target; not verified."
+      ],
+      "visual_verification": {
+        "status": "verified",
+        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+        "method": "3x zoomed source crop with polygon; comparisons/L03.png"
+      },
+      "uncertainty_and_limitations": []
+    }
+  ]
+}

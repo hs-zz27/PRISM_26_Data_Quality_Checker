@@ -1,0 +1,12 @@
+1. Scope: these guidelines evaluate the geometry of every person annotation (bounding boxes and polygon outlines) and whether each annotation labelled person or car carries the correct one of those two labels. They apply to what the image shows, not only to the label written in the annotation, so an object that is visibly a person remains in scope even if it is labelled car.
+2. A person is a human being visible in the image, of any age, posture or clothing, whether standing, walking, sitting, crouching or partly hidden by other objects; images of people on screens, posters or signs are not persons.
+3. A car is a passenger motor vehicle with four or more wheels designed mainly to carry a small number of people, such as a sedan, hatchback or station wagon; buses, trucks, bicycles, motorcycles and people are not cars.
+4. Every annotation's label must name the object that is actually visible inside its geometry; for example, an annotation drawn around a visible person must be labelled person, never car.
+5. The bounding box of a fully visible person must include the whole head, including hair and any headwear worn on the head.
+6. The bounding box of a fully visible person must include the visible feet and lower legs, including footwear.
+7. A person's bounding box must include every other visible part of that person, such as raised arms, hands and elbows, so that no visible body part of the person lies outside the box.
+8. For a person who is partly hidden by another object or by the image edge, annotate only the visible portions, and do not extend boxes or polygons to cover body parts that cannot be seen.
+9. A person's bounding box may extend at most 3 pixels beyond the visible person's outermost extent on each side, measured in original image coordinates; this tolerance is a proposed development evaluation choice and must be approved by a reviewer before it is used to judge real annotations.
+10. A person polygon must follow the visible boundary of that same person, without being displaced from the person or enclosing large regions of background or other objects.
+11. All polygon parts that belong to one person annotation must outline visible parts of that same person, and no part may outline a different person or object.
+12. When the image does not show clearly enough whether a guideline is met, for example because of blur, darkness, heavy occlusion or very small size, the result must be reported as uncertain so that a reviewer can inspect it, rather than reported as a pass or a fail.

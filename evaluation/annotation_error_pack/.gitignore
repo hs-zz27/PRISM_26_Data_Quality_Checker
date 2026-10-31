@@ -1,0 +1,6 @@
+# Generated outputs contain third-party images (COCO: CC BY 2.0; LabelMe: PASCAL VOC/Flickr images
+# whose redistribution terms are not confirmed). They are rebuilt byte-identically by build_pack.py.
+# Remove these lines only after the team confirms that sharing the images is permitted.
+archives/
+comparisons/
+*.tmp
