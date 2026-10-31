@@ -43,7 +43,11 @@ def _image_bytes(path: Path, limits: ValidationLimits) -> bytes:
     try:
         # Nonblocking prevents accidental FIFO reads; no-follow rejects a replaced
         # final symlink. Parent-directory mutation is outside this local tool's scope.
-        descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+        # O_NONBLOCK/O_NOFOLLOW do not exist on Windows; O_BINARY exists only there.
+        # resolve() already rejected links that leave the root, so the flags are a
+        # race guard where available, not the only containment check.
+        flags = os.O_RDONLY | sum(getattr(os, name, 0) for name in ("O_NONBLOCK", "O_NOFOLLOW", "O_BINARY"))
+        descriptor = os.open(path, flags)
         with os.fdopen(descriptor, "rb") as handle:
             metadata = os.fstat(handle.fileno())
             if not stat.S_ISREG(metadata.st_mode):
@@ -151,6 +155,26 @@ def _geometry_issues(obj: AnnotationRecord, size, limits):
     return findings
 
 
+def resolve_reference_base(document: AnnotationDocument, image_root: str | Path,
+                           reference_base: str | Path | None = None) -> tuple[Path, Path]:
+    """Return (resolved root, directory that relative image references start from)."""
+    root = Path(image_root).resolve()
+    if not root.is_dir():
+        raise ValueError("image_root must be an existing directory.")
+    if reference_base is not None:
+        return root, Path(reference_base).resolve()
+    if document.format == "labelme" and document.source_path is not None:
+        return root, Path(document.source_path).resolve().parent
+    return root, root
+
+
+def image_path_for(document: AnnotationDocument, file_name: str, image_root: str | Path, *,
+                   reference_base: str | Path | None = None) -> Path:
+    """Resolve one image reference with the same safety rules as inspect_document."""
+    root, base = resolve_reference_base(document, image_root, reference_base)
+    return _image_path(file_name, root, base)
+
+
 def inspect_document(document: AnnotationDocument, image_root: str | Path, *,
                      reference_base: str | Path | None = None,
                      limits: ValidationLimits | None = None) -> DocumentInspection:
@@ -161,15 +185,7 @@ def inspect_document(document: AnnotationDocument, image_root: str | Path, *,
     explicitly overrides that choice, but all resolved images must stay in root.
     """
     limits = limits or ValidationLimits()
-    root = Path(image_root).resolve()
-    if not root.is_dir():
-        raise ValueError("image_root must be an existing directory.")
-    if reference_base is not None:
-        base = Path(reference_base).resolve()
-    elif document.format == "labelme" and document.source_path is not None:
-        base = Path(document.source_path).resolve().parent
-    else:
-        base = root
+    root, base = resolve_reference_base(document, image_root, reference_base)
     result = DocumentInspection(document.format, document.source_path,
                                 len(document.unassigned_annotations), list(document.all_issues))
     for record in document.images:

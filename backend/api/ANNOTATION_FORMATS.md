@@ -60,8 +60,11 @@ Feedback navigation section.
 - The specialized pedestrian enclosure renderer still requires Penn-Fudan coordinates.
   JSON visual checks use the general confirmed `annotation_guideline` path; there is
   no silent coordinate conversion into the specialized renderer.
-- Actual Samsung data has not been supplied or verified. The teammate's standalone
-  diagnostics/preview improvements remain on their unmerged branch.
+- Actual Samsung data has not been supplied or verified.
+- Standalone, read-only diagnostics and annotation previews are available with
+  `python -m backend.app.datasets.preview_annotations` (see
+  `backend/app/datasets/README.md`). They read source files directly, change nothing, and are
+  not part of the managed upload, audit or correction workflow.
 
 ## Verification and deployment
 
