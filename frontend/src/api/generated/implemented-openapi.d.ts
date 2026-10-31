@@ -972,7 +972,7 @@ export interface components {
          * @description Whether the source asset was captured and can be verified.
          * @enum {string}
          */
-        AssetAvailability: "available" | "missing" | "unreadable";
+        AssetAvailability: "available" | "missing" | "unreadable" | "not_supplied";
         /** AssetReference */
         AssetReference: {
             /** Url */
@@ -2508,6 +2508,16 @@ export interface components {
             };
             /** Reviewer Id */
             reviewer_id: string;
+            /**
+             * Feedback
+             * @default null
+             */
+            feedback: string | null;
+            /**
+             * Propose Correction
+             * @default false
+             */
+            propose_correction: boolean;
         };
         /** RecordedPrediction */
         RecordedPrediction: {
@@ -6547,7 +6557,9 @@ export interface operations {
                  *       "sample_revisions": {
                  *         "sample_001": 2
                  *       },
-                 *       "reviewer_id": "reviewer_demo"
+                 *       "reviewer_id": "reviewer_demo",
+                 *       "feedback": null,
+                 *       "propose_correction": false
                  *     }
                  */
                 "application/json": components["schemas"]["RecheckRequest"];

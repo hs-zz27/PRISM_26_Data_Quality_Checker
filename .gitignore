@@ -3,10 +3,7 @@
 __pycache__/
 .pytest_cache/
 *.pyc
-PennFudanPed/
 # Downloaded public development datasets (keep the local index in version control)
-/datasets/*
-!/datasets/README.md
 .DS_Store
 .env
 .env.*

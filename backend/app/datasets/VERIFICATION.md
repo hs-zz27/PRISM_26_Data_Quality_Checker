@@ -115,6 +115,26 @@ Real data, regenerated with the new renderer, using the datasets on `main`:
 
 Not claimed: no upload, audit or correction workflow was run for this section.
 
+## E. After merging `main` (rehearsal)
+
+Done in a scratch git repository (Linux) built from three states: the base `b4dc408`, PR #15
+with this change, and the latest `main` download. Merging produced exactly one conflict,
+`backend/app/datasets/README.md`, resolved by keeping the preview documentation and adding
+`main`'s statements and links. No other file conflicted.
+
+Related tests (64 files covering readers, JSON workflow, persistence, corrections, export,
+feedback, assets, manifests and Penn-Fudan), run file by file on pristine `main` and on the
+merged tree: every file that exists on both gave the same outcome. On the merged tree the
+summed per-file results are 1,118 passed, 195 skipped, 0 failed (one slower file,
+`test_dataset_contract`, was rerun separately: 21 passed). The key set (readers, validation,
+summary, demo, Penn-Fudan, JSON workflow, JSON persistence, image review feedback) gave
+168 passed, 2 skipped.
+
+Limits of this check: the sandbox has no PostgreSQL, so database-backed integration tests
+could not run; skipped tests were not examined one by one; the managed workflow needs POSIX
+and was not run end to end by hand. These results show that existing tests still pass with
+this change merged. They do not show that a real upload, audit, correction or export works.
+
 ## C. Limitations found
 - COCO RLE and keypoints, LabelMe embedded images and shape masks are kept, not decoded.
 - Images with EXIF rotation are skipped (no coordinate mapping).

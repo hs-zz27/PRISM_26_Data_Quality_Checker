@@ -4,6 +4,12 @@ Standalone, independently testable readers for COCO JSON and LabelMe JSON, a sha
 annotation representation, a structural inspector, and a verification demo with
 overlays. Penn-Fudan (`penn_fudan.py`, `penn_fudan_zip.py`) is unchanged.
 
+These readers also feed the managed COCO and LabelMe import, audit, correction and native
+export paths. See [format integration](../../api/ANNOTATION_FORMATS.md) for the supported
+workflow and its remaining limitations. This file covers the standalone reader layer, the
+shared representation and the read-only preview. Existing Penn-Fudan readers and API
+contracts are unchanged.
+
 Status words used below are deliberate:
 
 - **Tested on synthetic fixtures**: invented files in `synthetic_samples.py`. They prove
@@ -217,11 +223,13 @@ These use only synthetic fixtures and temporary files: no database, model or dow
 Two tests in `test_annotation_validation.py` need POSIX features (a FIFO; a symlink, which
 Windows allows only with extra privileges) and skip themselves where those are unavailable.
 
-## Where the application still assumes Penn-Fudan
+## Integration status
 
-See [INTEGRATION_CHECKLIST.md](INTEGRATION_CHECKLIST.md). The readers are not wired into
-anything new by this task; that checklist lists what already exists and what still needs a
-decision.
+The managed workflow (ZIP import, audit, correction, feedback, native export) is described in
+[ANNOTATION_FORMATS.md](../../api/ANNOTATION_FORMATS.md). What still assumes Penn-Fudan, which
+earlier concerns are now resolved on `main`, and the decisions that remain open are in
+[INTEGRATION_CHECKLIST.md](INTEGRATION_CHECKLIST.md). The preview described above is
+standalone: it reads source files directly and does not use the database or the managed workflow.
 
 ## Format references
 

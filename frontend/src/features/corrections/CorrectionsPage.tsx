@@ -130,7 +130,7 @@ export const CorrectionsPage: React.FC = () => {
       if (!auditId) throw new Error('Choose the audit to re-check against.');
       if (!sample) throw new Error('Select a sample.');
       const workspaceId = auditSampleQuery.data?.workspace_audit_id ?? auditId;
-      const result = await apiPost('/audits/{audit_id}/rechecks', { path: { audit_id: auditId }, body: { sample_ids: [sampleId], sample_revisions: { [sampleId]: sample.revision }, reviewer_id: reviewerId.trim() } });
+      const result = await apiPost('/audits/{audit_id}/rechecks', { path: { audit_id: auditId }, body: { sample_ids: [sampleId], sample_revisions: { [sampleId]: sample.revision }, reviewer_id: reviewerId.trim(), feedback: null, propose_correction: false } });
       return { jobId: result.job.job_id, workspaceId, sampleId };
     },
     onSuccess: (target) => {
@@ -209,7 +209,7 @@ export const CorrectionsPage: React.FC = () => {
         <div className="correction-layout">
           <div className="space-y-2">
             {isJson ? <ReviewCanvas sampleId={sampleId} imageSize={imageSize} assets={sample.assets}
-              objects={jsonEdit.objects} findings={[]} /> : sample.assets?.image?.url ? (
+              annotationFormat={sample.annotation_format} objects={jsonEdit.objects} findings={[]} /> : sample.assets?.image?.url ? (
               <div
                 ref={imageRef}
                 className="correction-image"

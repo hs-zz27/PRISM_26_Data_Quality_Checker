@@ -1,0 +1,43 @@
+[
+  {
+    "dataset": "COCO people 30",
+    "images": 30,
+    "available_images": 30,
+    "diagnostic_counts": {
+      "repeated_polygon_vertex": 17,
+      "self_intersecting_polygon": 17
+    },
+    "report": "datasets/coco_people_30/validation_report.json"
+  },
+  {
+    "dataset": "LabelMe 2011_000003",
+    "images": 1,
+    "available_images": 1,
+    "diagnostic_counts": {},
+    "report": "datasets/labelme_people_examples/2011_000003.validation.json"
+  },
+  {
+    "dataset": "LabelMe 2011_000006",
+    "images": 1,
+    "available_images": 1,
+    "diagnostic_counts": {
+      "self_intersecting_polygon": 2,
+      "polygon_outside_image": 1
+    },
+    "report": "datasets/labelme_people_examples/2011_000006.validation.json"
+  },
+  {
+    "dataset": "LabelMe 2011_000025",
+    "images": 1,
+    "available_images": 1,
+    "diagnostic_counts": {},
+    "report": "datasets/labelme_people_examples/2011_000025.validation.json"
+  },
+  {
+    "dataset": "Existing Penn-Fudan",
+    "images": 170,
+    "missing_annotation_or_mask": [],
+    "image_mask_dimension_mismatches": [],
+    "note": "Existing files inspected, not redownloaded or modified. This is asset verification, not annotation-quality evaluation."
+  }
+]

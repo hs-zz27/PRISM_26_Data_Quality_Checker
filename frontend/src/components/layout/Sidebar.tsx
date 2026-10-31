@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { BookOpen, Database, SearchCode, Wrench, DownloadCloud, TrendingUp, Pin, LayoutDashboard } from 'lucide-react';
+import { BookOpen, Database, SearchCode, Wrench, DownloadCloud, Pin, LayoutDashboard } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Overview', icon: LayoutDashboard },
@@ -9,7 +9,6 @@ const NAV_ITEMS = [
   { to: '/audits', label: 'Audits', icon: SearchCode },
   { to: '/corrections', label: 'Corrections', icon: Wrench },
   { to: '/exports', label: 'Exports', icon: DownloadCloud },
-  { to: '/feedback', label: 'Feedback', icon: TrendingUp },
 ];
 
 export const Sidebar: React.FC = () => {

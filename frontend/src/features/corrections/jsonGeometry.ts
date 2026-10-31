@@ -10,8 +10,8 @@ export function parseJsonGeometry(text: string): JsonObject[] {
     if (typeof obj !== 'object' || obj === null) throw new Error('Each annotation must be an object.');
     const row = obj as Record<string, unknown>;
     if (row.coordinate_system !== 'zero_based_continuous' || !Number.isInteger(row.object_id)
-      || typeof row.source_key !== 'string' || typeof row.label !== 'string' || !row.label.trim()) {
-      throw new Error('Keep each source identity and provide a nonempty label.');
+      || typeof row.source_key !== 'string' || typeof row.label !== 'string') {
+      throw new Error('Keep each source identity and provide a text label.');
     }
     if (row.bbox !== null && !(Array.isArray(row.bbox) && row.bbox.length === 4 && row.bbox.every(number))) {
       throw new Error('A box must be null or four finite numbers.');

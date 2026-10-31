@@ -1,0 +1,23 @@
+{
+  "format": "labelme",
+  "source_path": "datasets/labelme_people_examples/2011_000003.json",
+  "unassigned_annotation_count": 0,
+  "reader_issues": [],
+  "images": [
+    {
+      "image_key": "",
+      "file_name": "2011_000003.jpg",
+      "annotation_count": 5,
+      "availability": "available",
+      "actual_width": 500,
+      "actual_height": 338,
+      "image_format": "JPEG",
+      "sha256": "94bc550055447e1fab3982571d7114eb4a02a868054f34cb15f95cadf3e48c9a",
+      "issues": []
+    }
+  ],
+  "geometry_issues": [],
+  "diagnostic_counts": {},
+  "inspection_only": true,
+  "validated_at": "2026-10-29T04:38:52.407955+00:00"
+}

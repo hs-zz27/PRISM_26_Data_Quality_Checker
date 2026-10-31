@@ -1,0 +1,550 @@
+{
+  "format": "coco",
+  "source_path": "datasets/coco_people_30/annotations/instances_people30.json",
+  "unassigned_annotation_count": 0,
+  "reader_issues": [],
+  "images": [
+    {
+      "image_key": "/images/0",
+      "file_name": "000000367680.jpg",
+      "annotation_count": 14,
+      "availability": "available",
+      "actual_width": 450,
+      "actual_height": 338,
+      "image_format": "JPEG",
+      "sha256": "15a0aa08ef2c7dc21f247375f72459b6ee3f99b57a98482e5251294fc324b231",
+      "issues": []
+    },
+    {
+      "image_key": "/images/1",
+      "file_name": "000000100624.jpg",
+      "annotation_count": 9,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 427,
+      "image_format": "JPEG",
+      "sha256": "853ddfac5c8827aa25601a84670c8b162830421f9759ef0e21f9be980aa1ae98",
+      "issues": []
+    },
+    {
+      "image_key": "/images/2",
+      "file_name": "000000403565.jpg",
+      "annotation_count": 3,
+      "availability": "available",
+      "actual_width": 447,
+      "actual_height": 640,
+      "image_format": "JPEG",
+      "sha256": "7728a697d1e46e038de2baebdd0c18bb8aa8646ff67ded3ea2c5621654c88e62",
+      "issues": []
+    },
+    {
+      "image_key": "/images/3",
+      "file_name": "000000186873.jpg",
+      "annotation_count": 10,
+      "availability": "available",
+      "actual_width": 612,
+      "actual_height": 612,
+      "image_format": "JPEG",
+      "sha256": "4b3d437e264ef78bb26f22efb529344e99cc2fd119732b5a8c84f42558150fa4",
+      "issues": []
+    },
+    {
+      "image_key": "/images/4",
+      "file_name": "000000123480.jpg",
+      "annotation_count": 4,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 480,
+      "image_format": "JPEG",
+      "sha256": "a62ca2db2dfbd1cc0b177c6a7ae040fe37774c0b992c0a877fe7642667d809dc",
+      "issues": []
+    },
+    {
+      "image_key": "/images/5",
+      "file_name": "000000001000.jpg",
+      "annotation_count": 17,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 480,
+      "image_format": "JPEG",
+      "sha256": "24bb77a31928404e45a0454b06f6a0bd54a8db103590c9d7917288a1e0269f05",
+      "issues": []
+    },
+    {
+      "image_key": "/images/6",
+      "file_name": "000000507975.jpg",
+      "annotation_count": 11,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 480,
+      "image_format": "JPEG",
+      "sha256": "e4812f760f300f88e0bd1ef60782949a51c64631728e21b53531ae7e0f8cf62b",
+      "issues": []
+    },
+    {
+      "image_key": "/images/7",
+      "file_name": "000000199055.jpg",
+      "annotation_count": 2,
+      "availability": "available",
+      "actual_width": 480,
+      "actual_height": 640,
+      "image_format": "JPEG",
+      "sha256": "b1dda03e61f7c502aaf30959faf6dd86e522372106a7389e5934f0e8b931c604",
+      "issues": []
+    },
+    {
+      "image_key": "/images/8",
+      "file_name": "000000010707.jpg",
+      "annotation_count": 15,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 480,
+      "image_format": "JPEG",
+      "sha256": "a361abb7579193709ef3debbec6298bf0c540bece429c4aadb19be82e04ab6a0",
+      "issues": []
+    },
+    {
+      "image_key": "/images/9",
+      "file_name": "000000466986.jpg",
+      "annotation_count": 7,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 478,
+      "image_format": "JPEG",
+      "sha256": "8fc3fb29c9647c2c685bf3152703bcdac24f4cb39c16b317ab02c5a1eeaa515c",
+      "issues": []
+    },
+    {
+      "image_key": "/images/10",
+      "file_name": "000000258388.jpg",
+      "annotation_count": 4,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 425,
+      "image_format": "JPEG",
+      "sha256": "f0793230297eb538477fb40fb76fb974692b7d1a7132885298d8e84b2e87a2de",
+      "issues": []
+    },
+    {
+      "image_key": "/images/11",
+      "file_name": "000000174371.jpg",
+      "annotation_count": 8,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 511,
+      "image_format": "JPEG",
+      "sha256": "5730afc66d049a466066bd21efbb2f0f11ef00f9ba968c821c71378a53a56d77",
+      "issues": []
+    },
+    {
+      "image_key": "/images/12",
+      "file_name": "000000144984.jpg",
+      "annotation_count": 5,
+      "availability": "available",
+      "actual_width": 426,
+      "actual_height": 640,
+      "image_format": "JPEG",
+      "sha256": "c23c18d36c4e51e587fa9664837dad3d5cfc3b527c84b18d6e4816a2aa1a3e82",
+      "issues": []
+    },
+    {
+      "image_key": "/images/13",
+      "file_name": "000000580197.jpg",
+      "annotation_count": 5,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 480,
+      "image_format": "JPEG",
+      "sha256": "e3de2e67d44d36afed4cc06bf35aec2b4a7cd3064e5c28c0342c98479ea2717a",
+      "issues": []
+    },
+    {
+      "image_key": "/images/14",
+      "file_name": "000000398377.jpg",
+      "annotation_count": 14,
+      "availability": "available",
+      "actual_width": 500,
+      "actual_height": 375,
+      "image_format": "JPEG",
+      "sha256": "b2fce7c24d850739541b77b845303e457b0e689354778b8303f54f94485fac99",
+      "issues": []
+    },
+    {
+      "image_key": "/images/15",
+      "file_name": "000000204329.jpg",
+      "annotation_count": 9,
+      "availability": "available",
+      "actual_width": 425,
+      "actual_height": 640,
+      "image_format": "JPEG",
+      "sha256": "244f1e135d380e4e5c6789669c803777b4b01a1845b057dc6b693f70e6ef1217",
+      "issues": []
+    },
+    {
+      "image_key": "/images/16",
+      "file_name": "000000488592.jpg",
+      "annotation_count": 13,
+      "availability": "available",
+      "actual_width": 480,
+      "actual_height": 640,
+      "image_format": "JPEG",
+      "sha256": "04a7c791da054a66712d68851331ae7e0d5d2c33e0e644cdaa2a301f56925663",
+      "issues": []
+    },
+    {
+      "image_key": "/images/17",
+      "file_name": "000000153229.jpg",
+      "annotation_count": 9,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 457,
+      "image_format": "JPEG",
+      "sha256": "6fa2b9017bab8ceb1635e1eff3ffd43225127d2149f0d465fdc5e30d41174003",
+      "issues": []
+    },
+    {
+      "image_key": "/images/18",
+      "file_name": "000000546475.jpg",
+      "annotation_count": 3,
+      "availability": "available",
+      "actual_width": 383,
+      "actual_height": 640,
+      "image_format": "JPEG",
+      "sha256": "1549419c814febbb429a04bff35fe25a134ab09914af3cdf4a0023a0eb932265",
+      "issues": []
+    },
+    {
+      "image_key": "/images/19",
+      "file_name": "000000216516.jpg",
+      "annotation_count": 2,
+      "availability": "available",
+      "actual_width": 480,
+      "actual_height": 640,
+      "image_format": "JPEG",
+      "sha256": "7903a9462bb6173623aee29c266235e891d63601120ff2020154f5b5f9790fad",
+      "issues": []
+    },
+    {
+      "image_key": "/images/20",
+      "file_name": "000000330369.jpg",
+      "annotation_count": 4,
+      "availability": "available",
+      "actual_width": 500,
+      "actual_height": 335,
+      "image_format": "JPEG",
+      "sha256": "bec59828bf00d664817f6c80095e555bc6ddc3b7906cf8826144a0872faa26c7",
+      "issues": []
+    },
+    {
+      "image_key": "/images/21",
+      "file_name": "000000534605.jpg",
+      "annotation_count": 7,
+      "availability": "available",
+      "actual_width": 600,
+      "actual_height": 400,
+      "image_format": "JPEG",
+      "sha256": "3b6305ff6766386835878c9c31670cde88e0fa6c6fe8dce02ae3a2a575a901de",
+      "issues": []
+    },
+    {
+      "image_key": "/images/22",
+      "file_name": "000000324614.jpg",
+      "annotation_count": 2,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 427,
+      "image_format": "JPEG",
+      "sha256": "349e8a6b5af5f7455e1ede69e260e7a664dcf12a9af328df058d5cfb260d631f",
+      "issues": []
+    },
+    {
+      "image_key": "/images/23",
+      "file_name": "000000443426.jpg",
+      "annotation_count": 3,
+      "availability": "available",
+      "actual_width": 480,
+      "actual_height": 640,
+      "image_format": "JPEG",
+      "sha256": "aaf5ea8a315e18e61c8c41b6b34f5a339f0c223d2af977ecebec418b472e3054",
+      "issues": []
+    },
+    {
+      "image_key": "/images/24",
+      "file_name": "000000263068.jpg",
+      "annotation_count": 2,
+      "availability": "available",
+      "actual_width": 330,
+      "actual_height": 500,
+      "image_format": "JPEG",
+      "sha256": "ba0843cb3822d41d6e1ef6264e215a39015fb246b71f8b830c9100d98ab01b5b",
+      "issues": []
+    },
+    {
+      "image_key": "/images/25",
+      "file_name": "000000492758.jpg",
+      "annotation_count": 15,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 427,
+      "image_format": "JPEG",
+      "sha256": "f52d91a22fb02b1639385af64f85e4b285be269414b30990c6cd203c2fc13843",
+      "issues": []
+    },
+    {
+      "image_key": "/images/26",
+      "file_name": "000000398438.jpg",
+      "annotation_count": 3,
+      "availability": "available",
+      "actual_width": 500,
+      "actual_height": 333,
+      "image_format": "JPEG",
+      "sha256": "03e8194dce81987187bc572a0a885c842d8fdfa5d629bf11135ebd7621634dca",
+      "issues": []
+    },
+    {
+      "image_key": "/images/27",
+      "file_name": "000000578871.jpg",
+      "annotation_count": 11,
+      "availability": "available",
+      "actual_width": 480,
+      "actual_height": 640,
+      "image_format": "JPEG",
+      "sha256": "a565cac22fe2472459d238c036ca9a76c5c2a26fd6bd63d8a8ca2f56920b0577",
+      "issues": []
+    },
+    {
+      "image_key": "/images/28",
+      "file_name": "000000085157.jpg",
+      "annotation_count": 21,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 480,
+      "image_format": "JPEG",
+      "sha256": "027adfd5c8d13be607a05da2098af34e7350b5f70a5bfd16f266e8c802a3a59b",
+      "issues": []
+    },
+    {
+      "image_key": "/images/29",
+      "file_name": "000000394275.jpg",
+      "annotation_count": 10,
+      "availability": "available",
+      "actual_width": 640,
+      "actual_height": 393,
+      "image_format": "JPEG",
+      "sha256": "bc9abed26b6569469bf53d051250140b913ca331c185087e640ae0cf9c934b88",
+      "issues": []
+    }
+  ],
+  "geometry_issues": [
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/27/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/27/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/143/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/143/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/144/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/144/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/1/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/1/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/1/segmentation/1",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/1/segmentation/1",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/127/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/127/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/129/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/129/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/134/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/134/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/37/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/37/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/116/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/116/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/198/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/198/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/198/segmentation/1",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/198/segmentation/1",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/112/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/112/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/93/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/93/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/108/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/108/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/167/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/167/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    },
+    {
+      "code": "repeated_polygon_vertex",
+      "location": "/annotations/174/segmentation/0",
+      "message": "Polygon repeats a vertex other than its closing endpoint.",
+      "severity": "error"
+    },
+    {
+      "code": "self_intersecting_polygon",
+      "location": "/annotations/174/segmentation/0",
+      "message": "Non-adjacent polygon edges intersect or touch.",
+      "severity": "error"
+    }
+  ],
+  "diagnostic_counts": {
+    "repeated_polygon_vertex": 17,
+    "self_intersecting_polygon": 17
+  },
+  "inspection_only": true,
+  "validated_at": "2026-10-29T04:38:52.402839+00:00"
+}

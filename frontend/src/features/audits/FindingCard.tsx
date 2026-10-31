@@ -1,5 +1,6 @@
 import React from 'react';
-import { EnclosureEvidence, readEnclosureEvidence } from './EnclosureEvidence';
+import { EnclosureEvidence } from './EnclosureEvidence';
+import { readEnclosureEvidence } from './enclosureEvidenceValue';
 import { summarizeEvidence } from '../../lib/evidence';
 import { History, Quote, UserRound } from 'lucide-react';
 import { Badge, type BadgeVariant } from '../../components/ui/Badge';

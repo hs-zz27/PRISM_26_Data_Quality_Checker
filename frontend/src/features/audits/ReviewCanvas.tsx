@@ -3,6 +3,7 @@ import { Eye, EyeOff, Maximize2, Minus, Plus } from 'lucide-react';
 import { useCanvasStore } from '../../store/canvasStore';
 import { bboxToCss, cssToImageCoord, formatBbox, formatCursorPos, type BBox1Based } from '../../lib/coords';
 import type { components } from '../../api/generated/openapi';
+import { isTypingTarget } from '../../lib/keyboard';
 
 type Finding = components['schemas']['Finding'];
 export interface CanvasObject { object_id: number; label: string; bbox: BBox1Based | null; coordinate_system?: 'zero_based_continuous'; polygons?: number[][][]; bbox_origin?: string | null }
@@ -15,9 +16,10 @@ interface ReviewCanvasProps {
   sampleId?: string; imageSize?: [number, number] | null; assets?: CanvasAssets | null;
   objects?: CanvasObject[]; findings: Finding[]; onSelectObject?: (objectId: number | null) => void;
   hiddenObjectIds?: number[];
+  annotationFormat?: 'penn_fudan' | 'coco' | 'labelme';
 }
 
-export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize, assets, objects = [], findings, onSelectObject, hiddenObjectIds = [] }) => {
+export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize, assets, objects = [], findings, onSelectObject, hiddenObjectIds = [], annotationFormat }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLSpanElement>(null);
@@ -25,7 +27,7 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
   const panModeRef = useRef(false);
   const [imageError, setImageError] = useState(false);
   const { showMask, showBoxes, maskOpacity, selectedInstanceId, zoom, pan, toggleMask, toggleBoxes, setMaskOpacity, setSelectedInstanceId, setZoom, setPan } = useCanvasStore();
-  const continuous = objects.some((obj) => obj.coordinate_system === 'zero_based_continuous');
+  const continuous = annotationFormat === 'coco' || annotationFormat === 'labelme' || objects.some((obj) => obj.coordinate_system === 'zero_based_continuous');
   const width = imageSize?.[0] ?? 640;
   const height = imageSize?.[1] ?? 480;
   const handleFit = useCallback(() => {
@@ -36,7 +38,7 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
   }, [imageSize, setPan, setZoom, width, height]);
   useEffect(() => { setImageError(false); handleFit(); }, [sampleId, handleFit]);
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => { if (e.code === 'Space' && !e.repeat) { panModeRef.current = true; e.preventDefault(); } };
+    const onKeyDown = (e: KeyboardEvent) => { if (!isTypingTarget(e) && e.code === 'Space' && !e.repeat) { panModeRef.current = true; e.preventDefault(); } };
     const onKeyUp = (e: KeyboardEvent) => { if (e.code === 'Space') panModeRef.current = false; };
     window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp);
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };

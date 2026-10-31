@@ -44,6 +44,27 @@ def selection(revision=2):
     return RecheckRequest(sample_ids=['sample_a'],sample_revisions={'sample_a':revision},reviewer_id='reviewer')
 
 
+def test_feedback_is_saved_before_work_and_not_inherited_by_later_rechecks(dataset_database_settings, tmp_path):
+    repo, _, parent, audits, worker = prepared(dataset_database_settings, tmp_path)
+    rechecks = RecheckRepository(settings=repo.settings)
+    request = RecheckRequest(sample_ids=['sample_a'], sample_revisions={'sample_a': 1},
+        reviewer_id='reviewer', feedback='Check the lower edge.', propose_correction=True)
+    child = rechecks.start(parent.audit.audit_id, request)
+    saved = audits.get_request(child.audit.audit_id)
+    assert list(saved.reviewer_feedback) == ['sample_a']
+    assert saved.reviewer_feedback['sample_a'].comment == request.feedback
+    assert audits.get_request(parent.audit.audit_id).reviewer_feedback == {}
+    assert repo.get_sample('dataset_a', 'sample_a').revision == 1
+    claim = audits.jobs.claim_next_job(worker_id='synthetic', kind=JobKind.AUDIT, lease_seconds=300)
+    assert worker.run_claimed_job(claim).status.value == 'completed'
+    result = audits.get_measurements(child.audit.audit_id, 'sample_a', 1)
+    assert result['reviewer_feedback']['comment'] == request.feedback
+    assert result['correction_proposal']['status'] == 'unavailable'  # No pinned visual rule/model in this fixture.
+    assert repo.get_sample('dataset_a', 'sample_a').revision == 1
+    subsequent = rechecks.start(child.audit.audit_id, selection(1))
+    assert audits.get_request(subsequent.audit.audit_id).reviewer_feedback == {}
+
+
 def test_real_correct_recheck_fresh_review_and_byte_stable_parent_export(dataset_database_settings,tmp_path):
     settings=dataset_database_settings
     repo,corrections,parent,audits,worker=prepared(settings,tmp_path)

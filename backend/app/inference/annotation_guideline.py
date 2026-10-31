@@ -74,13 +74,14 @@ class GuidelineClient:
         if metadata.get('remote_host') or metadata.get('remote_model') or (not isinstance(metadata.get('capabilities'), list)) or ('vision' not in metadata['capabilities']):
             raise InferenceUnavailable('local_vision_unverified')
 
-    def predict(self, manifest, target, examples, asset_settings):
+    def predict(self, manifest, target, examples, asset_settings, *, reviewer_feedback=None):
         case_id = unit_id(manifest, target)
         start = time.monotonic()
         verified = False
         try:
             self.verify()
-            payload = prepare_payload(manifest, target, examples, self.execution, asset_settings)
+            payload = prepare_payload(manifest, target, examples, self.execution, asset_settings,
+                                      **({'reviewer_feedback': reviewer_feedback} if reviewer_feedback is not None else {}))
             response = self.request('POST', '/api/chat', payload)
             if response.get('model') not in {self.execution.model, self.execution.model + ':latest'}:
                 raise InferenceUnavailable('model_identity_changed')

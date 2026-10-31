@@ -282,7 +282,9 @@ def _capture_locked(
             if source_files is None:
                 source, availability = _source_file(source_root, kind, sample_id)
             elif kind not in source_files:
-                source, availability = None, AssetAvailability.MISSING
+                source = None
+                availability = (AssetAvailability.NOT_SUPPLIED if kind is AssetKind.RAW_MASK
+                                and annotation_format != "penn_fudan" else AssetAvailability.MISSING)
             else:
                 candidate, content_type = source_files[kind]
                 try:

@@ -7,6 +7,7 @@ from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field
 from .dataset import Count, Identifier, ImportedAnnotationObject, JsonAnnotationObject, Revision, MAX_SAMPLE_OBJECTS
 from .dataset_import import SamplePublication
 from .asset_manifest import AssetManifestEntry
+from .review_feedback import FeedbackText
 
 
 def label_text(value):
@@ -80,8 +81,8 @@ class JsonCorrectionObject(JsonAnnotationObject):
     @field_validator('label')
     @classmethod
     def valid_label(cls, value):
-        if not value.strip() or len(value) > 255 or '\x00' in value:
-            raise ValueError('A nonblank label of at most 255 characters is required.')
+        if len(value) > 255 or '\x00' in value:
+            raise ValueError('A label must contain at most 255 characters and no NUL.')
         return value
 
 
@@ -181,9 +182,15 @@ class RecheckRequest(StrictRecord):
     sample_ids: list[StoredIdentifier] = Field(min_length=1, max_length=3000, json_schema_extra={'uniqueItems': True})
     sample_revisions: dict[StoredIdentifier, Revision] = Field(min_length=1, max_length=3000)
     reviewer_id: StoredIdentifier
+    feedback: FeedbackText | None = None
+    propose_correction: bool = False
 
     @model_validator(mode='after')
     def selection(self):
+        if self.propose_correction and self.feedback is None:
+            raise ValueError('A correction proposal requires reviewer feedback.')
+        if self.feedback is not None and (len(self.sample_ids) != 1 or '\x00' in self.feedback):
+            raise ValueError('Feedback must identify exactly one image and contain no NUL.')
         if len(set(self.sample_ids)) != len(self.sample_ids) or set(self.sample_revisions) != set(self.sample_ids):
             raise ValueError('Unique sample IDs and exactly matching revision keys are required.')
         return self
@@ -220,7 +227,8 @@ class PreparedCorrection(StrictRecord):
                 or after.manifest.image_key != before.manifest.image_key
                 or after.annotation_object_count != len(self.request.objects)
                 or [o.model_dump() for o in after.sample.objects] != [o.model_dump() for o in self.request.objects]
-                or after.sample.integrity_status.value != 'valid' or after.sample.image_size is None
+                or (before.manifest.annotation_format == 'penn_fudan' and after.sample.integrity_status.value != 'valid')
+                or after.sample.image_size is None
                 or after.manifest.annotation_text.availability.value != 'available'
                 or after.manifest.annotation_text.content_type != ('text/plain' if before.manifest.annotation_format == 'penn_fudan' else 'application/json')
                 or after.manifest.annotation_text.size_bytes < 1
