@@ -1,4 +1,5 @@
 import type { components } from '../../api/generated/openapi';
+import { bboxToCss, type BBox1Based } from '../../lib/coords';
 
 type Finding = components['schemas']['Finding'];
 type Rule = components['schemas']['Rule'];
@@ -109,3 +110,41 @@ export function nextUnreviewedIndex(items: Pick<SampleAuditSummary, 'review_stat
   }
   return -1;
 }
+
+export interface BoundedObject {
+  bbox: BBox1Based | null;
+  coordinate_system?: 'zero_based_continuous';
+  polygons?: number[][][];
+}
+
+/** Extract bounding coordinates [x0, y0, x1, y1] for an object. */
+export function getObjectBounds(obj: BoundedObject): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (obj.bbox) {
+    if (obj.coordinate_system === 'zero_based_continuous') {
+      return { x0: obj.bbox[0], y0: obj.bbox[1], x1: obj.bbox[2], y1: obj.bbox[3] };
+    }
+    const css = bboxToCss(obj.bbox);
+    return { x0: css.left, y0: css.top, x1: css.left + css.width, y1: css.top + css.height };
+  }
+  if (obj.polygons && obj.polygons.length > 0) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const part of obj.polygons) {
+      for (const point of part) {
+        const px = point[0];
+        const py = point[1];
+        if (px !== undefined && py !== undefined) {
+          if (px < minX) minX = px;
+          if (py < minY) minY = py;
+          if (px > maxX) maxX = px;
+          if (py > maxY) maxY = py;
+        }
+      }
+    }
+    if (isFinite(minX)) return { x0: minX, y0: minY, x1: maxX, y1: maxY };
+  }
+  return null;
+}
+

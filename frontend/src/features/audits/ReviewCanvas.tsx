@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, EyeOff, HelpCircle, Maximize2, Minus, Plus, Tag } from 'lucide-react';
+import { Crosshair, Eye, EyeOff, HelpCircle, Maximize2, Minus, Plus, Tag } from 'lucide-react';
 import { useCanvasStore } from '../../store/canvasStore';
 import { bboxToCss, cssToImageCoord, formatBbox, formatCursorPos, type BBox1Based } from '../../lib/coords';
 import type { components } from '../../api/generated/openapi';
 import { isTypingTarget } from '../../lib/keyboard';
+import { colorFor, getObjectBounds, textColorFor } from './reviewWorkspace';
 
 type Finding = components['schemas']['Finding'];
 export interface CanvasObject {
@@ -29,8 +30,6 @@ interface ReviewCanvasProps {
   isCorrection?: boolean;
 }
 
-import { colorFor, textColorFor } from './reviewWorkspace';
-
 interface BadgePlacement {
   displayNumber: number;
   text: string;
@@ -43,6 +42,8 @@ interface BadgePlacement {
 
 const BADGE_W = 26;
 const BADGE_H = 18;
+
+
 
 /** Check if two rects overlap. */
 function rectsOverlap(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }): boolean {
@@ -148,17 +149,17 @@ function placeBadges(
   return placements;
 }
 
-/** Geometry issue description for objects whose geometry cannot be displayed. */
-function geometryIssue(obj: CanvasObject): string | null {
-  const hasBox = obj.bbox != null;
-  const hasPolygons = obj.polygons && obj.polygons.length > 0;
-  if (!hasBox && !hasPolygons) {
-    return 'No box or polygon geometry available for display.';
-  }
-  return null;
-}
-
-export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize, assets, objects = [], findings, onSelectObject, hiddenObjectIds = [], annotationFormat, isCorrection }) => {
+export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
+  sampleId,
+  imageSize,
+  assets,
+  objects = [],
+  findings,
+  onSelectObject,
+  hiddenObjectIds = [],
+  annotationFormat,
+  isCorrection,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLSpanElement>(null);
@@ -174,19 +175,21 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
   const continuous = annotationFormat === 'coco' || annotationFormat === 'labelme' || objects.some((obj) => obj.coordinate_system === 'zero_based_continuous');
   const width = imageSize?.[0] ?? 640;
   const height = imageSize?.[1] ?? 480;
+
   const handleFit = useCallback(() => {
     if (!containerRef.current || !imageSize) return;
     const r = containerRef.current.getBoundingClientRect();
+    if (r.width <= 40 || r.height <= 80) {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
     const scale = Math.min((r.width - 40) / width, (r.height - 80) / height, 1);
     setZoom(Math.max(0.05, scale)); setPan({ x: 0, y: 0 });
   }, [imageSize, setPan, setZoom, width, height]);
+
   useEffect(() => { setImageError(false); handleFit(); }, [sampleId, handleFit]);
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => { if (!isTypingTarget(e) && e.code === 'Space' && !e.repeat) { panModeRef.current = true; e.preventDefault(); } };
-    const onKeyUp = (e: KeyboardEvent) => { if (e.code === 'Space') panModeRef.current = false; };
-    window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp);
-    return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };
-  }, []);
+
   const updateZoom = (factor: number) => setZoom(Math.min(8, Math.max(0.05, zoom * factor)));
   const outcome = (id: number) => findings.find((f) => f.object_id === id)?.outcome ?? 'unavailable';
 
@@ -196,6 +199,91 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
     objects.forEach((obj, idx) => { map.set(obj.object_id, idx + 1); });
     return map;
   }, [objects]);
+
+  // Visible objects (not hidden by per-object toggle)
+  const visibleObjects = useMemo(() =>
+    objects.filter((obj) => !hiddenObjectIds.includes(obj.object_id)),
+    [objects, hiddenObjectIds],
+  );
+
+  // Zoom to fit the currently selected object in view
+  const zoomToSelected = useCallback(() => {
+    if (selectedInstanceId == null || !containerRef.current) return;
+    const selectedObj = objects.find((o) => o.object_id === selectedInstanceId);
+    if (!selectedObj) return;
+    const b = getObjectBounds(selectedObj);
+    if (!b) return;
+
+    const r = containerRef.current.getBoundingClientRect();
+    const bw = Math.max(b.x1 - b.x0, 24);
+    const bh = Math.max(b.y1 - b.y0, 24);
+    const scale = Math.min((r.width - 60) / bw, (r.height - 100) / bh, 8);
+    const targetZoom = Math.max(0.1, Math.min(8, scale));
+
+    const cx = (b.x0 + b.x1) / 2;
+    const cy = (b.y0 + b.y1) / 2;
+    const panX = (r.width / 2) - cx * targetZoom;
+    const panY = (r.height / 2) - cy * targetZoom;
+
+    setZoom(targetZoom);
+    setPan({ x: panX, y: panY });
+  }, [selectedInstanceId, objects, setZoom, setPan]);
+
+  // Keyboard shortcut listener
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e)) return;
+      if (e.code === 'Space' && !e.repeat) { panModeRef.current = true; e.preventDefault(); }
+      if ((e.key === 'z' || e.key === 'Z') && !e.repeat && selectedInstanceId != null) {
+        e.preventDefault();
+        zoomToSelected();
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => { if (e.code === 'Space') panModeRef.current = false; };
+    window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp);
+    return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };
+  }, [selectedInstanceId, zoomToSelected]);
+
+  // Hit-testing and overlap cycling when clicking geometry on the canvas
+  const handleStageClick = useCallback((e: React.MouseEvent) => {
+    if (!stageRef.current) return;
+    const rect = stageRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
+
+    const cx = x / zoom;
+    const cy = y / zoom;
+
+    // Find all visible objects whose bounds contain the click point
+    const hits: Array<{ obj: CanvasObject; area: number }> = [];
+    for (const obj of visibleObjects) {
+      const b = getObjectBounds(obj);
+      if (b && cx >= b.x0 && cx <= b.x1 && cy >= b.y0 && cy <= b.y1) {
+        const area = (b.x1 - b.x0) * (b.y1 - b.y0);
+        hits.push({ obj, area });
+      }
+    }
+
+    if (hits.length === 0) {
+      setSelectedInstanceId(null);
+      onSelectObject?.(null);
+      return;
+    }
+
+    // Sort smallest area first: smallest object wins priority
+    hits.sort((a, b) => a.area - b.area);
+
+    // If currently selected object is among hits, cycle through to next overlapping object
+    const currIdx = hits.findIndex((h) => h.obj.object_id === selectedInstanceId);
+    const nextIdx = currIdx >= 0 ? (currIdx + 1) % hits.length : 0;
+    const targetObj = hits[nextIdx]?.obj;
+    if (targetObj) {
+      const nextId = targetObj.object_id;
+      setSelectedInstanceId(nextId);
+      onSelectObject?.(nextId);
+    }
+  }, [zoom, visibleObjects, selectedInstanceId, setSelectedInstanceId, onSelectObject]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0 && e.button !== 1) return;
@@ -224,43 +312,13 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
     }
   };
 
-  // Visible objects (not hidden by toggle)
-  const visibleObjects = useMemo(() =>
-    objects.filter((obj) => !hiddenObjectIds.includes(obj.object_id)),
-    [objects, hiddenObjectIds],
-  );
-
   // Compute badge placements for numbered markers
   const badgePlacements = useMemo(() => {
     const badgeInputs: Array<{ displayNumber: number; text: string; bounds: { x0: number; y0: number; x1: number; y1: number } }> = [];
     for (const obj of visibleObjects) {
       const dn = displayNumberMap.get(obj.object_id) ?? 0;
       if (dn === 0) continue;
-      let b: { x0: number; y0: number; x1: number; y1: number } | null = null;
-      if (obj.bbox) {
-        if (obj.coordinate_system === 'zero_based_continuous') {
-          b = { x0: obj.bbox[0], y0: obj.bbox[1], x1: obj.bbox[2], y1: obj.bbox[3] };
-        } else {
-          const css = bboxToCss(obj.bbox);
-          b = { x0: css.left, y0: css.top, x1: css.left + css.width, y1: css.top + css.height };
-        }
-      } else if (obj.polygons && obj.polygons.length > 0) {
-        // Derive bounds from polygon vertices
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (const part of obj.polygons) {
-          for (const point of part) {
-            const px = point[0];
-            const py = point[1];
-            if (px !== undefined && py !== undefined) {
-              if (px < minX) minX = px;
-              if (py < minY) minY = py;
-              if (px > maxX) maxX = px;
-              if (py > maxY) maxY = py;
-            }
-          }
-        }
-        if (isFinite(minX)) b = { x0: minX, y0: minY, x1: maxX, y1: maxY };
-      }
+      const b = getObjectBounds(obj);
       if (!b) continue;
       const isDerived = obj.bbox_origin === 'derived_from_polygon' && obj.bbox != null;
       const hasDiag = findings.some((f) => f.object_id === obj.object_id && (f.outcome === 'fail' || f.outcome === 'unsure'));
@@ -270,35 +328,20 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
     return placeBadges(badgeInputs, width, height);
   }, [visibleObjects, displayNumberMap, width, height, findings]);
 
-  // Objects with no displayable geometry
-  const undisplayable = useMemo(() => {
-    return objects.map((obj) => {
-      const issue = geometryIssue(obj);
-      if (!issue) return null;
-      const dn = displayNumberMap.get(obj.object_id) ?? 0;
-      return { displayNumber: dn, objectId: obj.object_id, label: obj.label, issue };
-    }).filter(Boolean) as Array<{ displayNumber: number; objectId: number; label: string; issue: string }>;
-  }, [objects, displayNumberMap]);
-
-  // Mask status for informational display
-  const maskStatus = useMemo(() => {
-    if (annotationFormat !== 'penn_fudan') return null;
-    const hasMaskAsset = !!(assets?.mask?.url || assets?.mask_preview?.url);
-    if (hasMaskAsset) return null;
-    // No mask asset — but is this format expected to have one?
-    return 'No mask asset available for this revision.';
-  }, [annotationFormat, assets]);
-
   return <section ref={containerRef} className="review-canvas" aria-label="Image review canvas" onWheel={(e) => { e.preventDefault(); updateZoom(e.deltaY < 0 ? 1.12 : 0.89); }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
     <div className="canvas-toolbar">
-      <button title="Zoom out" aria-label="Zoom out" onClick={() => updateZoom(1 / 1.2)}><Minus size={14}/></button><span className="mono">{Math.round(zoom * 100)}%</span><button title="Zoom in" aria-label="Zoom in" onClick={() => updateZoom(1.2)}><Plus size={14}/></button>
-      <button title="Fit image (F)" aria-label="Fit image" onClick={handleFit}><Maximize2 size={14}/></button><i/>
+      <button title="Zoom out" aria-label="Zoom out" onClick={() => updateZoom(1 / 1.2)}><Minus size={14}/></button>
+      <span className="mono">{Math.round(zoom * 100)}%</span>
+      <button title="Zoom in" aria-label="Zoom in" onClick={() => updateZoom(1.2)}><Plus size={14}/></button>
+      <button title="Fit image (F)" aria-label="Fit image" onClick={handleFit}><Maximize2 size={14}/></button>
+      <button className={selectedInstanceId != null ? 'is-on' : ''} disabled={selectedInstanceId == null} title="Zoom to selected object (Z)" aria-label="Zoom to selected object" onClick={zoomToSelected}><Crosshair size={14}/></button>
+      <i/>
       <button className={showBoxes ? 'is-on' : ''} title="Toggle boxes (B)" aria-label="Toggle boxes" onClick={toggleBoxes}>B</button>
       <button className={showPolygons ? 'is-on' : ''} title="Toggle polygons (P)" aria-label="Toggle polygons" onClick={togglePolygons}>P</button>
       <button className={showLabels ? 'is-on' : ''} title="Toggle labels (L)" aria-label="Toggle labels" onClick={toggleLabels}><Tag size={14}/></button>
       <button className={showMask ? 'is-on' : ''} title="Toggle mask (M)" aria-label="Toggle mask" onClick={toggleMask}>{showMask ? <Eye size={14}/> : <EyeOff size={14}/>}</button>
       {showMask && <label className="mask-opacity">Mask <input aria-label="Mask opacity" type="range" min="0" max="1" step="0.05" value={maskOpacity} onChange={(e) => setMaskOpacity(Number(e.target.value))}/></label>}
-      <button className={showLegend ? 'is-on' : ''} title="Legend" aria-label="Toggle legend" onClick={toggleLegend}><HelpCircle size={14}/></button>
+      <button className={showLegend ? 'is-on' : ''} title="Toggle legend" aria-label="Toggle legend" onClick={toggleLegend}><HelpCircle size={14}/></button>
       <span className="canvas-shortcut">Space + drag to pan</span>
     </div>
 
@@ -306,31 +349,32 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
     {showLegend && <div className="canvas-legend" role="note" aria-label="Overlay legend">
       <div className="canvas-legend-title">How to read this overlay</div>
       <div className="canvas-legend-row"><span className="canvas-legend-swatch" style={{ borderStyle: 'solid' }}/> Solid line: supplied geometry (from source file)</div>
-      <div className="canvas-legend-row"><span className="canvas-legend-swatch" style={{ borderStyle: 'dashed' }}/> Dashed line: derived box (computed from polygon vertices, not in source)</div>
-      <div className="canvas-legend-row">Numbers are preview display numbers, not source annotation IDs.</div>
-      <div className="canvas-legend-row">Colours match between each object's geometry, marker and list entry.</div>
-      <div className="canvas-legend-row"><b>*</b> after a number: box is derived (dashed). <b>!</b> after a number: object has a diagnostic finding.</div>
-      {isCorrection && <div className="canvas-legend-row"><em>Showing proposed correction. Nothing has been saved.</em></div>}
+      <div className="canvas-legend-row"><span className="canvas-legend-swatch" style={{ borderStyle: 'dashed' }}/> Dashed line: derived box (computed from polygon vertices, not in source file)</div>
+      <div className="canvas-legend-row"><span className="mono">#N</span> Display number matching object list entry</div>
+      <div className="canvas-legend-row"><span className="mono">*</span> Bounding box is derived from polygon vertices</div>
+      <div className="canvas-legend-row"><span className="mono">!</span> Diagnostic finding flagged or unsure for this object</div>
+      <div className="canvas-legend-row">Colors match between geometry, marker and list entry.</div>
+      {isCorrection && <div className="canvas-legend-row"><em>Showing proposed correction (preview, not saved).</em></div>}
     </div>}
 
     <div className="canvas-stage" ref={stageRef} style={{ width, height, transform: `translate3d(${pan.x}px,${pan.y}px,0) scale(${zoom})` }}>
       {assets?.image?.url && !imageError ? <img src={assets.image.url} alt={sampleId ?? 'Sample'} draggable={false} onError={() => setImageError(true)}/> : <div className="canvas-empty" role="status">{imageError ? 'Image could not be loaded' : 'No image asset for this revision'}</div>}
       {showMask && (assets?.mask_preview?.url ?? assets?.mask?.url) && <img className="canvas-mask" src={assets.mask_preview?.url ?? assets.mask?.url} alt="Mask preview" style={{ opacity: maskOpacity }} draggable={false} onError={() => setImageError(true)}/>}
-      {(showBoxes || showPolygons) && <svg className="canvas-overlay" viewBox={`0 0 ${width} ${height}`} aria-label="Object annotations">{visibleObjects.map((obj) => {
+      {(showBoxes || showPolygons) && <svg className="canvas-overlay" viewBox={`0 0 ${width} ${height}`} aria-label="Object annotations" onClick={handleStageClick}>{visibleObjects.map((obj) => {
         const b = obj.bbox ? (obj.coordinate_system === 'zero_based_continuous' ? { left: obj.bbox[0], top: obj.bbox[1], width: obj.bbox[2] - obj.bbox[0], height: obj.bbox[3] - obj.bbox[1] } : bboxToCss(obj.bbox)) : null;
         const state = outcome(obj.object_id);
         const selected = selectedInstanceId === obj.object_id;
         const dn = displayNumberMap.get(obj.object_id) ?? 0;
         const objColor = colorFor(dn);
         const isDerived = obj.bbox_origin === 'derived_from_polygon';
-        return <g key={obj.object_id} role="button" tabIndex={0} aria-label={`Object ${dn}, ${obj.label}, ${obj.bbox ? formatBbox(obj.bbox) : "no box"}`} onClick={(e) => { e.stopPropagation(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); } }} className={`box-${state}${selected ? ' is-selected' : ''}`}>
+        return <g key={obj.object_id} role="button" tabIndex={0} aria-label={`Object ${dn}, ${obj.label}, ${obj.bbox ? formatBbox(obj.bbox) : "no box"}`} onClick={(e) => { e.stopPropagation(); handleStageClick(e); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleStageClick(e as unknown as React.MouseEvent); } }} className={`box-${state}${selected ? ' is-selected' : ''}`}>
           {/* Polygons */}
           {showPolygons && obj.polygons?.map((part, index) => <polygon key={index} points={part.map((point) => point.join(',')).join(' ')} fill="none" stroke={objColor} strokeWidth={selected ? 2.5 : 1.5} vectorEffect="non-scaling-stroke" />)}
           {/* Boxes: solid for supplied, dashed for derived */}
           {showBoxes && b && <>
             <rect x={b.left} y={b.top} width={b.width} height={b.height} stroke={objColor} strokeDasharray={isDerived ? '6 4' : 'none'} vectorEffect="non-scaling-stroke" />
           </>}
-          {/* Clickable area for objects without visible geometry */}
+          {/* Visual indicator for objects without visible geometry */}
           {!b && !obj.polygons?.length && <circle cx={width / 2} cy={height / 2} r={8} fill={objColor} fillOpacity={0.3} stroke={objColor} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
         </g>;
       })}
@@ -357,18 +401,9 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({ sampleId, imageSize,
       <span ref={cursorRef} className="mono">[X: —, Y: —]</span>
       <span className="mono">{width} × {height} px</span>
       <span className="mono">{continuous ? '0-based continuous' : '1-based inclusive'}</span>
-      {isCorrection && <span className="mono canvas-readout-correction">PROPOSED</span>}
+      <span className={`canvas-mode-tag mono ${isCorrection ? 'is-correction' : 'is-original'}`} role="status">
+        {isCorrection ? 'Proposed correction (preview, not saved)' : 'Original'}
+      </span>
     </div>
-
-    {/* Undisplayable geometry warnings */}
-    {undisplayable.length > 0 && <div className="canvas-undisplayable" role="status" aria-label="Geometry warnings">
-      {undisplayable.map((item) => <div key={item.objectId} className="canvas-undisplayable-item">
-        <span className="canvas-undisplayable-marker" style={{ background: colorFor(item.displayNumber) }}>{item.displayNumber}</span>
-        <span>{item.label}: {item.issue}</span>
-      </div>)}
-    </div>}
-
-    {/* Mask status notice */}
-    {maskStatus && <div className="canvas-mask-notice" role="status">{maskStatus}</div>}
   </section>;
 };

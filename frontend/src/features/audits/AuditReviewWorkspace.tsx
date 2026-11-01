@@ -247,8 +247,41 @@ export const AuditReviewWorkspace: React.FC = () => {
   }, [rawSample]);
 
   const proposal = useMemo(() => correctionPreview(sampleDetail?.measurements?.correction_proposal), [sampleDetail]);
-  const proposalMatches = proposal?.sample_id === activeSampleId && proposal?.dataset_id === sampleDetail?.dataset_id
-    && proposal?.sample_revision === sampleDetail?.summary.sample_revision;
+  const proposalMatches = Boolean(
+    proposal &&
+    proposal.sample_id === activeSampleId &&
+    proposal.dataset_id === sampleDetail?.dataset_id &&
+    proposal.sample_revision === sampleDetail?.summary.sample_revision &&
+    !historicalAttemptId,
+  );
+
+  // Proposal preview must never bleed across image, revision, or attempt changes
+  useEffect(() => {
+    setPreviewCorrection(false);
+  }, [activeSampleId, sampleDetail?.summary.sample_revision, historicalAttemptId]);
+
+  const hasMaskAsset = Boolean(
+    sampleDetail?.assets?.mask?.url ||
+    sampleDetail?.assets?.mask_preview?.url ||
+    rawSample?.assets?.mask?.url ||
+    rawSample?.assets?.mask_preview?.url,
+  );
+  const maskFailure = sampleDetail?.failures?.find((f) => f.reason === 'raw_mask_missing' || f.reason === 'raw_mask_unreadable');
+  const annotationFormat = (rawSample?.annotation_format
+    ?? (sampleDetail as unknown as { annotation_format?: string })?.annotation_format
+    ?? (sampleDetail?.measurements?.correction_proposal as unknown as { annotation_format?: string })?.annotation_format) as 'penn_fudan' | 'coco' | 'labelme' | undefined;
+  const isPennFudan = annotationFormat === 'penn_fudan';
+  const isMaskMissing = !hasMaskAsset && (isPennFudan || Boolean(maskFailure));
+  const undisplayableObjects = useMemo(() => {
+    return canvasObjects
+      .filter((obj) => obj.bbox == null && (!obj.polygons || obj.polygons.length === 0))
+      .map((obj) => ({
+        objectId: obj.object_id,
+        displayNumber: canvasObjects.findIndex((o) => o.object_id === obj.object_id) + 1,
+        label: obj.label,
+      }));
+  }, [canvasObjects]);
+  const diagnosticsCount = (isMaskMissing ? 1 : 0) + undisplayableObjects.length + (rawSample?.issues?.length ?? 0);
   const applyProposal = useMutation({
     mutationFn: async () => {
       if (!reviewerId.trim()) { openPrompt(); throw new Error('Set your reviewer name first.'); }
@@ -662,7 +695,7 @@ export const AuditReviewWorkspace: React.FC = () => {
           <ReviewCanvas
             sampleId={activeSampleId ?? undefined}
             imageSize={rawSample?.image_size}
-            annotationFormat={rawSample?.annotation_format}
+            annotationFormat={annotationFormat}
             assets={sampleDetail?.assets ?? rawSample?.assets}
             objects={previewCorrection && proposalMatches && proposal?.objects ? proposal.objects : canvasObjects}
             hiddenObjectIds={hiddenObjectIds}
@@ -823,6 +856,67 @@ export const AuditReviewWorkspace: React.FC = () => {
               })}</div>
             </details>
 
+            {/* Annotation Diagnostics Inspector Panel */}
+            <details className="annotation-diagnostics" open>
+              <summary>Annotation diagnostics · {diagnosticsCount} note{diagnosticsCount === 1 ? '' : 's'}</summary>
+              <div className="diagnostics-content">
+                <div className="diagnostic-row">
+                  <span className="diagnostic-label">Mask status:</span>
+                  <span className="diagnostic-value">
+                    {hasMaskAsset ? (
+                      <span className="text-status-pass">✓ Mask asset loaded</span>
+                    ) : isMaskMissing ? (
+                      <span className="text-status-fail font-semibold">⚠ Referenced mask file is missing</span>
+                    ) : (
+                      <span className="text-text-muted">Optional mask never supplied</span>
+                    )}
+                  </span>
+                </div>
+
+                {undisplayableObjects.length > 0 ? (
+                  <div className="diagnostic-row is-warning">
+                    <span className="diagnostic-label">Unsupported geometry:</span>
+                    <div className="diagnostic-list">
+                      {undisplayableObjects.map((item) => (
+                        <div key={item.objectId} className="diagnostic-item">
+                          <span className="object-list-swatch" style={{ background: colorFor(item.displayNumber), color: textColorFor(item.displayNumber) }}>#{item.displayNumber}</span>
+                          <span>{item.label}: No bounding box or polygon coordinates supplied in annotation data.</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="diagnostic-row">
+                    <span className="diagnostic-label">Geometry:</span>
+                    <span className="diagnostic-value text-status-pass">✓ All {canvasObjects.length} objects have displayable geometry</span>
+                  </div>
+                )}
+
+                <div className="diagnostic-row">
+                  <span className="diagnostic-label">Coordinate system:</span>
+                  <span className="diagnostic-value">
+                    {isPennFudan
+                      ? 'Penn-Fudan: 1-based inclusive pixel bounds'
+                      : `${rawSample?.annotation_format?.toUpperCase() ?? 'JSON'}: 0-based continuous coordinates`}
+                  </span>
+                </div>
+
+                {rawSample?.issues && rawSample.issues.length > 0 && (
+                  <div className="diagnostic-row is-warning">
+                    <span className="diagnostic-label">Catalogue integrity issues:</span>
+                    <div className="diagnostic-list">
+                      {rawSample.issues.map((issue, idx) => (
+                        <div key={idx} className="diagnostic-item">
+                          <span className="font-mono text-2xs">{issue.field ?? 'general'}:</span>
+                          <span>{issue.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </details>
+
             <p className="checklist-hint">The tool proposes; you decide. Agree with each result or override it — overrides need a reason.</p>
 
             <section className="checklist-section" aria-label="Findings that need attention">
@@ -914,7 +1008,8 @@ export const AuditReviewWorkspace: React.FC = () => {
   );
 };
 
-function humanStage(stage: string): string {
+function humanStage(stage?: string): string {
+  if (!stage) return '';
   return stage.charAt(0).toUpperCase() + stage.slice(1).replace(/_/g, ' ');
 }
 
