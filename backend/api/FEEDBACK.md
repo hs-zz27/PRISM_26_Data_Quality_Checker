@@ -1,5 +1,66 @@
 # Evaluated reviewer feedback
 
+## Original and annotation-overlay views for new image audits
+
+New executions use `annotation-guideline-v3` with preprocessing
+`original-and-annotation-overlay-v1`. Each target and training example has two
+separately labelled image messages: the original, unchanged image bytes and an
+overlay rendered from that sample's supplied annotation revision. Yellow lines
+show supplied boxes, cyan lines show polygons, and `#N` identifies the displayed
+object. Polygon-derived boxes are not drawn as supplied boxes. Pixel masks are
+not depicted by this overlay and must not be inferred from its other geometry.
+
+The prompt explains that markings are drawing aids, asks the model to compare
+them against the original scene and coordinates, and keeps training pairs and
+their labels separate from the target. Held-out expected outcomes are never
+included in an audit request. Original coordinates and all native annotation
+attributes remain in the text. Shared native-source columns retain field names
+once; per-object extra fields preserve the distinction between missing and null.
+
+Both images and all image captions count towards the bounded request/context
+preflight. Overlay output must fit the existing image-byte limit. Requests that
+cannot fit are unavailable, with no truncation, omitted objects or invented
+vertices. v1 and v2 audits, policies and rechecks preserve their original view;
+submit a fresh audit to select v3. The existing correction overlay renderer is
+shared with audits, and correction proposals continue using their v2 protocol
+for compact executions, with preview and explicit application still required.
+
+See [overlay verification](OVERLAY_AUDIT_VERIFICATION.md) for the reviewed pair's
+results, source-fidelity checks and remaining accuracy limitations.
+
+## Compact prompt transport
+
+The `annotation-guideline-v2` encoding introduced compact transport. JSON annotation
+evidence contains one complete native source record per object, with shared row-column
+definitions and the resolved label. Every source vertex, object key, group and custom
+annotation attribute is retained. Penn-Fudan evidence includes its parsed objects once.
+Correction drafts use shared columns for object identities, labels, supplied boxes and
+complete polygons; derived polygon bounds stay in application state and are recomputed
+when a proposed polygon is validated. Rules retain their full description and parameters;
+a citation is sent separately only when it is not already contained in the description.
+
+V2 requires **Ollama 0.33.3 or newer**, verified before and after model inference. Both audit
+and correction requests set `truncate: false` and `shift: false`. These fields prevent the
+server from dropping required input or shifting context to make a request fit. See the
+[Ollama 0.33.3 request implementation](https://github.com/ollama/ollama/blob/v0.33.3/server/routes.go)
+and [request types](https://github.com/ollama/ollama/blob/v0.33.3/api/types.go).
+
+The application keeps finite image/annotation/request/response bounds and a coarse text-byte
+preflight with image, chat-template and output reservations. The preflight is not an exact
+tokenizer. Ollama enforces its actual context limit without truncation, and the application
+also requires a completed response, a matching model identity and a reported prompt-token
+count that leaves room for the pinned output limit. Oversized or unverified execution stays
+unavailable. The configured model and context size are not increased by this change.
+
+Stored execution pins, policies and linked rechecks retain their historical encoding
+and bounds. A new audit selects the current version; an old audit's recheck deliberately preserves its
+original execution pin. The correction proposal protocol for v2 pins is `review-correction-v2`.
+Proposals still require explicit application as a new annotation revision and never approve
+findings, samples or changes to future auditing policy.
+
+See [the verification record](COMPACT_PROMPTS_VERIFICATION.md) for source sizes,
+automated checks, the live rejection test and the remaining model accuracy/CPU limits.
+
 ## Availability and evidence
 
 This source proposal adds ten feedback operations and one deliberately bounded,

@@ -12,7 +12,7 @@ export interface CorrectionPreview {
 export function correctionPreview(value: unknown): CorrectionPreview | null {
   if (!value || typeof value !== 'object') return null;
   const row = value as Record<string, unknown>;
-  if (row.protocol !== 'review-correction-v1' || typeof row.dataset_id !== 'string'
+  if ((row.protocol !== 'review-correction-v1' && row.protocol !== 'review-correction-v2') || typeof row.dataset_id !== 'string'
     || typeof row.sample_id !== 'string' || typeof row.sample_revision !== 'number'
     || typeof row.status !== 'string' || typeof row.reason !== 'string'
     || !row.feedback || typeof row.feedback !== 'object' || !('comment' in row.feedback)

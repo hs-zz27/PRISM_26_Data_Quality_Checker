@@ -14684,6 +14684,8 @@
             "default": "annotation-guideline-v1",
             "enum": [
               "annotation-guideline-v1",
+              "annotation-guideline-v2",
+              "annotation-guideline-v3",
               "pedestrian-box-feedback-v1"
             ],
             "title": "Prompt Version",
@@ -14693,6 +14695,7 @@
             "default": "original-png-no-transform-v1",
             "enum": [
               "original-png-no-transform-v1",
+              "original-and-annotation-overlay-v1",
               "box-context-png-v1"
             ],
             "title": "Preprocessing",

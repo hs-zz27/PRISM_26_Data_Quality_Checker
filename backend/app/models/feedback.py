@@ -265,8 +265,8 @@ class EvidenceLimits(Record):
 class ExecutionPin(EvidenceLimits):
     model: Text
     model_digest: Annotated[str, StringConstraints(pattern='^sha256:[0-9a-f]{64}$')]
-    prompt_version: Literal['annotation-guideline-v1', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
-    preprocessing: Literal['original-png-no-transform-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
+    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
+    preprocessing: Literal['original-png-no-transform-v1', 'original-and-annotation-overlay-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
     schema_version: Literal[1] = 1
     identity_assurance: Literal['local-server-reported-pre-post-v1'] = 'local-server-reported-pre-post-v1'
     temperature: Literal[0] = 0
@@ -294,8 +294,11 @@ class ExecutionPin(EvidenceLimits):
     @model_validator(mode='after')
     def method_matches_pin(self):
         if self.enclosure is None:
-            if self.prompt_version != 'annotation-guideline-v1' or self.preprocessing != 'original-png-no-transform-v1':
-                raise ValueError('Enclosure execution requires its complete pin.')
+            expected = {'annotation-guideline-v1': 'original-png-no-transform-v1',
+                        'annotation-guideline-v2': 'original-png-no-transform-v1',
+                        'annotation-guideline-v3': 'original-and-annotation-overlay-v1'}
+            if expected.get(self.prompt_version) != self.preprocessing:
+                raise ValueError('Prompt and preprocessing versions must match.')
         else:
             pin = self.enclosure
             if (self.prompt_version != 'pedestrian-box-feedback-v1' or self.preprocessing != pin.view_version

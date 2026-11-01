@@ -60,6 +60,11 @@ class GuidelineClient:
             raise InferenceUnavailable('inference_unavailable') from error
 
     def verify(self):
+        if self.execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3'}:
+            version = self.request('GET', '/api/version').get('version')
+            match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', version or '') if isinstance(version, str) else None
+            if match is None or tuple(map(int, match.groups())) < (0, 33, 3):
+                raise InferenceUnavailable('nontruncating_server_required')
         tag = self.execution.model
         models = self.request('GET', '/api/tags', response_limit=_METADATA_RESPONSE_LIMIT).get('models')
         if not isinstance(models, list):

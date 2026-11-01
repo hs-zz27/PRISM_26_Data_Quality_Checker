@@ -136,10 +136,10 @@ describe('rechecks inside the original workspace', () => {
       reviewer_id: 'rev_test', feedback: 'The box misses the feet', propose_correction: true });
   });
 
-  it('requires preview and explicit apply before saving a draft then rechecks the saved revision', async () => {
+  it.each(['review-correction-v1', 'review-correction-v2'])('requires preview and explicit apply before saving a draft then rechecks the saved revision (%s)', async (protocol) => {
     const objects = [{ object_id: 1, label: 'vehicle', bbox: [10, 10, 40, 50] }];
     const draft = { ...sample, measurements: { ...sample.measurements, correction_proposal: {
-      protocol: 'review-correction-v1', annotation_format: 'penn_fudan', dataset_id: 'dataset-1', sample_id: 'sample-1',
+      protocol, annotation_format: 'penn_fudan', dataset_id: 'dataset-1', sample_id: 'sample-1',
       sample_revision: 1, status: 'proposed', reason: 'Extend the lower edge.', feedback: { comment: 'Check feet' }, objects,
     } } };
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {

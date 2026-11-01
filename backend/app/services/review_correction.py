@@ -2,12 +2,10 @@
 from base64 import b64encode
 from copy import deepcopy
 from hashlib import sha256
-from io import BytesIO
 import json
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
-from PIL import Image, ImageDraw
 
 from ..core.config import OLLAMA_KEEP_ALIVE_SECONDS
 from ..inference.annotation_guideline import GuidelineClient, InferenceUnavailable, unique_object
@@ -17,6 +15,8 @@ from ..storage.workflow_repository import read_manifest_asset_file, AssetIntegri
 from ..datasets.annotation_validation import _decode_metadata, _polygon_issues
 from ..datasets.json_sample import read_annotation
 from ..models.annotation_validation import ValidationLimits
+from .prompt_encoding import compact_json, compact_rule, compact_schema, text_fits, correction_rows, OBJECT_COLUMNS
+from .annotation_overlay import annotation_overlay
 
 PROTOCOL = 'review-correction-v1'
 SYSTEM = (
@@ -62,31 +62,6 @@ def transport_pin(feedback_runtime, enclosure_runtime):
 
 def object_key(obj):
     return obj.get('source_key', f"penn_fudan:{obj['object_id']}")
-
-
-def annotation_overlay(image, objects, format):
-    """Drawing aid only; source coordinates and original image are retained separately."""
-    with Image.open(BytesIO(image)) as source:
-        canvas = source.convert('RGB')
-    draw = ImageDraw.Draw(canvas)
-    offset = 1 if format == 'penn_fudan' else 0
-    def visible(x, y):
-        return (max(0, min(canvas.width-1, x)), max(0, min(canvas.height-1, y)))
-    for obj in objects:
-        box = obj.get('bbox')
-        if box and obj.get('bbox_origin') != 'derived_from_polygon':
-            left, top, right, bottom = box
-            if left <= right and top <= bottom:
-                draw.rectangle([visible(left-offset, top-offset), visible(right-offset, bottom-offset)], outline='#ffdd00', width=2)
-        for polygon in obj.get('polygons', []):
-            if len(polygon) >= 3:
-                draw.line([visible(*point) for point in polygon] + [visible(*polygon[0])], fill='#00ffff', width=2)
-        if box:
-            draw.text(visible(box[0]-offset, box[1]-offset-12),
-                      f"#{obj['object_id']}", fill='#ffdd00', stroke_width=1, stroke_fill='black')
-    output = BytesIO()
-    canvas.save(output, format='PNG')
-    return output.getvalue()
 
 
 def apply_draft_edits(objects, edits, size, format):
@@ -144,7 +119,8 @@ def apply_draft_edits(objects, edits, size, format):
 
 
 def propose_correction(measurements, feedback, manifest, rulebook, settings, execution, *, client_factory=GuidelineClient):
-    base = dict(protocol=PROTOCOL, dataset_id=manifest.dataset_id, sample_id=manifest.sample_id,
+    compact = execution is not None and execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3'}
+    base = dict(protocol='review-correction-v2' if compact else PROTOCOL, dataset_id=manifest.dataset_id, sample_id=manifest.sample_id,
         sample_revision=manifest.sample_revision, image_key=manifest.image_key,
         annotation_format=manifest.annotation_format, image_sha256=manifest.original_image.sha256,
         annotation_sha256=manifest.annotation_text.sha256, feedback=feedback.model_dump(mode='json'),
@@ -172,14 +148,24 @@ def propose_correction(measurements, feedback, manifest, rulebook, settings, exe
             'coordinate_system': 'one_based_inclusive' if manifest.annotation_format == 'penn_fudan' else 'zero_based_continuous',
             'image_attachments': ['original', 'annotation_overlay'],
             'objects': [{'object_key': object_key(obj), **obj} for obj in objects]}
-        content = json.dumps(context, ensure_ascii=False, allow_nan=False)
+        if compact:
+            context['guidelines'] = [compact_rule(rule) for rule in rulebook.rules]
+            context['object_columns'] = OBJECT_COLUMNS
+            context['objects'] = correction_rows(objects)
+            context['geometry_note'] = 'Rows follow object_columns. A null supplied_bbox_xyxy means bounds are derived from polygons and must not be edited as a supplied box. Polygon coordinates are unchanged original-image pixels.'
+        content = compact_json(context) if compact else json.dumps(context, ensure_ascii=False, allow_nan=False)
         schema = ModelProposal.model_json_schema()
-        if len((SYSTEM + content + json.dumps(schema)).encode()) > max(0, execution.num_ctx - execution.num_predict - 2048) // 2:
+        if compact:
+            schema = compact_schema(schema)
+        if (not text_fits(SYSTEM, content, schema, execution, 2) if compact else
+                len((SYSTEM + content + json.dumps(schema)).encode()) > max(0, execution.num_ctx - execution.num_predict - 2048) // 2):
             raise InferenceUnavailable('context_limit')
         payload = {'model': execution.model, 'stream': False, 'keep_alive': OLLAMA_KEEP_ALIVE_SECONDS,
             'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': content,
                           'images': [b64encode(item).decode('ascii') for item in (image, overlay)]}], 'format': schema,
             'options': {'num_gpu': 0, 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
+        if compact:
+            payload.update(truncate=False, shift=False)
         if execution.num_thread is not None:
             payload['options']['num_thread'] = execution.num_thread
         base.update(model=execution.model, model_digest=execution.model_digest,

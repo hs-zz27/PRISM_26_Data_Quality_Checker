@@ -2737,13 +2737,13 @@ export interface components {
              * @default annotation-guideline-v1
              * @enum {string}
              */
-            prompt_version: "annotation-guideline-v1" | "pedestrian-box-feedback-v1";
+            prompt_version: "annotation-guideline-v1" | "annotation-guideline-v2" | "annotation-guideline-v3" | "pedestrian-box-feedback-v1";
             /**
              * Preprocessing
              * @default original-png-no-transform-v1
              * @enum {string}
              */
-            preprocessing: "original-png-no-transform-v1" | "box-context-png-v1";
+            preprocessing: "original-png-no-transform-v1" | "original-and-annotation-overlay-v1" | "box-context-png-v1";
             /**
              * Schema Version
              * @default 1

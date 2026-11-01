@@ -18,6 +18,8 @@ def load_execution_pin() -> ExecutionPin:
         settings = load_ollama_settings()
         values = {**dotenv_values(DEFAULT_ENV_PATH, interpolate=False), **os.environ}
         return ExecutionPin(
+            prompt_version='annotation-guideline-v3',
+            preprocessing='original-and-annotation-overlay-v1',
             model=settings.model, model_digest=values['FEEDBACK_MODEL_DIGEST'],
             num_ctx=settings.context_length, num_predict=min(settings.max_output_tokens, 2048),
             num_thread=settings.cpu_threads,
