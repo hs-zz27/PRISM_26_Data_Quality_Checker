@@ -30,6 +30,7 @@ import numpy as np                       # noqa: E402
 from PIL import Image, ImageDraw          # noqa: E402
 
 from backend.app.datasets.labelme import read_labelme   # noqa: E402
+from backend.app.datasets.annotation_reader import AnnotationReadError  # noqa: E402
 
 # Images already used by the pack (pinned in build_pack.py IMAGE_SHA256); L01 must differ from all of them.
 USED_IMAGE_SHA256 = {
@@ -113,11 +114,12 @@ def check(image_path: Path, annotation_path: Path, label: str = "person", out_di
                f"EXIF orientation {orientation}")
 
     try:
-        raw = json.loads(annotation_bytes)
-    except ValueError as error:
-        report.add("annotation is valid JSON", False, str(error)[:120])
+        document = read_labelme(annotation_path)
+        raw = document.source
+    except (AnnotationReadError, OSError) as error:
+        report.add("annotation is valid LabelMe JSON", False, str(error)[:120])
         return {"passed": False, "checks": report.checks, "info": info}
-    report.add("annotation does not embed the image (imageData empty)", not raw.get("imageData"),
+    report.add("annotation does not embed the image (imageData empty)", raw.get("imageData") is None,
                "imageData is present" if raw.get("imageData") else "")
     declared = (raw.get("imageWidth"), raw.get("imageHeight"))
     report.add("declared image size equals decoded size", declared == tuple(size), f"declared {declared}, decoded {tuple(size)}")
@@ -127,7 +129,6 @@ def check(image_path: Path, annotation_path: Path, label: str = "person", out_di
                f"imagePath {reference!r} vs file {image_path.name!r} (identical rebasing of baseline and altered would be needed)"
                if reference != image_path.name else "")
 
-    document = read_labelme(annotation_path)
     readable = [i for i in document.all_issues if i.severity == "error" and "polygon" not in i.code and "box" not in i.code]
     report.add("existing LabelMe reader reads the file without structural errors", not readable,
                "; ".join(f"{i.code} {i.location}" for i in readable)[:200])
@@ -139,10 +140,11 @@ def check(image_path: Path, annotation_path: Path, label: str = "person", out_di
     candidates = []
     for index, obj in enumerate(document.images[0].annotations if document.images else []):
         source = raw["shapes"][index]
-        if source.get("label") != label:
+        if not isinstance(source, dict) or source.get("label") != label:
             continue
-        points = [[dec(x), dec(y)] for x, y in source.get("points", [])] if source.get("shape_type") == "polygon" else []
-        supported = source.get("shape_type") == "polygon" and len(points) >= 3 and bool(obj.polygons)
+        points = [[dec(x), dec(y)] for x, y in obj.polygons[0]] if obj.polygons else []
+        supported = (source.get("shape_type") == "polygon" and len(points) >= 3
+                     and not any(i.severity == 'error' for i in obj.issues))
         inside = supported and all(Decimal(0) <= x <= width and Decimal(0) <= y <= height for x, y in points)
         right = inside and all(x + delta <= width for x, _ in points)
         left = inside and all(x - delta >= 0 for x, _ in points)

@@ -1062,13 +1062,13 @@
       "case_id": "L01-baseline",
       "variant": "baseline",
       "paired_case_id": "L01-altered",
-      "status": "blocked",
+      "status": "ready",
       "annotation_format": "labelme",
       "zip_file": "labelme_baseline_3.zip",
-      "annotation_file_in_zip": "2011_000025.json",
-      "image_file": "2011_000025.jpg",
-      "image_file_in_zip": "2011_000025.jpg",
-      "image_sha256": "5dfbdc6981c971986773e226d827f44f7497cf5ca0d4fa1556fd7575aba301ce",
+      "annotation_file_in_zip": "258421.json",
+      "image_file": "258421.jpg",
+      "image_file_in_zip": "258421.jpg",
+      "image_sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
       "source_image_id": null,
       "source_annotation_id": null,
       "applicable_guidelines": [
@@ -1079,35 +1079,56 @@
         12
       ],
       "primary_guideline": 10,
-      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "reviewer": "Harkamal Singh",
       "whole_image_reviewed": false,
-      "required_case": "horizontal 10% shift of a person shape in a third distinct image",
-      "blocker": "2011_000025 contains no person-labelled shape (two bus shapes and one car shape). Only 2011_000003 and 2011_000006 contain persons and they are used by L03 and L02, so no third distinct LabelMe image with a person exists. The image is packaged unchanged in both LabelMe archives; no substitute image, object or task was used.",
-      "source_json_pointer": null,
-      "packaged_json_pointer": null,
+      "source_json_pointer": "/shapes/0",
+      "packaged_json_pointer": "/shapes/0",
       "labelme_group_id": null,
-      "original_target_label": null,
-      "current_target_label": null,
+      "original_target_label": "person",
+      "current_target_label": "person",
       "edited_field": null,
       "original_field_value": null,
       "modified_field_value": null,
       "transformation": null,
-      "expected_target_result": "not_applicable_blocked",
-      "guideline_assessment": {},
+      "expected_target_result": "pass",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "The target is the man on the right, wearing a white shirt and tan trousers."
+        },
+        "8": {
+          "status": "satisfied",
+          "note": "Where the two people overlap, the outline follows the visible portion of the target."
+        },
+        "10": {
+          "status": "satisfied",
+          "note": "The coarse 27-vertex outline follows the target's hair, clothing, visible arm and shoes."
+        },
+        "11": {
+          "status": "satisfied",
+          "note": "One polygon with group_id null outlines the target person."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "The deliberate horizontal displacement is visually distinguishable."
+        }
+      },
       "related_findings_from_edit": [],
-      "packaged_annotation_identical_to_baseline": true,
       "known_unrelated_issues": [
-        "No reader or geometry diagnostics in 2011_000025.",
-        "On inspection no person is visible either (the bus cab is empty), so the blocker is about image content as well as labels.",
-        "/shapes/2 is labelled car; the vehicle is only partly visible at the right edge and whether it meets guideline 3 (passenger car rather than van) was not determined."
+        "/shapes/1 outlines the woman on the left and is unchanged; she is not the evaluation target.",
+        "Reader/geometry diagnostics for this new pair must be checked by the owner-run verification commands."
       ],
       "visual_verification": {
-        "status": "verified_no_person_present",
-        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
-        "method": "source overlay and comparisons/L01.png"
+        "status": "human_confirmed",
+        "reviewer": "Harkamal Singh",
+        "review_date": "2026-10-31",
+        "primary_guideline": 10,
+        "method": "Human review of .cache/visuals/L01-review.png, a 2x crop showing the original green outline and the red outline shifted right by 76.8 px. Canonical builder output and automated checks remain unverified."
       },
       "uncertainty_and_limitations": [
-        "Blocked: no person shape exists in the only remaining LabelMe image."
+        "Harkamal Singh confirmed the baseline fit and altered failure on 2026-10-31. Minor inaccuracies remain around the overlapping arms and lower body; no pixel-exact fit is claimed.",
+        "The woman's outline was also visually reviewed: generally accurate, with minor boundary ambiguity where the two people overlap.",
+        "The primary result concerns guideline 10 only, not whole-image annotation quality."
       ]
     },
     {
@@ -1250,13 +1271,13 @@
       "case_id": "L01-altered",
       "variant": "altered",
       "paired_case_id": "L01-baseline",
-      "status": "blocked",
+      "status": "ready",
       "annotation_format": "labelme",
       "zip_file": "labelme_errors_3.zip",
-      "annotation_file_in_zip": "2011_000025.json",
-      "image_file": "2011_000025.jpg",
-      "image_file_in_zip": "2011_000025.jpg",
-      "image_sha256": "5dfbdc6981c971986773e226d827f44f7497cf5ca0d4fa1556fd7575aba301ce",
+      "annotation_file_in_zip": "258421.json",
+      "image_file": "258421.jpg",
+      "image_file_in_zip": "258421.jpg",
+      "image_sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
       "source_image_id": null,
       "source_annotation_id": null,
       "applicable_guidelines": [
@@ -1267,35 +1288,289 @@
         12
       ],
       "primary_guideline": 10,
-      "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
+      "reviewer": "Harkamal Singh",
       "whole_image_reviewed": false,
-      "required_case": "horizontal 10% shift of a person shape in a third distinct image",
-      "blocker": "2011_000025 contains no person-labelled shape (two bus shapes and one car shape). Only 2011_000003 and 2011_000006 contain persons and they are used by L03 and L02, so no third distinct LabelMe image with a person exists. The image is packaged unchanged in both LabelMe archives; no substitute image, object or task was used.",
-      "source_json_pointer": null,
-      "packaged_json_pointer": null,
+      "source_json_pointer": "/shapes/0",
+      "packaged_json_pointer": "/shapes/0",
       "labelme_group_id": null,
-      "original_target_label": null,
-      "current_target_label": null,
-      "edited_field": null,
-      "original_field_value": null,
-      "modified_field_value": null,
-      "transformation": null,
-      "expected_target_result": "not_applicable_blocked",
-      "guideline_assessment": {},
-      "related_findings_from_edit": [],
-      "packaged_annotation_identical_to_baseline": true,
+      "original_target_label": "person",
+      "current_target_label": "person",
+      "edited_field": "points",
+      "original_field_value": [
+        [
+          404.0,
+          775.5
+        ],
+        [
+          396.5,
+          766.0
+        ],
+        [
+          411.5,
+          753.0
+        ],
+        [
+          411.5,
+          738.0
+        ],
+        [
+          416.5,
+          731.0
+        ],
+        [
+          412.5,
+          598.0
+        ],
+        [
+          419.5,
+          559.0
+        ],
+        [
+          416.0,
+          554.5
+        ],
+        [
+          404.0,
+          566.5
+        ],
+        [
+          387.0,
+          572.5
+        ],
+        [
+          375.5,
+          566.0
+        ],
+        [
+          377.5,
+          554.0
+        ],
+        [
+          405.5,
+          529.0
+        ],
+        [
+          413.5,
+          504.0
+        ],
+        [
+          414.5,
+          493.0
+        ],
+        [
+          386.5,
+          463.0
+        ],
+        [
+          388.5,
+          453.0
+        ],
+        [
+          399.0,
+          443.5
+        ],
+        [
+          413.0,
+          444.5
+        ],
+        [
+          423.5,
+          453.0
+        ],
+        [
+          457.5,
+          506.0
+        ],
+        [
+          452.5,
+          575.0
+        ],
+        [
+          458.5,
+          607.0
+        ],
+        [
+          447.5,
+          635.0
+        ],
+        [
+          444.5,
+          676.0
+        ],
+        [
+          452.5,
+          764.0
+        ],
+        [
+          443.0,
+          770.5
+        ]
+      ],
+      "modified_field_value": [
+        [
+          480.8,
+          775.5
+        ],
+        [
+          473.3,
+          766.0
+        ],
+        [
+          488.3,
+          753.0
+        ],
+        [
+          488.3,
+          738.0
+        ],
+        [
+          493.3,
+          731.0
+        ],
+        [
+          489.3,
+          598.0
+        ],
+        [
+          496.3,
+          559.0
+        ],
+        [
+          492.8,
+          554.5
+        ],
+        [
+          480.8,
+          566.5
+        ],
+        [
+          463.8,
+          572.5
+        ],
+        [
+          452.3,
+          566.0
+        ],
+        [
+          454.3,
+          554.0
+        ],
+        [
+          482.3,
+          529.0
+        ],
+        [
+          490.3,
+          504.0
+        ],
+        [
+          491.3,
+          493.0
+        ],
+        [
+          463.3,
+          463.0
+        ],
+        [
+          465.3,
+          453.0
+        ],
+        [
+          475.8,
+          443.5
+        ],
+        [
+          489.8,
+          444.5
+        ],
+        [
+          500.3,
+          453.0
+        ],
+        [
+          534.3,
+          506.0
+        ],
+        [
+          529.3,
+          575.0
+        ],
+        [
+          535.3,
+          607.0
+        ],
+        [
+          524.3,
+          635.0
+        ],
+        [
+          521.3,
+          676.0
+        ],
+        [
+          529.3,
+          764.0
+        ],
+        [
+          519.8,
+          770.5
+        ]
+      ],
+      "transformation": {
+        "description": "Every point of shape 0 shifted right by 10% of the image width (76.8 px).",
+        "type": "translate_polygon",
+        "axis": "x",
+        "direction": "right",
+        "fraction_of_image_width": "0.1",
+        "pixel_displacement": 76.8,
+        "vertex_count": 27,
+        "vertex_order_preserved": true,
+        "directions_keeping_all_points_inside": [
+          "left",
+          "right"
+        ]
+      },
+      "expected_target_result": "fail",
+      "guideline_assessment": {
+        "2": {
+          "status": "satisfied",
+          "note": "The target is the man on the right, wearing a white shirt and tan trousers."
+        },
+        "8": {
+          "status": "satisfied",
+          "note": "Where the two people overlap, the outline follows the visible portion of the target."
+        },
+        "10": {
+          "status": "not_satisfied",
+          "note": "The outline is translated right by 76.8 px onto the track and background, away from the target."
+        },
+        "11": {
+          "status": "uncertain",
+          "note": "The shifted outline mainly covers background; whether background alone violates guideline 11 is not established."
+        },
+        "12": {
+          "status": "not_applicable",
+          "note": "The deliberate horizontal displacement is visually distinguishable."
+        }
+      },
+      "related_findings_from_edit": [
+        "The polygon-derived box moves right by 76.8 px; no supplied bounding box is edited."
+      ],
       "known_unrelated_issues": [
-        "No reader or geometry diagnostics in 2011_000025.",
-        "On inspection no person is visible either (the bus cab is empty), so the blocker is about image content as well as labels.",
-        "/shapes/2 is labelled car; the vehicle is only partly visible at the right edge and whether it meets guideline 3 (passenger car rather than van) was not determined."
+        "/shapes/1 outlines the woman on the left and is unchanged; she is not the evaluation target.",
+        "Reader/geometry diagnostics for this new pair must be checked by the owner-run verification commands."
       ],
       "visual_verification": {
-        "status": "verified_no_person_present",
-        "reviewer": "claude-ai-assistant (visual inspection); human reviewer confirmation pending",
-        "method": "source overlay and comparisons/L01.png"
+        "status": "human_confirmed",
+        "reviewer": "Harkamal Singh",
+        "review_date": "2026-10-31",
+        "primary_guideline": 10,
+        "method": "Human review of .cache/visuals/L01-review.png, a 2x crop showing the original green outline and the red outline shifted right by 76.8 px. Canonical builder output and automated checks remain unverified."
       },
       "uncertainty_and_limitations": [
-        "Blocked: no person shape exists in the only remaining LabelMe image."
+        "Harkamal Singh confirmed the baseline fit and altered failure on 2026-10-31. Minor inaccuracies remain around the overlapping arms and lower body; no pixel-exact fit is claimed.",
+        "The woman's outline was also visually reviewed: generally accurate, with minor boundary ambiguity where the two people overlap.",
+        "The primary result concerns guideline 10 only, not whole-image annotation quality."
       ]
     },
     {

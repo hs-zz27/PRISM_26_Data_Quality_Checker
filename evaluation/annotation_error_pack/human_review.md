@@ -2,7 +2,10 @@
 
 **Status: REVIEWED by a human reviewer (Muskan), 2026-10-31.** The visual judgements in `answer_key.json` were originally made by an AI assistant; this sheet records a human review of them.
 The initial wording of the rows below was drafted by an AI assistant from the comparison images. The reviewer checked each row against the images and edited it.
-L01 is blocked in the current pack and has not been reviewed. The 3-pixel tolerance in guideline 9 is still unapproved by the project owner. No change was made to `answer_key.json`, and no case is marked Disagreed.
+Muskan's signed review covers C01-C05, L02 and L03. L01 has since been implemented using a new source
+pair and reviewed separately by Harkamal Singh on 2026-10-31. The 3-pixel tolerance in guideline 9 is still unapproved
+by the project owner. The seven original answer-key cases are unchanged; L01's new expectations
+for guideline 10 are human-confirmed, with the boundary concerns recorded below. No case in the signed review is marked Disagreed.
 
 | Field | Value |
 |---|---|
@@ -109,15 +112,38 @@ L01 is blocked in the current pack and has not been reviewed. The 3-pixel tolera
 | Altered target, primary guideline | Confirmed for 10; Uncertain for 11 | The magenta outline has moved to the right and now lies over the back of the head and hair of the woman in the foreground, with her own face outside it. The red box is unchanged. Breaks guideline 10. It appears to outline part of a different person, but I cannot say whether that counts under guideline 11. |
 | Documented unrelated issues still accurate | Confirmed | The report shows annotations 167 (chair) and 174 (bowl) flagged with repeated_polygon_vertex and self_intersecting_polygon. The scene is a crowded dining table with many overlapping annotations. |
 
-## L01 - LabelMe 2011_000025.jpg  (BLOCKED in the current pack)
+## L01 - LabelMe 258421.jpg (human-confirmed, 2026-10-31)
 
-Not reviewable yet: no person example has been added. Complete this section after L01 is implemented.
+Reviewer: **Harkamal Singh**. Verdict: **Confirmed**. Review source: **Human reviewed**.
+This section records his explicit response and is separate from Muskan's earlier review.
 
-| Item | Result | Explanation |
+- Source: Christian Mills' LabelMe tutorial dataset, pinned in `datasets/labelme_l01_example/download_manifest.json`.
+- Target: `/shapes/0`, man on the right in a white shirt and tan trousers; 27 vertices, group_id null.
+- Deliberate edit: every target x coordinate increases by 76.8 pixels, exactly 10% of the 768-pixel image width. Y coordinates and the other person's annotation remain unchanged.
+- Primary guideline: 10, polygon fit. The reviewer confirmed baseline pass and altered fail, with minor baseline boundary inaccuracies accepted.
+- Artifact reviewed: `.cache/visuals/L01-review.png`, a 2x crop. The subsequently generated `comparisons/L01.png` was inspected and matches this reviewed transformation; that inspection does not constitute an additional human review.
+- Check the coarse boundary around the visible arm, overlapping people and shoes. No pixel-exact fit is claimed. Guideline 11 for background-only displacement remains uncertain and is not the primary result.
+
+| Item | Result (Confirmed / Uncertain / Disagreed) | Reviewer explanation |
 |---|---|---|
-| Baseline target | Blocked, not reviewed | The image shows two buses and a car and no person. The pack documents this case as blocked. |
-| Baseline: other annotations (list those checked) | | |
-| Altered target | | |
+| Image rights and attribution | Outside this visual review | The response confirms visual annotation quality. Source and licence information are recorded separately in `datasets/labelme_l01_example/README.md`. |
+| Baseline target under guideline 10 | Confirmed | Follows the visible body reasonably well; minor inaccuracies around overlapping arms and lower body, overall acceptable. |
+| Altered target under guideline 10 | Confirmed | Clearly misplaced onto background; no longer represents the man's visible silhouette. |
+| Other annotation: /shapes/1, woman on the left | Confirmed with boundary ambiguity | Generally follows her visible body; minor ambiguity at the overlap, no significant misalignment. |
+| Exceptions or unrelated issues | Boundary concerns retained | No exact pixel accuracy, reader diagnostics, other cases or numeric tolerance was confirmed by this visual review. |
+
+### Reviewer's response (verbatim)
+
+> Name: Harkamal Singh
+> Verdict: Confirmed
+> Concerns:
+> 1. Green outline (baseline, left): The polygon follows the man's visible body reasonably well, including his head, torso, arms, legs, and shoes. Minor inaccuracies are visible around the overlapping arms and lower body, but the overall fit is acceptable.
+> 2. Red outline (altered, right): The polygon is clearly misplaced. The stated 76.8-pixel horizontal shift moves it away from the man's actual body and into the background. It no longer represents his visible silhouette and violates the polygon-fit guideline.
+> 3. Woman's outline: The white polygon generally follows her visible body accurately. Minor boundary ambiguity exists where the two people overlap, but no significant misalignment is apparent.
+> Final Assessment: Confirmed. The green baseline is acceptable, while the shifted red polygon is a clear annotation failure.
+> Review source:Human reviewed
+
+Recorded from the project owner's chat response on 2026-10-31. Owner-run automated validation was subsequently recorded on 2026-11-01: 98 builder checks passed, all 13 generated files reproduced, and 57 tests passed. See `verification.md`.
 
 ## L02 - LabelMe 2011_000006.jpg
 
@@ -162,8 +188,8 @@ Not reviewable yet: no person example has been added. Complete this section afte
 | C03 | Confirmed (guideline 10 uncertain, not tested by this case) | Yes: guideline 9 tolerance |
 | C04 | Confirmed (guidelines 9 and 10 uncertain) | Yes: do worn items count as part of the person? |
 | C05 | Confirmed (guideline 11 uncertain) | Optional: does a displaced outline over another person count under guideline 11? |
-| L01 | Blocked, not reviewed | Yes: needs an additional LabelMe person example |
+| L01 | Confirmed for guideline 10 by Harkamal Singh; boundary concerns retained | No further visual decision required for the primary result; owner-run automated validation passed |
 | L02 | Confirmed | No |
 | L03 | Confirmed (shape 2 not verified) | No |
 
-Signature (name and date): Muskan, 2026-10-31
+Signature for the seven original cases (name and date): Muskan, 2026-10-31

@@ -1,0 +1,4 @@
+# Original third-party source files are downloaded locally from the pinned archive.
+*.jpg
+*.json
+!download_manifest.json

@@ -138,3 +138,27 @@ def test_command_line_exit_codes(tmp_path, capsys):
     bad_image, bad_annotation = make(tmp_path, name="bad.jpg", label="car")
     assert checker.main(["--image", str(bad_image), "--annotation", str(bad_annotation)]) == 1
     assert checker.main(["--image", str(tmp_path / "missing.jpg"), "--annotation", str(annotation)]) == 2
+
+
+@pytest.mark.parametrize('raw', ['[]', '{"shapes":null}', '{"shapes":[],"shapes":[]}'])
+def test_bad_document_envelope_returns_failed_report_instead_of_crashing(tmp_path, raw):
+    image, annotation = make(tmp_path)
+    annotation.write_text(raw)
+    report = checker.check(image, annotation)
+    assert not report['passed']
+
+
+@pytest.mark.parametrize('points', [[[1, 2]], [[1, 2], [1, 2], [1, 2]], [[True, 2], [3, 4], [5, 6]], [[1], [2], [3]]])
+def test_malformed_or_degenerate_person_is_not_usable(tmp_path, points):
+    image, annotation = make(tmp_path, points=points)
+    report = checker.check(image, annotation)
+    assert not report['passed']
+    assert report['info']['usable_shapes'] == []
+
+
+def test_non_object_shape_returns_failed_report(tmp_path):
+    image, annotation = make(tmp_path)
+    raw = json.loads(annotation.read_text())
+    raw['shapes'].append(None)
+    annotation.write_text(json.dumps(raw))
+    assert not checker.check(image, annotation)['passed']

@@ -9,7 +9,7 @@ Run from the repository root:
 
 What it does, and nothing more:
 
-* reads datasets/coco_people_30 and datasets/labelme_people_examples without writing to them;
+* reads datasets/coco_people_30, datasets/labelme_people_examples and datasets/labelme_l01_example without writing to them;
 * checks every source file against pinned SHA-256 values and the upstream download manifests, and
   every target object against its expected identifiers and original values, stopping on any mismatch;
 * applies exactly one documented change to one field of one object for each altered case;
@@ -43,6 +43,8 @@ COCO_JSON = COCO_ROOT / "annotations" / "instances_people30.json"
 COCO_MANIFEST = COCO_ROOT / "download_manifest.json"
 LABELME_ROOT = REPO / "datasets" / "labelme_people_examples"
 LABELME_MANIFEST = LABELME_ROOT / "download_manifest.json"
+L01_ROOT = REPO / "datasets" / "labelme_l01_example"
+L01_MANIFEST = L01_ROOT / "download_manifest.json"
 PROTECTED_ROOTS = (REPO / "datasets", REPO / "PennFudanPed")
 
 ARCHIVES = {
@@ -68,12 +70,12 @@ IMAGE_SHA256 = {
     "000000085157.jpg": "027adfd5c8d13be607a05da2098af34e7350b5f70a5bfd16f266e8c802a3a59b",
     "2011_000003.jpg": "94bc550055447e1fab3982571d7114eb4a02a868054f34cb15f95cadf3e48c9a",
     "2011_000006.jpg": "a0d04eb84ed3cd07282d61833d219c11fd6d98f53dc0135d4b3c720b26cfb244",
-    "2011_000025.jpg": "5dfbdc6981c971986773e226d827f44f7497cf5ca0d4fa1556fd7575aba301ce",
+    "258421.jpg": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
 }
 LABELME_JSON_SHA256 = {
     "2011_000003.json": "0aa7c87bd4f11d3ab38d63fa9bc2a11640d77c0eca2a13968e852478f63021dc",
     "2011_000006.json": "8f7f13768d9b25927f3dd19d317f33807b13d571d56ec801eea57798999ec9b8",
-    "2011_000025.json": "df548de624182d99286bc3f5b0f18e287ee6d1fab00f53784b9deaf7c00870ab",
+    "258421.json": "6dff908bc14e61aee78aef2a9e83a027027f2635c6920efa14de14b0efa7268a",
 }
 
 # --------------------------------------------------------------------------- the cases
@@ -106,12 +108,11 @@ COCO_CASES = [
      "description": "Every vertex of segmentation part 0 shifted right by 10% of the image width."},
 ]
 LABELME_CASES = [
-    {"case": "L01", "file": "2011_000025.json", "image": "2011_000025.jpg", "size": (500, 375),
-     "status": "blocked", "required": "horizontal 10% shift of a person shape in a third distinct image",
-     "blocker": "2011_000025 contains no person-labelled shape (two bus shapes and one car shape). Only "
-                "2011_000003 and 2011_000006 contain persons and they are used by L03 and L02, so no third "
-                "distinct LabelMe image with a person exists. The image is packaged unchanged in both LabelMe "
-                "archives; no substitute image, object or task was used."},
+    {"case": "L01", "file": "258421.json", "image": "258421.jpg", "size": (768, 1152),
+     "status": "ready", "shape": 0,
+     "expect": {"label": "person", "group_id": None, "points": 27, "shape_type": "polygon"},
+     "edit": {"op": "shift_points", "axis": "x", "fraction": "0.1", "direction": "right"},
+     "description": "Every point of shape 0 shifted right by 10% of the image width (76.8 px)."},
     {"case": "L02", "file": "2011_000006.json", "image": "2011_000006.jpg", "size": (500, 375),
      "status": "ready", "shape": 2,
      "expect": {"label": "person", "group_id": None, "points": 16, "shape_type": "polygon"},
@@ -238,13 +239,22 @@ REVIEW = {
     },
     "L01": {
         "applicable": [2, 8, 10, 11, 12], "primary": 10,
-        "baseline": {}, "altered": {}, "related": [],
-        "unrelated": ["No reader or geometry diagnostics in 2011_000025.",
-                      "On inspection no person is visible either (the bus cab is empty), so the blocker is about "
-                      "image content as well as labels.",
-                      "/shapes/2 is labelled car; the vehicle is only partly visible at the right edge and whether "
-                      "it meets guideline 3 (passenger car rather than van) was not determined."],
-        "uncertainty": ["Blocked: no person shape exists in the only remaining LabelMe image."],
+        "baseline": {2: ("satisfied", "The target is the man on the right, wearing a white shirt and tan trousers."),
+                     8: ("satisfied", "Where the two people overlap, the outline follows the visible portion of the target."),
+                     10: ("satisfied", "The coarse 27-vertex outline follows the target's hair, clothing, visible arm and shoes."),
+                     11: ("satisfied", "One polygon with group_id null outlines the target person."),
+                     12: ("not_applicable", "The deliberate horizontal displacement is visually distinguishable.")},
+        "altered": {10: ("not_satisfied", "The outline is translated right by 76.8 px onto the track and background, away from the target."),
+                    11: ("uncertain", "The shifted outline mainly covers background; whether background alone violates guideline 11 is not established.")},
+        "related": ["The polygon-derived box moves right by 76.8 px; no supplied bounding box is edited."],
+        "unrelated": ["/shapes/1 outlines the woman on the left and is unchanged; she is not the evaluation target.",
+                      "Reader/geometry diagnostics for this new pair must be checked by the owner-run verification commands."],
+        "uncertainty": ["Harkamal Singh confirmed the baseline fit and altered failure on 2026-10-31. Minor inaccuracies remain around the overlapping arms and lower body; no pixel-exact fit is claimed.",
+                        "The woman's outline was also visually reviewed: generally accurate, with minor boundary ambiguity where the two people overlap.",
+                        "The primary result concerns guideline 10 only, not whole-image annotation quality."],
+        "visual_verification": {"status": "human_confirmed", "reviewer": "Harkamal Singh",
+                                "review_date": "2026-10-31", "primary_guideline": 10,
+                                "method": "Human review of .cache/visuals/L01-review.png, a 2x crop showing the original green outline and the red outline shifted right by 76.8 px. Canonical builder output and automated checks remain unverified."},
     },
     "L02": {
         "applicable": [2, 8, 10, 11, 12], "primary": 10,
@@ -329,7 +339,7 @@ def snapshot(roots) -> dict:
 
 # --------------------------------------------------------------------------- source checks
 def load_sources():
-    for path in (COCO_JSON, COCO_MANIFEST, LABELME_MANIFEST):
+    for path in (COCO_JSON, COCO_MANIFEST, LABELME_MANIFEST, L01_MANIFEST):
         require(path.is_file(), f"Missing source file: {path}")
     coco_raw = text_bytes(COCO_JSON)
     require(sha256(coco_raw) == COCO_JSON_SHA256,
@@ -339,6 +349,7 @@ def load_sources():
             "The COCO download manifest does not record the pinned annotation hash.")
     manifest_images = {s["file_name"]: s["sha256"] for s in coco_manifest.get("samples", [])}
     labelme_manifest = {f["file"]: f["sha256"] for f in json.loads(text_bytes(LABELME_MANIFEST))["files"]}
+    l01_manifest = {f["file"]: f["sha256"] for f in json.loads(text_bytes(L01_MANIFEST))["files"]}
 
     images = {}
     for case in COCO_CASES:
@@ -350,13 +361,15 @@ def load_sources():
         images[case["file"]] = data
     labelme = {}
     for case in LABELME_CASES:
-        jpath, ipath = LABELME_ROOT / case["file"], LABELME_ROOT / case["image"]
+        root = L01_ROOT if case["case"] == "L01" else LABELME_ROOT
+        manifest = l01_manifest if case["case"] == "L01" else labelme_manifest
+        jpath, ipath = root / case["file"], root / case["image"]
         require(jpath.is_file(), f"Missing LabelMe annotation: {jpath}")
         require(ipath.is_file(), f"Missing LabelMe image: {ipath}")
         raw, data = text_bytes(jpath), ipath.read_bytes()
-        require(sha256(raw) == LABELME_JSON_SHA256[case["file"]] == labelme_manifest.get(case["file"]),
+        require(sha256(raw) == LABELME_JSON_SHA256[case["file"]] == manifest.get(case["file"]),
                 f"LabelMe annotation {case['file']} differs from the pinned/manifest SHA-256.")
-        require(sha256(data) == IMAGE_SHA256[case["image"]] == labelme_manifest.get(case["image"]),
+        require(sha256(data) == IMAGE_SHA256[case["image"]] == manifest.get(case["image"]),
                 f"LabelMe image {case['image']} differs from the pinned/manifest SHA-256.")
         require(labelme_dumps(json.loads(raw)) == raw,
                 f"{case['file']} no longer round-trips in the upstream JSON style; an edit would reformat it.")
@@ -676,6 +689,9 @@ def build_answer_key(coco_results, labelme_results, coco_source, coco_baseline, 
                                                       case["case"] + ".png"},
                     "uncertainty_and_limitations": review["uncertainty"],
                 })
+                if "visual_verification" in review:
+                    entry["visual_verification"] = copy.deepcopy(review["visual_verification"])
+                    entry["reviewer"] = review["visual_verification"]["reviewer"]
             entries.append(entry)
     order = {f"{c}-{v}": i for i, (v, c) in enumerate(
         [(v, c) for v in ("baseline", "altered") for c in ("C01", "C02", "C03", "C04", "C05")]
@@ -873,7 +889,7 @@ def render_all(out_dir, coco_results, labelme_results, coco_baseline, coco_alter
         change = (f"label '{result['before']}' -> '{result['after']}'; points unchanged."
                   if result["field"] == "label" else
                   f"all {t['vertex_count']} points translated {t['direction']} by {abs(t['pixel_displacement'])} px "
-                  f"(10% of image height); order preserved; group_id unchanged.")
+                  f"(10% of image {'width' if t['axis'] == 'x' else 'height'}); order preserved; group_id unchanged.")
         anchor = lambda shape: (min(p[0] for p in shape["points"]), min(p[1] for p in shape["points"]))  # noqa: E731
         render_comparison(
             out_dir / f"{case['case']}.png",
