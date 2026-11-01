@@ -1,5 +1,75 @@
 # Verification record
 
+## L01 implementation follow-up — owner validation recorded 1 November 2026
+
+This section describes the current branch; older records below describe the earlier seven-pair
+pack and its bus/car placeholder. Their test results do not validate these changes.
+
+- Added original `258421.jpg` / `258421.json` from Christian Mills' LabelMe tutorial dataset at
+  revision `ba75e3645f8c13e4edc752ad9f38cc8dc1addf51`. The author states that he annotated Pexels
+  photos directly in LabelMe. Source files remain unmodified and ignored by Git; a pinned
+  download manifest and owner-run downloader are included.
+- Inspected the image and a separate 2x review crop. The target is a visible man on the right.
+  The native polygon has 27 vertices. The proposed translation is right by 76.8 px, with y
+  coordinates unchanged. The crop shows substantial displacement onto background.
+- Replaced only L01's placeholder and answer-key entries. The seven prior transformations and
+  their answer-key entries remain unchanged. Their human review is retained with its uncertainties.
+- Fixed the LabelMe comparison caption to say image width for horizontal translation; L02's
+  vertical translation still says image height.
+- Added regression tests for the exact L01 edit, source pins, original image identity, unrelated
+  fields, caption axis and committed answer-key consistency. Existing tests cover four archive
+  imports, repeat builds and source preservation. Added offline downloader tests and candidate
+  checker malformed-input tests.
+- No application code, models, frontend or existing dataset source files were edited.
+- **Owner-run validation:** the candidate checker passed all machine checks. The supplied builder
+  report contains 98 checks, `passed: true` and no problems. L01 has no reader diagnostics;
+  no case introduces or removes diagnostics compared with its source.
+- **Reproducibility:** the owner reported all 13 generated files matching: ZIPs and answer key
+  byte-identical, comparison PNGs pixel-identical.
+- **Tests:** the owner reported **57 passed** for the evaluation pack. These tests were not
+  rerun while recording the results; subsequent changes only update documentation.
+- **Not exercised by these results:** application services, model inference or the full
+  audit/correction/export workflow. No audit accuracy claim follows from the pack tests.
+- **Human review received:** Harkamal Singh confirmed L01's baseline fit and altered failure
+  under guideline 10 on 2026-10-31 using `.cache/visuals/L01-review.png`. He also reviewed the
+  woman's outline, noting minor ambiguity where the people overlap. Minor inaccuracies around
+  the man's overlapping arms and lower body remain documented. This confirms the visual
+  expectation; no exact pixel fit is claimed.
+- The generated `comparisons/L01.png` was subsequently inspected and matches the reviewed
+  transformation: the target moves right by 76.8 px while the other person's polygon stays in
+  place. This output inspection does not add a new human review.
+- The answer key preserves the review metadata as recorded before automated validation. Any
+  pending-validation wording within that historical metadata is superseded by this record.
+
+### Owner-run commands
+
+For reproducing the checks on another checkout, run from the repository root in order:
+
+```sh
+.venv/bin/python -B evaluation/annotation_error_pack/tools/download_l01_source.py
+.venv/bin/python -B evaluation/annotation_error_pack/tools/check_l01_candidate.py --image datasets/labelme_l01_example/258421.jpg --annotation datasets/labelme_l01_example/258421.json --out .cache/validation/l01-candidate
+.venv/bin/python -B evaluation/annotation_error_pack/build_pack.py
+.venv/bin/python -B evaluation/annotation_error_pack/build_pack.py --check
+.venv/bin/python -B -m pytest evaluation/annotation_error_pack/tests -q -p no:cacheprovider
+```
+
+The owner already has the two source files locally. On other machines the downloader is needed.
+The real-importer tests are platform-gated by `os.O_NOFOLLOW`; report skips explicitly. No
+database, model server or application service is needed for these pack tests. The generated
+`comparisons/L01.png` has been checked against the already human-reviewed crop; the reviewer's
+response is recorded in `human_review.md`. The standalone downloader's network path was not
+reported as tested; its archive selection and integrity checks have offline test coverage.
+
+### Source pins
+
+- Archive SHA-256: `7fc536bb61e0cda74b6a143187e32f7149c9e00de6c959687c22c1f6976e9af9`
+- `258421.jpg`: `fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8`
+- `258421.json` (raw and LF): `6dff908bc14e61aee78aef2a9e83a027027f2635c6920efa14de14b0efa7268a`
+
+The downloaded bytes and metadata were inspected, and owner-run pack checks passed. See the
+source README for licensing limits and the unverified photographer identity. The other owner
+decisions (3-pixel tolerance, worn backpack and guideline 11 interpretation) remain unresolved.
+
 ## PR review follow-up — 31 October 2026
 
 Reviewed PR head `2fdfa5bff500b7500a82d854904cf371181527a3` against `main`

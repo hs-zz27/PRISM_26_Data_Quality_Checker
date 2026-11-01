@@ -1,0 +1,28 @@
+{
+  "dataset": "cj-mills/labelme-instance-segmentation-toy-dataset",
+  "source_page": "https://huggingface.co/datasets/cj-mills/labelme-instance-segmentation-toy-dataset",
+  "annotation_provenance": "Christian Mills states that he annotated these Pexels images using LabelMe for his tutorial; no conversion or generated annotation is used here.",
+  "tutorial": "https://christianjmills.com/posts/torchvision-labelme-annotation-tutorials/segmentation-polygons/index.html",
+  "revision": "ba75e3645f8c13e4edc752ad9f38cc8dc1addf51",
+  "archive_url": "https://huggingface.co/datasets/cj-mills/labelme-instance-segmentation-toy-dataset/resolve/ba75e3645f8c13e4edc752ad9f38cc8dc1addf51/labelme-instance-segmentation-toy-dataset.zip",
+  "archive_sha256": "7fc536bb61e0cda74b6a143187e32f7149c9e00de6c959687c22c1f6976e9af9",
+  "annotation_license": "MIT, as declared by the dataset card; retain attribution to Christian Mills and the pinned dataset revision.",
+  "image_license": "Pexels License, separately from the dataset card's MIT declaration",
+  "image_license_url": "https://www.pexels.com/license/",
+  "photo_page": "https://www.pexels.com/photo/258421/",
+  "photo_page_note": "Photo ID follows the original dataset filename. The individual page returned HTTP 403 during retrieval; photographer identity was not independently verified. Pexels provenance is stated by the dataset author.",
+  "attribution": "Photo sourced from Pexels via Christian Mills' LabelMe tutorial dataset. Annotation by Christian Mills. No endorsement by the depicted people is implied.",
+  "use": "Local annotation evaluation and review; original files and generated comparison images are not committed or republished by this change.",
+  "files": [
+    {
+      "file": "258421.jpg",
+      "archive_member": "labelme-instance-segmentation-toy-dataset/258421.jpg",
+      "sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8"
+    },
+    {
+      "file": "258421.json",
+      "archive_member": "labelme-instance-segmentation-toy-dataset/258421.json",
+      "sha256": "6dff908bc14e61aee78aef2a9e83a027027f2635c6920efa14de14b0efa7268a"
+    }
+  ]
+}

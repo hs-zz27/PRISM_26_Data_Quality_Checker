@@ -152,7 +152,11 @@ def test_answer_key_structure(built):
         assert entry["whole_image_reviewed"] is False
         if entry["variant"] == "baseline":
             assert entry["edited_field"] is None
-    assert entries["L01-altered"]["status"] == "blocked" and "no person" in entries["L01-altered"]["blocker"]
+    assert all(e['status'] == 'ready' for e in entries.values())
+    assert entries['L01-altered']['image_file'] == '258421.jpg'
+    assert entries['L01-altered']['source_json_pointer'] == '/shapes/0'
+    assert entries['L01-altered']['transformation']['pixel_displacement'] == 76.8
+    assert entries['L01-altered']['visual_verification'] == bp.REVIEW['L01']['visual_verification']
     assert entries["C04-altered"]["current_target_label"] == "car"
     assert entries["C03-altered"]["guideline_assessment"]["9"]["status"] == "not_satisfied"
     archive_names = [n for z in (out / "archives").glob("*.zip") for n in members(z)]
@@ -199,16 +203,60 @@ def test_wrong_annotation_identifier_stops_the_build(monkeypatch):
         bp.build_coco(source, images)
 
 
-def test_blocked_case_is_re_evaluated_if_a_person_appears(monkeypatch):
+def test_l01_has_a_distinct_pinned_source_and_one_exact_horizontal_edit(built):
+    out, _ = built
+    base_members = members(out / 'archives' / bp.ARCHIVES[('labelme', 'baseline')])
+    alt_members = members(out / 'archives' / bp.ARCHIVES[('labelme', 'altered')])
+    case = next(c for c in bp.LABELME_CASES if c['case'] == 'L01')
+    assert case['image'] not in {'2011_000003.jpg', '2011_000006.jpg', '2011_000025.jpg'}
+    assert '2011_000025.json' not in base_members and '2011_000025.jpg' not in base_members
+    assert base_members[case['file']] == bp.text_bytes(bp.L01_ROOT / case['file'])
+    assert base_members[case['image']] == alt_members[case['image']] == (bp.L01_ROOT / case['image']).read_bytes()
+    base, alt = (json.loads(m[case['file']]) for m in (base_members, alt_members))
+    before, after = (d['shapes'][case['shape']]['points'] for d in (base, alt))
+    assert len(before) == len(after) == 27
+    assert all(Decimal(str(a[0])) - Decimal(str(b[0])) == Decimal('76.8') for b, a in zip(before, after))
+    assert [p[1] for p in before] == [p[1] for p in after]
+    assert all(0 <= x <= 768 and 0 <= y <= 1152 for x, y in after)
+    alt['shapes'][case['shape']]['points'] = copy.deepcopy(before)
+    assert alt == base
+
+
+def test_changed_l01_manifest_hash_is_rejected(monkeypatch, tmp_path):
+    manifest = json.loads(bp.L01_MANIFEST.read_text())
+    manifest['files'][0]['sha256'] = '0' * 64
+    path = tmp_path / 'manifest.json'
+    path.write_text(json.dumps(manifest))
+    monkeypatch.setattr(bp, 'L01_MANIFEST', path)
+    with pytest.raises(bp.PackError, match='258421.jpg differs'):
+        bp.load_sources()
+
+
+def test_l01_shape_identity_change_is_rejected():
     _, _, labelme = bp.load_sources()
-    cases = copy.deepcopy(bp.LABELME_CASES)
-    raw, image = labelme["2011_000025.json"]
+    raw, image = labelme['258421.json']
     document = json.loads(raw)
-    document["shapes"][0]["label"] = "person"
-    labelme = dict(labelme, **{"2011_000025.json": (bp.labelme_dumps(document), image)})
-    monkeypatch.setattr(bp, "LABELME_CASES", cases)
-    with pytest.raises(bp.PackError, match="re-evaluate the documented blocker"):
+    document['shapes'][0]['label'] = 'car'
+    labelme = dict(labelme, **{'258421.json': (bp.labelme_dumps(document), image)})
+    with pytest.raises(bp.PackError, match='expected person polygon'):
         bp.build_labelme(labelme)
+
+
+def test_l01_caption_uses_width_and_l02_still_uses_height(monkeypatch, tmp_path):
+    coco_source, images, labelme = bp.load_sources()
+    _, cr, cb, ca = bp.build_coco(coco_source, images)
+    _, lr = bp.build_labelme(labelme)
+    captions = {}
+    def capture(path, title, lines, *args, **kwargs):
+        captions[path.stem] = '\n'.join(lines)
+    monkeypatch.setattr(bp, 'render_comparison', capture)
+    bp.render_all(tmp_path, cr, lr, cb, ca, images)
+    assert '76.8 px (10% of image width)' in captions['L01']
+    assert '37.5 px (10% of image height)' in captions['L02']
+
+
+def test_committed_answer_key_matches_builder(built):
+    assert (built[0] / 'answer_key.json').read_bytes() == (HERE / 'answer_key.json').read_bytes()
 
 
 def test_shift_that_would_leave_the_image_is_refused():
