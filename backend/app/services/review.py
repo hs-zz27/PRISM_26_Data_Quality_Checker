@@ -9,7 +9,7 @@ from ..models.review import (
     FindingReviewRequest, RulebookAction, RulebookReplace, RulebookReviewAction,
     SampleReview, SampleReviewRequest,
 )
-from ..models.rule import ConfirmationState, Rulebook, RuleOrigin
+from ..models.rule import ConfirmationState, Rule, Rulebook, RuleOrigin
 from ..storage.repository import RulebookRepository, RulebookVersionConflictError
 from ..storage.workflow_repository import FindingRepository, SampleReviewRepository
 
@@ -95,6 +95,11 @@ def _require_draft(current: Rulebook) -> None:
         )
 
 
+# Fields a client may not know about yet. When a retained rule omits them, the
+# previous values are kept instead of silently erased; an explicit [] clears them.
+PRESERVED_RULE_FIELDS = ("context_sentences", "extraction_notes")
+
+
 def save_rulebook_review(
     rulebook_id: str, request: RulebookReplace, *, repository: RulebookRepository,
 ) -> Rulebook:
@@ -103,14 +108,19 @@ def save_rulebook_review(
     New rules use reviewer origin. Existing IDs retain their origin, so an
     extracted rule cannot silently lose its citation requirement. The caller
     explicitly supplies each rule's state; editing never confirms the book.
+    A retained rule that omits applicable context or extraction notes keeps the
+    previous values, so a client unaware of those fields cannot drop them.
     """
     if not isinstance(request, RulebookReplace):
         raise TypeError("request must be a RulebookReplace instance.")
+    omitted = [[name for name in PRESERVED_RULE_FIELDS if name not in rule.model_fields_set]
+               for rule in request.rules]
     request = RulebookReplace.model_validate(request.model_dump())
     current = _load_current(rulebook_id, request.expected_version, repository)
     _require_draft(current)
     previous_rules = {rule.rule_id: rule for rule in current.rules}
-    for rule in request.rules:
+    rules = []
+    for rule, missing in zip(request.rules, omitted):
         previous = previous_rules.get(rule.rule_id)
         expected_origin = RuleOrigin.REVIEWER if previous is None else previous.origin
         if rule.origin is not expected_origin:
@@ -118,12 +128,14 @@ def save_rulebook_review(
                 "invalid_rule_origin",
                 "Retained rules must preserve origin; new rules must use reviewer origin.",
             )
+        rules.append(rule if previous is None or not missing else
+                     {**rule.model_dump(), **{name: getattr(previous, name) for name in missing}})
     try:
         updated = Rulebook(
             rulebook_id=current.rulebook_id,
             version=current.version + 1,
             guideline_text=request.guideline_text,
-            rules=request.rules,
+            rules=[rule if isinstance(rule, Rule) else Rule.model_validate(rule) for rule in rules],
             confirmation_state=ConfirmationState.DRAFT,
         )
     except ValidationError as error:
