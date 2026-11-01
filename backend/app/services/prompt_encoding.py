@@ -8,10 +8,13 @@ def compact_json(value):
 
 
 def compact_rule(rule):
-    """Keep every criterion/parameter and any citation not already in its description."""
+    """Keep every criterion/parameter, any citation not already in its description, and
+    the rule's applicable guideline context (scope, definitions, exceptions, uncertainty)."""
     value = {key: getattr(rule, key) for key in ('rule_id', 'description', 'check_name', 'parameters')}
     if rule.source_sentence is not None and rule.source_sentence not in rule.description:
         value['source_sentence'] = rule.source_sentence
+    if rule.context_sentences:
+        value['context_sentences'] = list(rule.context_sentences)
     return value
 
 

@@ -94,12 +94,24 @@ class MaximumComponentCountParameters(_RuleParameters):
 
 @dataclass(frozen=True)
 class CheckDefinition:
-    """Execution metadata for one supported measurement check."""
+    """Execution metadata for one supported measurement check.
+
+    ``model_assisted`` marks visual judgements made by a local vision model; they
+    cannot measure exact numeric quantities. ``evidence_terms`` lists words, at
+    least one of which an extracted requirement must contain before it can be
+    mapped to this check; it guards against substituting a different measured
+    quantity (for example box-versus-mask for box-versus-visible-person).
+    """
 
     name: str
     scope: Literal["sample", "object", "pair"]
     parameter_model: type[_RuleParameters]
     prompt_description: str = ""
+    model_assisted: bool = False
+    evidence_terms: tuple[str, ...] = ()
+
+
+_MASK_TERMS = ("mask", "segmentation")
 
 
 CHECK_REGISTRY: dict[str, CheckDefinition] = {
@@ -110,14 +122,17 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
     "annotation_guideline": CheckDefinition(
         "annotation_guideline", "sample", EmptyParameters,
         "Model-assisted judgment of one explicit visual annotation guideline against an image and parsed annotations. Not a fallback for numeric checks, motion, unseen facts or unsupported evidence.",
+        model_assisted=True,
     ),
     "pedestrian_box_enclosure": CheckDefinition(
         "pedestrian_box_enclosure", "sample", EmptyParameters,
         "Model-assisted judgment that each annotation box encloses a visible pedestrian, using one marked context view per box. Opt-in; a box entirely on background is a violation. Not a tightness, size or completeness check.",
+        model_assisted=True,
     ),
     "allowed_labels": CheckDefinition(
         "allowed_labels", "object", AllowedLabelsParameters,
         "Each annotation label must be one of the explicitly configured allowed labels.",
+        evidence_terms=("allow", "permit", "only", "one of", "valid", "vocabulary", "accepted", "label set", "list of"),
     ),
     "annotation_ids": CheckDefinition(
         "annotation_ids", "sample", EmptyParameters,
@@ -126,10 +141,12 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
     "mask_ids": CheckDefinition(
         "mask_ids", "sample", EmptyParameters,
         "The non-background mask IDs must match the annotation object IDs.",
+        evidence_terms=_MASK_TERMS,
     ),
     "mask_dimensions": CheckDefinition(
         "mask_dimensions", "sample", EmptyParameters,
         "The image and mask dimensions must match.",
+        evidence_terms=_MASK_TERMS,
     ),
     "annotation_metadata": CheckDefinition(
         "annotation_metadata", "sample", EmptyParameters,
@@ -142,22 +159,27 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
     "box_overlaps": CheckDefinition(
         "box_overlaps", "pair", MaximumIoUParameters,
         "Each pair of annotation boxes must have IoU no greater than the configured maximum.",
+        evidence_terms=("overlap", "iou", "intersection"),
     ),
     "box_mask_alignment": CheckDefinition(
         "box_mask_alignment", "object", MaximumEdgeDifferenceParameters,
         "Each box-to-mask edge difference must be no greater than the configured maximum pixels.",
+        evidence_terms=_MASK_TERMS,
     ),
     "mask_outside_box": CheckDefinition(
         "mask_outside_box", "object", MaximumOutsideFractionParameters,
         "The fraction of each mask outside its annotation box must be no greater than the configured maximum.",
+        evidence_terms=_MASK_TERMS,
     ),
     "mask_box_fill": CheckDefinition(
         "mask_box_fill", "object", FillFractionParameters,
         "Each mask's fill fraction inside its annotation box must stay between the configured bounds.",
+        evidence_terms=_MASK_TERMS,
     ),
     "mask_components": CheckDefinition(
         "mask_components", "object", MaximumComponentCountParameters,
         "Each mask must have no more than the configured maximum number of connected components.",
+        evidence_terms=_MASK_TERMS,
     ),
 }
 

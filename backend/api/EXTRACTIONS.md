@@ -42,22 +42,88 @@ Extraction/citations are proposals, not evidence of semantic correctness.
 The extraction prompt distinguishes writing a visual checking rule from evaluating
 an image: no image is required to extract a visual requirement. Nonblank source
 lines receive request-local IDs; blank lines remain in the saved guideline text.
-A one-line paragraph can support more than one check mapping. The model returns
-only requirement/context references, a catalog check ID and parameters. It does
-not regenerate descriptions, citations or rule IDs. The backend copies the
-referenced requirement into `source_sentence`, includes its selected context lines
-in `description`, assigns unique rule IDs and validates exact check parameters.
-Unknown, repeated or malformed references and duplicate mappings are rejected.
-Unsupported requirements use check ID 0 with empty parameters and are retained.
+Numbered lists, unnumbered lines and multi-sentence paragraphs are all source units;
+one line can support several rules.
 
-The generation schema has one compact rule shape with typed parameter values.
-The executable registry independently checks each selected check's required and
-forbidden parameters. Scope/context selection, requirement coverage and check
-mapping remain model proposals requiring reviewer inspection; copying source text
-does not establish correct interpretation. The full-model CPU run must be verified
-after deployment. Mocked tests do not establish its quality or latency.
+### Requirements and their context
 
-### Owner-run observations and remaining work (31 October 2026)
+The model returns two arrays and never any copied text:
+
+- `lines` classifies **every** source line as `requirement` (an obligation),
+  `context` (definitions, scope, exceptions, conditions or how unclear evidence is
+  reported, never checked on its own), `requirement_and_context` (both), or
+  `other` (headings, no annotation content).
+- `rules` maps each requirement line to a catalog check ID and parameters, with
+  optional `context_ids` for other lines that qualify that particular rule.
+
+The backend builds every rule from the original text:
+
+| Field | Content |
+|---|---|
+| `description`, `source_sentence` | the requirement line, verbatim |
+| `context_sentences` | exact lines cited in `context_ids`, plus, for visual (model-assisted) and unsupported rules, **every line classified as context**, in document order |
+| `extraction_notes` | backend explanations for the reviewer (why a mapping was kept unsupported, why a line was kept for review) |
+
+Document-wide context is attached deterministically, so a model that forgets to cite
+the scope, a class definition, an occlusion exception or the uncertainty policy
+cannot drop it from a visual check. Deterministic checks (vocabulary, box, mask)
+receive only the context the model cited, because they execute without a model.
+`context_sentences` and `extraction_notes` are omitted from serialized rules when
+empty, so rules without them keep their historical JSON and semantic hashes.
+
+Context is part of the rule, so it is saved with the rulebook, shown for review,
+pinned in the rule fingerprint and sent in every request that carries the rule:
+the `annotation_guideline` audit and image-feedback recheck payloads (all prompt versions:
+v1, compact v2 and overlay v3, through `compact_rule`), the
+`pedestrian_box_enclosure` request and correction proposals. When a rule has
+context, those requests also carry `guideline_context_use`, a fixed note telling the
+model to apply the context to the requirement instead of judging it separately.
+Requests for rules without context are unchanged byte for byte. Visual findings
+record the context they were judged with in `evidence.measurements.guideline_context`.
+
+### What the backend refuses to accept
+
+Rejected (the extraction job fails): invalid, repeated or out-of-range line or
+context references; a line classified twice or with an unknown role; a rule whose
+source line is classified as context or other; a missing `lines` array; unknown
+checks; malformed or forbidden parameters; parameters on an unmapped rule; duplicate
+mappings; descriptions, citations, rule IDs or other application fields in the output.
+
+Kept, but as an **unsupported** rule (`check_name` null, empty parameters) with an
+`extraction_notes` explanation, so the requirement stays visible and is never
+reported as passed:
+
+- an exact measured value (a number with px, pixels, %, percent, degrees, a length,
+  a duration or frames) mapped to a visual model check, which cannot measure it;
+- a check whose measured quantity the requirement does not mention (mask checks
+  need mask or segmentation wording, overlap checks need overlap/IoU wording,
+  `allowed_labels` needs explicit permitted-vocabulary wording); a box-versus-mask
+  measurement is never accepted as box-versus-visible-object accuracy;
+- an `allowed_labels` list containing a label not written in the requirement line
+  (example class names are not a vocabulary);
+- a numeric parameter that is not stated in the guideline text (no invented thresholds);
+- a requirement line with no mapping, and a line the model left unclassified that
+  no rule cites; an incomplete response is therefore never presented as full coverage.
+
+These guards are conservative and match English wording. A rejected mapping stays
+reviewable and can be remapped by a reviewer. They do not make any extraction
+semantically correct: classification, context selection and check mapping remain
+model proposals that the reviewer must inspect before confirming.
+
+### Reviewer edits keep context
+
+A full draft replacement that omits `context_sentences` or `extraction_notes` for
+a retained rule keeps the previous values, so a review screen that does not yet
+know these fields cannot erase them. Sending an explicit empty list clears them.
+Context sentences must be exact, distinct guideline text and never the rule's own
+source sentence; invalid context is rejected like an invalid citation.
+
+The generation schema has one compact rule shape with typed parameter values and an
+enumerated line role. The executable registry independently checks each selected
+check's required and forbidden parameters. Mocked tests do not establish real-model
+quality or latency; owner-run results are recorded separately below.
+
+### Owner-run observations before this change (31 October 2026)
 
 With `qwen3-vl:4b-instruct` on CPU, the owner reported a four-line example
 completing in 58.9 seconds with the correct visual label-matching rule, attached
@@ -66,23 +132,59 @@ local run of `evaluation/annotation_error_pack/guidelines.txt` completed in
 64.8 seconds and returned 12 proposals. These are individual observations, not
 a latency benchmark or an end-to-end API/audit validation.
 
-The full draft is not yet semantically ready for confirmation:
+That draft was not semantically ready for confirmation, which motivated the design above:
 
 - Scope and class definitions were emitted as standalone visual checks.
 - Most checks did not retain applicable scope, definitions and exceptions as
   context. The audit prompt sends one target rule, not the entire rulebook.
 - The exact 3-pixel tolerance was assigned to `annotation_guideline`, although
-  that check is not a numeric measurement fallback. Retain this requirement as
-  unsupported unless an appropriate measurement check exists; its reviewer
-  approval condition must also remain visible.
+  that check is not a numeric measurement fallback.
 - The uncertainty instruction was emitted as a separate rule rather than
   being attached to the affected checks.
 
-Preserving every source line does not prove that every executable rule has the
-right meaning. Follow-up must verify context propagation through the actual
-audit payload, unsupported-rule handling and reviewer visibility. Automated
-tests for this change were not run by the assistant; the reported local model
-runs do not establish that the test suite passes.
+Real-model results with this change must be recorded separately from mocked tests,
+including elapsed time and any remaining incorrect or missing mappings.
+
+### Development-machine runs with this change (1 November 2026)
+
+Not the owner's machine. Intel Core i5-1155G7 (4 cores), 7.8 GB RAM, Windows 11,
+Ollama 0.40.11, `qwen3-vl:4b-instruct` on CPU with the repository's `ollama.toml`
+(context 16384, 4096 output tokens, 600 s timeout, no thread override). The model was
+not changed. One run per row; variance was not measured. Timings are not comparable
+with the owner's M4 results. The first three rows called the extraction client
+directly; the last three went through the public API and the Docker workers.
+
+| Input | Code | Time | Result |
+|---|---|---|---|
+| `guidelines.txt` (12 lines) | before (`273affd`) | 278.9 s | 12 rules, all `annotation_guideline`: scope, both class definitions, the 3-pixel tolerance and the uncertainty line became standalone visual checks; only one rule carried context |
+| `guidelines.txt` (12 lines) | after (final prompt) | 408.9 s | 8 rules. Lines 1-3 and 12 classified as context; line 8 (occlusion) as requirement and context. Lines 4-8, 10 and 11 mapped to `annotation_guideline`; each visual rule carries lines 1, 2, 3, 8 and 12 (scope, both class definitions, the occlusion exception, the uncertainty policy). Line 9 (3 pixels, reviewer approval) kept unsupported with its original wording |
+| 9-line dog/cat guideline with an explicit vocabulary line | after (final prompt) | 120.0 s | Scope, both definitions and the uncertainty line classified as context; the occlusion line as requirement and context. Every visual rule carries all of them. Visual label matching (`annotation_guideline`) and the vocabulary (`allowed_labels: [dog, cat]`) stayed separate rules. The 3-pixel line was kept unsupported |
+| `guidelines.txt` via `POST /api/v1/rulebooks/extractions` and the extraction worker | after | 437 s | Same 8 rules and context as the direct run above, saved as a draft |
+| Review of that draft via `PUT` and `/confirm`, with one rule sent the way the review screen sends an edited rule (without the new fields) | after | — | All 8 rules kept their `context_sentences` and `extraction_notes` after save and confirm |
+| Audit of one confirmed `annotation_guideline` rule on one Penn-Fudan image (`annotation-guideline-v3`) via `POST /api/v1/audits` and the audit worker | after | 362 s | Outcome `pass`. The finding stores the five context lines under `evidence.measurements.guideline_context`; the model's reason refers to the person definition and the visible-portions exception |
+
+Earlier intermediate prompt wordings on the same machine (not the final behaviour):
+364.1 s with six visual box/polygon-fit requirements wrongly kept unsupported, and
+419.8 s / 224.4 s with the occlusion line classified as a plain requirement, so it was
+not attached to the other rules. The final wording addresses both.
+
+Remaining issues seen in these runs:
+
+- In the final dog/cat run the model classified the occlusion line as requirement and
+  context but returned no check mapping for its own obligation. The backend kept that
+  line as an unsupported rule with an `extraction_notes` explanation, so the reviewer
+  must map it; it was not lost and not reported as checked.
+- Extraction took about 47% longer than before on the same machine (408.9 s versus
+  278.9 s; longer prompt and per-line classification). It stayed within the 600 s model
+  timeout and 900 s job deadline here, with less margin; slower CPUs need measuring.
+- Two earlier API extraction jobs on the same machine ended `EXTRACTION_INTERRUPTED`
+  after about 210 s. While the model used every CPU core, the worker's database
+  checkpoints took up to 8 s against the 5 s connect timeout; the worker code is
+  unchanged by this work, and the longer extraction gives more exposure. Timeouts were
+  not raised.
+- A recheck with the real model and a click-through of the review screen in a browser
+  were not run; the review screen does not yet display context or notes (see
+  RULEBOOKS.md). The owner should run the commands in the PR description.
 
 Cancel with the existing `POST /api/v1/jobs/{job_id}/cancel` route, no body.
 Queued jobs cancel immediately; running jobs enter cancelling, then the supervisor

@@ -17196,7 +17196,7 @@
       },
       "Rule": {
         "additionalProperties": false,
-        "description": "A proposed or reviewer-confirmed requirement, separate from its check.\n\nParameters contain JSON-compatible values, such as allowed labels or\nthresholds. An unknown or absent check name is permitted so unsupported\nrequirements can be retained. Extracted rules require an exact citation;\nreviewer-authored rules may have no source sentence.",
+        "description": "A proposed or reviewer-confirmed requirement, separate from its check.\n\nParameters contain JSON-compatible values, such as allowed labels or\nthresholds. An unknown or absent check name is permitted so unsupported\nrequirements can be retained. Extracted rules require an exact citation;\nreviewer-authored rules may have no source sentence.\n\n``context_sentences`` are exact guideline lines (scope, definitions,\nexceptions, conditions, uncertainty policy) that qualify this requirement.\nThey travel with the rule into every audit and recheck request. They are\ncontext, not separate requirements. ``extraction_notes`` are backend\nexplanations for the reviewer, for example why a mapping was kept unsupported.",
         "properties": {
           "rule_id": {
             "minLength": 1,
@@ -17251,6 +17251,24 @@
           "confirmation_state": {
             "$ref": "#/components/schemas/ConfirmationState",
             "default": "draft"
+          },
+          "context_sentences": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "title": "Context Sentences",
+            "type": "array"
+          },
+          "extraction_notes": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "title": "Extraction Notes",
+            "type": "array"
           }
         },
         "required": [

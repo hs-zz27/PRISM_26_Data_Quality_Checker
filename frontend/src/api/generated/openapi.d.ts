@@ -903,6 +903,12 @@ export interface components {
          *     thresholds. An unknown or absent check name is permitted so unsupported
          *     requirements can be retained. Extracted rules require an exact citation;
          *     reviewer-authored rules may have no source sentence.
+         *
+         *     ``context_sentences`` are exact guideline lines (scope, definitions,
+         *     exceptions, conditions, uncertainty policy) that qualify this requirement.
+         *     They travel with the rule into every audit and recheck request. They are
+         *     context, not separate requirements. ``extraction_notes`` are backend
+         *     explanations for the reviewer, for example why a mapping was kept unsupported.
          */
         Rule: {
             /** Rule Id */
@@ -926,6 +932,10 @@ export interface components {
             source_sentence: string | null;
             /** @default draft */
             confirmation_state: components["schemas"]["ConfirmationState"];
+            /** Context Sentences */
+            context_sentences?: string[];
+            /** Extraction Notes */
+            extraction_notes?: string[];
         };
         /**
          * RuleOrigin

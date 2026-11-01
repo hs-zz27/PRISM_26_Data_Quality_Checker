@@ -47,6 +47,62 @@ to an independent dictionary containing only finite JSON values. Rule IDs must
 be unique and non-null citations must occur exactly in the submitted text.
 Unsupported checks remain reviewable without invented thresholds.
 
+Two optional rule fields carry extraction context (see `EXTRACTIONS.md`):
+`context_sentences` lists exact guideline lines (scope, definitions, exceptions,
+conditions, uncertainty policy) that qualify the requirement, and
+`extraction_notes` lists backend explanations, for example why a numeric
+requirement was kept unsupported. Each context sentence must occur exactly in the
+guideline text, appear once and differ from the rule's own `source_sentence`.
+Both fields are omitted from responses when empty. They are part of the rule, so
+they are pinned with it and sent in every audit and recheck request for it.
+
+### Review screen contract for context
+
+The review screen should show, for each rule: the requirement (`description` and
+`source_sentence`), its `context_sentences` as the applicable context, the selected
+`check_name` and `parameters`, and any `extraction_notes`. Rules with a null
+`check_name` are unsupported requirements awaiting a reviewer decision; approval
+conditions such as a proposed tolerance stay visible in their original wording.
+
+When saving a full draft replacement, send each retained rule's
+`context_sentences` and `extraction_notes` back unchanged unless the reviewer edits
+them. If a retained rule omits these fields, the server keeps the previous values
+so an older client cannot erase them; an explicit empty list clears them. Example:
+
+```json
+{
+  "rule_id": "RULE-2",
+  "description": "4. Labels must match the visible object.",
+  "check_name": "annotation_guideline",
+  "parameters": {},
+  "origin": "extracted",
+  "source_sentence": "4. Labels must match the visible object.",
+  "confirmation_state": "draft",
+  "context_sentences": [
+    "1. Scope: person and car annotations, judged by what the image shows.",
+    "2. A person is a visible human; people on posters or screens are excluded.",
+    "12. Report unclear visual evidence as uncertain for reviewer inspection."
+  ]
+}
+```
+
+An unsupported numeric requirement looks like:
+
+```json
+{
+  "rule_id": "RULE-6",
+  "description": "9. A box may extend at most 3 pixels beyond the visible person; reviewer approval required.",
+  "check_name": null,
+  "parameters": {},
+  "origin": "extracted",
+  "source_sentence": "9. A box may extend at most 3 pixels beyond the visible person; reviewer approval required.",
+  "confirmation_state": "draft",
+  "extraction_notes": [
+    "The requirement states an exact measured value ('3 pixels'). annotation_guideline is a visual model judgement and cannot measure it, so the requirement is kept unsupported for review. No existing check was substituted."
+  ]
+}
+```
+
 Server-owned metadata, timestamps, review history and unknown fields are
 forbidden in creation requests. Exact whitespace, Unicode and line endings are
 preserved. Invalid fields, duplicate IDs and citation mismatches return safe

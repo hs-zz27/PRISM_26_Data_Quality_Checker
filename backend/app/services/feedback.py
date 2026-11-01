@@ -82,6 +82,7 @@ def augment_evaluation(evaluation,rulebook,manifest,runtime,asset_settings,*,aud
             findings.append(_make_finding(rule=rule,outcome=FindingOutcome(recorded.prediction.outcome),
                 reason=recorded.prediction.reason,object_id=None,occurrence='sample',
                 evidence={'model_proposal':recorded.model_dump(mode='json'),
+                    **({'guideline_context': list(rule.context_sentences)} if rule.context_sentences else {}),
                     **({'reviewer_feedback': reviewer_feedback.model_dump(mode='json')} if reviewer_feedback is not None else {}),
                     'execution':runtime.execution.model_dump(mode='json'),
                     'policy_id':None if not examples else runtime.policy.resource_id,
