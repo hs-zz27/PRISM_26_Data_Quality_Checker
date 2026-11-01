@@ -41,6 +41,7 @@ from ..checks.registry import (
 )
 from ..models.json_value import FiniteJsonValue
 from ..models.rule import RuleProposal
+from .extraction_grounding import explicit_vocabulary, grounded_numeric_parameters, measured_value
 
 
 SourceID = Annotated[int, Field(ge=1)]
@@ -176,39 +177,32 @@ def _stated_numbers(text: str) -> set[float]:
 
 def guard_mapping(check_name: str | None, parameters: dict[str, Any], requirement: str,
                   context: list[str]) -> tuple[str | None, dict[str, Any], list[str]]:
-    """Keep a mapping only if the check can execute what the text states.
-
-    Returns the accepted (check_name, parameters) or (None, {}) with a reviewer
-    note. These are conservative, language-dependent guards: a rejected mapping
-    stays visible as an unsupported requirement and can be remapped by a reviewer.
-    """
+    """Retain only mappings grounded in the corresponding source requirement."""
     definition = get_check_definition(check_name)
     if definition is None:
         return check_name, parameters, []
     stated = '\n'.join([requirement, *context])
-    measured = _MEASURED_VALUE.search(requirement)
+    measured = measured_value(stated)
     if definition.model_assisted and measured:
         return None, {}, [
-            f"The requirement states an exact measured value ('{measured.group(0).strip()}'). "
+            f"The requirement or its context states an exact measured value ('{measured}'). "
             f"{check_name} is a visual model judgement and cannot measure it, so the requirement "
             "is kept unsupported for review. No existing check was substituted."]
-    if definition.evidence_terms and not any(_mentions(stated, term) for term in definition.evidence_terms):
+    if (check_name != 'allowed_labels' and definition.evidence_terms
+            and not any(_mentions(stated, term) for term in definition.evidence_terms)):
         return None, {}, [
             f"{check_name} was not accepted: the requirement does not mention what that check "
             f"measures (expected one of: {', '.join(definition.evidence_terms)}). Kept unsupported for review."]
-    labels = parameters.get('allowed_labels')
-    if isinstance(labels, list):
-        missing = [label for label in labels if not (isinstance(label, str) and _mentions(requirement, label))]
-        if missing:
-            return None, {}, [
-                f"allowed_labels was not accepted: {', '.join(map(str, missing))} is not stated in the "
-                "requirement itself. Example class names are not an allowed-label list."]
-    numbers = _stated_numbers(stated)
-    for name, value in parameters.items():
-        if isinstance(value, (int, float)) and not isinstance(value, bool) and float(value) not in numbers:
-            return None, {}, [
-                f"{check_name} was not accepted: parameter {name}={value} is not stated in the guideline "
-                "text. Thresholds are never invented."]
+    if check_name == 'allowed_labels' and not explicit_vocabulary(requirement, parameters['allowed_labels']):
+        return None, {}, [
+            "allowed_labels was not accepted: a complete explicit permitted vocabulary with "
+            "these exact names is not stated in the requirement itself. Examples and partial "
+            "name matches do not define an allowed-label list. Kept unsupported for review."]
+    if not grounded_numeric_parameters(check_name, parameters, requirement, context):
+        return None, {}, [
+            f"{check_name} was not accepted: the parameter value with its matching quantity, "
+            "comparison direction and units is not stated unambiguously in the guideline text. "
+            "List numbers and unrelated measurements are not thresholds. Kept unsupported for review."]
     return check_name, parameters, []
 
 
@@ -248,22 +242,27 @@ def expand_response(content: str, sources: list[str]) -> list[RuleProposal]:
             validate_check_parameters(check_name, item.parameters)
         except RuleParameterError as error:
             raise ValueError(str(error)) from error
-        cited = [sources[i - 1] for i in item.context_ids]
+        definition = get_check_definition(check_name)
+        guard_context = set(item.context_ids)
+        if definition is None or definition.model_assisted:
+            guard_context.update(document_context)
+        guard_context.discard(item.source_id)
+        cited = [sources[i - 1] for i in sorted(guard_context)]
         check_name, parameters, notes = guard_mapping(check_name, item.parameters, sources[item.source_id - 1], cited)
         drafts.append({'order': (item.source_id, order), 'source_id': item.source_id,
                        'context_ids': list(item.context_ids), 'check_name': check_name,
                        'parameters': parameters, 'notes': notes})
 
     mapped = {draft['source_id'] for draft in drafts}
-    referenced = mapped | {i for draft in drafts for i in draft['context_ids']} | set(document_context)
     for index in range(1, count + 1):
         role = roles.get(index)
         if role in REQUIREMENT_ROLES and index not in mapped:
             note = ('Classified as a requirement, but no check mapping was returned. Kept unsupported '
                     'so the reviewer can decide how it is checked.')
-        elif role is None and index not in referenced:
+        elif role is None and index not in mapped:
             note = ('The model did not classify this line. Kept as an unsupported requirement so the '
-                    'reviewer can decide whether it states a requirement.')
+                    'reviewer can decide whether it states a requirement. A context reference does '
+                    'not establish that this line contains no separate obligation.')
         else:
             continue
         drafts.append({'order': (index, len(drafts) + len(sources)), 'source_id': index, 'context_ids': [],
