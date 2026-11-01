@@ -1,0 +1,8 @@
+These are development guidelines for checking supplied person polygons against their images.
+A person means a real human visible in the scene, not a person shown on a poster or screen.
+A person polygon should follow that person's visible boundary and include their visible head, hair or worn headwear, hands, fingers, feet, footwear and other visible body parts.
+For partly occluded people, follow only visible portions and do not infer hidden body parts.
+Small local omissions matter as well as large displacements, but do not invent a numeric acceptance tolerance.
+If image resolution, blur, occlusion or an ambiguous boundary prevents a reliable decision, report uncertain and explain which region needs human review.
+Judge each supplied annotation separately and explain the location of a suspected error. A correct region does not cancel an error elsewhere.
+The reviewer controls the final decision and any correction.
