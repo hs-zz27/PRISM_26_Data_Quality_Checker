@@ -34,6 +34,7 @@ import { formatTimestamp } from '../../lib/format';
 import { RECHECK_IN_PROGRESS_MESSAGE, useImageRecheckStatus } from '../../hooks/useImageRecheckStatus';
 import { useDatasetName } from '../../hooks/useDatasetName';
 import {
+  colorFor,
   groupFindings,
   isReasonRequired,
   nextUnreviewedIndex,
@@ -42,6 +43,7 @@ import {
   resolveReviewKey,
   reviewProgress,
   rulesWithoutFindings,
+  textColorFor,
 } from './reviewWorkspace';
 import type { components } from '../../api/generated/openapi';
 import type { operations } from '../../api/generated/openapi';
@@ -62,7 +64,7 @@ export const AuditReviewWorkspace: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { reviewerId, openPrompt } = useReviewerStore();
-  const { toggleMask, toggleBoxes, resetView, zoom, setZoom, setSelectedInstanceId } = useCanvasStore();
+  const { toggleMask, toggleBoxes, togglePolygons, toggleLabels, resetView, zoom, setZoom, selectedInstanceId, setSelectedInstanceId } = useCanvasStore();
   const commentRef = useRef<HTMLTextAreaElement>(null);
   const datasetName = useDatasetName();
   const [searchParams] = useSearchParams();
@@ -234,7 +236,13 @@ export const AuditReviewWorkspace: React.FC = () => {
       object_id: obj.object_id,
       label: obj.label,
       bbox: obj.bbox,
-      ...('coordinate_system' in obj ? { coordinate_system: obj.coordinate_system, polygons: obj.polygons, bbox_origin: obj.bbox_origin } : {}),
+      ...('coordinate_system' in obj ? {
+        coordinate_system: obj.coordinate_system,
+        polygons: obj.polygons,
+        bbox_origin: obj.bbox_origin,
+        source_key: obj.source_key,
+        source_id: obj.source_id,
+      } : {}),
     }));
   }, [rawSample]);
 
@@ -484,6 +492,8 @@ export const AuditReviewWorkspace: React.FC = () => {
         case 'mask': e.preventDefault(); toggleMask(); break;
         case 'boxes': e.preventDefault(); toggleBoxes(); break;
         case 'fit': e.preventDefault(); resetView(); break;
+        case 'polygons': e.preventDefault(); togglePolygons(); break;
+        case 'labels': e.preventDefault(); toggleLabels(); break;
         case 'help': e.preventDefault(); setIsKeyboardHelpOpen(true); break;
         default:
           if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom(zoom * 1.25); }
@@ -492,7 +502,7 @@ export const AuditReviewWorkspace: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [decideFinding, decideSample, findings, selectedFindingId, navigateQueue, toggleMask, toggleBoxes, resetView, setZoom, zoom]);
+  }, [decideFinding, decideSample, findings, selectedFindingId, navigateQueue, toggleMask, toggleBoxes, togglePolygons, toggleLabels, resetView, setZoom, zoom]);
 
   const renderFinding = (f: Finding) => (
     <FindingCard
@@ -658,6 +668,7 @@ export const AuditReviewWorkspace: React.FC = () => {
             hiddenObjectIds={hiddenObjectIds}
             findings={findings}
             onSelectObject={selectObject}
+            isCorrection={previewCorrection && proposalMatches}
           />
         </div>
 
@@ -754,13 +765,59 @@ export const AuditReviewWorkspace: React.FC = () => {
               <p className="text-xs">{reviewFeedbackComment(sampleDetail?.measurements?.reviewer_feedback)}</p>
               <p className="text-2xs text-text-muted mt-2">The confirmed guidelines remain unchanged. Structural checks use the annotation data; available visual checks also consider this feedback.</p>
             </section>}
-            <details className="object-visibility">
+            <details className="object-visibility" open>
               <summary>Objects on image · {canvasObjects.length}</summary>
-              <div>{canvasObjects.map((object) => {
+              <div className="object-list-grid">{canvasObjects.map((object, idx) => {
                 const hidden = hiddenObjectIds.includes(object.object_id);
+                const displayNum = idx + 1;
+                const objColor = colorFor(displayNum);
+                const txtColor = textColorFor(displayNum);
+                const isDerived = object.bbox_origin === 'derived_from_polygon';
+                const hasBox = object.bbox != null;
+                const hasPolygons = !!(object.polygons && object.polygons.length > 0);
+                const noGeom = !hasBox && !hasPolygons;
+                const sourceIdText = object.source_id != null ? String(object.source_id) : null;
+                const sourceKeyText = object.source_key ?? null;
+                const isSelected = selectedInstanceId === object.object_id;
                 return (
-                  <button type="button" key={object.object_id} onClick={() => setHiddenObjectIds((old) => hidden ? old.filter((id) => id !== object.object_id) : [...old, object.object_id])} onDoubleClick={() => selectObject(object.object_id)} title="Toggle box visibility; double-click to select its finding">
-                    <span>{hidden ? <EyeOff size={13} /> : <Eye size={13} />}</span><span>#{object.object_id} {object.label}</span>
+                  <button
+                    type="button"
+                    key={object.object_id}
+                    onClick={() => {
+                      const nextId = isSelected ? null : object.object_id;
+                      setSelectedInstanceId(nextId);
+                      selectObject(nextId);
+                    }}
+                    title={`Click to select object on canvas. Display #${displayNum}, object_id=${object.object_id}${sourceIdText ? `, source=${sourceIdText}` : ''}${isDerived ? ' (box derived from polygon)' : ''}${noGeom ? ' (no displayable geometry)' : ''}`}
+                    className={`${isSelected ? 'is-selected ' : ''}${hidden ? 'is-hidden' : ''}`.trim()}
+                  >
+                    <span className="object-list-swatch" style={{ background: objColor, color: txtColor }}>#{displayNum}</span>
+                    <span className="object-list-details">
+                      <span className="object-list-label">{object.label}{isDerived && <abbr title="Box derived from polygon vertices, not in source file">*</abbr>}{noGeom && <abbr title="No displayable geometry" className="object-list-warn">⚠</abbr>}</span>
+                      <span className="object-list-meta">
+                        {sourceIdText ? `id ${sourceIdText}` : `obj ${object.object_id}`}
+                        {sourceKeyText && <> · {sourceKeyText}</>}
+                      </span>
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="object-list-eye"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHiddenObjectIds((old) => hidden ? old.filter((id) => id !== object.object_id) : [...old, object.object_id]);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setHiddenObjectIds((old) => hidden ? old.filter((id) => id !== object.object_id) : [...old, object.object_id]);
+                        }
+                      }}
+                      title={hidden ? 'Show on canvas' : 'Hide from canvas'}
+                    >
+                      {hidden ? <EyeOff size={11} /> : <Eye size={11} />}
+                    </span>
                   </button>
                 );
               })}</div>

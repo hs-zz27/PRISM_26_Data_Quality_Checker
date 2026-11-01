@@ -6,7 +6,7 @@ type SampleAuditSummary = components['schemas']['SampleAuditSummary'];
 type SampleReviewDecision = components['schemas']['SampleReviewDecision'];
 type FindingResolution = components['schemas']['FindingResolution'];
 
-export type ReviewKeyAction = 'finding-accept' | 'finding-reject' | 'finding-unsure' | 'sample-accept' | 'sample-reject' | 'sample-correction' | 'next' | 'previous' | 'mask' | 'boxes' | 'fit' | 'help' | null;
+export type ReviewKeyAction = 'finding-accept' | 'finding-reject' | 'finding-unsure' | 'sample-accept' | 'sample-reject' | 'sample-correction' | 'next' | 'previous' | 'mask' | 'boxes' | 'polygons' | 'labels' | 'fit' | 'help' | null;
 export function resolveReviewKey(key: string, shiftKey = false): ReviewKeyAction {
   const normalized = key.toLowerCase();
   if (normalized === 'a') return shiftKey ? 'sample-accept' : 'finding-accept';
@@ -17,9 +17,37 @@ export function resolveReviewKey(key: string, shiftKey = false): ReviewKeyAction
   if (['k', 'arrowleft'].includes(normalized)) return 'previous';
   if (normalized === 'm') return 'mask';
   if (normalized === 'b') return 'boxes';
+  if (normalized === 'p') return 'polygons';
+  if (normalized === 'l') return 'labels';
   if (normalized === 'f') return 'fit';
   if (key === '?') return 'help';
   return null;
+}
+
+/**
+ * 12-colour palette matching the backend overlay renderer (overlay_render.py).
+ * Indexed by `(displayNumber - 1) % 12`.
+ */
+export const PALETTE = [
+  'rgb(230, 25, 75)', 'rgb(60, 180, 75)', 'rgb(0, 130, 200)', 'rgb(245, 130, 48)',
+  'rgb(145, 30, 180)', 'rgb(0, 170, 170)', 'rgb(240, 50, 230)', 'rgb(170, 190, 20)',
+  'rgb(250, 150, 180)', 'rgb(0, 100, 100)', 'rgb(170, 110, 40)', 'rgb(128, 0, 0)',
+] as const;
+
+export function colorFor(displayNumber: number): string {
+  const idx = ((displayNumber - 1) % PALETTE.length + PALETTE.length) % PALETTE.length;
+  return PALETTE[idx] ?? 'rgb(230, 25, 75)';
+}
+
+/** Pick a contrasting text colour for a given background. */
+export function textColorFor(displayNumber: number): string {
+  const rgb = colorFor(displayNumber);
+  const match = rgb.match(/\d+/g);
+  if (!match || match.length < 3) return '#fff';
+  const r = Number(match[0] ?? 0);
+  const g = Number(match[1] ?? 0);
+  const b = Number(match[2] ?? 0);
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#000' : '#fff';
 }
 
 export function readPaneWidth(side: 'left' | 'right', fallback: number): number {
