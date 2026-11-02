@@ -2,7 +2,7 @@
 """Controlled comparison of the visual audit on an unchanged and an altered LabelMe sample.
 
 Runs every visual rule of a rulebook against the SAME image in its baseline and altered archive, once
-per prompt version (v3 = unscoped, v4 = scoped to eligible annotations), and writes a report. No
+per prompt version (v3 = single verdict, v4 = all-object observations, v5 = scoped assessments), and writes a report. No
 database is used; samples are built from the archives in a temporary folder.
 
     python -B evaluation/annotation_error_pack/tools/compare_visual_audit.py \
@@ -12,7 +12,7 @@ database is used; samples are built from the archives in a temporary folder.
         --polygon-fit-rule RULE-7 --shifted-key /shapes/0 --out comparison_report.json
 
 Real mode needs a running local Ollama with the pinned model (FEEDBACK_MODEL_DIGEST set, as for the
-application). Each model call can take minutes on CPU; use --rules to limit, and --versions v4 to skip v3.
+application). Each model call can take minutes on CPU; use --rules to limit, and --versions v5 to skip v3.
 
 Expected outcomes are NEVER sent to the model. They are applied only after all results exist, from the
 command-line arguments above, in the "evaluation" section of the report. One altered image cannot show
@@ -46,11 +46,14 @@ from backend.app.models.dataset_import import ImportPolicy, ImportRequest      #
 from backend.app.models.feedback import ExecutionPin, RulePin                  # noqa: E402
 from backend.app.models.rule import ConfirmationState, Rulebook               # noqa: E402
 
-VERSIONS = {"v3": "annotation-guideline-v3", "v4": "annotation-guideline-v4"}
+VERSIONS = {"v3": "annotation-guideline-v3", "v4": "annotation-guideline-v4", "v5": "annotation-guideline-v5"}
 
 
 def build_sample(archive: Path, stem: str, work: Path):
     """Import the archive exactly like the application does and return (manifest, asset settings)."""
+    # macOS tempfile paths can use /var while the importer resolves /private/var.
+    # Keep source paths and the importer's containment root in the same namespace.
+    work = work.resolve(strict=True)
     content = archive.read_bytes()
     root, assets, source = work / "imports", work / "assets", work / "extracted"
     root.mkdir(), assets.mkdir()
@@ -67,6 +70,10 @@ def build_sample(archive: Path, stem: str, work: Path):
     index, item = matches[0]
     publication = prepare_sample(request.dataset_id, item, index, source_root=source,
                                  asset_root=settings.asset_root, policy=request.policy)
+    missing = [name for name in ('original_image', 'annotation_text')
+               if getattr(publication.manifest, name).availability.value != 'available']
+    if missing:
+        raise SystemExit(f"Cannot compare {stem!r} from {archive.name}: unavailable source assets: {', '.join(missing)}")
     return publication.manifest, AssetStorageSettings(root=settings.asset_root)
 
 
@@ -102,10 +109,18 @@ def mock_transport(execution: ExecutionPin, shifted_key: str):
         document = json.loads(json.loads(request.content)["messages"][-1]["content"])
         body = {"case_id": document["case_id"], "rule_id": document["rule_id"], "evidence_references": ["image"]}
         scope = document.get("requirement_scope")
-        if scope is None:
+        if execution.prompt_version == 'annotation-guideline-v4':
+            body.pop('evidence_references')
+            body['observations'] = [
+                {'object_key': item['object_key'],
+                 'outcome': 'fail' if item['object_key'] == shifted_key else 'pass',
+                 'geometry': ['polygon'], 'reason': 'Mock observation.',
+                 'region': [0, 0, 1, 1] if item['object_key'] == shifted_key else None}
+                for item in document['target']['inputs']['object_inventory']]
+        elif scope is None:
             body.update(outcome="fail", reason="Mock v3 reply (no scoping).")
         else:
-            body.update(outcome="fail", reason="Mock v4 reply.", assessments=[
+            body.update(outcome="fail", reason="Mock v5 reply.", assessments=[
                 {"object_key": t["object_key"], "outcome": "fail" if t["object_key"] == shifted_key else "pass",
                  "geometry": t["supplied_geometry"][0] if t["supplied_geometry"] else "polygon",
                  "condition": "applies", "reason": "Mock assessment."} for t in scope["eligible_targets"]])
@@ -126,17 +141,28 @@ def run_one(version, rule, manifest, assets, args):
     scope = recorded.scope.model_dump(mode="json") if recorded.scope is not None else None
     return {"rule_id": rule.rule_id, "description": rule.description, "outcome": recorded.prediction.outcome,
             "reason": recorded.prediction.reason, "model_verified": recorded.model_verified,
-            "duration_ms": round(recorded.duration_ms, 1), "scope": scope}
+            "duration_ms": round(recorded.duration_ms, 1), "scope": scope,
+            "visual_assessment": None if recorded.visual_assessment is None else recorded.visual_assessment.model_dump(mode='json')}
 
 
 def evaluate(report, args):
     """Apply the expected outcomes AFTER the fact. Returns counts, not a verdict on model accuracy."""
     result = {}
+    def skipped_for_eligibility(row):
+        scope = row.get('scope')
+        return bool(scope and scope.get('outcome_source') == 'no_model_call'
+                    and scope.get('unavailable') is not None and not row.get('model_verified'))
+
     for version, samples in report["results"].items():
         base, alt = samples["baseline"], samples["altered"]
         fit_alt = next((r for r in alt if r["rule_id"] == args.polygon_fit_rule), None)
-        flagged = sorted({x["object_key"] for x in (fit_alt or {}).get("scope", {}).get("results", [])
-                          if x["outcome"] in ("fail", "unsure")}) if fit_alt and fit_alt.get("scope") else None
+        rows = None
+        if fit_alt and fit_alt.get('model_verified'):
+            if fit_alt.get('scope'):
+                rows = fit_alt['scope']['results'] or None
+            elif fit_alt.get('visual_assessment'):
+                rows = fit_alt['visual_assessment']['observations'] or None
+        flagged = None if rows is None else sorted({x['object_key'] for x in rows if x['outcome'] in ('fail', 'unsure')})
         result[version] = {
             "baseline_rules_failed_false_alarms": [r["rule_id"] for r in base if r["outcome"] == "fail"],
             "altered_polygon_fit_outcome": None if fit_alt is None else fit_alt["outcome"],
@@ -145,7 +171,12 @@ def evaluate(report, args):
                                                             if r["outcome"] == "fail" and r["rule_id"] != args.polygon_fit_rule],
             "altered_unchanged_annotation_flagged": None if flagged is None else [k for k in flagged if k != args.shifted_key],
             "model_calls_skipped_as_unavailable_without_inference": sum(
-                1 for rows in (base, alt) for r in rows if r["scope"] and r["scope"].get("outcome_source") == "no_model_call"),
+                1 for batch in (base, alt) for r in batch if skipped_for_eligibility(r)),
+            "unverified_execution_count": sum(
+                1 for batch in (base, alt) for r in batch
+                if not r['model_verified'] and not skipped_for_eligibility(r)),
+            "unavailable_rules": {name: [r['rule_id'] for r in batch if r['outcome'] == 'unavailable']
+                                  for name, batch in (('baseline', base), ('altered', alt))},
             "total_duration_seconds": round(sum(r["duration_ms"] for rows in (base, alt) for r in rows) / 1000, 1),
         }
     return result
@@ -159,7 +190,7 @@ def main(argv=None) -> int:
     parser.add_argument("--rulebook", required=True, type=Path, help="Rulebook JSON, e.g. GET /api/v1/rulebooks/<id>")
     parser.add_argument("--polygon-fit-rule", required=True, help="rule_id of the polygon-fit rule (expected outcome only)")
     parser.add_argument("--shifted-key", default="/shapes/0", help="source key of the deliberately shifted annotation")
-    parser.add_argument("--versions", default="v3,v4")
+    parser.add_argument("--versions", default="v4,v5")
     parser.add_argument("--rules", help="comma-separated rule_ids to run (default: all supported visual rules)")
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--mock", action="store_true")
@@ -169,7 +200,7 @@ def main(argv=None) -> int:
         return 2
     versions = [v.strip() for v in args.versions.split(",")]
     if any(v not in VERSIONS for v in versions):
-        print("--versions must be v3 and/or v4", file=sys.stderr)
+        print("--versions must be a comma-separated selection of v3, v4 and v5", file=sys.stderr)
         return 2
     book = load_rulebook(args.rulebook)
     args.rulebook_id, args.rulebook_version = book.rulebook_id, book.version
