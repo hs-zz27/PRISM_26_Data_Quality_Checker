@@ -2,7 +2,7 @@
 
 ## Original and annotation-overlay views for new image audits
 
-New executions use `annotation-guideline-v3` with preprocessing
+New executions use `annotation-guideline-v4` with preprocessing
 `original-and-annotation-overlay-v1`. Each target and training example has two
 separately labelled image messages: the original, unchanged image bytes and an
 overlay rendered from that sample's supplied annotation revision. Yellow lines
@@ -20,13 +20,30 @@ once; per-object extra fields preserve the distinction between missing and null.
 Both images and all image captions count towards the bounded request/context
 preflight. Overlay output must fit the existing image-byte limit. Requests that
 cannot fit are unavailable, with no truncation, omitted objects or invented
-vertices. v1 and v2 audits, policies and rechecks preserve their original view;
-submit a fresh audit to select v3. The existing correction overlay renderer is
+vertices. v1, v2 and v3 audits, policies and rechecks preserve their original view;
+submit a fresh audit without an older feedback policy to select v4. The existing correction overlay renderer is
 shared with audits, and correction proposals continue using their v2 protocol
 for compact executions, with preview and explicit application still required.
 
 See [overlay verification](OVERLAY_AUDIT_VERIFICATION.md) for the reviewed pair's
 results, source-fidelity checks and remaining accuracy limitations.
+
+V4 adds an inventory of available evidence for every object and requires one
+observation per source key. Supplied boxes, polygon-derived bounds and polygons
+are distinguished by the readers, not guessed from labels. A model cannot publish
+a pass/fail that cites an unseen mask or a derived bound as a supplied box.
+Unknown, duplicate or omitted objects and out-of-image review regions are rejected.
+The backend aggregates observations: a supported failure flags the sample; otherwise
+uncertainty or unavailable evidence prevents a pass. All-not-applicable is unavailable.
+The complete observations are retained under `model_proposal.visual_assessment` and
+shown in the audit finding card. Failure regions are inspection pointers, not edits.
+
+These guards validate reference consistency, not visual correctness. The model
+still interprets rule applicability, conditions and visible boundaries. A wrong
+but structurally valid observation can still occur. V4 does not scan for entirely
+unannotated objects, show mask pixels, activate feedback policies, redraw annotations
+or train the model. See [the step 1 verification instructions](VISUAL_ASSESSMENT_VERIFICATION.md)
+before reporting any accuracy improvement.
 
 ## Compact prompt transport
 
