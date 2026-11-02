@@ -17,8 +17,14 @@ def load_execution_pin() -> ExecutionPin:
     try:
         settings = load_ollama_settings()
         values = {**dotenv_values(DEFAULT_ENV_PATH, interpolate=False), **os.environ}
+        # New audits scope each requirement to the annotations it can be checked against (v4).
+        # v3 stays selectable for comparison; audits already pinned to v3 or earlier are unaffected
+        # because their stored pin, not this default, governs rechecks.
+        version = values.get('FEEDBACK_PROMPT_VERSION') or 'annotation-guideline-v4'
+        if version not in {'annotation-guideline-v3', 'annotation-guideline-v4'}:
+            raise ValueError('Unsupported FEEDBACK_PROMPT_VERSION.')
         return ExecutionPin(
-            prompt_version='annotation-guideline-v3',
+            prompt_version=version,
             preprocessing='original-and-annotation-overlay-v1',
             model=settings.model, model_digest=values['FEEDBACK_MODEL_DIGEST'],
             num_ctx=settings.context_length, num_predict=min(settings.max_output_tokens, 2048),

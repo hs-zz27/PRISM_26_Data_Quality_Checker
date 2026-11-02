@@ -148,7 +148,14 @@ def test_new_execution_pins_select_overlay_without_changing_old_pins(monkeypatch
     from backend.app.core.feedback import load_execution_pin
     monkeypatch.setenv('FEEDBACK_MODEL_DIGEST', 'sha256:'+'a'*64)
     pin = load_execution_pin()
-    assert pin.prompt_version == 'annotation-guideline-v3'
+    # New audits scope each requirement to eligible annotations (v4); the evidence views are v3's.
+    assert pin.prompt_version == 'annotation-guideline-v4'
     assert pin.preprocessing == 'original-and-annotation-overlay-v1'
+    # v3 stays selectable so v3 and v4 can be compared on one machine.
+    monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', 'annotation-guideline-v3')
+    assert load_execution_pin().prompt_version == 'annotation-guideline-v3'
+    monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', 'annotation-guideline-v2')
+    with pytest.raises(FeedbackError):
+        load_execution_pin()
     legacy = ExecutionPin(model='old', model_digest='sha256:'+'b'*64)
     assert legacy.prompt_version == 'annotation-guideline-v1'

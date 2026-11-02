@@ -12581,7 +12581,7 @@
       "JsonValue": {},
       "Rule": {
         "additionalProperties": false,
-        "description": "A proposed or reviewer-confirmed requirement, separate from its check.\n\nParameters contain JSON-compatible values, such as allowed labels or\nthresholds. An unknown or absent check name is permitted so unsupported\nrequirements can be retained. Extracted rules require an exact citation;\nreviewer-authored rules may have no source sentence.\n\n``context_sentences`` are exact guideline lines (scope, definitions,\nexceptions, conditions, uncertainty policy) that qualify this requirement.\nThey travel with the rule into every audit and recheck request. They are\ncontext, not separate requirements. ``extraction_notes`` are backend\nexplanations for the reviewer, for example why a mapping was kept unsupported.",
+        "description": "A proposed or reviewer-confirmed requirement, separate from its check.\n\nParameters contain JSON-compatible values, such as allowed labels or\nthresholds. An unknown or absent check name is permitted so unsupported\nrequirements can be retained. Extracted rules require an exact citation;\nreviewer-authored rules may have no source sentence.\n\n``context_sentences`` are exact guideline lines (scope, definitions,\nexceptions, conditions, uncertainty policy) that qualify this requirement.\nThey travel with the rule into every audit and recheck request. They are\ncontext, not separate requirements. ``extraction_notes`` are backend\nexplanations for the reviewer, for example why a mapping was kept unsupported.\n\n``applicability`` states which supplied annotation geometry the requirement judges (see\n``RuleApplicability``). It is derived from the requirement itself, never from context\nsentences, may be set by a reviewer, and is pinned with the rule. A rule without it is judged\nagainst an applicability derived at audit time, which the finding records.",
         "properties": {
           "rule_id": {
             "minLength": 1,
@@ -12654,6 +12654,16 @@
             },
             "title": "Extraction Notes",
             "type": "array"
+          },
+          "applicability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleApplicability"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -12662,6 +12672,64 @@
           "origin"
         ],
         "title": "Rule",
+        "type": "object"
+      },
+      "RuleApplicability": {
+        "additionalProperties": false,
+        "description": "Supplied geometry a requirement judges.\n\n``geometry`` lists the kinds the requirement is about. ``combine`` says how an annotation must\nhave them: ``all`` means every listed kind must have been supplied for that annotation (for\nexample a polygon judged against its own box); ``any`` means alternatives (a box or a polygon).\nAn empty list means the requirement does not depend on a geometry type and every annotation is\neligible. ``status`` is ``ambiguous`` when the text could not be resolved confidently; the\nreviewer should check it. ``source`` records who decided: the backend derivation or a reviewer.",
+        "properties": {
+          "geometry": {
+            "items": {
+              "enum": [
+                "box",
+                "polygon",
+                "mask"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Geometry",
+            "type": "array"
+          },
+          "combine": {
+            "default": "all",
+            "enum": [
+              "any",
+              "all"
+            ],
+            "title": "Combine",
+            "type": "string"
+          },
+          "source": {
+            "default": "derived-v1",
+            "enum": [
+              "derived-v1",
+              "reviewer"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "default": "clear",
+            "enum": [
+              "clear",
+              "ambiguous"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "basis": {
+            "maxLength": 400,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Basis",
+            "type": "string"
+          }
+        },
+        "required": [
+          "basis"
+        ],
+        "title": "RuleApplicability",
         "type": "object"
       },
       "RuleOrigin": {
@@ -16380,6 +16448,25 @@
             "default": false,
             "title": "Propose Correction",
             "type": "boolean"
+          },
+          "object_keys": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 16,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Keys",
+            "uniqueItems": true
           }
         },
         "required": [
@@ -17723,6 +17810,7 @@
               "annotation-guideline-v1",
               "annotation-guideline-v2",
               "annotation-guideline-v3",
+              "annotation-guideline-v4",
               "pedestrian-box-feedback-v1"
             ],
             "title": "Prompt Version",
@@ -17825,6 +17913,98 @@
         "title": "ExecutionPin",
         "type": "object"
       },
+      "IneligibleObject": {
+        "additionalProperties": false,
+        "description": "An annotation that is context for this requirement, not a target.",
+        "properties": {
+          "object_key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Object Key",
+            "type": "string"
+          },
+          "object_id": {
+            "title": "Object Id",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 255,
+            "title": "Label",
+            "type": "string"
+          },
+          "geometry": {
+            "$ref": "#/components/schemas/ObjectGeometry"
+          },
+          "missing": {
+            "items": {
+              "enum": [
+                "box",
+                "polygon",
+                "mask"
+              ],
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "detail": {
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object_key",
+          "object_id",
+          "label",
+          "geometry",
+          "missing",
+          "detail"
+        ],
+        "title": "IneligibleObject",
+        "type": "object"
+      },
+      "ObjectGeometry": {
+        "additionalProperties": false,
+        "description": "How each geometry of one annotation was obtained.",
+        "properties": {
+          "box": {
+            "enum": [
+              "supplied",
+              "derived_from_polygon",
+              "absent"
+            ],
+            "title": "Box",
+            "type": "string"
+          },
+          "polygon": {
+            "enum": [
+              "supplied",
+              "absent"
+            ],
+            "title": "Polygon",
+            "type": "string"
+          },
+          "mask": {
+            "enum": [
+              "supplied_not_shown",
+              "referenced_unavailable",
+              "unsupported_encoding",
+              "absent"
+            ],
+            "title": "Mask",
+            "type": "string"
+          }
+        },
+        "required": [
+          "box",
+          "polygon",
+          "mask"
+        ],
+        "title": "ObjectGeometry",
+        "type": "object"
+      },
       "Prediction": {
         "additionalProperties": false,
         "properties": {
@@ -17905,6 +18085,17 @@
               }
             ],
             "default": null
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetScope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -17913,6 +18104,325 @@
           "model_verified"
         ],
         "title": "RecordedPrediction",
+        "type": "object"
+      },
+      "ScopeImage": {
+        "additionalProperties": false,
+        "description": "Image identity that, with object_key, makes an annotation reference unambiguous.",
+        "properties": {
+          "sample_id": {
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "sample_revision": {
+            "title": "Sample Revision",
+            "type": "integer"
+          },
+          "image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Key"
+          },
+          "image_sha256": {
+            "title": "Image Sha256",
+            "type": "string"
+          },
+          "annotation_sha256": {
+            "title": "Annotation Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sample_id",
+          "sample_revision",
+          "image_sha256",
+          "annotation_sha256"
+        ],
+        "title": "ScopeImage",
+        "type": "object"
+      },
+      "ScopeObject": {
+        "additionalProperties": false,
+        "description": "One annotation identified by its stable source key; object_id is only a display number.",
+        "properties": {
+          "object_key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Object Key",
+            "type": "string"
+          },
+          "object_id": {
+            "title": "Object Id",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 255,
+            "title": "Label",
+            "type": "string"
+          },
+          "geometry": {
+            "$ref": "#/components/schemas/ObjectGeometry"
+          }
+        },
+        "required": [
+          "object_key",
+          "object_id",
+          "label",
+          "geometry"
+        ],
+        "title": "ScopeObject",
+        "type": "object"
+      },
+      "ScopeUnavailable": {
+        "additionalProperties": false,
+        "description": "Why no model call was made. ``code`` is stable; ``detail`` is for the reviewer.",
+        "properties": {
+          "code": {
+            "enum": [
+              "no_annotations",
+              "no_eligible_annotation",
+              "supplied_box_not_available",
+              "mask_not_supplied",
+              "mask_referenced_unavailable",
+              "mask_encoding_unsupported",
+              "mask_not_visible_to_visual_check",
+              "measurement_not_supported",
+              "condition_not_present",
+              "no_valid_assessment"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "ScopeUnavailable",
+        "type": "object"
+      },
+      "TargetResult": {
+        "additionalProperties": false,
+        "description": "The final result for one eligible target after backend checks of the model's assessment.",
+        "properties": {
+          "object_key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Object Key",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "unsure",
+              "unavailable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "model_outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unsure",
+                  "unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Model Outcome"
+          },
+          "geometry": {
+            "anyOf": [
+              {
+                "enum": [
+                  "box",
+                  "polygon"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Geometry"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "applies",
+                  "not_present",
+                  "unclear"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Condition"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 400,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Flags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "object_key",
+          "outcome"
+        ],
+        "title": "TargetResult",
+        "type": "object"
+      },
+      "TargetScope": {
+        "additionalProperties": false,
+        "description": "Eligibility and per-target results recorded with a visual finding.",
+        "properties": {
+          "version": {
+            "const": "target-scope-v1",
+            "default": "target-scope-v1",
+            "title": "Version",
+            "type": "string"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ScopeImage"
+          },
+          "applicability": {
+            "$ref": "#/components/schemas/RuleApplicability"
+          },
+          "applicability_origin": {
+            "enum": [
+              "rule",
+              "derived_at_audit"
+            ],
+            "title": "Applicability Origin",
+            "type": "string"
+          },
+          "eligible": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeObject"
+            },
+            "title": "Eligible",
+            "type": "array"
+          },
+          "ineligible": {
+            "items": {
+              "$ref": "#/components/schemas/IneligibleObject"
+            },
+            "title": "Ineligible",
+            "type": "array"
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScopeUnavailable"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/TargetResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "rejected_references": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Rejected References",
+            "type": "array"
+          },
+          "model_reported_outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unsure",
+                  "unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Model Reported Outcome"
+          },
+          "outcome_source": {
+            "default": "no_model_call",
+            "enum": [
+              "no_model_call",
+              "derived_from_target_results"
+            ],
+            "title": "Outcome Source",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "maxLength": 400,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "image",
+          "applicability",
+          "applicability_origin"
+        ],
+        "title": "TargetScope",
         "type": "object"
       },
       "FeedbackEvaluation": {

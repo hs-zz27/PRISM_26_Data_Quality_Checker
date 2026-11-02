@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 from typing import Annotated, Generic, Literal, TypeVar
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
+from .applicability import TargetScope
 from .asset_manifest import SampleAssetManifest
 from .identifiers import Identifier, Revision
 from .finding import FindingReview
@@ -265,7 +266,7 @@ class EvidenceLimits(Record):
 class ExecutionPin(EvidenceLimits):
     model: Text
     model_digest: Annotated[str, StringConstraints(pattern='^sha256:[0-9a-f]{64}$')]
-    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
+    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
     preprocessing: Literal['original-png-no-transform-v1', 'original-and-annotation-overlay-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
     schema_version: Literal[1] = 1
     identity_assurance: Literal['local-server-reported-pre-post-v1'] = 'local-server-reported-pre-post-v1'
@@ -296,7 +297,9 @@ class ExecutionPin(EvidenceLimits):
         if self.enclosure is None:
             expected = {'annotation-guideline-v1': 'original-png-no-transform-v1',
                         'annotation-guideline-v2': 'original-png-no-transform-v1',
-                        'annotation-guideline-v3': 'original-and-annotation-overlay-v1'}
+                        'annotation-guideline-v3': 'original-and-annotation-overlay-v1',
+                        # v4 keeps v3's evidence views and adds requirement scope and per-target results.
+                        'annotation-guideline-v4': 'original-and-annotation-overlay-v1'}
             if expected.get(self.prompt_version) != self.preprocessing:
                 raise ValueError('Prompt and preprocessing versions must match.')
         else:
@@ -320,11 +323,36 @@ class Prediction(Record):
     reason: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
     evidence_references: list[Literal['image', 'annotations', 'guideline']] = Field(max_length=3)
 
+class ObjectAssessment(Record):
+    """The model's judgement of ONE eligible annotation, identified by its stable source key.
+
+    ``geometry`` names the supplied geometry judged. ``condition`` says whether the requirement's own
+    condition (for example occlusion) holds for this annotation: applies, not_present or unclear.
+    """
+
+    object_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    outcome: Outcome
+    geometry: Literal['box', 'polygon']
+    condition: Literal['applies', 'not_present', 'unclear']
+    reason: Annotated[str, StringConstraints(min_length=1, max_length=300)]
+
+class TargetedPrediction(Record):
+    """The v4 response: a sample-level proposal plus one assessment per eligible annotation."""
+
+    case_id: Digest
+    rule_id: Identifier
+    outcome: Outcome
+    reason: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
+    assessments: list[ObjectAssessment] = Field(max_length=32)
+    evidence_references: list[Literal['image', 'annotations', 'guideline']] = Field(max_length=3)
+
 class RecordedPrediction(Record):
     prediction: Prediction
     duration_ms: float = Field(ge=0, allow_inf_nan=False)
     model_verified: bool
     enclosure: EnclosureEvidence | None = Field(default=None, exclude_if=lambda value: value is None)
+    # Recorded for v4 executions only; earlier recorded predictions serialize exactly as before.
+    scope: TargetScope | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def verified_outcome(self):

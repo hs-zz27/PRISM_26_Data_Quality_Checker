@@ -46,6 +46,8 @@ when API models or routes change.
 - ENDPOINTS.md: every method, path and operation ID, grouped by
   implemented versus planned.
 - RULEBOOKS.md: manual creation, editing, confirmation and history.
+- RULE_APPLICABILITY.md: which supplied geometry a rule judges, scoped visual audit (prompt v4),
+  per-annotation results, correction scope and the frontend integration notes.
 - DATASETS.md: durable ZIP acceptance, explicit worker, dirty-source browsing and generation prerequisites.
 - AUDITS.md: catalogue-backed audit creation, listing and explicit worker commands.
 - EXPORTS.md: frozen reviewed selections, managed export jobs, manifests and downloads.

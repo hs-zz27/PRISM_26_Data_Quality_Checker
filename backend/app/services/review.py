@@ -97,7 +97,7 @@ def _require_draft(current: Rulebook) -> None:
 
 # Fields a client may not know about yet. When a retained rule omits them, the
 # previous values are kept instead of silently erased; an explicit [] clears them.
-PRESERVED_RULE_FIELDS = ("context_sentences", "extraction_notes")
+PRESERVED_RULE_FIELDS = ("context_sentences", "extraction_notes", "applicability")
 
 
 def save_rulebook_review(
