@@ -8,7 +8,7 @@ from backend.app.core.config import AssetStorageSettings
 from backend.app.models.asset_manifest import AssetManifestEntry
 from backend.app.services.feedback_evidence import compute_scope
 from backend.tests.applicability_fixtures import (
-    imported, labelme_document, polygon_shape, rectangle_shape, requires_importer, v4_pin, visual_rule, WOMAN)
+    imported, labelme_document, polygon_shape, rectangle_shape, requires_importer, v5_pin, visual_rule, WOMAN)
 from backend.tests.feedback_fixtures import assets, case
 from backend.tests.test_guideline_context import ANIMAL_LINES, ANIMAL_TEXT, ANIMALS, VISUAL, animal_rules, extract, respond
 from backend.app.inference.rule_proposals import expand_response, source_units
@@ -20,7 +20,7 @@ MASK = visual_rule('R-MASK', 'The mask covers the whole visible person.')
 
 
 def scope(rule, manifest, storage):
-    return compute_scope(manifest, rule, v4_pin(), storage)
+    return compute_scope(manifest, rule, v5_pin(), storage)
 
 
 @requires_importer

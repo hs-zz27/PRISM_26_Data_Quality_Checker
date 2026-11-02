@@ -14687,6 +14687,7 @@
               "annotation-guideline-v2",
               "annotation-guideline-v3",
               "annotation-guideline-v4",
+              "annotation-guideline-v5",
               "pedestrian-box-feedback-v1"
             ],
             "title": "Prompt Version",
@@ -17207,6 +17208,17 @@
               }
             ],
             "default": null
+          },
+          "visual_assessment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisualAssessment"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -18878,6 +18890,120 @@
         ],
         "title": "ToolStatus",
         "type": "string"
+      },
+      "VisualAssessment": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "rule_id": {
+            "minLength": 1,
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/VisualObservation"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "rule_id",
+          "observations"
+        ],
+        "title": "VisualAssessment",
+        "type": "object"
+      },
+      "VisualObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "object_key": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Object Key",
+            "type": "string"
+          },
+          "geometry": {
+            "items": {
+              "enum": [
+                "box",
+                "polygon",
+                "label",
+                "mask"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Geometry",
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "unsure",
+              "unavailable",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 320,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          }
+        },
+        "required": [
+          "object_key",
+          "geometry",
+          "outcome",
+          "reason",
+          "region"
+        ],
+        "title": "VisualObservation",
+        "type": "object"
       }
     }
   },

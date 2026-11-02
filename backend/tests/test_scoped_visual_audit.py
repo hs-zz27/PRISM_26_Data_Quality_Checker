@@ -1,4 +1,4 @@
-"""Scoped (v4) visual audit: eligibility before inference, targets tied to stable keys, bounded corrections.
+"""Scoped (v5) visual audit: eligibility before inference, targets tied to stable keys, bounded corrections.
 
 A mock local model server replaces Ollama. Every image and annotation is SYNTHETIC. These are mocked
 tests; they say nothing about how a real model behaves.
@@ -19,7 +19,7 @@ from backend.app.services.json_audit import audit_json_sample
 from backend.app.services.review_correction import attach_review_context, flagged_object_keys, propose_correction
 from backend.tests.applicability_fixtures import (
     FakeOllama, MAN, WOMAN, assessment, imported, labelme_document, polygon_shape, rectangle_shape, requires_importer,
-    rulebook, two_polygons, v3_pin, v4_pin, visual_rule)
+    rulebook, two_polygons, v3_pin, v5_pin, visual_rule)
 
 pytestmark = requires_importer      # every test here builds a stored sample with the managed importer
 
@@ -58,7 +58,7 @@ def run(tmp_path, monkeypatch, document, rules, responder=answer, pin=None, feed
                         lambda execution: GuidelineClient(execution, transport=server.transport()))
     result = augment_evaluation(
         RuleEvaluationResult(findings=[], internal_check_failures=0), rulebook(*rules), manifest,
-        FeedbackRuntime(execution=pin or v4_pin()), AssetStorageSettings(root=settings.asset_root),
+        FeedbackRuntime(execution=pin or v5_pin()), AssetStorageSettings(root=settings.asset_root),
         audit_id='audit_t', sample_id=manifest.sample_id, sample_revision=1,
         **({} if feedback is None else {'reviewer_feedback': feedback}))
     return {f.rule_id: f for f in result.findings}, server, manifest, AssetStorageSettings(root=settings.asset_root)
@@ -81,6 +81,15 @@ def test_reproduction_box_rules_on_polygon_only_data_are_unavailable_and_make_no
         assert scope['unavailable']['code'] == 'supplied_box_not_available' and scope['eligible'] == []
         assert {item['object_key'] for item in scope['ineligible']} == {'/shapes/0', '/shapes/1'}
         assert finding.evidence.measurements['model_proposal']['model_verified'] is False
+
+
+def test_more_targets_than_the_response_bound_never_truncates_or_calls_the_model(tmp_path, monkeypatch):
+    document = labelme_document(*(polygon_shape(MAN) for _ in range(33)))
+    findings, server, *_ = run(tmp_path, monkeypatch, document, [FIT])
+    assert server.requests == []
+    assert findings['RULE-7'].outcome.value == 'unavailable'
+    assert findings['RULE-7'].reason == 'context_limit'
+    assert len(scope_of(findings['RULE-7'])['eligible']) == 33
 
 
 def test_reproduction_the_polygon_failure_names_the_man_and_leaves_the_woman_passing(tmp_path, monkeypatch):
@@ -152,7 +161,7 @@ def test_mixed_objects_judge_the_eligible_annotation_and_report_the_other_as_con
 def test_a_failed_model_call_still_records_which_annotations_were_eligible(tmp_path):
     pubs, settings, _, _ = imported(tmp_path, 'labelme', data=two_polygons())
     manifest = pubs[0].manifest
-    client = GuidelineClient(v4_pin(), transport=httpx.MockTransport(lambda request: httpx.Response(500)))
+    client = GuidelineClient(v5_pin(), transport=httpx.MockTransport(lambda request: httpx.Response(500)))
     try:
         recorded = client.predict(manifest, RulePin(rulebook_id='b', rulebook_version=1, rule=FIT), [],
                                   AssetStorageSettings(root=settings.asset_root))
@@ -174,10 +183,10 @@ def test_v4_requests_still_enforce_the_context_and_size_bounds(tmp_path):
     target = RulePin(rulebook_id='b', rulebook_version=1, rule=FIT)
     storage = AssetStorageSettings(root=settings.asset_root)
     with pytest.raises(FeedbackError) as error:
-        prepare_payload(pubs[0].manifest, target, [], v4_pin(num_ctx=1024), storage)
+        prepare_payload(pubs[0].manifest, target, [], v5_pin(num_ctx=1024), storage)
     assert error.value.code == 'CONTEXT_NOT_REPRESENTABLE'
     with pytest.raises(FeedbackError):
-        prepare_payload(pubs[0].manifest, target, [], v4_pin(max_request_bytes=1024), storage)
+        prepare_payload(pubs[0].manifest, target, [], v5_pin(max_request_bytes=1024), storage)
 
 
 def test_reviewer_feedback_travels_with_the_scoped_request(tmp_path, monkeypatch):
@@ -218,7 +227,7 @@ def corrections(tmp_path, edits, *, feedback_keys=None, editable_keys=None):
                 {'case_id': sent[-1]['case_id'], 'status': 'proposed', 'reason': 'Synthetic correction.', 'edits': edits})}}
     feedback = ImageReviewFeedback(reviewer_id='reviewer', source_audit_id='audit_parent', comment="Man's outline.",
                                    propose_correction=True, **({} if feedback_keys is None else {'object_keys': feedback_keys}))
-    result = propose_correction(measurements, feedback, manifest, rulebook(FIT), storage, v4_pin(),
+    result = propose_correction(measurements, feedback, manifest, rulebook(FIT), storage, v5_pin(),
                                 client_factory=Client, editable_keys=editable_keys)
     return result, measurements, sent
 
@@ -270,7 +279,7 @@ def test_the_audit_passes_only_flagged_annotations_to_the_proposal(tmp_path, mon
     feedback = ImageReviewFeedback(reviewer_id='reviewer', source_audit_id='audit_parent', comment='x',
                                    propose_correction=True)
     attach_review_context({'objects': []}, feedback, manifest, rulebook(FIT), storage,
-                          FeedbackRuntime(execution=v4_pin()), None,
+                          FeedbackRuntime(execution=v5_pin()), None,
                           evaluation=RuleEvaluationResult(findings=list(findings.values()), internal_check_failures=0))
     assert seen['editable_keys'] == ['/shapes/0']
 

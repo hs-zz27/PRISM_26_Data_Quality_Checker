@@ -1,6 +1,7 @@
 import React from 'react';
 import { EnclosureEvidence } from './EnclosureEvidence';
 import { readEnclosureEvidence } from './enclosureEvidenceValue';
+import { VisualObservations } from './VisualObservations';
 import { summarizeEvidence } from '../../lib/evidence';
 import { History, Quote, UserRound } from 'lucide-react';
 import { Badge, type BadgeVariant } from '../../components/ui/Badge';
@@ -72,6 +73,7 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding: f, selected, 
       </dl>
 
       {enclosure && <EnclosureEvidence evidence={enclosure} />}
+      {f.check_name === 'annotation_guideline' && <VisualObservations proposal={measurements.model_proposal} />}
 
       {evidenceRows.length > 0 && (
         <div className="finding-evidence" aria-label="Measured evidence">

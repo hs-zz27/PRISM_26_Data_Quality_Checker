@@ -20,10 +20,10 @@ def imported(*args, **kwargs):
     return real(*args, **kwargs)
 
 
-def v4_pin(**changes):
+def v5_pin(**changes):
     changes.setdefault('num_predict', 2048)
     return ExecutionPin(model='test-vision', model_digest='sha256:' + 'a' * 64,
-                        prompt_version='annotation-guideline-v4',
+                        prompt_version='annotation-guideline-v5',
                         preprocessing='original-and-annotation-overlay-v1', **changes)
 
 

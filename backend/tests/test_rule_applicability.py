@@ -201,7 +201,7 @@ def test_unknown_context_and_repeated_references_are_rejected_not_counted():
     _, _, result = combine_results(scope, reply(scope, [
         assessment('/shapes/0', 'pass', geometry='box'), assessment('/shapes/1', 'fail', geometry='box'),
         assessment('/shapes/9', 'fail', geometry='box'), assessment('/shapes/0', 'fail', geometry='box')]))
-    assert [r.outcome for r in result.results] == ['pass']
+    assert [r.outcome for r in result.results] == ['unsure']
     assert len(result.rejected_references) == 3
     assert any('context annotation' in item for item in result.rejected_references)
 
@@ -281,6 +281,15 @@ def test_a_model_that_can_establish_nothing_yields_unavailable():
     outcome, _, result = combine_results(scope, reply(scope, [assessment('/shapes/0', 'unavailable'),
                                                               assessment('/shapes/1', 'unavailable')]))
     assert outcome == 'unavailable' and result.unavailable.code == 'no_valid_assessment'
+
+
+@pytest.mark.parametrize('other,expected', [('pass', 'unavailable'), ('fail', 'fail'), ('unsure', 'unsure')])
+def test_an_unavailable_applicable_target_cannot_be_hidden_by_a_passing_target(other, expected):
+    scope = man_woman()
+    outcome, _, result = combine_results(scope, reply(scope, [
+        assessment('/shapes/0', other), assessment('/shapes/1', 'unavailable')]))
+    assert outcome == expected
+    assert result.results[1].outcome == 'unavailable'
 
 
 def test_a_long_explanation_is_bounded_but_full_results_stay_in_the_record():

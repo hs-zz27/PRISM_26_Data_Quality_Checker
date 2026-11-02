@@ -267,6 +267,8 @@ def combine_results(scope: TargetScope, response) -> tuple[str, str, TargetScope
         key = assessment.object_key
         if key in seen:
             rejected.append(f"{key[:120]}: repeated assessment ignored")
+            # A contradictory repeated answer cannot leave the first answer authoritative.
+            taken[key] = None
         elif key not in by_key:
             context = any(o.object_key == key for o in scope.ineligible)
             rejected.append(f"{key[:120]}: {'context annotation, not a target' if context else 'unknown annotation'}")
@@ -301,6 +303,10 @@ def combine_results(scope: TargetScope, response) -> tuple[str, str, TargetScope
         final = "fail"
     elif any(r.outcome == "unsure" for r in counted):
         final = "unsure"
+    elif any(r.outcome == "unavailable" for r in counted):
+        final = "unavailable"
+        unavailable = {"code": "no_valid_assessment",
+                       "detail": "The model could not establish the requirement for every applicable annotation."}
     elif any(r.outcome == "pass" for r in counted):
         final = "pass"
     else:

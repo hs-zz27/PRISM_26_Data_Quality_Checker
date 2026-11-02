@@ -2790,7 +2790,7 @@ export interface components {
              * @default annotation-guideline-v1
              * @enum {string}
              */
-            prompt_version: "annotation-guideline-v1" | "annotation-guideline-v2" | "annotation-guideline-v3" | "annotation-guideline-v4" | "pedestrian-box-feedback-v1";
+            prompt_version: "annotation-guideline-v1" | "annotation-guideline-v2" | "annotation-guideline-v3" | "annotation-guideline-v4" | "annotation-guideline-v5" | "pedestrian-box-feedback-v1";
             /**
              * Preprocessing
              * @default original-png-no-transform-v1
@@ -2914,6 +2914,8 @@ export interface components {
             enclosure: components["schemas"]["EnclosureEvidence"] | null;
             /** @default null */
             scope: components["schemas"]["TargetScope"] | null;
+            /** @default null */
+            visual_assessment: components["schemas"]["VisualAssessment"] | null;
         };
         /**
          * ScopeImage
@@ -3036,6 +3038,36 @@ export interface components {
             outcome_source: "no_model_call" | "derived_from_target_results";
             /** Notes */
             notes?: string[];
+        };
+        /** VisualAssessment */
+        VisualAssessment: {
+            /** Case Id */
+            case_id: string;
+            /** Rule Id */
+            rule_id: string;
+            /** Observations */
+            observations: components["schemas"]["VisualObservation"][];
+        };
+        /** VisualObservation */
+        VisualObservation: {
+            /** Object Key */
+            object_key: string;
+            /** Geometry */
+            geometry: ("box" | "polygon" | "label" | "mask")[];
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "pass" | "fail" | "unsure" | "unavailable" | "not_applicable";
+            /** Reason */
+            reason: string;
+            /** Region */
+            region: [
+                number,
+                number,
+                number,
+                number
+            ] | null;
         };
         /** FeedbackEvaluation */
         FeedbackEvaluation: {

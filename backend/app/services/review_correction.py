@@ -65,12 +65,14 @@ def object_key(obj):
 
 
 def flagged_object_keys(findings):
-    """Stable keys of annotations a recheck judged fail or unsure (v4 per-target results)."""
+    """Stable keys a v4 observation or v5 scoped assessment judged fail or unsure."""
     keys = []
     for finding in findings or []:
         proposal = finding.evidence.measurements.get('model_proposal')
         scope = proposal.get('scope') if isinstance(proposal, dict) else None
-        for result in (scope or {}).get('results', []):
+        assessment = proposal.get('visual_assessment') if isinstance(proposal, dict) else None
+        results = (scope or {}).get('results', []) or (assessment or {}).get('observations', [])
+        for result in results:
             if result.get('outcome') in ('fail', 'unsure') and result.get('object_key') not in keys:
                 keys.append(result['object_key'])
     return keys
@@ -132,7 +134,7 @@ def apply_draft_edits(objects, edits, size, format):
 
 def propose_correction(measurements, feedback, manifest, rulebook, settings, execution, *, client_factory=GuidelineClient,
                        editable_keys=None):
-    compact = execution is not None and execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4'}
+    compact = execution is not None and execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5'}
     base = dict(protocol='review-correction-v2' if compact else PROTOCOL, dataset_id=manifest.dataset_id, sample_id=manifest.sample_id,
         sample_revision=manifest.sample_revision, image_key=manifest.image_key,
         annotation_format=manifest.annotation_format, image_sha256=manifest.original_image.sha256,

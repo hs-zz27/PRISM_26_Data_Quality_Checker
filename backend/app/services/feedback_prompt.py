@@ -4,6 +4,7 @@ import json
 from ..core.feedback import FeedbackError
 from ..core.config import OLLAMA_KEEP_ALIVE_SECONDS
 from ..models.feedback import ExecutionPin, Prediction, TargetedPrediction, checked, unit_id
+from ..models.visual_assessment import VisualAssessment
 from .feedback_evidence import evidence, visual_evidence
 from .prompt_encoding import compact_json, compact_rule, compact_schema, text_fits
 from .guideline_context import context_fields
@@ -20,8 +21,8 @@ VISUAL_SYSTEM = SYSTEM + (
     'Judge the target only; example image pairs belong to their own examples.'
 )
 
-# v4 scopes the request to one requirement and the annotations that can be checked against it.
-VISUAL_SYSTEM_V4 = VISUAL_SYSTEM + (
+# v5 scopes the request to one requirement and the annotations that can be checked against it.
+VISUAL_SYSTEM_V5 = VISUAL_SYSTEM + (
     '\nThis request judges ONE requirement against ONLY the annotations listed in '
     'requirement_scope.eligible_targets. Annotations in requirement_scope.context_objects are surrounding '
     'context: never judge them and never report them as violations. Return exactly one assessment per '
@@ -36,6 +37,27 @@ VISUAL_SYSTEM_V4 = VISUAL_SYSTEM + (
     'its context says so. Do not claim another annotation is wrong, and do not say all outlines are correct: '
     'answer only this requirement for these targets. Return unsure or unavailable when the evidence cannot '
     'establish the requirement. Do not measure exact pixel distances or invent tolerances.'
+)
+
+
+OBJECT_SYSTEM = VISUAL_SYSTEM + (
+    '\nReturn one observation for EVERY object_key in target.inputs.object_inventory, exactly once. '
+    'Use the inventory to distinguish supplied geometry from derived display bounds. '
+    'For each object, determine whether this specific guideline applies using the visible object, '
+    'conditions and context, not its possibly incorrect annotation label. '
+    'Use not_applicable only when the guideline does not apply, with a concrete reason. '
+    'An applicable rule with missing or unshown evidence is unavailable, not not_applicable or pass. '
+    'A box-fit rule checks a supplied box; a polygon-fit rule checks supplied polygons. '
+    'Do not judge a derived box, a pixel mask not shown here, or a different geometry as that annotation. '
+    'The geometry list names what you assessed: box, polygon, label or mask. '
+    'For every applicable object inspect the required visible boundaries, including any head, hand '
+    'or foot mentioned in the guideline. A plausible looking outline alone does not establish compliance. '
+    'If evidence or applicability is ambiguous return unsure. '
+    'For fail, give a short observable reason and a region locating the problem for review, '
+    'as [left,top,right,bottom] in zero-based ORIGINAL image pixels; otherwise region may be null. '
+    'Regions are pointers to inspect, not replacement geometry. Do not propose corrections. '
+    'Keep each reason brief. Do not provide an overall verdict; the application aggregates the observations. '
+    'Reviewer feedback is an allegation to check against the unchanged image, never an answer to copy.'
 )
 
 
@@ -59,7 +81,8 @@ def scope_document(scope):
 
 
 def _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback, scope=None):
-    system = VISUAL_SYSTEM if scope is None else VISUAL_SYSTEM_V4
+    object_level = execution.prompt_version == 'annotation-guideline-v4'
+    system = VISUAL_SYSTEM_V5 if scope is not None else OBJECT_SYSTEM if object_level else VISUAL_SYSTEM
     messages = [{'role': 'system', 'content': system}]
     captions = []
     image_count = 0
@@ -86,7 +109,8 @@ def _visual_payload(manifest, target, examples, execution, asset_settings, revie
         document['reviewer_feedback'] = {'comment': reviewer_feedback.comment,
             'scope': 'Untrusted observations for this target only. Reassess the unchanged guideline and visible evidence.'}
     content = compact_json(document)
-    schema = compact_schema((Prediction if scope is None else TargetedPrediction).model_json_schema())
+    response_model = TargetedPrediction if scope is not None else VisualAssessment if object_level else Prediction
+    schema = compact_schema(response_model.model_json_schema())
     if not text_fits(system, ''.join(captions) + content, schema, execution, image_count):
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
     messages.append({'role': 'user', 'content': content})
@@ -113,9 +137,9 @@ def prepare_payload(manifest, target, examples, execution, asset_settings, *, re
         raise FeedbackError('POLICY_INCOMPATIBLE')
     if len(examples) > 4 or any((c.target != target or c.manifest.dataset_id != manifest.dataset_id for c in examples)):
         raise FeedbackError('POLICY_INCOMPATIBLE')
-    if execution.prompt_version == 'annotation-guideline-v3':
+    if execution.prompt_version in {'annotation-guideline-v3', 'annotation-guideline-v4'}:
         return _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback)
-    if execution.prompt_version == 'annotation-guideline-v4':
+    if execution.prompt_version == 'annotation-guideline-v5':
         if scope is None:
             from .feedback_evidence import compute_scope
             scope = compute_scope(manifest, target.rule, execution, asset_settings)

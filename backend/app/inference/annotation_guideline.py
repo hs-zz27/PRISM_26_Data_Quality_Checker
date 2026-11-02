@@ -7,7 +7,9 @@ from pydantic import ValidationError
 from ..core.config import load_ollama_settings
 from ..core.feedback import FeedbackError
 from ..models.feedback import Prediction, RecordedPrediction, ExecutionPin, TargetedPrediction, checked, unit_id
+from ..models.visual_assessment import VisualAssessment
 from ..services.feedback_prompt import prepare_payload
+from ..services.visual_assessment import grounded_prediction
 
 # Model descriptions can include licenses and tensor metadata. Keep their
 # finite transport bound separate from the much smaller prediction envelope.
@@ -60,7 +62,7 @@ class GuidelineClient:
             raise InferenceUnavailable('inference_unavailable') from error
 
     def verify(self):
-        if self.execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4'}:
+        if self.execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5'}:
             version = self.request('GET', '/api/version').get('version')
             match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', version or '') if isinstance(version, str) else None
             if match is None or tuple(map(int, match.groups())) < (0, 33, 3):
@@ -94,7 +96,7 @@ class GuidelineClient:
         return message['content']
 
     def _predict_scoped(self, manifest, target, examples, asset_settings, reviewer_feedback):
-        """v4: decide eligibility first, judge only eligible annotations, record per-target results."""
+        """v5: decide eligibility first, judge only eligible annotations, record per-target results."""
         from ..services.feedback_evidence import compute_scope
         from ..services.rule_applicability import combine_results
         case_id = unit_id(manifest, target)
@@ -111,6 +113,9 @@ class GuidelineClient:
                 # Nothing eligible: there is nothing for a model to judge. No request is made.
                 return recorded(Prediction(case_id=case_id, rule_id=target.rule.rule_id, outcome='unavailable',
                                            reason=scope.unavailable.detail, evidence_references=[]))
+            if len(scope.eligible) > 32:
+                # The response schema is bounded; never silently omit eligible targets.
+                raise InferenceUnavailable('context_limit')
             self.verify()
             payload = prepare_payload(manifest, target, examples, self.execution, asset_settings, scope=scope,
                                       **({'reviewer_feedback': reviewer_feedback} if reviewer_feedback is not None else {}))
@@ -136,15 +141,22 @@ class GuidelineClient:
         return recorded(prediction)
 
     def predict(self, manifest, target, examples, asset_settings, *, reviewer_feedback=None):
-        if self.execution.prompt_version == 'annotation-guideline-v4':
+        if self.execution.prompt_version == 'annotation-guideline-v5':
             return self._predict_scoped(manifest, target, examples, asset_settings, reviewer_feedback)
         case_id = unit_id(manifest, target)
         start = time.monotonic()
         verified = False
+        assessment = None
         try:
             self.verify()
             payload = prepare_payload(manifest, target, examples, self.execution, asset_settings,
                                       **({'reviewer_feedback': reviewer_feedback} if reviewer_feedback is not None else {}))
+            object_level = self.execution.prompt_version == 'annotation-guideline-v4'
+            if object_level:
+                # This is our own prepared, verified input, not model-authored inventory.
+                source = json.loads(payload['messages'][-1]['content'])['target']['inputs']
+                if not source['object_inventory']:
+                    raise InferenceUnavailable('no_annotation_objects_to_assess')
             response = self.request('POST', '/api/chat', payload)
             if response.get('model') not in {self.execution.model, self.execution.model + ':latest'}:
                 raise InferenceUnavailable('model_identity_changed')
@@ -157,17 +169,28 @@ class GuidelineClient:
                 raise InferenceUnavailable('invalid_response')
             try:
                 json.loads(message['content'], object_pairs_hook=unique_object)
-                prediction = Prediction.model_validate_json(message['content'])
+                if object_level:
+                    assessment = VisualAssessment.model_validate_json(message['content'])
+                else:
+                    prediction = Prediction.model_validate_json(message['content'])
             except (ValidationError, ValueError, RecursionError) as error:
                 raise InferenceUnavailable('invalid_proposal') from error
+            if object_level:
+                try:
+                    prediction = grounded_prediction(assessment, source['object_inventory'], source['image_size'])
+                except ValueError as error:
+                    raise InferenceUnavailable(str(error)) from error
             if prediction.case_id != case_id or prediction.rule_id != target.rule.rule_id:
                 raise InferenceUnavailable('identity_mismatch')
             self.verify()
             verified = True
         except InferenceUnavailable as error:
+            assessment = None
             prediction = Prediction(case_id=case_id, rule_id=target.rule.rule_id, outcome='unavailable', reason=str(error), evidence_references=[])
         except FeedbackError as error:
             if error.code not in {'FEEDBACK_NOT_READY', 'CONTEXT_NOT_REPRESENTABLE'}:
                 raise
+            assessment = None
             prediction = Prediction(case_id=case_id, rule_id=target.rule.rule_id, outcome='unavailable', reason='source_unavailable' if error.code == 'FEEDBACK_NOT_READY' else 'context_limit', evidence_references=[])
-        return RecordedPrediction(prediction=prediction, duration_ms=(time.monotonic() - start) * 1000, model_verified=verified)
+        return RecordedPrediction(prediction=prediction, duration_ms=(time.monotonic() - start) * 1000,
+                                  model_verified=verified, visual_assessment=assessment)
