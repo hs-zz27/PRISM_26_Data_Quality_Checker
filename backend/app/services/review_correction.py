@@ -119,7 +119,7 @@ def apply_draft_edits(objects, edits, size, format):
 
 
 def propose_correction(measurements, feedback, manifest, rulebook, settings, execution, *, client_factory=GuidelineClient):
-    compact = execution is not None and execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3'}
+    compact = execution is not None and execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4'}
     base = dict(protocol='review-correction-v2' if compact else PROTOCOL, dataset_id=manifest.dataset_id, sample_id=manifest.sample_id,
         sample_revision=manifest.sample_revision, image_key=manifest.image_key,
         annotation_format=manifest.annotation_format, image_sha256=manifest.original_image.sha256,

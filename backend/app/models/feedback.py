@@ -10,6 +10,7 @@ from .finding import FindingReview
 from .job import Job
 from .rule import Rule
 from .enclosure import EnclosureEvidence, EnclosureExecutionPin, enclosure_case_identity
+from .visual_assessment import VisualAssessment
 Text = Annotated[str, StringConstraints(min_length=1, max_length=4096, pattern=r'\S')]
 Digest = Annotated[str, StringConstraints(pattern='^[0-9a-f]{64}$')]
 Binary = Literal['pass', 'fail']
@@ -265,7 +266,7 @@ class EvidenceLimits(Record):
 class ExecutionPin(EvidenceLimits):
     model: Text
     model_digest: Annotated[str, StringConstraints(pattern='^sha256:[0-9a-f]{64}$')]
-    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
+    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
     preprocessing: Literal['original-png-no-transform-v1', 'original-and-annotation-overlay-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
     schema_version: Literal[1] = 1
     identity_assurance: Literal['local-server-reported-pre-post-v1'] = 'local-server-reported-pre-post-v1'
@@ -296,7 +297,8 @@ class ExecutionPin(EvidenceLimits):
         if self.enclosure is None:
             expected = {'annotation-guideline-v1': 'original-png-no-transform-v1',
                         'annotation-guideline-v2': 'original-png-no-transform-v1',
-                        'annotation-guideline-v3': 'original-and-annotation-overlay-v1'}
+                        'annotation-guideline-v3': 'original-and-annotation-overlay-v1',
+                        'annotation-guideline-v4': 'original-and-annotation-overlay-v1'}
             if expected.get(self.prompt_version) != self.preprocessing:
                 raise ValueError('Prompt and preprocessing versions must match.')
         else:
@@ -325,6 +327,7 @@ class RecordedPrediction(Record):
     duration_ms: float = Field(ge=0, allow_inf_nan=False)
     model_verified: bool
     enclosure: EnclosureEvidence | None = Field(default=None, exclude_if=lambda value: value is None)
+    visual_assessment: VisualAssessment | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def verified_outcome(self):
@@ -332,6 +335,12 @@ class RecordedPrediction(Record):
             raise ValueError('Unverified execution cannot publish a substantive proposal.')
         if self.enclosure is not None and self.prediction.outcome != self.enclosure.aggregate.outcome:
             raise ValueError('Prediction differs from its per-box aggregate.')
+        if self.visual_assessment is not None and (
+                not self.model_verified or self.enclosure is not None
+                or self.visual_assessment.case_id != self.prediction.case_id
+                or self.visual_assessment.rule_id != self.prediction.rule_id
+                or self.visual_assessment.aggregate_outcome() != self.prediction.outcome):
+            raise ValueError('Visual observation identity or provenance differs.')
         return self
 
 class CaseComparison(Record):

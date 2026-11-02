@@ -148,7 +148,7 @@ def test_new_execution_pins_select_overlay_without_changing_old_pins(monkeypatch
     from backend.app.core.feedback import load_execution_pin
     monkeypatch.setenv('FEEDBACK_MODEL_DIGEST', 'sha256:'+'a'*64)
     pin = load_execution_pin()
-    assert pin.prompt_version == 'annotation-guideline-v3'
+    assert pin.prompt_version == 'annotation-guideline-v4'
     assert pin.preprocessing == 'original-and-annotation-overlay-v1'
     legacy = ExecutionPin(model='old', model_digest='sha256:'+'b'*64)
     assert legacy.prompt_version == 'annotation-guideline-v1'

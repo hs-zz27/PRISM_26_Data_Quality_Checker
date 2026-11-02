@@ -88,6 +88,14 @@ def visual_evidence(manifest, execution, asset_settings):
     """Use the same verified source and normalized objects for the text and overlay."""
     from .annotation_overlay import annotation_overlay
     image, inputs, objects = _evidence(manifest, execution, asset_settings, compact=True, native_table=True)
+    if execution.prompt_version == 'annotation-guideline-v4':
+        from .visual_assessment import object_inventory
+        if len(objects) > 64:
+            raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
+        try:
+            inputs['object_inventory'] = object_inventory(objects, manifest.annotation_format)
+        except ValueError as error:
+            raise FeedbackError('FEEDBACK_NOT_READY') from error
     try:
         overlay = annotation_overlay(image, objects, manifest.annotation_format)
     except (OSError, ValueError) as error:

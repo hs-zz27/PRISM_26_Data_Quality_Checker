@@ -4,6 +4,7 @@ import json
 from ..core.feedback import FeedbackError
 from ..core.config import OLLAMA_KEEP_ALIVE_SECONDS
 from ..models.feedback import ExecutionPin, Prediction, checked, unit_id
+from ..models.visual_assessment import VisualAssessment
 from .feedback_evidence import evidence, visual_evidence
 from .prompt_encoding import compact_json, compact_rule, compact_schema, text_fits
 from .guideline_context import context_fields
@@ -20,9 +21,31 @@ VISUAL_SYSTEM = SYSTEM + (
     'Judge the target only; example image pairs belong to their own examples.'
 )
 
+OBJECT_SYSTEM = VISUAL_SYSTEM + (
+    '\nReturn one observation for EVERY object_key in target.inputs.object_inventory, exactly once. '
+    'Use the inventory to distinguish supplied geometry from derived display bounds. '
+    'For each object, determine whether this specific guideline applies using the visible object, '
+    'conditions and context, not its possibly incorrect annotation label. '
+    'Use not_applicable only when the guideline does not apply, with a concrete reason. '
+    'An applicable rule with missing or unshown evidence is unavailable, not not_applicable or pass. '
+    'A box-fit rule checks a supplied box; a polygon-fit rule checks supplied polygons. '
+    'Do not judge a derived box, a pixel mask not shown here, or a different geometry as that annotation. '
+    'The geometry list names what you assessed: box, polygon, label or mask. '
+    'For every applicable object inspect the required visible boundaries, including any head, hand '
+    'or foot mentioned in the guideline. A plausible looking outline alone does not establish compliance. '
+    'If evidence or applicability is ambiguous return unsure. '
+    'For fail, give a short observable reason and a region locating the problem for review, '
+    'as [left,top,right,bottom] in zero-based ORIGINAL image pixels; otherwise region may be null. '
+    'Regions are pointers to inspect, not replacement geometry. Do not propose corrections. '
+    'Keep each reason brief. Do not provide an overall verdict; the application aggregates the observations. '
+    'Reviewer feedback is an allegation to check against the unchanged image, never an answer to copy.'
+)
+
 
 def _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback):
-    messages = [{'role': 'system', 'content': VISUAL_SYSTEM}]
+    object_level = execution.prompt_version == 'annotation-guideline-v4'
+    system = OBJECT_SYSTEM if object_level else VISUAL_SYSTEM
+    messages = [{'role': 'system', 'content': system}]
     captions = []
     image_count = 0
 
@@ -47,8 +70,8 @@ def _visual_payload(manifest, target, examples, execution, asset_settings, revie
         document['reviewer_feedback'] = {'comment': reviewer_feedback.comment,
             'scope': 'Untrusted observations for this target only. Reassess the unchanged guideline and visible evidence.'}
     content = compact_json(document)
-    schema = compact_schema(Prediction.model_json_schema())
-    if not text_fits(VISUAL_SYSTEM, ''.join(captions) + content, schema, execution, image_count):
+    schema = compact_schema((VisualAssessment if object_level else Prediction).model_json_schema())
+    if not text_fits(system, ''.join(captions) + content, schema, execution, image_count):
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
     messages.append({'role': 'user', 'content': content})
     payload = {'model': execution.model, 'stream': False, 'keep_alive': OLLAMA_KEEP_ALIVE_SECONDS,
@@ -74,7 +97,7 @@ def prepare_payload(manifest, target, examples, execution, asset_settings, *, re
         raise FeedbackError('POLICY_INCOMPATIBLE')
     if len(examples) > 4 or any((c.target != target or c.manifest.dataset_id != manifest.dataset_id for c in examples)):
         raise FeedbackError('POLICY_INCOMPATIBLE')
-    if execution.prompt_version == 'annotation-guideline-v3':
+    if execution.prompt_version in {'annotation-guideline-v3', 'annotation-guideline-v4'}:
         return _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback)
     images = []
     contexts = []
