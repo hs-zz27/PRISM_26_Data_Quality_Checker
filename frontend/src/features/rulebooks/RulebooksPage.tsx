@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { useJobPolling, type Job } from '../../hooks/useJobPolling';
 import type { components } from '../../api/generated/openapi';
 import type { operations } from '../../api/generated/openapi';
+import { RulebookNameText } from '../../components/ui/RecordName';
 
 type ExtractedJob = operations['extractRulebook']['responses'][202]['content']['application/json'];
 
@@ -221,7 +222,7 @@ export const RulebooksPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-surface-high border-b border-border text-2xs font-mono uppercase text-text-muted">
                 <tr>
-                  <th className="py-2.5 px-4 font-medium">Rulebook ID</th>
+                  <th className="py-2.5 px-4 font-medium">Rulebook</th>
                   <th className="py-2.5 px-4 font-medium">Version</th>
                   <th className="py-2.5 px-4 font-medium">Status</th>
                   <th className="py-2.5 px-4 font-medium">Rules</th>
@@ -237,8 +238,8 @@ export const RulebooksPage: React.FC = () => {
                       className="hover:bg-surface-high/60 transition-colors cursor-pointer"
                       onClick={() => navigate(`/rulebooks/${rb.rulebook_id}?version=${rb.version}`)}
                     >
-                      <td className="py-3 px-4 font-mono font-medium text-text">
-                        {rb.rulebook_id}
+                      <td className="py-3 px-4 text-text max-w-[22rem]">
+                        <RulebookNameText name={rb.name} />
                       </td>
                       <td className="py-3 px-4 font-mono text-text-muted">
                         v{rb.version}

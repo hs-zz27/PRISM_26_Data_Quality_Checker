@@ -1,5 +1,11 @@
 # Rulebook HTTP workflow
 
+Rulebook responses include `name`: one permanent label per logical rulebook
+(`Rules 003`), shared by every version, and an editable title. Show a version as
+`Rules 003 v3`. Rename with `PUT /api/v1/rulebooks/{rulebook_id}/title`; this
+creates no version or review and does not change a confirmed book. The name is
+not part of the stored document. See [DISPLAY_NAMES.md](DISPLAY_NAMES.md).
+
 Four read endpoints are implemented under `/api/v1/rulebooks`: list latest books,
 read a book (optional `version`), list versions and list real review attribution.
 Manual draft creation is implemented with POST on the collection (201).

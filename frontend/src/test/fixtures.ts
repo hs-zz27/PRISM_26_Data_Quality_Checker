@@ -4,6 +4,24 @@ type Finding = components['schemas']['Finding'];
 type SampleAudit = components['schemas']['SampleAudit'];
 type SampleAuditSummary = components['schemas']['SampleAuditSummary'];
 type Rule = components['schemas']['Rule'];
+type AuditName = components['schemas']['AuditName'];
+type RulebookName = components['schemas']['RulebookName'];
+
+export function makeAuditName(overrides: Partial<AuditName> = {}): AuditName {
+  return {
+    audit_id: 'audit-1', root_audit_id: 'audit-1', number: 14, recheck_number: null, label: 'Audit 014',
+    title: 'LabelMe demo', title_revision: 0, title_updated_at: null, title_updated_by: null,
+    ...overrides,
+  };
+}
+
+export function makeRulebookName(overrides: Partial<RulebookName> = {}): RulebookName {
+  return {
+    rulebook_id: 'book-1', number: 3, label: 'Rules 003', title: 'Person annotation checks',
+    title_revision: 0, title_updated_at: null, title_updated_by: null,
+    ...overrides,
+  };
+}
 
 export function makeFinding(overrides: Partial<Finding> = {}): Finding {
   return {

@@ -10,7 +10,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import ValidationError
 import pytest
 
-from backend.app.models.rule import Rulebook
+from backend.app.models.rule import Rulebook, RulebookRecord
 from backend.app.models.rulebook_creation import RulebookCreate
 from backend.app.main import create_app
 from backend.app.models.finding import Finding, FindingReview
@@ -41,7 +41,7 @@ def media_examples(media):
 def test_routes_distinguish_implemented_handlers_from_planned_operations():
     assert SPEC["openapi"] == "3.1.0"
     identifiers = [operation["operationId"] for _, _, operation in OPERATIONS]
-    assert len(identifiers) == len(set(identifiers)) == 50
+    assert len(identifiers) == len(set(identifiers)) == 53
     implemented = {
         "extractRulebook", "createRulebook", "getRulebook", "listRulebookReviews", "listRulebookVersions", "listRulebooks",
         "replaceDraftRulebook", "confirmRulebook", "rejectRulebook", "reviseRulebook",
@@ -54,8 +54,9 @@ def test_routes_distinguish_implemented_handlers_from_planned_operations():
     }
     implemented.update({'listFeedbackExamples','createFeedbackPolicy','listFeedbackPolicies','getFeedbackPolicy','createGroundTruth','getGroundTruth','evaluateFeedbackPolicy','getFeedbackEvaluation','listFeedbackEvaluations','activateFeedbackPolicy'})
     implemented.update({"getHealth", "getCapabilities", "getSystemStatus", "listAuditFindings"})
-    assert len(implemented) == 50
-    assert sum(op["x-implementation-status"] == "implemented" for _, _, op in OPERATIONS) == 50
+    implemented.update({"updateAuditTitle", "updateRulebookTitle", "lookupDisplayNames"})
+    assert len(implemented) == 53
+    assert sum(op["x-implementation-status"] == "implemented" for _, _, op in OPERATIONS) == 53
     assert sum(op["x-implementation-status"] == "planned" for _, _, op in OPERATIONS) == 0
     for _, _, operation in OPERATIONS:
         expected = "implemented" if operation["operationId"] in implemented else "planned"
@@ -203,12 +204,18 @@ def test_frontend_fixtures_match_declared_operations_and_payloads():
             assert fixture["request"]["body"] == request_media["example"]
 
 def test_rulebook_responses_validate_with_existing_python_records():
+    checked = 0
     for _, _, operation in OPERATIONS:
         for response in operation["responses"].values():
             media = response.get("content", {}).get("application/json", {})
-            if media.get("schema", {}).get("$ref") == "#/components/schemas/Rulebook":
+            if media.get("schema", {}).get("$ref") == "#/components/schemas/RulebookRecord":
                 for example in media_examples(media):
-                    Rulebook.model_validate_json(json.dumps(example))
+                    record = RulebookRecord.model_validate_json(json.dumps(example))
+                    # The document part is a valid stored rulebook; the name is display-only.
+                    Rulebook.model_validate_json(record.model_dump_json(exclude={"name"}))
+                    assert record.name is not None and record.name.rulebook_id == record.rulebook_id
+                    checked += 1
+    assert checked >= 7
 
 def test_rulebook_review_templates_match_service_requests_and_version_semantics():
     for fixture in EXAMPLES["operations"]:
@@ -431,7 +438,7 @@ def test_creation_fixture_uses_strict_inputs_and_public_draft_response():
     fixture = fixtures[0]
     assert fixture["implementation"] == "implemented" and fixture["response"]["status"] == 201
     request = RulebookCreate.model_validate_json(json.dumps(fixture["request"]["body"]))
-    response = Rulebook.model_validate_json(json.dumps(fixture["response"]["body"]))
+    response = RulebookRecord.model_validate_json(json.dumps(fixture["response"]["body"]))
     assert response.guideline_text == request.guideline_text and response.version == 1
     assert response.confirmation_state == "draft"
     assert [rule.model_dump(exclude={"origin", "confirmation_state"}) for rule in response.rules] == [

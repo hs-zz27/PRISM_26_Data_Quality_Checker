@@ -9,6 +9,7 @@ from pydantic import ValidationError
 import pytest
 
 from backend.app.main import create_app
+from backend.tests.display_name_helpers import without_display_names
 from backend.app.models.audit_read import ErrorResponse
 from backend.app.models.review import RulebookAction, RulebookReplace
 from backend.app.models.rule import Rule, Rulebook
@@ -38,7 +39,7 @@ def payload(replace=False):
 
 @pytest.fixture
 def api():
-    app = create_app()
+    app = without_display_names(create_app())
     repository = Mock(spec_set=RulebookRepository)
     current = make_book()
     repository.get_rulebook.side_effect = lambda *args, **kwargs: current.model_copy(deep=True)

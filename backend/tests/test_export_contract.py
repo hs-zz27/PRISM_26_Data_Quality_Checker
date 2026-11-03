@@ -28,7 +28,7 @@ def test_all_five_export_operations_are_unique_and_live():
     live, generated = create_app().openapi(), build_contract()
     ids = [c.original_route.operation_id for c in iter_route_contexts(create_app().routes)
            if isinstance(c.original_route, APIRoute) and c.original_route.include_in_schema]
-    assert len(ids) == len(set(ids)) == 50
+    assert len(ids) == len(set(ids)) == 53
     for (path, method), (identifier, statuses) in EXPECTED.items():
         one = generated['paths'][path][method]
         two = live['paths']['/api/v1' + path][method]
@@ -45,7 +45,7 @@ def test_all_five_export_operations_are_unique_and_live():
             assert_same_schema(first[key]['schema'], second[key]['schema'],
                                generated['components']['schemas'], live['components']['schemas'])
     operations = [op for methods in generated['paths'].values() for op in methods.values()]
-    assert len(operations) == 50
+    assert len(operations) == 53
     assert sum(op['x-implementation-status'] == 'planned' for op in operations) == 0
 
 

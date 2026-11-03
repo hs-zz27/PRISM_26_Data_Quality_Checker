@@ -201,12 +201,12 @@ def test_generated_examples_and_inventory_are_complete_unique_and_fresh():
     examples = json.loads(rendered["examples.json"])
     operations = [op for methods in document["paths"].values() for op in methods.values()]
     ids = [op["operationId"] for op in operations]
-    assert len(ids) == len(set(ids)) == 50
-    assert sum(op["x-implementation-status"] == "implemented" for op in operations) == 50
+    assert len(ids) == len(set(ids)) == 53
+    assert sum(op["x-implementation-status"] == "implemented" for op in operations) == 53
     assert sum(op["x-implementation-status"] == "planned" for op in operations) == 0
     routes = [context.original_route.operation_id for context in iter_route_contexts(create_app().routes)
               if isinstance(context.original_route, APIRoute) and context.original_route.include_in_schema]
-    assert len(routes) == len(set(routes)) == 50
+    assert len(routes) == len(set(routes)) == 53
     for identifier in DATASET_OPERATIONS:
         assert routes.count(identifier) == 1
         fixture = next(item for item in examples["operations"] if item["operation_id"] == identifier)

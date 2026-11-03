@@ -40,7 +40,7 @@ def test_the_route_and_operation_id_are_registered_exactly_once():
     ]
     assert [(c.path, tuple(sorted(c.methods))) for c in contexts].count((LIVE_PATH, ("GET",))) == 1
     identifiers = [context.original_route.operation_id for context in contexts]
-    assert identifiers.count("listAuditFindings") == 1 and len(identifiers) == len(set(identifiers)) == 50
+    assert identifiers.count("listAuditFindings") == 1 and len(identifiers) == len(set(identifiers)) == 53
 
 
 def test_the_operation_has_no_request_body_and_documents_exactly_the_real_statuses():
@@ -173,7 +173,7 @@ def test_the_description_states_the_read_semantics_a_frontend_depends_on():
 def test_the_inventory_is_fifty_implemented_and_nothing_planned():
     for document in (SPEC, IMPLEMENTED):
         found = operations(document)
-        assert len(found) == len({op["operationId"] for op in found}) == 50
+        assert len(found) == len({op["operationId"] for op in found}) == 53
         assert {op["x-implementation-status"] for op in found} == {"implemented"}
     assert "listAuditFindings" in {op["operation_id"] for op in EXAMPLES["operations"]}
     assert {entry["implementation"] for entry in EXAMPLES["operations"]} == {"implemented"}

@@ -11,6 +11,8 @@ import { ReviewerPromptModal } from '../ui/ReviewerPromptModal';
 import { KeyboardHelpModal } from '../ui/KeyboardHelpModal';
 import { MockBadge } from '../ui/MockBadge';
 import { CommandPalette } from './CommandPalette';
+import { useDisplayNames } from '../../hooks/useDisplayNames';
+import { auditLabel, rulebookLabel } from '../../lib/names';
 
 function breadcrumbName(part: string): string {
   const labels: Record<string, string> = { audits: 'Audits', review: 'Review', report: 'Report', datasets: 'Datasets', rulebooks: 'Rulebooks', corrections: 'Corrections', exports: 'Exports', feedback: 'Feedback', dev: 'Developer', styleguide: 'Styleguide' };
@@ -34,6 +36,18 @@ export const Navbar: React.FC = () => {
   const { data: health, isError: healthError } = useQuery({ queryKey: queryKeys.health(), queryFn: () => apiGet('/health'), refetchInterval: 30_000 });
   const { data: system, isError: systemError } = useQuery({ queryKey: queryKeys.systemStatus(), queryFn: () => apiGet('/system/status'), refetchInterval: 30_000 });
   const parts = pathname.split('/').filter(Boolean);
+  // The second segment of /audits/:auditId/... and /rulebooks/:rulebookId is an internal ID; show its label.
+  const recordId = parts[1] ? decodeURIComponent(parts[1]) : null;
+  const names = useDisplayNames({
+    auditIds: parts[0] === 'audits' ? [recordId] : [],
+    rulebookIds: parts[0] === 'rulebooks' ? [recordId] : [],
+  });
+  const crumb = (part: string, index: number) => {
+    if (index === 1 && (parts[0] === 'audits' || parts[0] === 'rulebooks') && names.isLoading) return '…';
+    if (index === 1 && parts[0] === 'audits') return auditLabel(names.audit(recordId));
+    if (index === 1 && parts[0] === 'rulebooks') return rulebookLabel(names.rulebook(recordId));
+    return breadcrumbName(part);
+  };
   const apiReady = !healthError && health?.status === 'ok';
   const ollamaReady = !systemError && Boolean(system?.ollama?.reachable);
   const detector = system?.detector;
@@ -46,7 +60,7 @@ export const Navbar: React.FC = () => {
       <div className="breadcrumb" aria-label="Breadcrumb">
         {parts.map((part, index) => <React.Fragment key={`${part}-${index}`}>
           {index > 0 && <ChevronRight size={13} className="breadcrumb-separator" />}
-          <span className={index === parts.length - 1 ? 'breadcrumb-current' : ''}>{breadcrumbName(part)}</span>
+          <span className={index === parts.length - 1 ? 'breadcrumb-current' : ''}>{crumb(part, index)}</span>
         </React.Fragment>)}
         {parts.length === 0 && <span className="breadcrumb-current">Overview</span>}
       </div>

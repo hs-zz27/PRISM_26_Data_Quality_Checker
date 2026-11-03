@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from backend.app.main import create_app
+from backend.tests.display_name_helpers import document, documents
 from backend.app.models.rule import Rule, Rulebook
 from backend.app.routers.rulebooks import get_rulebook_repository
 from backend.app.storage.repository import RulebookRepository
@@ -51,49 +52,49 @@ def replacement(book, *, version=None):
 
 def test_full_http_review_cycle_preserves_snapshots_and_attribution(client, store):
     v1 = seed(store).model_dump(mode="json")
-    assert client.get(BASE).json() == v1
-    assert client.get(BASE + "/reviews").json()["items"] == []
+    assert document(client.get(BASE).json()) == v1
+    assert documents(client.get(BASE + "/reviews").json()["items"]) == []
     body = replacement(v1)
     body["rules"][0]["confirmation_state"] = "confirmed"
     response = client.put(BASE, json=body)
     assert response.status_code == 200
-    v2 = response.json()
+    v2 = document(response.json())
     assert v2["version"] == 2 and v2["confirmation_state"] == "draft"
     response = client.post(BASE + "/confirm", json=action(2, "confirmer"))
     assert response.status_code == 200
-    v3 = response.json()
+    v3 = document(response.json())
     assert v3["version"] == 3 and v3["confirmation_state"] == "confirmed"
     for version, snapshot in [(1, v1), (2, v2)]:
-        assert client.get(BASE, params={"version": version}).json() == snapshot
+        assert document(client.get(BASE, params={"version": version}).json()) == snapshot
     before = fingerprint(store)
     response = client.post(BASE + "/reject", json=action(2))
     assert response.status_code == 409 and response.json()["error"]["code"] == "VERSION_CONFLICT"
     assert fingerprint(store) == before
     response = client.post(BASE + "/revisions", json=action(3, "reviser"))
     assert response.status_code == 201
-    v4 = response.json()
+    v4 = document(response.json())
     assert v4["version"] == 4 and v4["confirmation_state"] == "draft"
     assert all(rule["confirmation_state"] == "draft" for rule in v4["rules"])
     assert v4["rules"][0]["check_name"] == "future_supported_check"
     response = client.post(BASE + "/reject", json=action(4, "rejecter"))
     assert response.status_code == 200
-    v5 = response.json()
+    v5 = document(response.json())
     assert v5["version"] == 5 and v5["confirmation_state"] == "rejected"
     assert v5["rules"] == v4["rules"]
     response = client.post(BASE + "/revisions", json=action(5, "reopener"))
     assert response.status_code == 201
-    v6 = response.json()
+    v6 = document(response.json())
     assert v6["version"] == 6 and v6["confirmation_state"] == "draft"
     assert all(rule["confirmation_state"] == "draft" for rule in v6["rules"])
     for version, snapshot in enumerate([v1, v2, v3, v4, v5, v6], 1):
-        assert client.get(BASE, params={"version": version}).json() == snapshot
+        assert document(client.get(BASE, params={"version": version}).json()) == snapshot
     history = client.get(BASE + "/reviews").json()["items"]
     assert [record["version"] for record in history] == [2, 3, 4, 5, 6]
     assert [record["action"] for record in history] == ["edit", "confirm", "revise", "reject", "revise"]
     assert [record["reviewer_id"] for record in history] == ["reviewer_http", "confirmer", "reviser", "rejecter", "reopener"]
     assert all(record["created_at"] for record in history)
     assert [book["version"] for book in client.get(BASE + "/versions").json()["items"]] == list(range(1, 7))
-    assert client.get("/api/v1/rulebooks").json()["items"] == [v6]
+    assert documents(client.get("/api/v1/rulebooks").json()["items"]) == [v6]
     for suffix in ["/versions", "/reviews"]:
         beyond = client.get(BASE + suffix, params={"offset": 100}).json()
         assert beyond["items"] == [] and beyond["next_offset"] is None
@@ -147,7 +148,7 @@ def test_content_policy_failure_does_not_write_or_record_history(client, store, 
     assert fingerprint(store) == before
 
 def test_empty_collections_real_empty_history_and_missing_explicit_versions(client, store):
-    assert client.get("/api/v1/rulebooks").json()["items"] == []
+    assert documents(client.get("/api/v1/rulebooks").json()["items"]) == []
     for suffix in ["", "/versions", "/reviews"]:
         response = client.get(BASE + suffix)
         assert response.status_code == 404
@@ -157,16 +158,16 @@ def test_empty_collections_real_empty_history_and_missing_explicit_versions(clie
             body.update(guideline_text="", rules=[])
         response = getattr(client, method)(BASE + suffix, json=body)
         assert response.status_code == 404
-        assert client.get("/api/v1/rulebooks").json()["items"] == []
+        assert documents(client.get("/api/v1/rulebooks").json()["items"]) == []
     original = seed(store)
     # Historical low-level saves must not fabricate a reviewer record.
     second = original.model_copy(deep=True, update={"version": 2})
     store.save_rulebook(second, expected_version=1)
-    assert client.get(BASE + "/reviews").json()["items"] == []
+    assert documents(client.get(BASE + "/reviews").json()["items"]) == []
     assert client.get(BASE + "?version=999").status_code == 404
     assert client.get(BASE).json()["version"] == 2
-    assert client.get(BASE + "?version=1").json() == original.model_dump(mode="json")
-    assert client.get("/api/v1/rulebooks?offset=999").json()["items"] == []
+    assert document(client.get(BASE + "?version=1").json()) == original.model_dump(mode="json")
+    assert documents(client.get("/api/v1/rulebooks?offset=999").json()["items"]) == []
     for method, suffix, body in [("put", "", replacement(original.model_dump(mode="json"))),
                                   ("post", "/confirm", action(1)), ("post", "/reject", action(1)),
                                   ("post", "/revisions", action(1))]:

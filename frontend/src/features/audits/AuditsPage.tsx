@@ -20,6 +20,8 @@ import { formatCount, formatTimestamp } from '../../lib/format';
 import { jobStatusLabel } from '../../lib/labels';
 import { useDatasetName } from '../../hooks/useDatasetName';
 import { unwrapAuditStarted } from '../../lib/audit';
+import { auditHeading, rulebookHeading, rulebookLabel, type AuditName } from '../../lib/names';
+import { AuditNameText } from '../../components/ui/RecordName';
 
 export const AuditsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,6 +36,7 @@ export const AuditsPage: React.FC = () => {
   const [selectedPolicyId, setSelectedPolicyId] = useState('');
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
+  const [activeAuditName, setActiveAuditName] = useState<AuditName | null>(null);
 
   // Fetch audits
   const { data: audits, isLoading, error } = useQuery({
@@ -94,6 +97,7 @@ export const AuditsPage: React.FC = () => {
       setIsLaunchModalOpen(false);
       const { audit, job } = unwrapAuditStarted(started);
       setActiveAuditId(audit.audit_id);
+      setActiveAuditName(audit.name ?? null);
       setActiveJobId(job.job_id);
       void queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
     },
@@ -145,7 +149,7 @@ export const AuditsPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <Loader2 className="w-5 h-5 text-accent animate-spin" />
             <div>
-              <div className="text-sm font-semibold text-text">Running batch quality audit...</div>
+              <div className="text-sm font-semibold text-text">Running {auditHeading(activeAuditName)}…</div>
               <div className="text-xs text-text-muted font-mono mt-0.5">
                 Phase: {jobState.progress?.phase ?? 'evaluating'} · Processed:{' '}
                 {jobState.progress?.processed ?? 0}
@@ -195,7 +199,7 @@ export const AuditsPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-surface-high border-b border-border text-2xs font-mono uppercase text-text-muted">
                 <tr>
-                  <th className="py-2.5 px-4 font-medium">Audit ID</th>
+                  <th className="py-2.5 px-4 font-medium">Audit</th>
                   <th className="py-2.5 px-4 font-medium">Dataset</th>
                   <th className="py-2.5 px-4 font-medium">Rulebook</th>
                   <th className="py-2.5 px-4 font-medium">Initial run</th>
@@ -213,14 +217,14 @@ export const AuditsPage: React.FC = () => {
                       className="hover:bg-surface-high/60 transition-colors cursor-pointer"
                       onClick={() => navigate(`/audits/${audit.audit_id}/review`)}
                     >
-                      <td className="py-3 px-4 font-mono font-medium text-text">
-                        {audit.audit_id}
+                      <td className="py-3 px-4 text-text max-w-[18rem]">
+                        <AuditNameText name={audit.name} />
                       </td>
                       <td className="py-3 px-4 font-mono text-text-muted">
                         {datasetName(audit.dataset_id)}
                       </td>
-                      <td className="py-3 px-4 font-mono text-text-muted">
-                        {audit.rulebook_id} (v{audit.rulebook_version})
+                      <td className="py-3 px-4 font-mono text-text-muted whitespace-nowrap">
+                        {rulebookLabel(audit.rulebook_name, audit.rulebook_version)}
                       </td>
                       <td className="py-3 px-4">
                         <Badge
@@ -345,7 +349,7 @@ export const AuditsPage: React.FC = () => {
                         key={`${r.rulebook_id}:${r.version}`}
                         value={`${r.rulebook_id}:${r.version}`}
                       >
-                        {r.rulebook_id} (v{r.version}) — {r.rules?.length ?? 0} confirmed rules
+                        {rulebookHeading(r.name, r.version)} — {r.rules?.length ?? 0} confirmed rules
                       </option>
                     ))}
                   </select>

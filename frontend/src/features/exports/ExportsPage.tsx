@@ -10,6 +10,9 @@ import { exclusionReasonLabel, jobStatusLabel, reviewStatusLabel } from '../../l
 import { formatTimestamp } from '../../lib/format';
 import type { components } from '../../api/generated/openapi';
 import { getExportDetailPollInterval, getTrackedExportJob } from './exportPolling';
+import { useDisplayNames } from '../../hooks/useDisplayNames';
+import { useDatasetName } from '../../hooks/useDatasetName';
+import { auditHeading, auditLabel, rulebookLabel, type AuditName } from '../../lib/names';
 
 type ExportRecord = components['schemas']['Export'];
 type ExportSelection = components['schemas']['ExportSelection'];
@@ -19,7 +22,8 @@ const SELECTION_TEXT: Record<ExportSelection, { title: string; detail: string }>
   all_reviewed: { title: 'Accepted and rejected', detail: 'Diagnostic set: rejected samples stay marked rejected. Not for training.' },
 };
 
-function ExportHistoryRow({ record }: { record: ExportRecord }) {
+function ExportHistoryRow({ record, auditName }: { record: ExportRecord; auditName: AuditName | undefined }) {
+  const datasetName = useDatasetName();
   const [expanded, setExpanded] = useState(false);
   const activeJobId = getTrackedExportJob(record);
   const job = useJobPolling(activeJobId);
@@ -36,12 +40,13 @@ function ExportHistoryRow({ record }: { record: ExportRecord }) {
     enabled: expanded && current.status === 'completed',
   });
   const status = job.status ?? current.status;
+  const manifestNames = useDisplayNames({ rulebookIds: [manifest.data?.rulebook_id] });
   return (
     <article className="export-row">
       <div className="export-row-main">
         <span className="font-mono text-text">{record.export_id}</span>
         <Badge size="sm" variant={status === 'completed' ? 'pass' : status === 'failed' || status === 'cancelled' ? 'fail' : 'pending'}>{jobStatusLabel(status)}</Badge>
-        <span className="text-text-muted">audit <span className="font-mono">{record.audit_id}</span> · {SELECTION_TEXT[record.selection].title}{record.include_images ? ' · with images' : ''}</span>
+        <span className="text-text-muted" title={record.audit_id}>{auditLabel(auditName)} · {SELECTION_TEXT[record.selection].title}{record.include_images ? ' · with images' : ''}</span>
         {current.included_count !== null && current.included_count !== undefined && (
           <span className="text-text-muted">{current.included_count} included · {current.excluded_count ?? 0} excluded</span>
         )}
@@ -59,7 +64,7 @@ function ExportHistoryRow({ record }: { record: ExportRecord }) {
       {expanded && manifest.data && (
         <div className="export-manifest">
           <p className="text-2xs text-text-muted">
-            Dataset <span className="font-mono">{manifest.data.dataset_id}</span> · rulebook <span className="font-mono">{manifest.data.rulebook_id} v{manifest.data.rulebook_version}</span> · decisions as of {formatTimestamp(manifest.data.selected_at)}
+            Dataset {datasetName(manifest.data.dataset_id)} · <span className="font-mono">{rulebookLabel(manifestNames.rulebook(manifest.data.rulebook_id), manifest.data.rulebook_version)}</span> · decisions as of {formatTimestamp(manifest.data.selected_at)}
           </p>
           <table className="report-table">
             <thead><tr><th>Sample</th><th>Included</th><th>Decision</th><th>Reviewer</th><th>Why excluded</th></tr></thead>
@@ -96,13 +101,16 @@ export const ExportsPage: React.FC = () => {
   const exportableAudits = useMemo(() => (audits.data?.items ?? []).filter((audit) => audit.status === 'completed'), [audits.data]);
 
   const datasets = useQuery({ queryKey: queryKeys.datasets(), queryFn: () => apiGetAllPages('/datasets', { query: { limit: 100, offset: 0 } }) });
+  const datasetName = useDatasetName();
+  const historyNames = useDisplayNames({ auditIds: history.data?.items.map((record) => record.audit_id) ?? [] });
   const selectedDatasetId = exportableAudits.find((audit) => audit.audit_id === auditId)?.dataset_id;
   const exportFormat = datasets.data?.items.find((dataset) => dataset.dataset_id === selectedDatasetId)?.format;
 
   const start = useMutation({
     mutationFn: () => { if (!exportFormat) throw new Error('The source dataset format is unavailable.'); return apiPost<'/exports'>('/exports', { body: { audit_id: auditId, format: exportFormat, selection, include_images: includeImages, include_rechecks: true } }); },
     onSuccess: (result) => {
-      setMessage({ tone: 'ok', text: `Export ${result.export.export_id} queued. It appears below and updates automatically.` });
+      const source = exportableAudits.find((audit) => audit.audit_id === result.export.audit_id);
+      setMessage({ tone: 'ok', text: `Export of ${auditLabel(source?.name)} queued. It appears below and updates automatically.` });
       void client.invalidateQueries({ queryKey: queryKeys.exports() });
     },
     onError: (error) => setMessage({
@@ -125,7 +133,7 @@ export const ExportsPage: React.FC = () => {
           <select value={auditId} onChange={(event) => setAuditId(event.target.value)}>
             <option value="">Select a completed audit</option>
             {exportableAudits.map((audit) => (
-              <option key={audit.audit_id} value={audit.audit_id}>{audit.audit_id} · {audit.dataset_id} · rulebook {audit.rulebook_id} v{audit.rulebook_version}</option>
+              <option key={audit.audit_id} value={audit.audit_id}>{auditHeading(audit.name)} · {datasetName(audit.dataset_id)} · {rulebookLabel(audit.rulebook_name, audit.rulebook_version)}</option>
             ))}
           </select>
         </label>
@@ -154,7 +162,7 @@ export const ExportsPage: React.FC = () => {
         {history.isLoading ? <p className="text-xs text-text-muted">Loading exports…</p>
           : history.error ? <p role="alert" className="text-xs text-status-fail">{history.error.message}</p>
             : !history.data?.items.length ? <p className="text-xs text-text-muted">No exports yet.</p>
-              : history.data.items.map((record) => <ExportHistoryRow key={record.export_id} record={record} />)}
+              : history.data.items.map((record) => <ExportHistoryRow key={record.export_id} record={record} auditName={historyNames.audit(record.audit_id)} />)}
       </section>
     </div>
   );

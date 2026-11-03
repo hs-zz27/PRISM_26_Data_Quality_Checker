@@ -60,13 +60,16 @@ const AnnotatedPhoto: React.FC<{ src: string; alt: string; evidence: Evidence; o
 interface ExampleCardProps {
   example: FeedbackExample & { example_id: string };
   datasetName: string;
+  /** "Audit 014" and "Rules 003 v3", formatted by the caller from one batched name lookup. */
+  auditLabel: string;
+  rulebookLabel: string;
   checked: boolean;
   /** Why the example cannot be selected now; null when it can. */
   blockReason: string | null;
   onToggle: (checked: boolean) => void;
 }
 
-export const ExampleCard: React.FC<ExampleCardProps> = ({ example, datasetName, checked, blockReason, onToggle }) => {
+export const ExampleCard: React.FC<ExampleCardProps> = ({ example, datasetName, auditLabel, rulebookLabel, checked, blockReason, onToggle }) => {
   const { reference, target } = example;
   const evidence = useExactEvidence(example);
   const [imageFailed, setImageFailed] = useState(false);
@@ -110,9 +113,9 @@ export const ExampleCard: React.FC<ExampleCardProps> = ({ example, datasetName, 
             <><dt>Revision</dt><dd>r{reference.sample_revision} corrects r{example.correction_parent_revision}{example.correction_reviewer_id ? ` (by ${example.correction_reviewer_id})` : ''}</dd></>
           )}
           <dt>Dataset</dt><dd>{datasetName}</dd>
-          <dt>Rulebook</dt><dd className="font-mono">{target.rulebook_id} v{target.rulebook_version}</dd>
+          <dt>Rulebook</dt><dd className="font-mono" title={target.rulebook_id}>{rulebookLabel}</dd>
           <dt>Sample</dt><dd className="font-mono">{where}</dd>
-          <dt>Audit</dt><dd className="font-mono">{reference.audit_id}</dd>
+          <dt>Audit</dt><dd className="font-mono" title={reference.audit_id}>{auditLabel}</dd>
         </dl>
         <label className="example-use">
           <input type="checkbox" checked={checked} disabled={Boolean(blockReason)} aria-describedby={blockReason ? noteId : undefined} onChange={(event) => onToggle(event.target.checked)} />

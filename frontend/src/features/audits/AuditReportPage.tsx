@@ -10,6 +10,10 @@ import { checkLabel, jobStatusLabel, reviewStatusLabel, toolStatusLabel } from '
 import { formatTimestamp } from '../../lib/format';
 import { useDatasetName } from '../../hooks/useDatasetName';
 import { aggregateByRule, buildReportRows, downloadText, mapWithConcurrency, reportToCsv, summarizeQueue } from './auditReport';
+import { useDisplayNames } from '../../hooks/useDisplayNames';
+import { auditHeading, auditLabel, labelSlug, rulebookLabel } from '../../lib/names';
+import { TechnicalId } from '../../components/ui/RecordName';
+import { TitleEditor } from '../names/TitleEditor';
 
 const pct = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : '—');
 
@@ -47,11 +51,16 @@ export const AuditReportPage: React.FC = () => {
 
   const summary = useMemo(() => summarizeQueue(queue.data?.items ?? []), [queue.data]);
   const rules = useMemo(() => aggregateByRule(details.data ?? []), [details.data]);
-  const rows = useMemo(() => buildReportRows(details.data ?? []), [details.data]);
+  // Rows can come from rechecks; label each with the attempt that produced it.
+  const attemptNames = useDisplayNames({ auditIds: (details.data ?? []).map((sample) => sample.audit_id) });
+  const rows = useMemo(() => buildReportRows(details.data ?? [], (id) => auditLabel(attemptNames.audit(id))), [details.data, attemptNames]);
+  const fileBase = audit.data?.name ? labelSlug(audit.data.name.label) : auditId;
   const total = summary.total;
 
-  const exportCsv = () => downloadText(`${auditId}-report.csv`, reportToCsv(rows), 'text/csv;charset=utf-8');
-  const exportJson = () => downloadText(`${auditId}-report.json`, JSON.stringify({
+  const exportCsv = () => downloadText(`${fileBase}-report.csv`, reportToCsv(rows), 'text/csv;charset=utf-8');
+  const exportJson = () => downloadText(`${fileBase}-report.json`, JSON.stringify({
+    audit_label: audit.data ? auditHeading(audit.data.name) : null,
+    rulebook_label: audit.data ? rulebookLabel(audit.data.rulebook_name, audit.data.rulebook_version) : null,
     audit: audit.data,
     generated_at: new Date().toISOString(),
     include_rechecks: true,
@@ -65,11 +74,12 @@ export const AuditReportPage: React.FC = () => {
       <header className="report-header">
         <div>
           <Link to={`/audits/${auditId}/review`} className="report-back"><ArrowLeft size={13} /> Back to review</Link>
-          <h1>Audit report</h1>
+          <h1 className="break-words">{audit.data ? `${auditHeading(audit.data.name)} report` : 'Audit report'}</h1>
+          {audit.data && <TitleEditor kind="audit" id={audit.data.audit_id} name={audit.data.name} />}
           <p className="report-meta">
-            <span className="mono">{auditId}</span>
-            {audit.data && <> · dataset <b>{datasetName(audit.data.dataset_id)}</b> · rulebook <span className="mono">{audit.data.rulebook_id} v{audit.data.rulebook_version}</span> · {jobStatusLabel(audit.data.status)} · started {formatTimestamp(audit.data.created_at)}</>}
+            {audit.data && <>Dataset <b>{datasetName(audit.data.dataset_id)}</b> · <span className="mono">{rulebookLabel(audit.data.rulebook_name, audit.data.rulebook_version)}</span> · {jobStatusLabel(audit.data.status)} · started {formatTimestamp(audit.data.created_at)}</>}
           </p>
+          <TechnicalId label="Audit ID" value={auditId} />
         </div>
         <div className="report-actions">
           <Button size="sm" variant="secondary" leftIcon={<Download size={13} />} disabled={!details.data || details.isFetching || queue.isFetching || !!details.error || !!queue.error} onClick={exportCsv}>CSV</Button>

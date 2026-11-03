@@ -42,6 +42,11 @@ export const queryKeys = {
   rulebookVersions: (id: string) => ['rulebooks', id, 'versions'] as const,
   rulebookReviews: (id: string) => ['rulebooks', id, 'reviews'] as const,
 
+  // Display names for IDs held by other records; title edits invalidate the prefix.
+  displayNames: () => ['display-names'] as const,
+  displayNameLookup: (auditIds: readonly string[], rulebookIds: readonly string[]) =>
+    ['display-names', auditIds, rulebookIds] as const,
+
   // Datasets
   datasets: () => ['datasets'] as const,
   dataset: (id: string) => ['datasets', id] as const,

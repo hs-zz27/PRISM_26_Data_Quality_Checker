@@ -96,7 +96,9 @@ function makeUrl<P extends keyof paths, M extends HttpMethod>(
   const pathname = interpolatePath<P, M>(path, pathValues);
   const url = new URL(`${API_BASE}${pathname}`, window.location.origin);
   for (const [key, value] of Object.entries(queryValues ?? {})) {
-    if (value !== null && value !== undefined) url.searchParams.set(key, String(value));
+    // Array parameters repeat the key (?audit_id=a&audit_id=b), as FastAPI expects.
+    if (Array.isArray(value)) value.forEach((item) => url.searchParams.append(key, String(item)));
+    else if (value !== null && value !== undefined) url.searchParams.set(key, String(value));
   }
   return `${url.pathname}${url.search}`;
 }

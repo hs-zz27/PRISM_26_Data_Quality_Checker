@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiGetAllPages, apiPut } from './client';
+import { apiGet, apiGetAllPages, apiPut } from './client';
 afterEach(() => vi.unstubAllGlobals());
 describe('typed API client', () => {
   it('follows next_offset and combines page items', async () => {
@@ -16,6 +16,15 @@ describe('typed API client', () => {
     const result = await apiGetAllPages('/exports', { query: { limit: 1, offset: 0 } });
     expect(result.items.map((item) => item.export_id)).toEqual(['exp-1', 'exp-2']);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it('repeats array query parameters and omits empty ones', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ audits: [], rulebooks: [] })));
+    vi.stubGlobal('fetch', fetchMock);
+    await apiGet('/display-names', { query: { audit_id: ['audit_a', 'audit b'], rulebook_id: [] } });
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost');
+    expect(url.pathname).toBe('/api/v1/display-names');
+    expect(url.searchParams.getAll('audit_id')).toEqual(['audit_a', 'audit b']);
+    expect(url.searchParams.has('rulebook_id')).toBe(false);
   });
   it('preserves required blank comments in review payloads and exposes 409', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'VERSION_CONFLICT', message: 'stale' } }), { status: 409 }));

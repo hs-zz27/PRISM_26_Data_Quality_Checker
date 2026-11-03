@@ -5,10 +5,15 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from .display_names import RulebookName
 from .json_value import FiniteJsonValue
 
 
 NonBlankText = Annotated[str, StringConstraints(min_length=1, pattern=r"\S")]
+
+
+def _absent(value) -> bool:
+    return value is None
 
 
 def _empty(value) -> bool:
@@ -125,12 +130,34 @@ class Rulebook(BaseModel):
         return self
 
 
+class RulebookRecord(Rulebook):
+    """A rulebook version as returned by the API, with its display name.
+
+    The name is per logical rulebook and joined at read time. It is not part
+    of the stored document, so it never changes a version's content or hash.
+    """
+
+    name: RulebookName | None = Field(default=None, exclude_if=_absent, description="Permanent label and editable title, shared by every version.")
+
+
 class RulebookPage(BaseModel):
     """A page of latest rulebooks or one rulebook's saved version history."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
     items: list[Rulebook]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+    next_offset: int | None = Field(default=None, ge=0)
+
+
+class RulebookRecordPage(BaseModel):
+    """RulebookPage as returned by the API, with each book's display name."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    items: list[RulebookRecord]
     limit: int = Field(ge=1, le=100)
     offset: int = Field(ge=0)
     total: int = Field(ge=0)

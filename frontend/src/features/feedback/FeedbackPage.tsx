@@ -14,6 +14,8 @@ import { deriveCandidateCases, MAX_GROUND_TRUTH_CASES, MAX_POLICY_EXAMPLES, type
 import { selectionBlockReason } from './exampleSelection';
 import { ExampleCard } from './ExampleCard';
 import { useDatasetName } from '../../hooks/useDatasetName';
+import { useDisplayNames } from '../../hooks/useDisplayNames';
+import { auditHeading, auditLabel, rulebookLabel } from '../../lib/names';
 import type { components } from '../../api/generated/openapi';
 
 type ArmMetrics = components['schemas']['ArmMetrics'];
@@ -108,6 +110,10 @@ export const FeedbackPage: React.FC = () => {
   });
 
   const exampleItems = examples.data?.items ?? [];
+  const exampleNames = useDisplayNames({
+    auditIds: exampleItems.map((example) => example.reference.audit_id),
+    rulebookIds: exampleItems.map((example) => example.target.rulebook_id),
+  });
   const chosenExamples = exampleItems.filter((example) => example.example_id && selectedExamples.includes(example.example_id));
   const selectedGroup = chosenExamples[0];
 
@@ -133,7 +139,7 @@ export const FeedbackPage: React.FC = () => {
                   <p className="text-2xs text-text-muted">Each card shows the exact image revision the reviewer judged, with all of its annotation boxes outlined. The expected result applies to that whole annotation for the named rule. One policy uses one dataset, one rulebook version and one rule.</p>
                   {selectedGroup && (
                     <p className="example-group" role="status">
-                      Selected group: dataset <b>{datasetName(selectedGroup.dataset_id)}</b> · rulebook <span className="font-mono">{selectedGroup.target.rulebook_id} v{selectedGroup.target.rulebook_version}</span> · rule <b className="font-mono">{selectedGroup.target.rule.rule_id}</b>. Examples outside this group are disabled.
+                      Selected group: dataset <b>{datasetName(selectedGroup.dataset_id)}</b> · <span className="font-mono">{rulebookLabel(exampleNames.rulebook(selectedGroup.target.rulebook_id), selectedGroup.target.rulebook_version)}</span> · rule <b className="font-mono">{selectedGroup.target.rule.rule_id}</b>. Examples outside this group are disabled.
                       <button type="button" className="rule-action" onClick={() => setSelectedExamples([])}>Clear selection</button>
                     </p>
                   )}
@@ -146,6 +152,8 @@ export const FeedbackPage: React.FC = () => {
                           key={example.case_id}
                           example={{ ...example, example_id: id }}
                           datasetName={datasetName(example.dataset_id)}
+                          auditLabel={auditLabel(exampleNames.audit(example.reference.audit_id))}
+                          rulebookLabel={rulebookLabel(exampleNames.rulebook(example.target.rulebook_id), example.target.rulebook_version)}
                           checked={selectedExamples.includes(id)}
                           blockReason={selectionBlockReason(example, chosenExamples)}
                           onToggle={(checked) => setSelectedExamples((old) => checked ? (old.includes(id) ? old : [...old, id]) : old.filter((x) => x !== id))}
@@ -187,7 +195,7 @@ export const FeedbackPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <select aria-label="Audit for ground truth" value={truthAuditId} onChange={(event) => { setTruthAuditId(event.target.value); setCaseEdits({}); }}>
             <option value="">Select an audit</option>
-            {audits.data?.items.map((audit) => <option key={audit.audit_id} value={audit.audit_id}>{audit.audit_id} · {audit.dataset_id}</option>)}
+            {audits.data?.items.map((audit) => <option key={audit.audit_id} value={audit.audit_id}>{auditHeading(audit.name)} · {datasetName(audit.dataset_id)}</option>)}
           </select>
           {truthSource.isFetching && <span className="text-2xs text-text-muted"><Loader2 className="inline w-3 h-3 animate-spin" /> Loading reviewed findings…</span>}
         </div>

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Path, Query
 
 from ..models.audit import AuditRun
 from ..models.audit_submission import AuditPage, AuditRequest, AuditStarted
+from ..models.display_names import TitleUpdate
 from ..models.audit_read import AuditSamplePage, ErrorResponse, FindingPage, SampleAudit, ToolStatus
 from ..models.finding import FindingOutcome
 from ..models.review import SampleReviewDecision
@@ -15,6 +16,8 @@ from ..storage.audit_read_repository import AuditReadRepository
 from ..storage.dataset_repository import DatasetRepository
 from ..storage.repository import RulebookRepository
 from ..storage.workflow_repository import AuditRepository
+from ..storage.display_name_repository import DisplayNameRepository
+from .display_names import TITLE_CONFLICT_RESPONSE, names_beside
 
 
 router = APIRouter(prefix="/audits", tags=["Audits"], responses={
@@ -49,6 +52,13 @@ def get_audit_submission_service(
 
 Repository = Annotated[AuditReadRepository, Depends(get_audit_read_repository)]
 AuditRepositoryDependency = Annotated[AuditRepository, Depends(get_audit_repository)]
+
+
+def get_audit_display_names(repository: AuditRepositoryDependency) -> DisplayNameRepository:
+    return names_beside(repository)
+
+
+DisplayNames = Annotated[DisplayNameRepository, Depends(get_audit_display_names)]
 Identifier = Annotated[str, Path(min_length=1, pattern=r"\S")]
 
 
@@ -59,26 +69,42 @@ Identifier = Annotated[str, Path(min_length=1, pattern=r"\S")]
 def start_audit(
     request: AuditRequest,
     service: Annotated[AuditSubmissionService, Depends(get_audit_submission_service)],
+    names: DisplayNames,
 ) -> AuditStarted:
     """Queue a snapshot audit; processing runs in the explicit audit worker."""
-    return service.start(request)
+    started = service.start(request)
+    return started.model_copy(update={"audit": names.with_audit_names([started.audit], after_write=True)[0]})
 
 
 @router.get("", response_model=AuditPage, operation_id="listAudits")
 def list_audits(
     repository: AuditRepositoryDependency,
+    names: DisplayNames,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0, le=9_223_372_036_854_775_807)] = 0,
     roots_only: bool = False,
 ) -> AuditPage:
     """Read all audit states, newest first, without running or recovering jobs."""
-    return repository.list_audits(limit=limit, offset=offset, **({"roots_only": True} if roots_only else {}))
+    page = repository.list_audits(limit=limit, offset=offset, **({"roots_only": True} if roots_only else {}))
+    return page.model_copy(update={"items": names.with_audit_names(page.items)})
 
 
 @router.get("/{audit_id}", response_model=AuditRun, operation_id="getAudit", responses=NOT_FOUND)
-def get_audit(audit_id: Identifier, repository: AuditRepositoryDependency) -> AuditRun:
+def get_audit(audit_id: Identifier, repository: AuditRepositoryDependency, names: DisplayNames) -> AuditRun:
     """Read persisted audit progress without changing workflow or review state."""
-    return repository.get_audit(audit_id)
+    return names.with_audit_names([repository.get_audit(audit_id)])[0]
+
+
+@router.put(
+    "/{audit_id}/title", response_model=AuditRun, operation_id="updateAuditTitle",
+    responses={**NOT_FOUND, **TITLE_CONFLICT_RESPONSE},
+)
+def update_audit_title(
+    audit_id: Identifier, request: TitleUpdate, repository: AuditRepositoryDependency, names: DisplayNames,
+) -> AuditRun:
+    """Replace the editable title only. The label, audit, findings and corrections are unchanged."""
+    names.update_audit_title(audit_id, request)
+    return names.with_audit_names([repository.get_audit(audit_id)], after_write=True)[0]
 
 
 @router.get("/{audit_id}/samples", response_model=AuditSamplePage, operation_id="listAuditSamples", responses=NOT_FOUND)

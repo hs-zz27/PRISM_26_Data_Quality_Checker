@@ -38,9 +38,12 @@ import {
   suggestRuleId,
 } from './rulebookEditing';
 import type { components } from '../../api/generated/openapi';
+import { RulebookNameText, TechnicalId } from '../../components/ui/RecordName';
+import { TitleEditor } from '../names/TitleEditor';
+import { rulebookLabel } from '../../lib/names';
 
 type Rule = components['schemas']['Rule'];
-type Rulebook = components['schemas']['Rulebook'];
+type Rulebook = components['schemas']['RulebookRecord'];
 
 // Used when the capability catalogue is unavailable (it is a planned endpoint).
 const FALLBACK_CHECKS = Object.keys(CHECK_PARAMETER_TEMPLATES).map((name) => ({ name, implementation: 'implemented' }));
@@ -159,7 +162,7 @@ export const RulebookEditorPage: React.FC = () => {
 
   const saveDraftMutation = useMutation({
     mutationFn: () => saveDraft(localRules),
-    onSuccess: (saved) => { setNotice(`Draft saved as version ${saved.version}.`); openVersion(saved); },
+    onSuccess: (saved) => { setNotice(`Draft saved as ${rulebookLabel(saved.name, saved.version)}.`); openVersion(saved); },
     onError: (err) => setActionError(describeError(err)),
   });
 
@@ -181,7 +184,7 @@ export const RulebookEditorPage: React.FC = () => {
       }
       return apiPost('/rulebooks/{rulebook_id}/confirm', { path: { rulebook_id: rulebookId! }, body: { expected_version: expectedVersion, reviewer_id: activeReviewer } });
     },
-    onSuccess: (confirmed) => { setNotice(`Rulebook confirmed as version ${confirmed.version}. It is now locked and can be used for audits.`); openVersion(confirmed); },
+    onSuccess: (confirmed) => { setNotice(`Confirmed as ${rulebookLabel(confirmed.name, confirmed.version)}. It is now locked and can be used for audits.`); openVersion(confirmed); },
     onError: (err) => { if (!(err instanceof Error && err.message === 'Confirmation cancelled.')) setActionError(describeError(err)); },
   });
 
@@ -196,7 +199,7 @@ export const RulebookEditorPage: React.FC = () => {
 
   const reviseMutation = useMutation({
     mutationFn: () => apiPost('/rulebooks/{rulebook_id}/revisions', { path: { rulebook_id: rulebookId! }, body: { expected_version: rulebook!.version, reviewer_id: requireReviewer() } }),
-    onSuccess: (draft) => { setNotice(`Started draft version ${draft.version}. All rules are back to pending for review.`); openVersion(draft); },
+    onSuccess: (draft) => { setNotice(`Started draft ${rulebookLabel(draft.name, draft.version)}. All rules are back to pending for review.`); openVersion(draft); },
     onError: (err) => setActionError(describeError(err)),
   });
 
@@ -252,8 +255,7 @@ export const RulebookEditorPage: React.FC = () => {
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />} onClick={() => navigate('/rulebooks')}>Rulebooks</Button>
           <div className="h-4 w-px bg-border" />
-          <span className="font-mono font-semibold text-text text-sm truncate">{rulebookId}</span>
-          <span className="font-mono text-xs text-text-muted">v{rulebook?.version ?? 1}</span>
+          <RulebookNameText name={rulebook?.name} version={rulebook?.version ?? 1} className="text-sm" />
           <Badge variant={isConfirmed ? 'pass' : isRejected ? 'fail' : 'pending'} size="sm">{rulebook?.confirmation_state ?? 'draft'}</Badge>
           {versions.length > 1 && (
             <label className="flex items-center gap-1.5 ml-2 text-xs">
@@ -302,6 +304,11 @@ export const RulebookEditorPage: React.FC = () => {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-surface px-6 py-1.5">
+        {rulebook && <TitleEditor kind="rulebook" id={rulebook.rulebook_id} name={rulebook.name} />}
+        <span className="text-2xs text-text-muted">Every version of this rulebook shares the label {rulebookLabel(rulebook?.name)}.</span>
+        <TechnicalId label="Rulebook ID" value={rulebookId} />
+      </div>
       {actionError && (
         <div role="alert" className="editor-banner is-error">
           <AlertTriangle size={14} /> <span>{actionError}</span>
