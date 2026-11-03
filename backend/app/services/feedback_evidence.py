@@ -122,7 +122,10 @@ def compute_scope(manifest, rule, execution, asset_settings):
     """Requirement eligibility for one sample. No model call, no database access."""
     from .rule_applicability import resolve_scope
     image, objects, masks = scope_inputs(manifest, execution, asset_settings)
-    return resolve_scope(rule, objects, image=image, annotation_format=manifest.annotation_format, masks=masks)
+    # v6 derives applicability with derived-v2; v5 and every stored rule keep derived-v1 (frozen).
+    algorithm = 'derived-v2' if execution.prompt_version == 'annotation-guideline-v6' else 'derived-v1'
+    return resolve_scope(rule, objects, image=image, annotation_format=manifest.annotation_format, masks=masks,
+                         algorithm=algorithm)
 
 
 def visual_evidence(manifest, execution, asset_settings):

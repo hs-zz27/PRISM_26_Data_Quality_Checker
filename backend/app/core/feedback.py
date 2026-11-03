@@ -21,11 +21,15 @@ def load_execution_pin() -> ExecutionPin:
         # v3/v4 stay selectable for comparison; audits already pinned to v4 or earlier are unaffected
         # because their stored pin, not this default, governs rechecks.
         version = values.get('FEEDBACK_PROMPT_VERSION') or 'annotation-guideline-v5'
-        if version not in {'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5'}:
+        # v6 (per-target focused evidence) stays opt-in until its real-model results have been reviewed.
+        if version not in {'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5',
+                           'annotation-guideline-v6'}:
             raise ValueError('Unsupported FEEDBACK_PROMPT_VERSION.')
         return ExecutionPin(
             prompt_version=version,
-            preprocessing='original-and-annotation-overlay-v1',
+            # Every protocol but v6 shares the whole-image overlay; v6 renders per-target focused views.
+            preprocessing='target-focus-overlay-v1' if version == 'annotation-guideline-v6'
+                          else 'original-and-annotation-overlay-v1',
             model=settings.model, model_digest=values['FEEDBACK_MODEL_DIGEST'],
             num_ctx=settings.context_length, num_predict=min(settings.max_output_tokens, 2048),
             num_thread=settings.cpu_threads,

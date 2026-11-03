@@ -240,7 +240,8 @@ def test_corrupt_locked_catalogue_metadata_cannot_enqueue_child(dataset_database
     assert read_sql(dataset_database_settings,'SELECT count(*) AS n FROM audit_recheck_lineage')==[{'n':0}]
 
 
-@pytest.mark.parametrize('version', ['annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5'])
+@pytest.mark.parametrize('version', ['annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5',
+                                     'annotation-guideline-v6'])
 def test_recheck_preserves_parent_visual_protocol_when_new_audit_default_changes(
         dataset_database_settings, tmp_path, monkeypatch, version):
     from backend.app.models.feedback import ExecutionPin
@@ -252,7 +253,8 @@ def test_recheck_preserves_parent_visual_protocol_when_new_audit_default_changes
     books = RulebookRepository(settings=settings)
     books.save_rulebook(rulebook(guideline_text=visual.description, rules=[visual]))
     execution = ExecutionPin(model='test-vision', model_digest='sha256:' + 'a' * 64,
-        prompt_version=version, preprocessing='original-and-annotation-overlay-v1', num_predict=2048)
+        prompt_version=version, num_predict=2048,
+        preprocessing='target-focus-overlay-v1' if version.endswith('-v6') else 'original-and-annotation-overlay-v1')
     monkeypatch.setenv('FEEDBACK_MODEL_DIGEST', execution.model_digest)
     monkeypatch.setattr('backend.app.services.feedback.load_execution_pin', lambda: execution)
     audits = AuditRepository(settings=settings)

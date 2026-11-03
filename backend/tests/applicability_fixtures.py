@@ -27,6 +27,13 @@ def v5_pin(**changes):
                         preprocessing='original-and-annotation-overlay-v1', **changes)
 
 
+def v6_pin(**changes):
+    changes.setdefault('num_predict', 2048)
+    return ExecutionPin(model='test-vision', model_digest='sha256:' + 'a' * 64,
+                        prompt_version='annotation-guideline-v6',
+                        preprocessing='target-focus-overlay-v1', **changes)
+
+
 def v3_pin(**changes):
     changes.setdefault('num_predict', 2048)
     return ExecutionPin(model='test-vision', model_digest='sha256:' + 'a' * 64,

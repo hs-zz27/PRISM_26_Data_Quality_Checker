@@ -298,3 +298,47 @@ def test_a_long_explanation_is_bounded_but_full_results_stay_in_the_record():
     _, reason, result = combine_results(scope, reply(scope, [assessment('/shapes/0', 'fail', reason=long),
                                                              assessment('/shapes/1', 'fail', reason=long)]))
     assert len(reason) <= 1024 and all(r.reason == long for r in result.results)
+
+
+# ------------------------------------------------------------ derived-v2 (prompt v6 only)
+
+RULE_5_TEXT = ('For a person who is partly hidden by another object or by the image edge, annotate only the visible portions, '
+               'and do not extend boxes or polygons to cover body parts that cannot be seen.')
+
+
+def test_derived_v1_misreads_a_prohibition_as_an_excluded_geometry_and_v2_does_not():
+    v1, v2 = derive_applicability(RULE_5_TEXT), derive_applicability(RULE_5_TEXT, 'derived-v2')
+    # v1 is frozen (stored rules and v5 audits depend on it): it drops boxes and reports ambiguity.
+    assert (v1.geometry, v1.status, v1.source) == (['polygon'], 'ambiguous', 'derived-v1')
+    # v2: "do not extend boxes or polygons" prohibits an action; it does not exclude a geometry type.
+    assert (v2.geometry, v2.combine, v2.status, v2.source) == (['box', 'polygon'], 'any', 'clear', 'derived-v2')
+
+
+@pytest.mark.parametrize('text,geometry,status', [
+    ('Annotations other than boxes must follow the visible person.', [], 'ambiguous'),
+    ('Do not draw a box without a polygon.', ['box'], 'ambiguous'),
+    ('Use no masks for people.', [], 'ambiguous'),
+    ('The polygon must not extend outside the image.', ['polygon'], 'clear'),
+    ('The bounding box includes the visible head.', ['box'], 'clear'),
+    ('The polygon must stay inside its bounding box.', ['polygon', 'box'], 'clear'),
+])
+def test_derived_v2_still_flags_real_exclusions_and_keeps_every_other_result(text, geometry, status):
+    result = derive_applicability(text, 'derived-v2')
+    assert (result.geometry, result.status) == (geometry, status)
+
+
+def test_an_unknown_algorithm_is_rejected_and_a_stored_applicability_is_never_rewritten():
+    with pytest.raises(ValueError):
+        derive_applicability('The box includes the head.', 'derived-v9')
+    stored = RuleApplicability(geometry=['polygon'], source='derived-v1', status='ambiguous', basis='Stored by extraction.')
+    rule = visual_rule('R', RULE_5_TEXT, applicability=stored)
+    for algorithm in ('derived-v1', 'derived-v2'):
+        applicability, origin = effective_applicability(rule, algorithm)
+        assert applicability == stored and origin == 'rule'
+
+
+def test_resolve_scope_uses_the_requested_algorithm_so_a_rectangle_only_sample_keeps_the_occlusion_rule():
+    objects = [rect('/shapes/0', 1)]
+    assert scope_for(RULE_5_TEXT, objects).unavailable is not None                      # v1: polygon only -> ineligible
+    v2 = resolve_scope(visual_rule('R', RULE_5_TEXT), objects, image=IMAGE, annotation_format='labelme', algorithm='derived-v2')
+    assert [o.object_key for o in v2.eligible] == ['/shapes/0'] and v2.unavailable is None

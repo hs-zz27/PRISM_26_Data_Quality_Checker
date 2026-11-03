@@ -18,11 +18,13 @@ No I/O and no model here. Three jobs:
 """
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 import re
+from types import SimpleNamespace
 from typing import Any
 
 from ..models.applicability import (
-    APPLICABILITY_ALGORITHM, GeometryKind, IneligibleObject, ObjectGeometry, RuleApplicability,
+    APPLICABILITY_ALGORITHM, APPLICABILITY_ALGORITHMS, GeometryKind, IneligibleObject, ObjectGeometry, RuleApplicability,
     ScopeImage, ScopeObject, ScopeUnavailable, TargetResult, TargetScope,
 )
 
@@ -45,6 +47,11 @@ _DEFINITION = re.compile(
     re.IGNORECASE)
 _NEGATION = re.compile(
     r"\b(?:not|no|never|without|except|excluding|other\s+than|neither|nor)\b(?:\s+\w+){0,2}\s*$", re.IGNORECASE)
+# derived-v2: a term is EXCLUDED only when an exclusion marker applies to the term itself (optionally through
+# an article), not when a negation governs a verb ("do not extend boxes").
+_EXCLUSION = re.compile(
+    r"(?:\bother\s+than|\bexcept(?:\s+for)?|\bexcluding|\bapart\s+from|\bnot\s+including|\bbut\s+not|"
+    r"\bwithout|\bneither|\bnor|\bno)\s+(?:(?:a|an|the|any|its|their|these|those)\s+)?$", re.IGNORECASE)
 _ALTERNATIVE = re.compile(r"\bor\b|and\s*/\s*or|/|\beither\b", re.IGNORECASE)
 _COMPARISON = re.compile(
     r"\b(?:inside|within|outside|contains?|enclos\w+|match(?:es)?|agree\w*|disagree\w*|consisten\w+|fits?|"
@@ -61,15 +68,25 @@ def _names(kinds: Sequence[str]) -> str:
     return " and ".join(_NAMES[k] for k in kinds)
 
 
-def derive_applicability(requirement: str) -> RuleApplicability:
-    """State which supplied geometry the requirement judges, from the requirement text only."""
+def derive_applicability(requirement: str, algorithm: str = APPLICABILITY_ALGORITHM) -> RuleApplicability:
+    """State which supplied geometry the requirement judges, from the requirement text only.
+
+    ``derived-v1`` (the default) is what stored rules and v5 audits use and is frozen. ``derived-v2`` differs
+    only in what counts as an EXCLUDED geometry term: v1 treated any mention within a few words after a
+    negation as excluded, so a prohibition such as "do not extend boxes or polygons" dropped boxes. v2 counts a
+    term as excluded only when an exclusion marker applies to the term itself ("other than boxes", "without a
+    polygon", "no masks").
+    """
+    if algorithm not in APPLICABILITY_ALGORITHMS:
+        raise ValueError("Unknown applicability algorithm.")
+    excluded = _NEGATION if algorithm == "derived-v1" else _EXCLUSION
     sentences = [s for s in _sentences(requirement) if not _DEFINITION.search(s)]
     mentions: list[tuple[int, int, GeometryKind]] = []
     negated: list[GeometryKind] = []
     text = " ".join(sentences)
     for kind, pattern in _TERMS.items():
         for match in pattern.finditer(text):
-            if _NEGATION.search(text[max(0, match.start() - 40):match.start()]):
+            if excluded.search(text[max(0, match.start() - 40):match.start()]):
                 negated.append(kind)
             else:
                 mentions.append((match.start(), match.end(), kind))
@@ -80,41 +97,41 @@ def derive_applicability(requirement: str) -> RuleApplicability:
             kinds.append(kind)
     if negated:
         return RuleApplicability(
-            geometry=kinds, combine="any", status="ambiguous", source=APPLICABILITY_ALGORITHM,
+            geometry=kinds, combine="any", status="ambiguous", source=algorithm,
             basis=("The requirement mentions a geometry type in a negated or excluded phrase "
                    f"({_names(sorted(set(negated)))}). Check which geometry it applies to."))
     if not kinds:
         return RuleApplicability(
-            geometry=[], source=APPLICABILITY_ALGORITHM,
+            geometry=[], source=algorithm,
             basis="The requirement names no geometry type, so it can be checked against any annotation.")
     if len(kinds) == 1:
         return RuleApplicability(
-            geometry=kinds, source=APPLICABILITY_ALGORITHM,
+            geometry=kinds, source=algorithm,
             basis=f"The requirement judges the supplied {_names(kinds)} only.")
     span = text[mentions[0][0]:mentions[-1][1]]
     alternative, comparison = bool(_ALTERNATIVE.search(span)), bool(_COMPARISON.search(span))
     if alternative and not comparison:
         return RuleApplicability(
-            geometry=kinds, combine="any", source=APPLICABILITY_ALGORITHM,
+            geometry=kinds, combine="any", source=algorithm,
             basis=(f"The requirement allows alternatives ({_names(kinds).replace(' and ', ' or ')}); "
                    "an annotation is eligible when it has any of them supplied."))
     if comparison and not alternative:
         return RuleApplicability(
-            geometry=kinds, combine="all", source=APPLICABILITY_ALGORITHM,
+            geometry=kinds, combine="all", source=algorithm,
             basis=(f"The requirement relates the {_names(kinds)} to each other; an annotation is "
                    "eligible only when both were supplied."))
     return RuleApplicability(
-        geometry=kinds, combine="any", status="ambiguous", source=APPLICABILITY_ALGORITHM,
+        geometry=kinds, combine="any", status="ambiguous", source=algorithm,
         basis=(f"The requirement mentions {_names(kinds)} without making clear whether they are "
                "alternatives or both required. Treated as alternatives until a reviewer decides; "
                "consider splitting the rule or setting its applicability."))
 
 
-def effective_applicability(rule) -> tuple[RuleApplicability, str]:
-    """The rule's own applicability, else one derived now (recorded as such in the finding)."""
+def effective_applicability(rule, algorithm: str = APPLICABILITY_ALGORITHM) -> tuple[RuleApplicability, str]:
+    """The rule's own applicability (never rewritten), else one derived now and recorded as such."""
     if rule.applicability is not None:
         return rule.applicability, "rule"
-    return derive_applicability(rule.description), "derived_at_audit"
+    return derive_applicability(rule.description, algorithm), "derived_at_audit"
 
 
 def object_key(obj: Mapping[str, Any]) -> str:
@@ -185,9 +202,9 @@ def _unavailable(rule_geometry: Sequence[GeometryKind], objects: list[ScopeObjec
 
 
 def resolve_scope(rule, objects: Sequence[Mapping[str, Any]], *, image: ScopeImage, annotation_format: str,
-                  masks: Mapping[str, str] | None = None) -> TargetScope:
+                  masks: Mapping[str, str] | None = None, algorithm: str = APPLICABILITY_ALGORITHM) -> TargetScope:
     """Eligible targets, ineligible context and, when nothing is eligible, the reason."""
-    applicability, origin = effective_applicability(rule)
+    applicability, origin = effective_applicability(rule, algorithm)
     masks = masks or {}
     scope_objects = []
     for obj in objects:
@@ -293,6 +310,12 @@ def combine_results(scope: TargetScope, response) -> tuple[str, str, TargetScope
         results.append(TargetResult(
             object_key=target.object_key, outcome=outcome, model_outcome=assessment.outcome,
             geometry=assessment.geometry, condition=assessment.condition, reason=assessment.reason, flags=flags))
+    return _finalize(scope, results, rejected, response.outcome)
+
+
+def _finalize(scope: TargetScope, results: list[TargetResult], rejected: list[str],
+              reported_outcome: str | None, extra_notes: Sequence[str] = ()) -> tuple[str, str, TargetScope]:
+    """Sample outcome, reason and scope from per-target results (shared by every protocol)."""
     counted = [r for r in results if "condition_not_present" not in r.flags]
     unavailable = None
     if not counted:
@@ -325,13 +348,86 @@ def combine_results(scope: TargetScope, response) -> tuple[str, str, TargetScope
     if len(reason) > 1024:
         reason = reason[:1023] + "…"
     update = {"results": results, "rejected_references": rejected[:32],
-              "model_reported_outcome": response.outcome, "outcome_source": "derived_from_target_results"}
+              "model_reported_outcome": reported_outcome, "outcome_source": "derived_from_target_results"}
     if unavailable is not None:
         update["unavailable"] = ScopeUnavailable(**unavailable)
     notes = list(scope.notes)
-    if response.outcome != final:
-        notes.append(f"The model reported {response.outcome}; the outcome follows its per-target results."[:400])
+    if reported_outcome is not None and reported_outcome != final:
+        notes.append(f"The model reported {reported_outcome}; the outcome follows its per-target results."[:400])
+    notes.extend(extra_notes)
     return final, reason, scope.model_copy(update={**update, "notes": notes})
+
+
+@dataclass(frozen=True)
+class FocusedCall:
+    """The outcome of ONE per-target request (protocol v6).
+
+    Exactly one of ``assessment``, ``failure`` or ``answered_for`` describes what came back:
+    a validated FocusedAssessment for the requested key; an execution/validation failure code
+    (no trusted answer was obtained); or the key the model answered for when it was not the key asked about.
+    """
+    object_key: str
+    assessment: Any | None = None
+    failure: str | None = None
+    answered_for: str | None = None
+    duration_ms: float = 0.0
+
+
+_COMPLIANCE_OUTCOME = {"yes": "pass", "no": "fail", "unclear": "unsure"}
+
+
+def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall]) -> tuple[str, str, TargetScope]:
+    """Sample-level (outcome, reason, scope) from per-target requests; every eligible target gets a result.
+
+    The outcome of a target is derived from the model's structured fields, never from its prose:
+    condition not_present excludes the target; an unclear condition or unclear compliance is ``unsure``;
+    otherwise compliance yes/no is pass/fail. A target whose request failed is ``unavailable`` (so an
+    applicable target without a trusted answer can never allow an overall pass) and carries the failure code;
+    a target answered under a different key is ``unsure`` with ``no_assessment`` and the reference is rejected.
+    A failure on one target never discards a valid failure on another.
+    """
+    by_key: dict[str, list[FocusedCall]] = {}
+    for call in calls:
+        by_key.setdefault(call.object_key, []).append(call)
+    known = {o.object_key for o in scope.eligible}
+    rejected = [f"{key[:120]}: not an eligible target" for key in by_key if key not in known]
+    results: list[TargetResult] = []
+    for target in scope.eligible:
+        entries = by_key.get(target.object_key, [])
+        if len(entries) != 1:
+            rejected.append(f"{target.object_key[:120]}: {'repeated' if entries else 'missing'} request result ignored")
+            results.append(TargetResult(object_key=target.object_key, outcome="unsure", flags=["no_assessment"]))
+            continue
+        call = entries[0]
+        if call.failure is not None:
+            results.append(TargetResult(object_key=target.object_key, outcome="unavailable",
+                                        flags=["call_failed", f"call:{call.failure}"[:60]]))
+            continue
+        if call.assessment is None or call.answered_for is not None:
+            if call.answered_for is not None:
+                rejected.append(f"{call.answered_for[:120]}: answered where {target.object_key[:100]} was requested")
+            results.append(TargetResult(object_key=target.object_key, outcome="unsure",
+                                        flags=["no_assessment", "reference_mismatch"] if call.answered_for else ["no_assessment"]))
+            continue
+        a = call.assessment
+        flags: list[str] = []
+        if a.condition == "not_present":
+            outcome = model_outcome = "unavailable"
+            flags.append("condition_not_present")
+        elif a.condition == "unclear":
+            outcome = model_outcome = "unsure"
+            flags.append("condition_unclear")
+        else:
+            outcome = model_outcome = _COMPLIANCE_OUTCOME[a.compliance]
+        flags += _grounding_flags(SimpleNamespace(geometry=a.geometry, reason=a.reason, outcome=outcome), target,
+                                  scope.applicability)
+        if outcome in ("pass", "fail") and DOWNGRADING_FLAGS & set(flags):
+            outcome = "unsure"
+        results.append(TargetResult(object_key=target.object_key, outcome=outcome, model_outcome=model_outcome,
+                                    geometry=a.geometry, condition=a.condition, reason=a.reason, flags=flags))
+    timing = "; ".join(f"{c.object_key} {c.failure or ('mismatch' if c.answered_for else 'ok')} {c.duration_ms / 1000:.0f}s"
+                       for c in calls)
+    return _finalize(scope, results, rejected[:32], None, [f"One request per target: {timing}"[:400]])
 
 
 def keys_needing_review(scope: TargetScope | None) -> list[str]:

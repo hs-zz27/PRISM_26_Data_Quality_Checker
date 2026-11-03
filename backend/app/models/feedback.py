@@ -267,8 +267,8 @@ class EvidenceLimits(Record):
 class ExecutionPin(EvidenceLimits):
     model: Text
     model_digest: Annotated[str, StringConstraints(pattern='^sha256:[0-9a-f]{64}$')]
-    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
-    preprocessing: Literal['original-png-no-transform-v1', 'original-and-annotation-overlay-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
+    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5', 'annotation-guideline-v6', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
+    preprocessing: Literal['original-png-no-transform-v1', 'original-and-annotation-overlay-v1', 'target-focus-overlay-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
     schema_version: Literal[1] = 1
     identity_assurance: Literal['local-server-reported-pre-post-v1'] = 'local-server-reported-pre-post-v1'
     temperature: Literal[0] = 0
@@ -301,7 +301,9 @@ class ExecutionPin(EvidenceLimits):
                         'annotation-guideline-v3': 'original-and-annotation-overlay-v1',
                         # v4 observations and v5 scoped assessments have distinct response schemas.
                         'annotation-guideline-v4': 'original-and-annotation-overlay-v1',
-                        'annotation-guideline-v5': 'original-and-annotation-overlay-v1'}
+                        'annotation-guideline-v5': 'original-and-annotation-overlay-v1',
+                        # v6: per-target focused views (full + crop of original and overlay), one request per target.
+                        'annotation-guideline-v6': 'target-focus-overlay-v1'}
             if expected.get(self.prompt_version) != self.preprocessing:
                 raise ValueError('Prompt and preprocessing versions must match.')
         else:
@@ -346,6 +348,26 @@ class TargetedPrediction(Record):
     outcome: Outcome
     reason: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
     assessments: list[ObjectAssessment] = Field(max_length=32)
+    evidence_references: list[Literal['image', 'annotations', 'guideline']] = Field(max_length=3)
+
+class FocusedAssessment(Record):
+    """The v6 response: ONE requirement judged for ONE annotation, bound to its stable key.
+
+    The model states facts, not a verdict. ``condition`` is answered first (does the requirement's own
+    condition, for example partial occlusion, hold for this annotation: applies, not_present or unclear).
+    ``compliance`` then says whether the supplied geometry satisfies the requirement (yes, no, unclear).
+    The backend derives the outcome from these two fields, so the outcome cannot contradict the condition.
+    ``reason`` is one sentence describing what is visible at the annotation's boundary; it explains the
+    answer for the reviewer and does not decide it.
+    """
+
+    case_id: Digest
+    rule_id: Identifier
+    object_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    condition: Literal['applies', 'not_present', 'unclear']
+    compliance: Literal['yes', 'no', 'unclear']
+    geometry: Literal['box', 'polygon']
+    reason: Annotated[str, StringConstraints(min_length=1, max_length=300)]
     evidence_references: list[Literal['image', 'annotations', 'guideline']] = Field(max_length=3)
 
 class RecordedPrediction(Record):

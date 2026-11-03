@@ -25,7 +25,10 @@ Basis = Annotated[str, StringConstraints(min_length=1, max_length=400, pattern=r
 ObjectKey = Annotated[str, StringConstraints(min_length=1, max_length=256)]
 ShortText = Annotated[str, StringConstraints(min_length=1, max_length=400)]
 
+# derived-v1 is what v5 audits and all stored rules use and must not change. derived-v2 (used by prompt v6)
+# only narrows what counts as an excluded geometry term; see rule_applicability.derive_applicability.
 APPLICABILITY_ALGORITHM = "derived-v1"
+APPLICABILITY_ALGORITHMS = ("derived-v1", "derived-v2")
 
 
 class RuleApplicability(BaseModel):
@@ -43,7 +46,7 @@ class RuleApplicability(BaseModel):
 
     geometry: list[GeometryKind] = Field(default_factory=list, max_length=3)
     combine: Literal["any", "all"] = "all"
-    source: Literal["derived-v1", "reviewer"] = "derived-v1"
+    source: Literal["derived-v1", "derived-v2", "reviewer"] = "derived-v1"
     status: Literal["clear", "ambiguous"] = "clear"
     basis: Basis
 
@@ -96,7 +99,7 @@ class ScopeUnavailable(BaseModel):
         "no_annotations", "no_eligible_annotation", "supplied_box_not_available",
         "mask_not_supplied", "mask_referenced_unavailable", "mask_encoding_unsupported",
         "mask_not_visible_to_visual_check",
-        "measurement_not_supported", "condition_not_present", "no_valid_assessment",
+        "measurement_not_supported", "condition_not_present", "no_valid_assessment", "too_many_targets",
     ]
     detail: ShortText
 

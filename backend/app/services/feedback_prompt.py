@@ -123,7 +123,8 @@ def _visual_payload(manifest, target, examples, execution, asset_settings, revie
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
     return payload
 
-def prepare_payload(manifest, target, examples, execution, asset_settings, *, reviewer_feedback=None, scope=None):
+def prepare_payload(manifest, target, examples, execution, asset_settings, *, reviewer_feedback=None, scope=None,
+                    focus_key=None):
     """Also called before enqueue: reject unrepresentable context, never truncate it.
 
     Only the candidate's TRAINING example labels enter this request. This function
@@ -139,6 +140,19 @@ def prepare_payload(manifest, target, examples, execution, asset_settings, *, re
         raise FeedbackError('POLICY_INCOMPATIBLE')
     if execution.prompt_version in {'annotation-guideline-v3', 'annotation-guideline-v4'}:
         return _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback)
+    if execution.prompt_version == 'annotation-guideline-v6':
+        # One request per eligible target; policy examples are not part of this protocol.
+        if examples:
+            raise FeedbackError('POLICY_INCOMPATIBLE')
+        if scope is None:
+            from .feedback_evidence import compute_scope
+            scope = compute_scope(manifest, target.rule, execution, asset_settings)
+        if focus_key is None:
+            if not scope.eligible:
+                raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
+            focus_key = scope.eligible[0].object_key
+        from .focused_prompt import focused_payload
+        return focused_payload(manifest, target, execution, asset_settings, reviewer_feedback, scope, focus_key)
     if execution.prompt_version == 'annotation-guideline-v5':
         if scope is None:
             from .feedback_evidence import compute_scope
