@@ -13,7 +13,8 @@ class ImageReviewFeedback(BaseModel):
     comment: FeedbackText
     propose_correction: bool = False
     # Optional: the annotations this feedback is about (stable source keys, not display numbers). When
-    # given, a correction proposal may edit only these. When absent, the annotations the recheck itself
+    # given, v6 visual comments apply only to these targets and a correction proposal may edit only these.
+    # Other eligible targets still receive normal comment-free checks. When absent, the annotations the recheck itself
     # flagged (fail or unsure) are the only editable ones; with neither, behaviour is unchanged.
     object_keys: list[ObjectKey] | None = Field(default=None, max_length=16, exclude_if=lambda value: value is None)
 

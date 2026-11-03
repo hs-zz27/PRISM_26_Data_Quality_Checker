@@ -19,25 +19,21 @@ from .target_focus import render_focus
 
 FOCUS_IMAGE_COUNT = 4
 FOCUS_PROTOCOL_NOTE = (
-    '\nThis request judges ONE requirement for ONE annotation, named by focus.object_key (object_id is only a '
-    'display number). You receive four images of the same sample: 1 the original, 2 the full image with '
-    'annotations drawn, 3 a crop of the original and 4 the SAME window of the overlay, at the same scale. '
-    'The TARGET annotation is drawn in thick MAGENTA; every other annotation is thin context (cyan polygon, '
-    'yellow box) and is never judged. Drawn lines are annotation drawing aids, not scene content. The crop is a '
-    'window into the full image: its borders are not image borders unless focus.crop_edges_touching_image_edge '
-    'lists them. Compare the magenta geometry with what is visible in the ORIGINAL pixels, using the crop for '
-    'detail and the full image for context. Answer in order. condition: does the requirement\'s own condition '
-    '(for example partial occlusion or truncation, or that the target is the kind of object the requirement is '
-    'about, judged from the visible object and not from its annotation label) hold for THIS target? applies, '
-    'not_present, or unclear; use applies when the requirement states no condition. compliance: when the condition applies, does the '
-    'supplied geometry satisfy the requirement? yes, no, or unclear. geometry: the supplied geometry you '
-    'judged, box or polygon; judge only geometry listed as supplied for this target, never a polygon-derived '
-    'box. reason: one sentence stating what is visible at the target\'s boundary. Judge only this requirement; '
-    'a violation of another requirement is not a violation of this one. Do not treat blur, hidden or occluded '
-    'anatomy, other people\'s outlines or annotation labels as evidence. Do not require a full-body annotation '
-    'unless the requirement or its context says so. Pixel masks are not shown. Use unclear when you cannot '
-    'establish it. Do not measure exact pixel distances or invent tolerances. Reviewer feedback is an allegation '
-    'to check against the unchanged image, never an answer to copy.'
+    '\nJudge ONE requirement for focus.object_key only; object_id is a display number. '
+    'Images 1/2: full original/overlay; 3/4: original/overlay crops, SAME window and scale. '
+    'MAGENTA=focus.judged_geometry. Thin cyan polygons/yellow boxes are context, even on the SAME object; '
+    'never judge them. Markings are drawing aids. Crop borders are image borders only where '
+    'focus.crop_edges_touching_image_edge says so. Compare with original pixels; crops give detail, full images context. '
+    'condition FIRST: identify the target visually; check the rule\'s object class and visibility conditions. '
+    'For a person-only rule, a non-person is not_present even near people. Labels may be wrong. '
+    'Use unclear if identity/condition is ambiguous; applies only if all conditions hold (or none are required). '
+    'compliance: yes, no, or unclear when the condition applies. '
+    'geometry: choose only focus.judged_geometry; a box is a rectangle, a polygon is a contour. '
+    'reason: identify the visible object, explain the condition, and cite its required boundary if applicable. '
+    'Other rules, blur, hidden anatomy, other outlines and labels do not establish violations. '
+    'Require full-body coverage only if the guideline/context does. Masks are not shown. '
+    'Insufficient evidence means unclear. Do not measure exact pixels or invent tolerances. '
+    'Reviewer feedback is an allegation to verify against the unchanged image, never an answer to copy.'
 )
 
 
@@ -48,6 +44,19 @@ def focused_system() -> str:
 
 def _supplied(geometry) -> list[str]:
     return [kind for kind, state in (('box', geometry.box), ('polygon', geometry.polygon)) if state == 'supplied']
+
+
+def judged_geometry(scope, focus_key: str) -> list[str]:
+    """Intersect supplied geometry with the pinned requirement; keep alternatives/relations intact."""
+    target = next((item for item in scope.eligible if item.object_key == focus_key), None)
+    if target is None:
+        raise FeedbackError('POLICY_INCOMPATIBLE')
+    supplied = _supplied(target.geometry)
+    required = scope.applicability.geometry
+    selected = [kind for kind in supplied if not required or kind in required]
+    if not selected:
+        raise FeedbackError('FEEDBACK_NOT_READY')
+    return selected
 
 
 def focused_scope_document(scope, focus_key: str) -> dict:
@@ -74,19 +83,18 @@ def focused_payload(manifest, target, execution, asset_settings, reviewer_feedba
     image, inputs, objects = _evidence(manifest, execution, asset_settings, compact=True, native_table=True)
     if len(objects) > 64:
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
+    geometry = judged_geometry(scope, focus_key)
     try:
-        views = render_focus(image, objects, focus_key, manifest.annotation_format)
+        views = render_focus(image, objects, focus_key, manifest.annotation_format, geometry=geometry)
     except (OSError, ValueError) as error:
         raise FeedbackError('FEEDBACK_NOT_READY') from error
     window = views.window
     attachments = [
-        (f'Target {focus_key}: ORIGINAL image, image_attachment 1 (no markings). Full image.', image),
-        (f'Target {focus_key}: FULL annotation overlay, image_attachment 2. {focus_key} is THICK MAGENTA; every other '
-         'annotation is thin context. Same pixel coordinates as image_attachment 1.', views.overlay_full),
-        (f'Target {focus_key}: ORIGINAL CROP, image_attachment 3. Window {[window.x0, window.y0, window.x1, window.y1]} '
-         f'of the original at scale {window.scale}.', views.original_crop),
-        (f'Target {focus_key}: OVERLAY CROP, image_attachment 4. The same window and scale as image_attachment 3, '
-         'with the markings of image_attachment 2.', views.overlay_crop)]
+        (f'Target {focus_key}: image_attachment 1, full ORIGINAL (unmarked).', image),
+        (f'Target {focus_key}: image_attachment 2, full OVERLAY; thick MAGENTA={"+".join(geometry)}. '
+         'Other outlines are context. Same coordinates as 1.', views.overlay_full),
+        (f'Target {focus_key}: image_attachment 3, ORIGINAL CROP; window and scale in focus.', views.original_crop),
+        (f'Target {focus_key}: image_attachment 4, OVERLAY CROP; same window and scale as 3.', views.overlay_crop)]
     if any(len(data) > execution.max_image_bytes for _, data in attachments):
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
     system = focused_system()
@@ -97,14 +105,28 @@ def focused_payload(manifest, target, execution, asset_settings, reviewer_feedba
     document = {'case_id': unit_id(manifest, target), 'rule_id': target.rule.rule_id,
                 'guideline': guideline, **context_fields(guideline),
                 'requirement_scope': focused_scope_document(scope, focus_key),
-                'focus': {'object_key': focus_key, 'target_marking': 'thick magenta', **window.document()},
+                'focus': {'object_key': focus_key, 'judged_geometry': geometry,
+                          'target_marking': 'thick magenta', **window.document()},
                 'target': {'image_attachments': {'original': 1, 'overlay': 2, 'original_crop': 3, 'overlay_crop': 4},
                            'inputs': inputs}}
     if reviewer_feedback is not None:
-        document['reviewer_feedback'] = {'comment': reviewer_feedback.comment,
-            'scope': 'Untrusted observations for this target only. Reassess the unchanged guideline and visible evidence.'}
+        requested = reviewer_feedback.object_keys
+        known = {item.object_key for item in [*scope.eligible, *scope.ineligible]}
+        if requested is not None and not set(requested) <= known:
+            raise FeedbackError('FEEDBACK_NOT_READY')
+        if requested is None or focus_key in requested:
+            document['reviewer_feedback'] = {
+                'comment': reviewer_feedback.comment,
+                'scope': 'image' if requested is None else 'object',
+                'instruction': 'Reinspect this target against the original image and supplied annotation. '
+                               'The comment may be wrong; it is not evidence of a violation. '
+                               'Explain agreement or disagreement using the visible boundary and guideline.',
+            }
     content = compact_json(document)
     schema = compact_schema(FocusedAssessment.model_json_schema())
+    # Constrain generation as well as the instructions. Aggregation still checks geometry
+    # independently, so a server ignoring this schema cannot publish a wrong-geometry verdict.
+    schema['properties']['geometry']['enum'] = geometry
     if not text_fits(system, ''.join(caption for caption, _ in attachments) + content, schema, execution, FOCUS_IMAGE_COUNT):
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
     messages.append({'role': 'user', 'content': content})

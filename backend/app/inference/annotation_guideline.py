@@ -188,9 +188,10 @@ class GuidelineClient:
     def _predict_focused(self, manifest, target, examples, asset_settings, reviewer_feedback):
         """v6: eligibility first, then ONE bounded request per eligible target with focused evidence.
 
-        Request count = number of eligible targets (at most MAX_FOCUSED_TARGETS; beyond that the result is
+        Visual request count = number of eligible targets (at most MAX_FOCUSED_TARGETS; beyond that the result is
         unavailable before inference, never a silently shortened list). A failed request marks only its own
         target unavailable; other targets keep their results, so a valid failure is never discarded.
+        Reviewer feedback is untrusted context for a fresh visual assessment of unchanged evidence.
         """
         from ..services.feedback_evidence import compute_scope
         from ..services.rule_applicability import combine_focused
@@ -207,6 +208,10 @@ class GuidelineClient:
                                       model_verified=verified, **({} if scope is None else {'scope': scope}))
         try:
             scope = compute_scope(manifest, target.rule, self.execution, asset_settings)
+            if reviewer_feedback is not None and reviewer_feedback.object_keys is not None:
+                known_keys = {item.object_key for item in [*scope.eligible, *scope.ineligible]}
+                if not set(reviewer_feedback.object_keys) <= known_keys:
+                    raise InferenceUnavailable('feedback_target_not_found')
             if scope.unavailable is None and len(scope.eligible) > MAX_FOCUSED_TARGETS:
                 scope = scope.model_copy(update={'unavailable': ScopeUnavailable(
                     code='too_many_targets',

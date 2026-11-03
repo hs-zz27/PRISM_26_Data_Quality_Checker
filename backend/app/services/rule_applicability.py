@@ -314,7 +314,8 @@ def combine_results(scope: TargetScope, response) -> tuple[str, str, TargetScope
 
 
 def _finalize(scope: TargetScope, results: list[TargetResult], rejected: list[str],
-              reported_outcome: str | None, extra_notes: Sequence[str] = ()) -> tuple[str, str, TargetScope]:
+              reported_outcome: str | None, extra_notes: Sequence[str] = (), *,
+              explain_not_applicable: bool = False) -> tuple[str, str, TargetScope]:
     """Sample outcome, reason and scope from per-target results (shared by every protocol)."""
     counted = [r for r in results if "condition_not_present" not in r.flags]
     unavailable = None
@@ -340,6 +341,12 @@ def _finalize(scope: TargetScope, results: list[TargetResult], rejected: list[st
     lines = []
     for r in results:
         name = f"{labels.get(r.object_key) or 'unlabelled'} {r.object_key}"
+        if explain_not_applicable and "condition_not_present" in r.flags:
+            # Keep the verbatim model reason in TargetResult for inspection. A compliance
+            # complaint cannot be a defect finding when the model says the condition is absent.
+            lines.append(f"{name}: Not applicable - The model reported that the guideline condition "
+                         "does not apply to this object; no compliance verdict was counted.")
+            continue
         line = f"{name}: {r.outcome}" + (f" - {r.reason}" if r.reason else "")
         if r.flags:
             line += f" [{', '.join(r.flags)}]"
@@ -427,7 +434,8 @@ def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall]) -> tuple[s
                                     geometry=a.geometry, condition=a.condition, reason=a.reason, flags=flags))
     timing = "; ".join(f"{c.object_key} {c.failure or ('mismatch' if c.answered_for else 'ok')} {c.duration_ms / 1000:.0f}s"
                        for c in calls)
-    return _finalize(scope, results, rejected[:32], None, [f"One request per target: {timing}"[:400]])
+    return _finalize(scope, results, rejected[:32], None, [f"One request per target: {timing}"[:400]],
+                     explain_not_applicable=True)
 
 
 def keys_needing_review(scope: TargetScope | None) -> list[str]:

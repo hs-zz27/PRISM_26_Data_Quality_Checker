@@ -3,6 +3,7 @@
 Pure rendering on SYNTHETIC images; no model, database or importer.
 """
 from io import BytesIO
+from copy import deepcopy
 
 import pytest
 from PIL import Image, ImageDraw
@@ -180,3 +181,54 @@ def test_a_polygon_derived_box_is_never_drawn_as_a_box():
 def test_an_unknown_target_key_is_rejected():
     with pytest.raises(ValueError):
         render_focus(scene(), [polygon('/shapes/0', 1, PERSON_POLYGON)], '/shapes/9', 'labelme')
+
+
+@pytest.mark.parametrize('geometry', [('box',), ('polygon',), ('box', 'polygon')])
+def test_only_selected_geometry_is_magenta_on_a_coco_object_with_both(geometry):
+    obj = polygon('/annotations/0', 1, [[100, 150], [160, 200], [100, 450]], origin='supplied')
+    obj['bbox'] = [80, 130, 180, 420]
+    objects = [obj, polygon('/annotations/1', 2, NEIGHBOUR_POLYGON)]
+    before = deepcopy(objects)
+    image = scene()
+    views = render_focus(image, objects, '/annotations/0', 'coco', geometry=geometry)
+    overlay = open_png(views.overlay_full)
+    box_color = MAGENTA if 'box' in geometry else (255, 221, 0)
+    polygon_color = MAGENTA if 'polygon' in geometry else CYAN
+    assert near(overlay, 130, 130, box_color, tolerance=0, radius=0)
+    assert near(overlay, 130, 175, polygon_color, tolerance=0, radius=0)
+    if 'box' not in geometry:
+        assert not near(overlay, 130, 130, MAGENTA)
+    if 'polygon' not in geometry:
+        assert not near(overlay, 130, 175, MAGENTA)
+    assert near(overlay, 285, 160, CYAN) and not near(overlay, 285, 160, MAGENTA)
+    assert open_png(views.original_crop).size == open_png(views.overlay_crop).size == views.window.size
+    assert objects == before and image == scene()
+
+
+def test_rule_specific_crop_ignores_other_geometry_of_the_same_object():
+    obj = polygon('/annotations/0', 1, around(2000, 2100, 2200, 2300), origin='supplied')
+    obj['bbox'] = [1000, 1000, 1100, 1200]
+    box_view = focus_window(obj, (3000, 4000), 'coco', geometry=('box',))
+    polygon_view = focus_window(obj, (3000, 4000), 'coco', geometry=('polygon',))
+    changed_polygon = deepcopy(obj)
+    changed_polygon['polygons'] = [around(10, 10, 50, 50)]
+    changed_box = {**obj, 'bbox': [20, 20, 60, 60]}
+    assert box_view == focus_window(changed_polygon, (3000, 4000), 'coco', geometry=('box',))
+    assert polygon_view == focus_window(changed_box, (3000, 4000), 'coco', geometry=('polygon',))
+    assert box_view != polygon_view
+    assert box_view.x0 <= 1000 and box_view.x1 >= 1100
+    assert polygon_view.x0 <= 2000 and polygon_view.x1 >= 2200
+
+
+@pytest.mark.parametrize('geometry', [(), ('mask',), ('box', 'box'), ('box',)])
+def test_invalid_or_unsupplied_selected_geometry_cannot_fall_back_to_a_derived_box(geometry):
+    obj = polygon('/shapes/0', 1, PERSON_POLYGON)
+    with pytest.raises(ValueError):
+        render_focus(scene(), [obj], '/shapes/0', 'labelme', geometry=geometry)
+
+
+def test_selected_box_preserves_penn_fudan_one_based_conversion():
+    obj = {'object_id': 1, 'label': 'person', 'bbox': [101, 151, 160, 450], 'polygons': []}
+    legacy = render_focus(scene(), [obj], 'penn_fudan:1', 'penn_fudan')
+    selected = render_focus(scene(), [obj], 'penn_fudan:1', 'penn_fudan', geometry=('box',))
+    assert selected == legacy

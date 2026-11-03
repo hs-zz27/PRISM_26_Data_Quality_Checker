@@ -6,6 +6,7 @@ model answers.
 """
 from dataclasses import replace
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -19,7 +20,7 @@ from backend.app.models.review_feedback import ImageReviewFeedback
 from backend.app.services.evaluation import RuleEvaluationResult
 from backend.app.services.feedback import augment_evaluation
 from backend.app.services.review_correction import flagged_object_keys
-from backend.app.services.rule_applicability import FocusedCall, combine_focused, resolve_scope
+from backend.app.services.rule_applicability import FocusedCall, combine_focused, keys_needing_review, resolve_scope
 from backend.tests.applicability_fixtures import (
     FakeOllama, IMAGE, MAN, WOMAN, imported, labelme_document, polygon_shape, rectangle_shape, requires_importer,
     rulebook, two_polygons, v5_pin, v6_pin, visual_rule)
@@ -106,6 +107,28 @@ def test_one_bounded_request_is_made_per_eligible_target_each_bound_to_its_key(t
     assert recorded.prediction.outcome == 'pass' and recorded.model_verified is True
 
 
+def test_full_rule7_context_and_annotation_evidence_survive_16k_preparation(tmp_path):
+    lines = (Path(__file__).resolve().parents[2] / 'evaluation/annotation_error_pack/guidelines.txt').read_text().splitlines()
+    context = [lines[i] for i in (0, 1, 2, 7, 11)]
+    rule = visual_rule('RULE-7', lines[9], context=context)
+    feedback = ImageReviewFeedback(reviewer_id='reviewer', source_audit_id='audit_previous',
+                                   comment='Inspect the target outline against the original image.')
+    recorded, server, _ = predict(tmp_path, lambda d: focused(), rule,
+                                  pin=v6_pin(num_ctx=16384, num_predict=2048), feedback=feedback)
+    assert recorded.model_verified and server.chat_count == 2
+    for chat in server.chats:
+        document = json.loads(chat['messages'][-1]['content'])
+        assert document['guideline']['description'] == lines[9]
+        assert document['guideline']['context_sentences'] == context
+        assert document['reviewer_feedback']['comment'] == feedback.comment
+        inputs = document['target']['inputs']
+        points_index = inputs['source_columns'].index('points')
+        assert [row[3][points_index] for row in inputs['annotations']] == [MAN, WOMAN]
+        assert len([m for m in chat['messages'] if m.get('images')]) == 4
+        assert chat['options']['num_ctx'] == 16384 and chat['options']['num_predict'] == 2048
+        assert chat['truncate'] is False and chat['shift'] is False
+
+
 def test_polygon_only_data_makes_no_request_at_all_for_a_box_rule(tmp_path):
     recorded, server, client = predict(tmp_path, lambda d: focused(), HEAD)
     assert server.requests == [] and client.call_log == []
@@ -132,12 +155,17 @@ def test_display_numbers_are_never_the_identity(tmp_path):
     assert by_key(recorded)['/shapes/0'].outcome == 'fail' and by_key(recorded)['/shapes/1'].outcome == 'pass'
 
 
-def test_reviewer_feedback_travels_with_each_focused_request(tmp_path):
+def test_reviewer_feedback_rechecks_the_image_instead_of_only_comparing_text(tmp_path):
     feedback = ImageReviewFeedback(reviewer_id='reviewer', source_audit_id='audit_parent',
                                    comment='The right-hand outline looks displaced.', propose_correction=False)
-    _, server, _ = predict(tmp_path, lambda d: focused(), FIT, feedback=feedback)
+    recorded, server, _ = predict(tmp_path, lambda d: focused(), FIT, feedback=feedback)
+    assert server.chat_count == 2
+    assert 'feedback_comparison' not in recorded.model_dump(mode='json')
     for chat in server.chats:
-        assert json.loads(chat['messages'][-1]['content'])['reviewer_feedback']['comment'].startswith('The right-hand')
+        assert len([message for message in chat['messages'] if message.get('images')]) == 4
+        document = json.loads(chat['messages'][-1]['content'])
+        assert document['reviewer_feedback']['comment'] == feedback.comment
+        assert document['reviewer_feedback']['scope'] == 'image'
 
 
 def test_policy_examples_are_not_part_of_this_protocol(tmp_path):
@@ -167,8 +195,8 @@ def test_request_bounds_still_apply_per_target(tmp_path, monkeypatch):
     # An attachment larger than the pinned image bound is rejected, whatever the rendering produces.
     import backend.app.services.focused_prompt as focused_prompt
     real_render = focused_prompt.render_focus
-    monkeypatch.setattr(focused_prompt, 'render_focus', lambda *args: replace(
-        real_render(*args), overlay_crop=real_render(*args).overlay_crop + b'\0' * 4096))
+    monkeypatch.setattr(focused_prompt, 'render_focus', lambda *args, **kwargs: replace(
+        real_render(*args, **kwargs), overlay_crop=real_render(*args, **kwargs).overlay_crop + b'\0' * 4096))
     oversized = tmp_path / 'oversized'
     oversized.mkdir()
     recorded, server, _ = predict(oversized, lambda d: focused(), FIT, pin=v6_pin(max_image_bytes=2048))
@@ -258,16 +286,22 @@ def test_a_condition_that_applies_is_assessed_for_compliance(tmp_path):
 
 
 def test_an_absent_condition_excludes_that_target_even_if_the_model_also_says_no(tmp_path):
-    recorded = condition_run(tmp_path, focused('no', condition='not_present'), focused('yes'))
+    raw_reason = 'The box excludes the shoes and violates the guideline.'
+    recorded = condition_run(tmp_path, focused('no', condition='not_present', reason=raw_reason), focused('yes'))
     results = by_key(recorded)
     assert results['/shapes/0'].outcome == 'unavailable' and 'condition_not_present' in results['/shapes/0'].flags
     assert recorded.prediction.outcome == 'pass'                     # decided only by the target the condition applies to
+    assert results['/shapes/0'].reason == raw_reason                  # evidence stays verbatim
+    assert '/shapes/0: Not applicable' in recorded.prediction.reason
+    assert raw_reason not in recorded.prediction.reason
+    assert keys_needing_review(recorded.scope) == []
 
 
 def test_when_the_condition_is_absent_everywhere_the_result_is_unavailable_not_a_pass(tmp_path):
     recorded = condition_run(tmp_path, focused('yes', condition='not_present'), focused('yes', condition='not_present'))
     assert recorded.prediction.outcome == 'unavailable' and recorded.scope.unavailable.code == 'condition_not_present'
     assert recorded.model_verified is True
+    assert recorded.prediction.reason.count('Not applicable') == 2
 
 
 def test_unclear_compliance_is_uncertain_and_never_a_pass(tmp_path):

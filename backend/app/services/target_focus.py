@@ -2,9 +2,9 @@
 
 For ONE annotation (the target) this renders what the model needs to judge it:
 
-* the full overlay, with the target in thick magenta and every other annotation thin and in the shared
-  overlay's colours (cyan polygons, yellow boxes), so the target cannot be confused with its neighbours;
-* a crop window around the target's SUPPLIED geometry, cut from the original and from that same overlay with
+* the full overlay, with the target's selected geometry in thick magenta; other geometry is thin context
+  (cyan polygons, yellow boxes), including unselected geometry of the same target;
+* a crop window around the selected SUPPLIED geometry, cut from the original and from that same overlay with
   the same window and the same scale, so the two crops align pixel for pixel.
 
 The window is a function of the target's own supplied geometry and the image size only. It never uses a
@@ -91,16 +91,30 @@ def _supplied_box(obj: Mapping[str, Any], offset: int):
     return None
 
 
-def _target_points(obj: Mapping[str, Any], offset: int) -> list[tuple[float, float]]:
-    """The target's SUPPLIED geometry points. A derived box is used only when nothing was supplied."""
-    points = [(_clamp(x), _clamp(y)) for polygon in obj.get("polygons", []) if len(polygon) >= 3 for x, y in polygon]
-    box = _supplied_box(obj, offset)
+def _target_points(obj: Mapping[str, Any], offset: int, geometry: Sequence[str] | None = None) -> list[tuple[float, float]]:
+    """Selected supplied points; the legacy unspecified mode retains its derived-box fallback."""
+    points = ([(_clamp(x), _clamp(y)) for polygon in obj.get("polygons", []) if len(polygon) >= 3 for x, y in polygon]
+              if geometry is None or 'polygon' in geometry else [])
+    box = _supplied_box(obj, offset) if geometry is None or 'box' in geometry else None
     if box:
         points += [(box[0], box[1]), (box[2], box[3])]
-    if not points and obj.get("bbox"):
+    if not points and geometry is None and obj.get("bbox"):
         left, top, right, bottom = obj["bbox"]
         points = [(_clamp(left - offset), _clamp(top - offset)), (_clamp(right - offset), _clamp(bottom - offset))]
     return points
+
+
+def _validate_geometry(obj: Mapping[str, Any], geometry: Sequence[str] | None, annotation_format: str) -> None:
+    """An explicit focus must name supplied geometry; never fall back to a derived box."""
+    if geometry is None:
+        return
+    if not geometry or len(set(geometry)) != len(geometry) or any(kind not in {'box', 'polygon'} for kind in geometry):
+        raise ValueError('Focus geometry must contain distinct box or polygon entries.')
+    if 'box' in geometry and (not _supplied_box(obj, 1 if annotation_format == 'penn_fudan' else 0)
+                             or (annotation_format != 'penn_fudan' and obj.get('bbox_origin') != 'supplied')):
+        raise ValueError('The requested focus box was not supplied.')
+    if 'polygon' in geometry and not any(len(polygon) >= 3 for polygon in obj.get('polygons', [])):
+        raise ValueError('The requested focus polygon was not supplied.')
 
 
 def _at_least(low: int, high: int, limit: int, minimum: int) -> tuple[int, int]:
@@ -114,10 +128,12 @@ def _at_least(low: int, high: int, limit: int, minimum: int) -> tuple[int, int]:
     return low, high
 
 
-def focus_window(obj: Mapping[str, Any], image_size: tuple[int, int], annotation_format: str) -> FocusWindow:
+def focus_window(obj: Mapping[str, Any], image_size: tuple[int, int], annotation_format: str,
+                 *, geometry: Sequence[str] | None = None) -> FocusWindow:
     """Crop window around one target's supplied geometry, clipped to the image, with its scale."""
     width, height = image_size
-    points = _target_points(obj, 1 if annotation_format == "penn_fudan" else 0)
+    _validate_geometry(obj, geometry, annotation_format)
+    points = _target_points(obj, 1 if annotation_format == "penn_fudan" else 0, geometry)
     if not points:
         x0, y0, x1, y1 = 0, 0, width, height
     else:
@@ -136,13 +152,15 @@ def focus_window(obj: Mapping[str, Any], image_size: tuple[int, int], annotation
     return FocusWindow(x0, y0, x1, y1, scale, width, height)
 
 
-def _draw(canvas: Image.Image, obj: Mapping[str, Any], offset: int, *, target: bool) -> None:
+def _draw(canvas: Image.Image, obj: Mapping[str, Any], offset: int, *, target: bool,
+          geometry: Sequence[str] | None = None) -> None:
     draw = ImageDraw.Draw(canvas)
     width = TARGET_WIDTH if target else CONTEXT_WIDTH
     box = _supplied_box(obj, offset)
-    if box:
+    if box and (geometry is None or 'box' in geometry):
         draw.rectangle(box, outline=TARGET_COLOR if target else BOX_CONTEXT_COLOR, width=width)
-    for polygon in obj.get("polygons", []):
+    polygons = obj.get("polygons", []) if geometry is None or 'polygon' in geometry else []
+    for polygon in polygons:
         if len(polygon) >= 3:
             points = [(_clamp(x), _clamp(y)) for x, y in polygon]
             draw.line(points + [points[0]], fill=TARGET_COLOR if target else POLYGON_CONTEXT_COLOR, width=width)
@@ -155,11 +173,16 @@ def _png(image: Image.Image) -> bytes:
 
 
 def render_focus(image: bytes, objects: Sequence[Mapping[str, Any]], target_key: str,
-                 annotation_format: str) -> FocusViews:
-    """Full overlay with ``target_key`` highlighted, and matching original/overlay crops of its window."""
+                 annotation_format: str, *, geometry: Sequence[str] | None = None) -> FocusViews:
+    """Highlight the selected target geometry; other supplied geometry remains thin context.
+
+    The crop uses only selected geometry. None retains the original all-geometry renderer for callers
+    without a rule scope. Source objects, coordinates and image bytes are never edited.
+    """
     target = next((obj for obj in objects if object_key(obj) == target_key), None)
     if target is None:
         raise ValueError("The target annotation is not among the sample's annotations.")
+    _validate_geometry(target, geometry, annotation_format)
     offset = 1 if annotation_format == "penn_fudan" else 0
     with Image.open(BytesIO(image)) as source:
         original = source.convert("RGB")
@@ -167,8 +190,10 @@ def render_focus(image: bytes, objects: Sequence[Mapping[str, Any]], target_key:
     for obj in objects:                  # context first, so the target is drawn on top of it
         if object_key(obj) != target_key:
             _draw(overlay, obj, offset, target=False)
-    _draw(overlay, target, offset, target=True)
-    window = focus_window(target, original.size, annotation_format)
+    if geometry is not None:
+        _draw(overlay, target, offset, target=False)
+    _draw(overlay, target, offset, target=True, geometry=geometry)
+    window = focus_window(target, original.size, annotation_format, geometry=geometry)
     crop_box = (window.x0, window.y0, window.x1, window.y1)
     size = window.size
     return FocusViews(window=window, overlay_full=_png(overlay),
