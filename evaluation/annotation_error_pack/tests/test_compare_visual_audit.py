@@ -10,6 +10,7 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 
+import httpx
 import pytest
 from PIL import Image
 
@@ -142,3 +143,75 @@ def test_model_service_failures_are_not_counted_as_eligibility_skips_or_clean_an
     assert result['altered_flagged_annotations_polygon_fit'] is None
     assert result['altered_unchanged_annotation_flagged'] is None
     assert result['unavailable_rules'] == {'baseline': ['RULE-2', 'RULE-7'], 'altered': ['RULE-2', 'RULE-7']}
+
+
+# ------------------------------------------------------------------ report format 2 (mock model)
+
+def test_the_report_records_what_is_needed_to_reproduce_a_comparison(setup):
+    assert run(setup, '--versions', 'v5,v6', '--rules', 'RULE-7') == 0
+    report = json.loads((setup / 'report.json').read_text())
+    assert report['report_format_version'] == 2 and report['mock_only_not_model_evidence'] is True
+    execution = report['execution']['v6']
+    assert (execution['prompt_version'], execution['preprocessing']) == ('annotation-guideline-v6', 'target-focus-overlay-v1')
+    assert execution['model'] == 'mock-vision' and execution['model_digest'].startswith('sha256:')
+    assert {'num_ctx', 'num_predict', 'temperature', 'timeout_seconds'} <= set(execution)
+    assert report['execution']['v5']['preprocessing'] == 'original-and-annotation-overlay-v1'
+    for name in ('baseline', 'altered'):
+        source = report['sources'][name]
+        assert len(source['image_sha256']) == 64 and len(source['annotation_sha256']) == 64
+        assert len(source['archive_sha256']) == 64 and source['sample_id'].startswith('258421')
+    [rule] = report['rules']
+    assert rule['rule_id'] == 'RULE-7' and len(rule['description_sha256']) == 64
+    assert report['rulebook'] == 'book@3' and report['rules_run'] == ['RULE-7']
+
+
+def test_v6_records_one_timed_call_per_target_and_no_call_for_an_eligibility_skip(setup):
+    run(setup, '--versions', 'v6')
+    rows = {r['rule_id']: r for r in json.loads((setup / 'report.json').read_text())['results']['v6']['altered']}
+    assert rows['RULE-2']['calls'] == [] and rows['RULE-2']['categories']['status'] == 'eligibility_skip'
+    calls = rows['RULE-7']['calls']
+    assert [c['object_key'] for c in calls] == ['/shapes/0', '/shapes/1']
+    assert all(c['status'] == 'ok' and c['duration_ms'] >= 0 and c['prompt_eval_count'] == 1000 for c in calls)
+    summary = json.loads((setup / 'report.json').read_text())['summary']['v6']['altered']
+    coverage = {c['rule_id']: c for c in summary['coverage']}
+    assert coverage['RULE-7']['targets'] == 2 and coverage['RULE-7']['explicit'] == 2 and coverage['RULE-7']['calls'] == 2
+    assert coverage['RULE-2']['status'] == 'eligibility_skip' and coverage['RULE-2']['calls'] == 0
+    assert summary['counts']['eligibility_skips'] == 1 and summary['counts']['execution_failure'] == 0
+
+
+def test_expectations_are_applied_after_the_fact_and_never_reach_a_request(setup, monkeypatch):
+    bodies = []
+    original = compare.mock_transport
+
+    def recording(execution, shifted_key):
+        inner = original(execution, shifted_key).handler
+
+        def handler(request):
+            bodies.append(json.loads(request.content) if request.url.path == '/api/chat' else None)
+            return inner(request)
+        return httpx.MockTransport(handler)
+
+    monkeypatch.setattr(compare, 'mock_transport', recording)
+    expectations = setup / 'expected.json'
+    expectations.write_text(json.dumps({'baseline': {'RULE-7': {'/shapes/0': 'pass', '/shapes/1': 'pass'}},
+                                        'altered': {'RULE-7': {'/shapes/0': 'fail', '/shapes/1': 'pass'}}}))
+    assert run(setup, '--versions', 'v6', '--rules', 'RULE-7', '--expectations', str(expectations)) == 0
+    report = json.loads((setup / 'report.json').read_text())
+    outcome = report['expectations']['v6']
+    # The mock fails the shifted annotation in BOTH samples, so the baseline shows one false alarm; it is a mock.
+    assert outcome['counts'] == {'match': 3, 'false_alarm': 1, 'miss': 0, 'unresolved': 0}
+    chats = [b for b in bodies if b]
+    assert len(chats) == 4                                                    # 2 samples x 2 targets
+    for body in chats:
+        text = ' '.join(m['content'] for m in body['messages'] if not m.get('images')).lower()
+        assert not any(word in text for word in ('baseline', 'altered', 'expected', 'shifted', 'answer key'))
+
+
+def test_the_older_fields_are_kept_and_the_combined_ones_are_marked_deprecated(setup):
+    run(setup, '--versions', 'v5')
+    report = json.loads((setup / 'report.json').read_text())
+    legacy = report['evaluation']['v5']
+    assert {'altered_flagged_annotations_polygon_fit', 'altered_unchanged_annotation_flagged',
+            'unverified_execution_count', 'unavailable_rules'} <= set(legacy)
+    assert {'altered_explicit_failures_polygon_fit', 'altered_missing_assessments_polygon_fit'} <= set(legacy)
+    assert 'evaluation.*.altered_flagged_annotations_polygon_fit' in report['deprecated_fields']
