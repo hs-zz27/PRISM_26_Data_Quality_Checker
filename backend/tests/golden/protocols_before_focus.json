@@ -1,0 +1,201 @@
+{
+ "_about": "Captured from branch commit b4c14de BEFORE protocol v6 (per-target focused evidence) was added. Platform-independent values only: derived-v1 outputs, v3/v4/v5 execution pins and the v4/v5 response schemas. Request bytes are compared with the frozen builder in feedback_prompt_before_focus.py instead, because rendered PNG bytes differ by platform.",
+ "annotation-guideline-v3:pin_dump": {
+  "identity_assurance": "local-server-reported-pre-post-v1",
+  "max_annotation_bytes": 131072,
+  "max_image_bytes": 8388608,
+  "max_pixels": 16000000,
+  "max_request_bytes": 67108864,
+  "max_response_bytes": 65536,
+  "model": "test-vision",
+  "model_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "num_ctx": 16384,
+  "num_predict": 2048,
+  "preprocessing": "original-and-annotation-overlay-v1",
+  "prompt_version": "annotation-guideline-v3",
+  "schema_version": 1,
+  "temperature": 0,
+  "timeout_seconds": 120
+ },
+ "annotation-guideline-v3:pin_sha256": "ffd40eac422bccce20f2b7f06f5b836b50d761a7d99f77bafb66ba32e7e4c86a",
+ "annotation-guideline-v4:pin_dump": {
+  "identity_assurance": "local-server-reported-pre-post-v1",
+  "max_annotation_bytes": 131072,
+  "max_image_bytes": 8388608,
+  "max_pixels": 16000000,
+  "max_request_bytes": 67108864,
+  "max_response_bytes": 65536,
+  "model": "test-vision",
+  "model_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "num_ctx": 16384,
+  "num_predict": 2048,
+  "preprocessing": "original-and-annotation-overlay-v1",
+  "prompt_version": "annotation-guideline-v4",
+  "schema_version": 1,
+  "temperature": 0,
+  "timeout_seconds": 120
+ },
+ "annotation-guideline-v4:pin_sha256": "052a658e98b25c41336a2563e6c7be2b098cd57de2dc200f27182977285d9c8e",
+ "annotation-guideline-v5:pin_dump": {
+  "identity_assurance": "local-server-reported-pre-post-v1",
+  "max_annotation_bytes": 131072,
+  "max_image_bytes": 8388608,
+  "max_pixels": 16000000,
+  "max_request_bytes": 67108864,
+  "max_response_bytes": 65536,
+  "model": "test-vision",
+  "model_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "num_ctx": 16384,
+  "num_predict": 2048,
+  "preprocessing": "original-and-annotation-overlay-v1",
+  "prompt_version": "annotation-guideline-v5",
+  "schema_version": 1,
+  "temperature": 0,
+  "timeout_seconds": 120
+ },
+ "annotation-guideline-v5:pin_sha256": "15ad580be53ebe406ce2acf36da0790473841944af117fc74e36e7af05bbccb0",
+ "derive_v1": {
+  "A box means the rectangle that encloses the visible person.": {
+   "basis": "The requirement names no geometry type, so it can be checked against any annotation.",
+   "combine": "all",
+   "geometry": [],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "A person polygon must follow that same person's visible boundary without displacement or enclosing large regions of background or other objects.": {
+   "basis": "The requirement judges the supplied polygon only.",
+   "combine": "all",
+   "geometry": [
+    "polygon"
+   ],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "Annotation labels agree with the visible scene.": {
+   "basis": "The requirement names no geometry type, so it can be checked against any annotation.",
+   "combine": "all",
+   "geometry": [],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "Annotations other than boxes must follow the visible person.": {
+   "basis": "The requirement mentions a geometry type in a negated or excluded phrase (bounding box). Check which geometry it applies to.",
+   "combine": "any",
+   "geometry": [],
+   "source": "derived-v1",
+   "status": "ambiguous"
+  },
+  "Boxes may extend at most 3 pixels beyond the visible person.": {
+   "basis": "The requirement judges the supplied bounding box only.",
+   "combine": "all",
+   "geometry": [
+    "box"
+   ],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "Do not draw a box without a polygon.": {
+   "basis": "The requirement mentions a geometry type in a negated or excluded phrase (bounding box and polygon). Check which geometry it applies to.",
+   "combine": "any",
+   "geometry": [],
+   "source": "derived-v1",
+   "status": "ambiguous"
+  },
+  "Every person must be annotated with a bounding box or a polygon.": {
+   "basis": "The requirement allows alternatives (bounding box or polygon); an annotation is eligible when it has any of them supplied.",
+   "combine": "any",
+   "geometry": [
+    "box",
+    "polygon"
+   ],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over unseen body parts.": {
+   "basis": "The requirement mentions a geometry type in a negated or excluded phrase (bounding box). Check which geometry it applies to.",
+   "combine": "any",
+   "geometry": [
+    "polygon"
+   ],
+   "source": "derived-v1",
+   "status": "ambiguous"
+  },
+  "Polygons are not required for boxes.": {
+   "basis": "The requirement mentions a geometry type in a negated or excluded phrase (bounding box). Check which geometry it applies to.",
+   "combine": "any",
+   "geometry": [
+    "polygon"
+   ],
+   "source": "derived-v1",
+   "status": "ambiguous"
+  },
+  "The bounding box includes the visible head.": {
+   "basis": "The requirement judges the supplied bounding box only.",
+   "combine": "all",
+   "geometry": [
+    "box"
+   ],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "The box includes the head and the polygon follows the person.": {
+   "basis": "The requirement mentions bounding box and polygon without making clear whether they are alternatives or both required. Treated as alternatives until a reviewer decides; consider splitting the rule or setting its applicability.",
+   "combine": "any",
+   "geometry": [
+    "box",
+    "polygon"
+   ],
+   "source": "derived-v1",
+   "status": "ambiguous"
+  },
+  "The mask must cover the whole visible person.": {
+   "basis": "The requirement judges the supplied mask only.",
+   "combine": "all",
+   "geometry": [
+    "mask"
+   ],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "The polygon follows the visible outline of the person.": {
+   "basis": "The requirement judges the supplied polygon only.",
+   "combine": "all",
+   "geometry": [
+    "polygon"
+   ],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "The polygon must not be outside the image.": {
+   "basis": "The requirement judges the supplied polygon only.",
+   "combine": "all",
+   "geometry": [
+    "polygon"
+   ],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "The polygon must stay inside its bounding box.": {
+   "basis": "The requirement relates the polygon and bounding box to each other; an annotation is eligible only when both were supplied.",
+   "combine": "all",
+   "geometry": [
+    "polygon",
+    "box"
+   ],
+   "source": "derived-v1",
+   "status": "clear"
+  },
+  "Use no masks for people.": {
+   "basis": "The requirement mentions a geometry type in a negated or excluded phrase (mask). Check which geometry it applies to.",
+   "combine": "any",
+   "geometry": [],
+   "source": "derived-v1",
+   "status": "ambiguous"
+  }
+ },
+ "schema_sha256": {
+  "ObjectAssessment(v5)": "edfe063bc7d04a3d8273fa81827490db227d642c1373eb662a39fcee27da4bf1",
+  "TargetedPrediction(v5)": "ef7ec593ec556352a2734cc4682af2d171e8c482bdf91f11cc7ebc692ea1d5ae",
+  "VisualAssessment(v4)": "536cd95fe0ab5729bed9d2107f5d120b4ccbd6da1b823674ff8e617dbf62bb1c"
+ }
+}

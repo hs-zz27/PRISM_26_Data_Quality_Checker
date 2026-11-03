@@ -184,9 +184,16 @@ class RecheckRequest(StrictRecord):
     reviewer_id: StoredIdentifier
     feedback: FeedbackText | None = None
     propose_correction: bool = False
+    # Optional: the annotations the feedback is about, by stable source key (not display number).
+    # A correction proposal may then edit only these. Omitted: the annotations the recheck flags.
+    object_keys: list[Annotated[str, StringConstraints(min_length=1, max_length=256)]] | None = Field(
+        default_factory=lambda: None, min_length=1, max_length=16, json_schema_extra={'uniqueItems': True},
+        exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def selection(self):
+        if self.object_keys is not None and (self.feedback is None or len(set(self.object_keys)) != len(self.object_keys)):
+            raise ValueError('Reviewed object keys require reviewer feedback and must be unique.')
         if self.propose_correction and self.feedback is None:
             raise ValueError('A correction proposal requires reviewer feedback.')
         if self.feedback is not None and (len(self.sample_ids) != 1 or '\x00' in self.feedback):

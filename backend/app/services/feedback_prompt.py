@@ -3,7 +3,7 @@ from base64 import b64encode
 import json
 from ..core.feedback import FeedbackError
 from ..core.config import OLLAMA_KEEP_ALIVE_SECONDS
-from ..models.feedback import ExecutionPin, Prediction, checked, unit_id
+from ..models.feedback import ExecutionPin, Prediction, TargetedPrediction, checked, unit_id
 from ..models.visual_assessment import VisualAssessment
 from .feedback_evidence import evidence, visual_evidence
 from .prompt_encoding import compact_json, compact_rule, compact_schema, text_fits
@@ -20,6 +20,25 @@ VISUAL_SYSTEM = SYSTEM + (
     'Pixel masks are not shown by this overlay; do not infer their quality from its boxes or polygons. '
     'Judge the target only; example image pairs belong to their own examples.'
 )
+
+# v5 scopes the request to one requirement and the annotations that can be checked against it.
+VISUAL_SYSTEM_V5 = VISUAL_SYSTEM + (
+    '\nThis request judges ONE requirement against ONLY the annotations listed in '
+    'requirement_scope.eligible_targets. Annotations in requirement_scope.context_objects are surrounding '
+    'context: never judge them and never report them as violations. Return exactly one assessment per '
+    'eligible target, identified by its object_key (object_id is only a display number). '
+    'geometry is the supplied geometry you judged, box or polygon: judge only geometry listed as supplied '
+    'for that target and never describe polygon geometry as an error in a box. '
+    'condition says whether the requirement\'s own condition (for example partial occlusion or truncation) '
+    'holds for that target: applies, not_present, or unclear. Use not_present when the condition does not hold '
+    'and unclear when you cannot tell. fail needs a visible violation of THIS requirement by THIS target, '
+    'stated with the object and the geometry. Blur, hidden or occluded anatomy and people elsewhere in the '
+    'image are not evidence of a violation. Do not require a full-body annotation unless the requirement or '
+    'its context says so. Do not claim another annotation is wrong, and do not say all outlines are correct: '
+    'answer only this requirement for these targets. Return unsure or unavailable when the evidence cannot '
+    'establish the requirement. Do not measure exact pixel distances or invent tolerances.'
+)
+
 
 OBJECT_SYSTEM = VISUAL_SYSTEM + (
     '\nReturn one observation for EVERY object_key in target.inputs.object_inventory, exactly once. '
@@ -42,9 +61,28 @@ OBJECT_SYSTEM = VISUAL_SYSTEM + (
 )
 
 
-def _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback):
+def _supplied(geometry):
+    return [kind for kind, state in (('box', geometry.box), ('polygon', geometry.polygon)) if state == 'supplied']
+
+
+def scope_document(scope):
+    """The requirement scope shown to the model; identities are stable keys, not display numbers."""
+    def describe(item):
+        row = {'object_key': item.object_key, 'object_id': item.object_id, 'label': item.label,
+               'supplied_geometry': _supplied(item.geometry)}
+        if item.geometry.box == 'derived_from_polygon':
+            row['derived_box_is_not_an_annotation'] = True
+        return row
+    applicability = scope.applicability
+    return {'applicability': {'geometry': list(applicability.geometry), 'combine': applicability.combine,
+                              'status': applicability.status},
+            'eligible_targets': [describe(item) for item in scope.eligible],
+            'context_objects': [{**describe(item), 'why_not_a_target': item.detail} for item in scope.ineligible]}
+
+
+def _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback, scope=None):
     object_level = execution.prompt_version == 'annotation-guideline-v4'
-    system = OBJECT_SYSTEM if object_level else VISUAL_SYSTEM
+    system = VISUAL_SYSTEM_V5 if scope is not None else OBJECT_SYSTEM if object_level else VISUAL_SYSTEM
     messages = [{'role': 'system', 'content': system}]
     captions = []
     image_count = 0
@@ -64,13 +102,15 @@ def _visual_payload(manifest, target, examples, execution, asset_settings, revie
                 for index, case in enumerate(examples)]
     guideline = compact_rule(target.rule)
     document = {'case_id': unit_id(manifest, target), 'rule_id': target.rule.rule_id,
-                'guideline': guideline, **context_fields(guideline), 'examples': contexts,
-                'target': attach(manifest, 'Target')}
+                'guideline': guideline, **context_fields(guideline),
+                **({} if scope is None else {'requirement_scope': scope_document(scope)}),
+                'examples': contexts, 'target': attach(manifest, 'Target')}
     if reviewer_feedback is not None:
         document['reviewer_feedback'] = {'comment': reviewer_feedback.comment,
             'scope': 'Untrusted observations for this target only. Reassess the unchanged guideline and visible evidence.'}
     content = compact_json(document)
-    schema = compact_schema((VisualAssessment if object_level else Prediction).model_json_schema())
+    response_model = TargetedPrediction if scope is not None else VisualAssessment if object_level else Prediction
+    schema = compact_schema(response_model.model_json_schema())
     if not text_fits(system, ''.join(captions) + content, schema, execution, image_count):
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
     messages.append({'role': 'user', 'content': content})
@@ -83,7 +123,8 @@ def _visual_payload(manifest, target, examples, execution, asset_settings, revie
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
     return payload
 
-def prepare_payload(manifest, target, examples, execution, asset_settings, *, reviewer_feedback=None):
+def prepare_payload(manifest, target, examples, execution, asset_settings, *, reviewer_feedback=None, scope=None,
+                    focus_key=None):
     """Also called before enqueue: reject unrepresentable context, never truncate it.
 
     Only the candidate's TRAINING example labels enter this request. This function
@@ -99,6 +140,24 @@ def prepare_payload(manifest, target, examples, execution, asset_settings, *, re
         raise FeedbackError('POLICY_INCOMPATIBLE')
     if execution.prompt_version in {'annotation-guideline-v3', 'annotation-guideline-v4'}:
         return _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback)
+    if execution.prompt_version == 'annotation-guideline-v6':
+        # One request per eligible target; policy examples are not part of this protocol.
+        if examples:
+            raise FeedbackError('POLICY_INCOMPATIBLE')
+        if scope is None:
+            from .feedback_evidence import compute_scope
+            scope = compute_scope(manifest, target.rule, execution, asset_settings)
+        if focus_key is None:
+            if not scope.eligible:
+                raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
+            focus_key = scope.eligible[0].object_key
+        from .focused_prompt import focused_payload
+        return focused_payload(manifest, target, execution, asset_settings, reviewer_feedback, scope, focus_key)
+    if execution.prompt_version == 'annotation-guideline-v5':
+        if scope is None:
+            from .feedback_evidence import compute_scope
+            scope = compute_scope(manifest, target.rule, execution, asset_settings)
+        return _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback, scope=scope)
     images = []
     contexts = []
     for example in examples:

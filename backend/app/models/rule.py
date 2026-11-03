@@ -5,6 +5,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from .applicability import RuleApplicability
 from .json_value import FiniteJsonValue
 
 
@@ -19,6 +20,20 @@ def _empty(value) -> bool:
 # empty, so rules without them keep their historical JSON and semantic hashes.
 ContextSentences = Annotated[list[NonBlankText], Field(default_factory=list, exclude_if=_empty)]
 ExtractionNotes = Annotated[list[NonBlankText], Field(default_factory=list, exclude_if=_empty)]
+
+
+def _absent(value) -> bool:
+    return value is None
+
+
+def _unset():
+    return None
+
+
+# Supplied-geometry applicability. Omitted when unset so every rule saved before it existed keeps
+# its historical JSON, semantic hash and execution pins unchanged.
+# default_factory (not default) keeps the field optional, not required, in generated client types.
+Applicability = Annotated[RuleApplicability | None, Field(default_factory=_unset, exclude_if=_absent)]
 
 
 class ConfirmationState(StrEnum):
@@ -48,6 +63,7 @@ class RuleProposal(BaseModel):
     source_sentence: NonBlankText
     context_sentences: ContextSentences
     extraction_notes: ExtractionNotes
+    applicability: Applicability
 
 
 class Rule(BaseModel):
@@ -63,6 +79,11 @@ class Rule(BaseModel):
     They travel with the rule into every audit and recheck request. They are
     context, not separate requirements. ``extraction_notes`` are backend
     explanations for the reviewer, for example why a mapping was kept unsupported.
+
+    ``applicability`` states which supplied annotation geometry the requirement judges (see
+    ``RuleApplicability``). It is derived from the requirement itself, never from context
+    sentences, may be set by a reviewer, and is pinned with the rule. A rule without it is judged
+    against an applicability derived at audit time, which the finding records.
     """
 
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -77,6 +98,7 @@ class Rule(BaseModel):
     confirmation_state: ConfirmationState = Field(default=ConfirmationState.DRAFT, strict=False)
     context_sentences: ContextSentences
     extraction_notes: ExtractionNotes
+    applicability: Applicability
 
     @model_validator(mode="after")
     def require_extracted_source(self):

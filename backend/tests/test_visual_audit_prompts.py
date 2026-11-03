@@ -147,8 +147,17 @@ def test_audit_view_and_prompt_version_cannot_be_mismatched(version, preprocessi
 def test_new_execution_pins_select_overlay_without_changing_old_pins(monkeypatch):
     from backend.app.core.feedback import load_execution_pin
     monkeypatch.setenv('FEEDBACK_MODEL_DIGEST', 'sha256:'+'a'*64)
+    monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', '')
     pin = load_execution_pin()
-    assert pin.prompt_version == 'annotation-guideline-v4'
+    # New audits scope each requirement to eligible annotations (v5); the evidence views are v3's.
+    assert pin.prompt_version == 'annotation-guideline-v5'
     assert pin.preprocessing == 'original-and-annotation-overlay-v1'
+    # Historical protocols remain selectable without reinterpreting their stored pins.
+    for version in ('annotation-guideline-v3', 'annotation-guideline-v4'):
+        monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', version)
+        assert load_execution_pin().prompt_version == version
+    monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', 'annotation-guideline-v2')
+    with pytest.raises(FeedbackError):
+        load_execution_pin()
     legacy = ExecutionPin(model='old', model_digest='sha256:'+'b'*64)
     assert legacy.prompt_version == 'annotation-guideline-v1'

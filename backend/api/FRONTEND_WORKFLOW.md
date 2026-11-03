@@ -18,6 +18,8 @@ Keep those calls behind your mock transport so the UI can progress independently
 - openapi.json: complete implemented/planned schema reference.
 - examples.json: synthetic requests, resources and review scenarios.
 - RULEBOOKS.md: current manual creation and versioned review behavior.
+- RULE_APPLICABILITY.md: rule applicability, per-annotation visual findings (`scope` evidence) and the
+  optional `object_keys` on rechecks; all additions are optional for existing screens.
 - README.md: setup, errors, coordinates and asset details.
 
 The live-only spec includes `/api/v1` in paths. The combined spec includes it in

@@ -35,6 +35,10 @@ rule scope or a tolerance. This means semantic applicability is still model-depe
 
 ## Limits and compatibility
 
+PR #19 integration preserves this v4 protocol and introduces scoped assessments as v5. New audits
+default to v5 after that integration; explicitly select `FEEDBACK_PROMPT_VERSION=annotation-guideline-v4`
+to exercise this page's v4 checks. Existing audits and rechecks keep their stored prompt version.
+
 - This does not prove that a structurally valid visual observation is correct.
   The model may still miss a subtle error, misinterpret a condition, incorrectly
   exclude an object or cite an inaccurate location. A larger schema may also affect
@@ -48,10 +52,10 @@ rule scope or a tolerance. This means semantic applicability is still model-depe
   Reviewers must inspect individual observations; a flag is not a claim that every
   object was conclusively checked.
 - Existing v1/v2/v3 prompts, policies, fingerprints and linked rechecks remain
-  unchanged. Create a **new audit with feedback_policy_id null** after rebuilding
+  unchanged. Select v4 as above and create a **new audit with feedback_policy_id null** after rebuilding
   the backend to obtain v4. Rechecking an old audit retains that audit's old pin.
 - No automatic acceptance, annotation edits, feedback activation or weight updates.
-  Visual polygon editing and measured reuse of corrected examples are later steps.
+  Visual polygon editing is now available as step 2; measured reuse of corrected examples remains separate.
 
 ## Owner-run automated checks
 

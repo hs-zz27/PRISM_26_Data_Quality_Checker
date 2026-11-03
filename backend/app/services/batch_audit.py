@@ -766,7 +766,7 @@ class BatchAuditService:
                         from .review_correction import attach_review_context
                         measurements = attach_review_context(measurements, request.reviewer_feedback[sample_claim.sample_id],
                             self._snapshot_for_claim(request, sample_claim), rulebook, self.manifest_repository.asset_settings,
-                            request.feedback_runtime, request.enclosure_runtime)
+                            request.feedback_runtime, request.enclosure_runtime, evaluation=evaluation)
                 # Preserve the collector's source-processing status. The
                 # durable incomplete flag also records evaluator health.
                 stored_measurements = deepcopy(dict(measurements))
