@@ -1625,13 +1625,13 @@ export interface components {
              * @default annotation-guideline-v1
              * @enum {string}
              */
-            prompt_version: "annotation-guideline-v1" | "annotation-guideline-v2" | "annotation-guideline-v3" | "annotation-guideline-v4" | "annotation-guideline-v5" | "pedestrian-box-feedback-v1";
+            prompt_version: "annotation-guideline-v1" | "annotation-guideline-v2" | "annotation-guideline-v3" | "annotation-guideline-v4" | "annotation-guideline-v5" | "annotation-guideline-v6" | "pedestrian-box-feedback-v1";
             /**
              * Preprocessing
              * @default original-png-no-transform-v1
              * @enum {string}
              */
-            preprocessing: "original-png-no-transform-v1" | "original-and-annotation-overlay-v1" | "box-context-png-v1";
+            preprocessing: "original-png-no-transform-v1" | "original-and-annotation-overlay-v1" | "target-focus-overlay-v1" | "box-context-png-v1";
             /**
              * Schema Version
              * @default 1
@@ -2676,7 +2676,7 @@ export interface components {
              * @default derived-v1
              * @enum {string}
              */
-            source: "derived-v1" | "reviewer";
+            source: "derived-v1" | "derived-v2" | "reviewer";
             /**
              * Status
              * @default clear
@@ -3134,7 +3134,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "no_annotations" | "no_eligible_annotation" | "supplied_box_not_available" | "mask_not_supplied" | "mask_referenced_unavailable" | "mask_encoding_unsupported" | "mask_not_visible_to_visual_check" | "measurement_not_supported" | "condition_not_present" | "no_valid_assessment";
+            code: "no_annotations" | "no_eligible_annotation" | "supplied_box_not_available" | "mask_not_supplied" | "mask_referenced_unavailable" | "mask_encoding_unsupported" | "mask_not_visible_to_visual_check" | "measurement_not_supported" | "condition_not_present" | "no_valid_assessment" | "too_many_targets";
             /** Detail */
             detail: string;
         };

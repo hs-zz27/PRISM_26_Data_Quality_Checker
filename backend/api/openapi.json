@@ -12704,6 +12704,7 @@
             "default": "derived-v1",
             "enum": [
               "derived-v1",
+              "derived-v2",
               "reviewer"
             ],
             "title": "Source",
@@ -17812,6 +17813,7 @@
               "annotation-guideline-v3",
               "annotation-guideline-v4",
               "annotation-guideline-v5",
+              "annotation-guideline-v6",
               "pedestrian-box-feedback-v1"
             ],
             "title": "Prompt Version",
@@ -17822,6 +17824,7 @@
             "enum": [
               "original-png-no-transform-v1",
               "original-and-annotation-overlay-v1",
+              "target-focus-overlay-v1",
               "box-context-png-v1"
             ],
             "title": "Preprocessing",
@@ -18207,7 +18210,8 @@
               "mask_not_visible_to_visual_check",
               "measurement_not_supported",
               "condition_not_present",
-              "no_valid_assessment"
+              "no_valid_assessment",
+              "too_many_targets"
             ],
             "title": "Code",
             "type": "string"
