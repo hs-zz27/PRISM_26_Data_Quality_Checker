@@ -1,7 +1,9 @@
 # Rule applicability and scoped visual audit
 
-Status: implemented on branch `fix/rule-applicability`. Mocked-test evidence only; no real-model
-result is recorded here. See [Verification status](#verification-status).
+Status: v4 (observations) and v5 (scoped assessments) are implemented and were run against real local models
+on 2 November 2026 with results that do **not** meet visual acceptance (see
+[Verification status](#verification-status)). v6 (focused per-target evidence) is implemented and tested with
+mocked models only; it is opt-in and its real-model results are not yet recorded.
 
 ## The problem
 
@@ -187,6 +189,63 @@ excluded on a guess, and each finding records which applicability was used. A re
 - Rules saved before this change have no `applicability` key, keep their hash and are derived at audit time
   under v5.
 
+## Prompt v6: focused per-target evidence (opt-in)
+
+Why: on the real 768 x 1152 example the couple occupies about 120 x 330 pixels, drawn with 1-2 px lines and tiny
+`#N` labels, and both real models answered about the wrong person or the wrong annotation. v6 gives the model one
+annotation at a time, larger, with a distinct marking. It is **an experiment**: whether it helps a 4B CPU model is
+not established until the owner's real-model comparison is recorded.
+
+- **Version.** `annotation-guideline-v6` with preprocessing `target-focus-overlay-v1`. v3, v4 and v5 are unchanged
+  (their requests are compared with a checksum-locked frozen builder, their response schemas and pins with locked
+  goldens). New audits still default to v5; select v6 with `FEEDBACK_PROMPT_VERSION=annotation-guideline-v6`.
+  A recheck keeps the parent audit's stored pin, v6 included.
+- **One request per eligible target** (at most 8 per rule and sample; more is `unavailable` with code
+  `too_many_targets` before any inference, never a shortened list). Policy examples are not supported.
+  Calls run one after another with no retries.
+- **Four images per request**, all drawn from the same verified bytes: (1) the original, untouched; (2) the full
+  overlay with the target in thick magenta and every other annotation thin in the shared overlay's colours;
+  (3) a crop of the original and (4) the same window of the overlay, at the same scale. Nothing is written on the
+  images, so no label can cover the boundary; the target's `object_key` is named in each caption and in the request.
+- **Crop window** (`backend/app/services/target_focus.py`): the bounding extent of the target's own SUPPLIED
+  geometry, widened by half its size and at least 96 px on every side, clipped to the image, never smaller than
+  192 px where the image allows, long side scaled toward 768 px (enlarged at most 2x). It depends only on that geometry
+  and the image size: not on other annotations, a baseline, an answer key or an earlier answer. The request records
+  `crop_window_original_px`, `crop_scale`, `crop_size` and which crop sides really are image edges
+  (`crop_edges_touching_image_edge`); the crop border is otherwise only the crop's own border.
+  **Limit:** a person displaced further than the margin from its outline falls outside the crop; the full image
+  still shows the scene. This limit is tested.
+- **Response** (`FocusedAssessment`): `object_key`, then `condition` (applies / not_present / unclear), then
+  `compliance` (yes / no / unclear), `geometry` (box / polygon), a one-sentence `reason`. The backend derives the
+  outcome from the structured fields: not_present excludes the target; an unclear condition or compliance is
+  `unsure`; otherwise yes is `pass` and no is `fail`. The explanation never decides the outcome, so it cannot contradict
+  the condition field; it can still be wrong or unsupported, and it is shown to the reviewer unchecked beyond the
+  existing grounding downgrades.
+- **Every eligible target gets an explicit result.** A failed request (invalid reply, incomplete response, context
+  limit, ...) makes only that target `unavailable` with `call_failed` and the code; an answer given for another
+  annotation is rejected (`no_assessment`, `reference_mismatch`, recorded in `rejected_references`); a repeated or unknown
+  key is never trusted. An applicable target without a trusted answer prevents an overall pass; a valid failure on
+  another target is kept. Context annotations are never targets.
+- **Conditional rules.** The condition is answered before compliance. Absent for every target: the finding is
+  `unavailable` (`condition_not_present`), never a pass. Unclear: `unsure`. A failure of one rule never implies a failure of
+  another; each request carries one requirement.
+- **Cost.** Requests = eligible targets per rule (2 on the example). Each carries four images, roughly
+  2,800 image tokens against a 16,384 context (an estimate, not a measurement), so expect a rule to take about 2 to 3
+  times a v5 rule on this sample. Measured per-call timings are recorded by the comparison script.
+- **Diagnostics** (opt-in, local evaluation only): `GuidelineClient(capture_diagnostics=True)` keeps, in memory, the
+  failure code and a bounded excerpt (2,000 characters) of a reply that failed validation. Prompts and images are never
+  captured, and nothing is stored or returned by the API.
+
+### Applicability algorithm `derived-v2` (v6 only)
+
+`derived-v1` treated any geometry word within a few words after a negation as excluded. For the confirmed
+occlusion rule ("... do not extend boxes or polygons to cover body parts that cannot be seen") it dropped boxes and
+reported the rule ambiguous: a rectangle-only sample would have lost that rule. `derived-v2` counts a term as excluded only
+when an exclusion marker applies to the term itself ("other than boxes", "without a polygon", "no masks"); a
+prohibition on an action is not an exclusion. v2 resolves that rule to `box or polygon`, clear. v1 is frozen
+(golden-tested): stored rules, v5 audits and extraction continue to use it, and a rule's stored applicability is never
+rewritten. Moving extraction to v2 is a separate, reviewable decision.
+
 ## Correction proposals
 
 A proposal may edit only the annotations the reviewer named (`object_keys` on the recheck request), else the
@@ -217,12 +276,18 @@ path changes.
 
 ## Verification status
 
-Mocked tests (no model): see the pull request description for exact counts. **Not established:** how a real
-`qwen3-vl:4b-instruct` behaves on the per-target schema. The comparison script
-`evaluation/annotation_error_pack/tools/compare_visual_audit.py` runs the unchanged and shifted samples under v4
-and v5 by default (v3 remains selectable) against a real local model; its results must be recorded before this change is relied on. One flagged
-altered image does not establish accuracy; the script counts false alarms and unsupported extra allegations
-separately.
+**Real-model results (owner, 2 November 2026; one image pair, not a benchmark).** Recorded in
+`PR19_VERIFICATION.md`. qwen3-vl:4b-instruct with v4: five of six executions unusable, the one usable polygon-fit
+result failed the baseline. 4B with v5: the box rules were correctly skipped without inference; the baseline passed; the
+shifted man's polygon failed; the unchanged woman's assessment was omitted (recorded `unsure` / `no_assessment`, which is
+a coverage gap and not an accusation); the occlusion rule's explanation called the shifted polygon correct, which is
+unsupported. 8B with v5: both annotations assessed, **the shifted polygon passed**, and the explanations swapped the two
+people. A larger model did not fix the example, and `model_verified` only means the client's checks passed.
+
+**v6 and the report changes are verified by mocked tests only** (request content, identities, aggregation, failure handling,
+report categories). That demonstrates mechanics, not visual correctness. Whether v6 improves any real-model result is
+open until the focused RULE-7 comparison (baseline and altered, same model and settings, new report filename) and then
+RULE-5 are recorded; other human-reviewed examples must follow before any claim of general improvement.
 
 ## Known limitations
 
@@ -231,8 +296,10 @@ separately.
 - The overlay draws supplied boxes and polygons only; nothing shows masks to the visual check.
 - Requirements that mix several obligations in one sentence are judged as one rule.
 - The grounding downgrades use narrow phrase patterns and cannot judge whether an explanation is true.
-- A 4B CPU model may not follow the per-target schema reliably; malformed output becomes `unavailable`
-  (`invalid_proposal`), never a finding.
+- A 4B CPU model may not follow the structured schema reliably; malformed output becomes `unavailable`
+  (`invalid_proposal`), never a finding. Explanations can still be unsupported.
+- v6 costs more calls and images per rule; its crop guarantee ends at its margin.
+- The frozen-builder checksum test (`backend/tests/golden/feedback_prompt_before_pr19.py`) hashes raw bytes, so a checkout
+  with CRLF line endings fails it although the content is identical; run it on LF checkouts (Linux or macOS).
 
-Local merge-resolution verification commands and reporting instructions:
-`backend/api/PR19_VERIFICATION.md`. No merged-code tests or model calls have been run by the conflict resolver.
+Local verification commands and reporting instructions: `backend/api/PR19_VERIFICATION.md`.

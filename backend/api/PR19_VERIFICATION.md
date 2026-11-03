@@ -187,6 +187,8 @@ This inspection does not expose the model server's internal image preprocessing
 or establish why it missed the error. Target-specific visual presentation is a
 proposed next experiment and is **not implemented by this merge**. Separate report
 counts for failures, uncertainty and omitted assessments also remain to be added.
+**Update:** target-specific presentation (opt-in prompt v6) and the separate report categories are implemented in the
+follow-up below; their real-model results are not yet recorded.
 
 ## Remaining frontend work
 
@@ -196,3 +198,93 @@ of `object_keys` for feedback. Existing JSON rulebook editing preserves applicab
 the new optional API fields do not require the manual correction editor to change.
 The v5 schema does not supply the v4 inspection-region field; no location is invented
 for a scoped result. Both protocols retain the source annotation overlay.
+
+## Follow-up: focused per-target evidence (v6) and corrected comparison report
+
+Design: `RULE_APPLICABILITY.md` ("Prompt v6"). v4 and v5 keep their schemas, pins and behaviour; new audits still default
+to v5; v6 is opt-in (`FEEDBACK_PROMPT_VERSION=annotation-guideline-v6`) until its real-model results are reviewed.
+
+### Checks run for this follow-up (Linux sandbox; mocked model; nothing here is real-model evidence)
+
+- New backend tests (`test_target_focus`, `test_focused_protocol`, `test_protocol_compat_focus`, additions to
+  `test_rule_applicability`) and pack tests (`test_comparison_report`, additions to `test_compare_visual_audit`) pass.
+  Fourteen deliberate code breakages (a failed target counted as a pass, unclear compliance as a pass, an answer for another
+  annotation accepted, targets silently dropped, eligibility no longer gating the call, the v1 derivation altered, a missing
+  assessment reported as an explicit failure, crop margins removed, the highlight following position instead of key,
+  edge sides never reported, the overlay crop using another window, the shared overlay edited, ...) were each caught; two
+  weak tests found this way were fixed.
+- All 133 backend test files, run one file at a time with the database enabled: 3,232 passed, 0 skipped, 1 failed, 9 errors.
+  The 9 errors are `test_detection_*` and `test_person_detector` (`ModuleNotFoundError: torch`, not installed in the
+  sandbox; identical on the untouched branch). The failure is `test_dataset_migration.py::
+  test_upgrade_keeps_existing_manifests_audits_findings_and_reviews_exact` (an old-schema seeding test writes a column the
+  old schema lacks); it fails identically on the untouched branch, is not in the required list, and is unchanged here.
+- Database-backed checks (the five files listed above, isolated per-test schemas, PostgreSQL 16.15; the project targets 18):
+  110 passed, 0 skipped on this branch (109 on the untouched branch; the extra case is the v6 stored-pin recheck).
+- Contracts: `build_contract` then `npm run gen:api` changed only added enum values (`ExecutionPin.prompt_version` and
+  `preprocessing`, `RuleApplicability.source`, `ScopeUnavailable.code`); no paths, schemas or fields were added or removed.
+  Running both again produced no further diff in any of the seven generated files.
+- Frontend (generated types only; no frontend source changed): typecheck, 135 unit tests (23 files), lint and the production
+  build pass.
+- Evaluation pack tests with the L01 source files present: 81 passed, 1 failed on this branch; 63 passed, 1 failed on the
+  untouched branch. The failure is a line-ending assertion in `test_build_pack` (CRLF checkout) and is the same on both.
+- Skips: none in the runs above. Without `PRISM_TEST_DATABASE_URL`, database tests skip and are not passes.
+
+Environment note: `backend/tests/golden/feedback_prompt_before_pr19.py` is checksum-locked on raw bytes; a CRLF checkout
+fails `test_applicability_compat` although the content is identical. Run it on an LF checkout (Linux or macOS).
+
+### Not established
+
+No real-model result exists for v6, `derived-v2` or the new report. The cost of per-target requests is an estimate
+(about 2,800 image tokens and one request per eligible target) until measured. PostgreSQL 18 and native Windows were not run.
+
+### Owner: run on the Mac, after `git fetch origin && git checkout fix/rule-applicability && git pull --ff-only`
+
+Automated checks (record the real output; do not paste a summary):
+
+```sh
+export PRISM_TEST_DATABASE_URL="$(.venv/bin/python -c 'from backend.app.core.config import load_database_settings; print(load_database_settings().conninfo.get_secret_value())')"
+.venv/bin/python -B -m pytest backend/tests/test_target_focus.py backend/tests/test_focused_protocol.py \
+  backend/tests/test_protocol_compat_focus.py backend/tests/test_applicability_compat.py backend/tests/test_rule_applicability.py \
+  backend/tests/test_scoped_visual_audit.py backend/tests/test_visual_assessment.py backend/tests/test_rechecks.py \
+  backend/tests/test_recheck_workspace.py backend/tests/test_audit_submission.py backend/tests/test_feedback_repository.py \
+  backend/tests/test_guideline_context.py evaluation/annotation_error_pack/tests -q -rs -p no:cacheprovider | tee .cache/validation/pr19/followup-tests.txt
+.venv/bin/python -B -m backend.api.build_contract && npm --prefix frontend run gen:api && git diff --exit-code -- backend/api frontend/src/api/generated
+```
+
+Focused real-model experiment. Same model, digest, rulebook, annotations and settings for both versions; every run gets a NEW
+filename; keep failed runs. Start with RULE-7 only (about four v6 requests per version pair; the earlier v5 requests took
+140 to 320 seconds each, so allow time):
+
+```sh
+.venv/bin/python -B evaluation/annotation_error_pack/tools/compare_visual_audit.py \
+  --baseline-archive evaluation/annotation_error_pack/archives/labelme_baseline_3.zip \
+  --altered-archive  evaluation/annotation_error_pack/archives/labelme_errors_3.zip \
+  --sample-stem 258421 --rulebook .cache/validation/pr19/rulebook.json --versions v5,v6 --rules RULE-7 \
+  --polygon-fit-rule RULE-7 --shifted-key /shapes/0 --diagnostics \
+  --out .cache/validation/pr19/comparison_report_rule7_v5v6_try1.json
+```
+
+Expected for RULE-7 (kept outside every request): baseline `/shapes/0` pass and `/shapes/1` pass; altered `/shapes/0` fail
+and `/shapes/1` pass; no swapped identities; no omitted assessment presented as success. Then RULE-5 separately
+(`--rules RULE-5`, new filename), recording whether its condition applied and whether the explanation is supported.
+
+Additional human-reviewed pairs (only after the experiment above works; expectations come from the answer key and are applied
+after the fact; read `human_review.md`, because some baseline checks there are Uncertain and "unresolved" is not a miss):
+
+```sh
+.venv/bin/python -B evaluation/annotation_error_pack/tools/expectations_from_answer_key.py --case C01 \
+  --rulebook .cache/validation/pr19/rulebook.json --out .cache/validation/pr19/expected_C01.json
+.venv/bin/python -B evaluation/annotation_error_pack/tools/compare_visual_audit.py --format coco \
+  --baseline-archive evaluation/annotation_error_pack/archives/coco_baseline_5.zip \
+  --altered-archive  evaluation/annotation_error_pack/archives/coco_errors_5.zip \
+  --sample-stem 000000199055 --rulebook .cache/validation/pr19/rulebook.json --versions v5,v6 --rules RULE-3 \
+  --expectations .cache/validation/pr19/expected_C01.json --out .cache/validation/pr19/comparison_report_C01_try1.json
+```
+
+Cases: C01 (feet cut off, RULE-3), C02 (head cut off, RULE-2), C05 (COCO polygon shifted, RULE-7), L02 (`--sample-stem 2011_000006`,
+LabelMe, RULE-7). C03 is refused by the tool (its guideline is the unsupported tolerance). Report misses and false alarms as
+they are.
+
+Record, for each report: the counts per category, per-call timings and total duration, any unsupported explanation, and any
+swapped identity. If v6 does not improve a result, record that and the next evidence-based step; do not report success on
+valid JSON or on a single flagged image.
