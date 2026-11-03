@@ -13,6 +13,28 @@ const proposal = {
 };
 
 describe('per-object visual evidence', () => {
+  it('labels absent conditions as not applicable and keeps contradictory prose in raw evidence', () => {
+    const rawReason = 'The skateboard box excludes the shoes and violates the guideline.';
+    render(<VisualObservations proposal={{ model_verified: true, scope: {
+      version: 'target-scope-v1', outcome_source: 'derived_from_target_results',
+      results: [
+        { object_key: '/annotations/0', geometry: 'box', outcome: 'fail', condition: 'applies',
+          reason: 'The person box excludes the shoes.', flags: [] },
+        { object_key: '/annotations/5', geometry: 'box', outcome: 'unavailable', condition: 'not_present',
+          reason: rawReason, flags: ['condition_not_present'] },
+        { object_key: '/annotations/6', outcome: 'unavailable', reason: null, flags: ['call_failed'] },
+      ], ineligible: [], notes: [], unavailable: null,
+    } }} />);
+    expect(screen.getByText('/annotations/0 · Fail')).toBeInTheDocument();
+    expect(screen.getByText('/annotations/5 · Not applicable')).toBeInTheDocument();
+    expect(screen.queryByText('/annotations/5 · Unavailable')).not.toBeInTheDocument();
+    expect(screen.getByText('/annotations/6 · Unavailable')).toBeInTheDocument();
+    const details = screen.getByText('Raw model explanation').closest('details');
+    expect(details).not.toHaveAttribute('open');
+    expect(details).toContainElement(screen.getByText(rawReason));
+    expect(screen.getByText(/No compliance verdict was counted/)).toBeInTheDocument();
+  });
+
   it('shows scoped results and separates context annotations from judged objects', () => {
     render(<VisualObservations proposal={{ model_verified: true, scope: {
       version: 'target-scope-v1', outcome_source: 'derived_from_target_results',

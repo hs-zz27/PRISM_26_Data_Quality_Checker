@@ -17917,6 +17917,41 @@
         "title": "ExecutionPin",
         "type": "object"
       },
+      "FeedbackComparisonItem": {
+        "additionalProperties": false,
+        "description": "Text interpretation of reviewer feedback, never a new visual verdict.",
+        "properties": {
+          "object_key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Object Key",
+            "type": "string"
+          },
+          "relation": {
+            "enum": [
+              "supports_concern",
+              "does_not_support_concern",
+              "unclear",
+              "not_applicable"
+            ],
+            "title": "Relation",
+            "type": "string"
+          },
+          "explanation": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object_key",
+          "relation",
+          "explanation"
+        ],
+        "title": "FeedbackComparisonItem",
+        "type": "object"
+      },
       "IneligibleObject": {
         "additionalProperties": false,
         "description": "An annotation that is context for this requirement, not a target.",
@@ -18111,6 +18146,17 @@
               }
             ],
             "default": null
+          },
+          "feedback_comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewerFeedbackComparison"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -18119,6 +18165,87 @@
           "model_verified"
         ],
         "title": "RecordedPrediction",
+        "type": "object"
+      },
+      "ReviewerFeedbackComparison": {
+        "additionalProperties": false,
+        "properties": {
+          "strategy": {
+            "const": "independent-inspection-then-comparison-v1",
+            "default": "independent-inspection-then-comparison-v1",
+            "title": "Strategy",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "comment_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Comment Sha256",
+            "type": "string"
+          },
+          "requested_object_keys": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 16,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Requested Object Keys"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackComparisonItem"
+            },
+            "maxItems": 8,
+            "title": "Items",
+            "type": "array"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Failure"
+          },
+          "model_verified": {
+            "default": false,
+            "title": "Model Verified",
+            "type": "boolean"
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "title": "Duration Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "status",
+          "comment_sha256",
+          "duration_ms"
+        ],
+        "title": "ReviewerFeedbackComparison",
         "type": "object"
       },
       "ScopeImage": {

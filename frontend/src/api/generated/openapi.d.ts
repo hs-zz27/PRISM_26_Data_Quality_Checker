@@ -2850,6 +2850,21 @@ export interface components {
             enclosure: components["schemas"]["EnclosureExecutionPin"] | null;
         };
         /**
+         * FeedbackComparisonItem
+         * @description Text interpretation of reviewer feedback, never a new visual verdict.
+         */
+        FeedbackComparisonItem: {
+            /** Object Key */
+            object_key: string;
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "supports_concern" | "does_not_support_concern" | "unclear" | "not_applicable";
+            /** Explanation */
+            explanation: string;
+        };
+        /**
          * IneligibleObject
          * @description An annotation that is context for this requirement, not a target.
          */
@@ -2916,6 +2931,43 @@ export interface components {
             scope: components["schemas"]["TargetScope"] | null;
             /** @default null */
             visual_assessment: components["schemas"]["VisualAssessment"] | null;
+            /** @default null */
+            feedback_comparison: components["schemas"]["ReviewerFeedbackComparison"] | null;
+        };
+        /** ReviewerFeedbackComparison */
+        ReviewerFeedbackComparison: {
+            /**
+             * Strategy
+             * @default independent-inspection-then-comparison-v1
+             * @constant
+             */
+            strategy: "independent-inspection-then-comparison-v1";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "completed" | "unavailable";
+            /** Comment Sha256 */
+            comment_sha256: string;
+            /**
+             * Requested Object Keys
+             * @default null
+             */
+            requested_object_keys: string[] | null;
+            /** Items */
+            items?: components["schemas"]["FeedbackComparisonItem"][];
+            /**
+             * Failure
+             * @default null
+             */
+            failure: string | null;
+            /**
+             * Model Verified
+             * @default false
+             */
+            model_verified: boolean;
+            /** Duration Ms */
+            duration_ms: number;
         };
         /**
          * ScopeImage

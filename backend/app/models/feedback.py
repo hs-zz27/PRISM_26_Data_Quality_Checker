@@ -370,6 +370,38 @@ class FocusedAssessment(Record):
     reason: Annotated[str, StringConstraints(min_length=1, max_length=300)]
     evidence_references: list[Literal['image', 'annotations', 'guideline']] = Field(max_length=3)
 
+class FeedbackComparisonItem(Record):
+    """Text interpretation of reviewer feedback, never a new visual verdict."""
+
+    object_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    relation: Literal['supports_concern', 'does_not_support_concern', 'unclear', 'not_applicable']
+    explanation: Annotated[str, StringConstraints(min_length=1, max_length=300)]
+
+
+class ReviewerFeedbackComparison(Record):
+    # Read compatibility for saved experimental records only. The core recheck
+    # now reassesses visual evidence and does not create text-only comparisons.
+    strategy: Literal['independent-inspection-then-comparison-v1'] = 'independent-inspection-then-comparison-v1'
+    status: Literal['completed', 'unavailable']
+    comment_sha256: Digest
+    requested_object_keys: list[Annotated[str, StringConstraints(min_length=1, max_length=256)]] | None = Field(default=None, max_length=16)
+    items: list[FeedbackComparisonItem] = Field(default_factory=list, max_length=8)
+    failure: Annotated[str, StringConstraints(min_length=1, max_length=100)] | None = None
+    model_verified: bool = False
+    duration_ms: float = Field(ge=0, allow_inf_nan=False)
+
+    @model_validator(mode='after')
+    def coherent(self):
+        if (self.status == 'unavailable') != (self.failure is not None):
+            raise ValueError('Comparison failure status must have a failure code.')
+        if len({item.object_key for item in self.items}) != len(self.items):
+            raise ValueError('Comparison keys must be unique.')
+        if any(item.relation in {'supports_concern', 'does_not_support_concern'} for item in self.items) and (
+                not self.model_verified or self.status != 'completed'):
+            raise ValueError('Text interpretations require a verified completed comparison.')
+        return self
+
+
 class RecordedPrediction(Record):
     prediction: Prediction
     duration_ms: float = Field(ge=0, allow_inf_nan=False)
@@ -378,6 +410,7 @@ class RecordedPrediction(Record):
     # Recorded for v5 executions only; earlier recorded predictions serialize exactly as before.
     scope: TargetScope | None = Field(default=None, exclude_if=lambda value: value is None)
     visual_assessment: VisualAssessment | None = Field(default=None, exclude_if=lambda value: value is None)
+    feedback_comparison: ReviewerFeedbackComparison | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def verified_outcome(self):

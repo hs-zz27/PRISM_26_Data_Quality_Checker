@@ -1,4 +1,5 @@
 import type { components } from '../../api/generated/openapi';
+import { FeedbackComparison } from './FeedbackComparison';
 
 type Observation = components['schemas']['VisualObservation'];
 type Scope = components['schemas']['TargetScope'] & {
@@ -69,10 +70,16 @@ function ScopedObservations({ scope }: { scope: Scope }) {
       <ul className="space-y-2 text-xs">
         {scope.results.map((row) => (
           <li key={row.object_key}>
-            <b>{row.object_key} · {OUTCOMES[row.outcome]}</b>
+            <b>{row.object_key} · {row.condition === 'not_present' ? 'Not applicable' : OUTCOMES[row.outcome]}</b>
             {row.geometry && <span> · {row.geometry}</span>}
-            {row.reason && <p>{row.reason}</p>}
-            {row.condition === 'not_present' && <p>The guideline condition does not apply to this object.</p>}
+            {row.condition === 'not_present' ? <>
+              <p>The model reported that the guideline condition does not apply to this object. No compliance verdict was counted.</p>
+              {row.reason && <details>
+                <summary>Raw model explanation</summary>
+                <p className="text-text-muted">This explanation may contradict the applicability result. It is retained for review, not treated as an annotation defect.</p>
+                <p>{row.reason}</p>
+              </details>}
+            </> : row.reason && <p>{row.reason}</p>}
             {(row.flags ?? []).length > 0 && <p className="text-text-muted">Review notes: {(row.flags ?? []).join(', ')}</p>}
           </li>
         ))}
@@ -91,7 +98,7 @@ function ScopedObservations({ scope }: { scope: Scope }) {
 
 export function VisualObservations({ proposal }: { proposal: unknown }) {
   const scope = readScope(proposal);
-  if (scope) return <ScopedObservations scope={scope} />;
+  if (scope) return <><ScopedObservations scope={scope} /><FeedbackComparison proposal={proposal} /></>;
   const observations = readObservations(proposal);
   if (!observations) return null;
   return (
