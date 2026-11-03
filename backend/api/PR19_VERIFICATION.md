@@ -288,3 +288,127 @@ they are.
 Record, for each report: the counts per category, per-call timings and total duration, any unsupported explanation, and any
 swapped identity. If v6 does not improve a result, record that and the next evidence-based step; do not report success on
 valid JSON or on a single flagged image.
+
+### Owner follow-up on 3 November: request budget and mixed geometry
+
+The initial v6 RULE-7 run rejected all four requests before inference: the prepared text was 9,790 bytes
+against the conservative 9,728-byte allowance at 16,384 context and 2,048 output tokens. Redundant system
+wording was compacted without increasing limits or dropping guideline/annotation evidence. The owner then
+obtained all four expected RULE-7 outcomes on L01. A separate same-annotation feedback run also correctly
+failed the shifted man and passed the unchanged woman. These are single-case results, not general accuracy.
+RULE-5 had one 600-second execution failure; its separate retry completed, but the conditional explanations
+remain generic and require review.
+
+C01 (`comparison_C01_v6_20261103T143122.json`, local only) exposed a different problem: every reply named
+`polygon` under the feet/bounding-box rule. The backend correctly downgraded these to `unsure` with
+`geometry_not_in_requirement`. The renderer highlighted BOTH the supplied box and polygon in magenta.
+The model also incorrectly applied the person-only rule to the skateboard. Neither target result counted
+as a successful box assessment.
+
+The local fix selects highlighted and cropped geometry from rule applicability, keeps other geometry as
+context, restricts the response's geometry enum, and clarifies visible-object class as a prerequisite for
+compliance. No label-based exclusion is introduced. Real C01 and L01 requests, including the prior feedback,
+were prepared offline within the unchanged budget and C01 overlays were visually inspected. This is not
+a real-model result for the fix. Earlier reports must be retained; prompts and rendered inputs changed.
+
+Owner-run checks for this fix (not yet run by the assistant):
+
+```sh
+.venv/bin/python -B -m pytest backend/tests/test_focused_geometry.py \
+  backend/tests/test_target_focus.py backend/tests/test_focused_protocol.py \
+  backend/tests/test_focused_prompt_budget.py backend/tests/test_protocol_compat_focus.py \
+  backend/tests/test_applicability_compat.py backend/tests/test_rule_applicability.py \
+  -q -rs -p no:cacheprovider
+```
+
+After the checks pass, repeat C01 with a new report filename, then recheck L01 polygon fit and feedback
+because the v6 instructions changed. A schema-conforming reply still does not establish visual correctness.
+
+### C01 feedback follow-up and presentation
+
+`comparison_C01_v6_geometryfix_20261103T151215.json` completed the altered box requests: the model
+used box geometry and excluded the skateboard, but incorrectly passed the person box. Both baseline
+requests failed near 600 seconds; sleep was reported during the run, but the saved error cannot prove
+the cause. The completed altered-box pass remains a real miss.
+
+`feedback_C01_rule3_v6_20261103T135832076419Z.json` rechecked the exact altered image and annotation
+with a comment about the excluded shoes. The person correctly failed after 398.9 seconds. The skateboard
+was marked `condition=not_present`, but its explanation repeated the feet complaint (389.3 seconds).
+The backend excluded that target from the compliance decision. Input hashes matched and the annotation
+manifest was unchanged. This is one feedback-assisted recovery, not proof of learning or robustness.
+
+The local presentation fix labels absent conditions as **Not applicable** in v6 summaries and per-object
+UI rows. Verbatim reasons remain in `scope.results` and expandable raw explanations; outcomes, correction
+eligibility, API schemas, and earlier protocol aggregation remain unchanged. An execution failure still
+displays as unavailable. Regression tests cover evidence preservation and this distinction; the assistant
+has not run them.
+
+The local diagnostic `verify_C01_baseline_feedback.py` prepares the correct baseline with and without the
+same complaint. Both modes passed offline input/hash and request-budget preparation. No new inference has
+been run. Run `--without-feedback` first, then the default mode; retain both timestamped reports, including
+false alarms or execution failures. The expected person result is pass in both, with the skateboard's
+condition absent. This checks feedback suggestibility on one case, not general model accuracy.
+
+### Historical experiment: feedback false alarm and independent inspection
+
+The baseline control (`baseline_C01_rule3_v6_without_feedback_20261103T141749930494Z.json`) passed the
+person; the matching feedback run (`baseline_C01_rule3_v6_with_feedback_20261103T143620150055Z.json`)
+incorrectly failed it. Both completed with identical image/annotation hashes, model settings, prompt code
+and renderer. This is evidence of suggestibility on this case. The altered-box feedback recovery alone
+is not evidence of reliable improvement.
+
+An intermediate implementation removed the complaint from visual requests and added a text-only
+comparison afterward. The saved `independent_feedback_C01_altered_20261103T164226185254Z.json` still
+passed the shortened box. Its text comparison then rejected the reviewer's correct concern based on
+that mistaken inspection. The split avoided direct priming but could not recover a missed visual error.
+The local `verify_C01_independent_feedback.py` and those reports describe this retired experiment;
+do not use that script to verify the current workflow.
+
+### Return to the core workflow
+
+The current local v6 path restores **guideline → audit → reviewer comment → fresh visual recheck**.
+Explicit `object_keys` limit the comment to those targets, while other eligible objects retain their
+ordinary visual requests. The same image and annotation remain unchanged; human edits use the existing
+new-revision workflow. The model may reject a mistaken complaint or report uncertainty. Reviewer
+decisions stay pending, and no feedback policy is activated automatically.
+
+The extra text-only model call and its active helper were removed. The optional schema and frontend
+reader remain to display saved experimental results as historical evidence. Feet localization stays
+outside production routing; its first real response contained out-of-image coordinates and was rejected.
+Neither experiment is a prerequisite for completing the prototype's review workflow.
+
+`test_visual_feedback_recheck.py` covers fresh visual requests, exact preservation of image and
+annotation inputs, per-object comment scoping, invalid object references, invalid replies, no feedback
+inheritance and pending human decisions. Existing revision/recheck tests cover human-edited annotations.
+These mechanics do not prove the model handles feedback accurately. The C01 missed error and false
+alarm remain recorded limitations, not solved results.
+
+Run the focused regression checks locally:
+
+```sh
+.venv/bin/python -B -m pytest \
+  backend/tests/test_visual_feedback_recheck.py \
+  backend/tests/test_focused_protocol.py \
+  backend/tests/test_focused_geometry.py \
+  backend/tests/test_focused_prompt_budget.py \
+  backend/tests/test_protocol_compat_focus.py \
+  backend/tests/test_image_review_feedback.py \
+  backend/tests/test_polygon_revision_recheck.py \
+  -q -rs -p no:cacheprovider
+
+npm --prefix frontend run test -- \
+  src/features/audits/FeedbackComparison.test.tsx \
+  src/features/audits/VisualObservations.test.tsx
+npm --prefix frontend run typecheck
+```
+
+The owner reports that all listed return-to-core regression checks passed. No new real-model inference
+was started for this change; the successful tests verify workflow mechanics, not visual accuracy.
+Offline payload preparation succeeded for baseline and altered L01/RULE-7 and C01/RULE-3, with both
+image-level and object-scoped comments. Requests used 8,980–9,448 UTF-8 text bytes against the unchanged
+9,728-byte preparation allowance (16K context, 2,048 output tokens, four image reservations). Scoped
+comments were absent from the other object's request. This checks preparation, not model execution.
+For the next model check, retain both correct and erroneous examples and the unchanged object control.
+Use the same targeted comment on both versions so the baseline also tests rejection of a mistaken
+complaint. Save all outcomes, including misses, false alarms and unavailable results. These case checks
+are not held-out policy evaluation and do not authorize learning activation.

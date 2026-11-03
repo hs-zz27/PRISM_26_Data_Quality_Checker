@@ -204,11 +204,17 @@ not established until the owner's real-model comparison is recorded.
   `too_many_targets` before any inference, never a shortened list). Policy examples are not supported.
   Calls run one after another with no retries.
 - **Four images per request**, all drawn from the same verified bytes: (1) the original, untouched; (2) the full
-  overlay with the target in thick magenta and every other annotation thin in the shared overlay's colours;
-  (3) a crop of the original and (4) the same window of the overlay, at the same scale. Nothing is written on the
-  images, so no label can cover the boundary; the target's `object_key` is named in each caption and in the request.
+  overlay with only the rule's selected target geometry in thick magenta; other supplied geometry is thin context
+  (cyan polygons, yellow boxes), including geometry of the same object;
+  (3) a crop of the original and (4) the same window of the overlay, at the same scale. No text labels are drawn
+  over boundaries; the target's `object_key` is named in each caption and in the request.
+- **Geometry selection.** `focus.judged_geometry` is the intersection of the target's supplied geometry and the
+  rule's applicability. A box-only rule highlights only the box; a polygon-only rule highlights only polygons.
+  Rules allowing or relating both retain both; rules without a geometry restriction retain supplied geometry.
+  Native coordinates and the other geometry remain in the request. The per-request response schema restricts
+  `geometry` to this selection; independent backend grounding still downgrades a wrong-geometry response.
 - **Crop window** (`backend/app/services/target_focus.py`): the bounding extent of the target's own SUPPLIED
-  geometry, widened by half its size and at least 96 px on every side, clipped to the image, never smaller than
+  selected geometry, widened by half its size and at least 96 px on every side, clipped to the image, never smaller than
   192 px where the image allows, long side scaled toward 768 px (enlarged at most 2x). It depends only on that geometry
   and the image size: not on other annotations, a baseline, an answer key or an earlier answer. The request records
   `crop_window_original_px`, `crop_scale`, `crop_size` and which crop sides really are image edges
@@ -229,6 +235,10 @@ not established until the owner's real-model comparison is recorded.
 - **Conditional rules.** The condition is answered before compliance. Absent for every target: the finding is
   `unavailable` (`condition_not_present`), never a pass. Unclear: `unsure`. A failure of one rule never implies a failure of
   another; each request carries one requirement.
+  The prompt first asks the model to identify the visible target and test the rule's class and visibility
+  conditions. A non-person under a person-only rule should be `not_present`, even near a person. Annotation
+  labels are not used as a hard filter: they may themselves be wrong. This is an instruction to the model,
+  not proof of correct classification; real-model verification remains required.
 - **Cost.** Requests = eligible targets per rule (2 on the example). Each carries four images, roughly
   2,800 image tokens against a 16,384 context (an estimate, not a measurement), so expect a rule to take about 2 to 3
   times a v5 rule on this sample. Measured per-call timings are recorded by the comparison script.
@@ -284,12 +294,42 @@ a coverage gap and not an accusation); the occlusion rule's explanation called t
 unsupported. 8B with v5: both annotations assessed, **the shifted polygon passed**, and the explanations swapped the two
 people. A larger model did not fix the example, and `model_verified` only means the client's checks passed.
 
-**v6 and the report changes are verified by mocked tests only** (request content, identities, aggregation, failure handling,
-report categories). That demonstrates mechanics, not visual correctness. Whether v6 improves any real-model result is
-open until the focused RULE-7 comparison (baseline and altered, same model and settings, new report filename) and then
-RULE-5 are recorded; other human-reviewed examples must follow before any claim of general improvement.
+**Subsequent owner-run v6 checks (3 November 2026)** correctly distinguished the baseline and shifted L01
+polygons, including the unchanged person. C01 exposed a missed shortened box, and a feedback control
+incorrectly failed the correct box. These are case results, not a benchmark. See `PR19_VERIFICATION.md`
+for the retained reports and implementation changes between runs. New request-mechanics tests do not
+establish visual accuracy; correct and erroneous examples must both be evaluated.
 
 ## Known limitations
+
+### Core visual feedback recheck (local v6 follow-up)
+
+A reviewer comment now accompanies a fresh visual assessment of the same image and annotation. This
+follows the mentor's distinction between rechecking an unchanged error after feedback and checking a
+new revision after a human edits the annotation. The recheck does not edit annotations or make a final
+review decision. The comment is an allegation to verify, not an answer or replacement for the guideline.
+
+When feedback specifies `object_keys`, only those targets receive the comment; the remaining eligible
+objects receive their usual comment-free requests. With no keys, the comment is image-level context.
+Unknown keys are reported before inference. Feedback cannot make an ineligible geometry eligible.
+Rules, original images, annotations, overlays and crops remain unchanged by the comment. Responses can
+agree, disagree or remain uncertain. Invalid replies remain unavailable. Feedback is recorded for the
+recheck and does not automatically become a policy for later batches.
+
+The text-only comparison experiment is retired: it interpreted prior answers without inspecting the
+image again, so it could not recover a missed visual error. `RecordedPrediction.feedback_comparison?`
+and its frontend reader remain only for saved experimental records, labelled historical. New v6
+results omit that field and make no additional text-only request. The independent feet-localization
+experiment remains opt-in and is not called by auditing, feedback or extraction.
+
+The eight-target limit, per-request time/context/response limits and worker deadline remain unchanged.
+V6 remains opt-in; earlier protocol requests and default v5 configuration are unchanged. Keep earlier
+reports with their code hashes, since the v6 name alone does not distinguish these local iterations.
+
+This restores the intended interaction, not proven feedback accuracy. The known C01 false alarm from
+misleading feedback remains unresolved evidence. Before wider use, compare correct and erroneous
+annotations both without feedback and with the same targeted comment, preserving unchanged objects
+and failures. Do not retry until the desired answer appears or claim general learning from one case.
 
 - Derivation is a heuristic over English requirement wording; unusual phrasing may be ambiguous or wrong.
   Reviewers can override per rule.
