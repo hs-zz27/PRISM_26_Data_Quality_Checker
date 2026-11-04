@@ -158,7 +158,7 @@ def run_sample_child(
                 if reviewer_feedback is not None:
                     from .review_correction import attach_review_context
                     measurements = attach_review_context(measurements, reviewer_feedback, snapshot_manifest,
-                        rulebook, asset_settings, feedback_runtime, enclosure_runtime)
+                        rulebook, asset_settings, feedback_runtime, enclosure_runtime, evaluation=evaluation)
                 message = (
                     "success", measurements, evaluation.findings,
                     evaluation.internal_check_failures,

@@ -238,3 +238,43 @@ def test_corrupt_locked_catalogue_metadata_cannot_enqueue_child(dataset_database
     assert read_sql(dataset_database_settings,'SELECT count(*) AS n FROM jobs')==before_jobs
     assert read_sql(dataset_database_settings,'SELECT count(*) AS n FROM audit_runs')==before_audits
     assert read_sql(dataset_database_settings,'SELECT count(*) AS n FROM audit_recheck_lineage')==[{'n':0}]
+
+
+@pytest.mark.parametrize('version', ['annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5',
+                                     'annotation-guideline-v6'])
+def test_recheck_preserves_parent_visual_protocol_when_new_audit_default_changes(
+        dataset_database_settings, tmp_path, monkeypatch, version):
+    from backend.app.models.feedback import ExecutionPin
+    from backend.tests.applicability_fixtures import visual_rule
+
+    settings = dataset_database_settings
+    repo, corrections, _ = fixture(settings, tmp_path)
+    visual = visual_rule('visual', 'The bounding box follows the visible person.')
+    books = RulebookRepository(settings=settings)
+    books.save_rulebook(rulebook(guideline_text=visual.description, rules=[visual]))
+    execution = ExecutionPin(model='test-vision', model_digest='sha256:' + 'a' * 64,
+        prompt_version=version, num_predict=2048,
+        preprocessing='target-focus-overlay-v1' if version.endswith('-v6') else 'original-and-annotation-overlay-v1')
+    monkeypatch.setenv('FEEDBACK_MODEL_DIGEST', execution.model_digest)
+    monkeypatch.setattr('backend.app.services.feedback.load_execution_pin', lambda: execution)
+    audits = AuditRepository(settings=settings)
+    manifests = SampleAssetManifestRepository(settings=settings,
+        asset_settings=AssetStorageSettings(root=corrections.settings.asset_root))
+    worker = BatchAuditService(rulebook_repository=books, audit_repository=audits, manifest_repository=manifests)
+    parent = AuditSubmissionService(catalogue=repo, batch=worker).start(
+        AuditRequest(dataset_id='dataset_a', rulebook_id='book', rulebook_version=1))
+    # End the queued parent without any inference; its stored inputs remain immutable.
+    assert audits.cancel_job(parent.job.job_id).status.value == 'cancelled'
+    before = audits.get_request(parent.audit.audit_id)
+    assert before.feedback_runtime.execution == execution
+
+    monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', 'annotation-guideline-v5')
+    def cannot_repin():
+        raise AssertionError('A recheck must not resolve new model or prompt defaults.')
+    monkeypatch.setattr('backend.app.services.feedback.load_execution_pin', cannot_repin)
+    child = RecheckRepository(settings=settings).start(parent.audit.audit_id, selection(1))
+    after = audits.get_request(child.audit.audit_id)
+    assert after.feedback_runtime == before.feedback_runtime
+    assert after.feedback_runtime.execution.prompt_version == version
+    assert after.sample_revisions == {'sample_a': 1}
+    assert audits.get_request(parent.audit.audit_id) == before

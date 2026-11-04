@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 from typing import Annotated, Generic, Literal, TypeVar
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
+from .applicability import TargetScope
 from .asset_manifest import SampleAssetManifest
 from .identifiers import Identifier, Revision
 from .finding import FindingReview
@@ -266,8 +267,8 @@ class EvidenceLimits(Record):
 class ExecutionPin(EvidenceLimits):
     model: Text
     model_digest: Annotated[str, StringConstraints(pattern='^sha256:[0-9a-f]{64}$')]
-    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
-    preprocessing: Literal['original-png-no-transform-v1', 'original-and-annotation-overlay-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
+    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5', 'annotation-guideline-v6', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
+    preprocessing: Literal['original-png-no-transform-v1', 'original-and-annotation-overlay-v1', 'target-focus-overlay-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
     schema_version: Literal[1] = 1
     identity_assurance: Literal['local-server-reported-pre-post-v1'] = 'local-server-reported-pre-post-v1'
     temperature: Literal[0] = 0
@@ -298,7 +299,11 @@ class ExecutionPin(EvidenceLimits):
             expected = {'annotation-guideline-v1': 'original-png-no-transform-v1',
                         'annotation-guideline-v2': 'original-png-no-transform-v1',
                         'annotation-guideline-v3': 'original-and-annotation-overlay-v1',
-                        'annotation-guideline-v4': 'original-and-annotation-overlay-v1'}
+                        # v4 observations and v5 scoped assessments have distinct response schemas.
+                        'annotation-guideline-v4': 'original-and-annotation-overlay-v1',
+                        'annotation-guideline-v5': 'original-and-annotation-overlay-v1',
+                        # v6: per-target focused views (full + crop of original and overlay), one request per target.
+                        'annotation-guideline-v6': 'target-focus-overlay-v1'}
             if expected.get(self.prompt_version) != self.preprocessing:
                 raise ValueError('Prompt and preprocessing versions must match.')
         else:
@@ -322,12 +327,90 @@ class Prediction(Record):
     reason: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
     evidence_references: list[Literal['image', 'annotations', 'guideline']] = Field(max_length=3)
 
+class ObjectAssessment(Record):
+    """The model's judgement of ONE eligible annotation, identified by its stable source key.
+
+    ``geometry`` names the supplied geometry judged. ``condition`` says whether the requirement's own
+    condition (for example occlusion) holds for this annotation: applies, not_present or unclear.
+    """
+
+    object_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    outcome: Outcome
+    geometry: Literal['box', 'polygon']
+    condition: Literal['applies', 'not_present', 'unclear']
+    reason: Annotated[str, StringConstraints(min_length=1, max_length=300)]
+
+class TargetedPrediction(Record):
+    """The v5 response: a sample-level proposal plus one assessment per eligible annotation."""
+
+    case_id: Digest
+    rule_id: Identifier
+    outcome: Outcome
+    reason: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
+    assessments: list[ObjectAssessment] = Field(max_length=32)
+    evidence_references: list[Literal['image', 'annotations', 'guideline']] = Field(max_length=3)
+
+class FocusedAssessment(Record):
+    """The v6 response: ONE requirement judged for ONE annotation, bound to its stable key.
+
+    The model states facts, not a verdict. ``condition`` is answered first (does the requirement's own
+    condition, for example partial occlusion, hold for this annotation: applies, not_present or unclear).
+    ``compliance`` then says whether the supplied geometry satisfies the requirement (yes, no, unclear).
+    The backend derives the outcome from these two fields, so the outcome cannot contradict the condition.
+    ``reason`` is one sentence describing what is visible at the annotation's boundary; it explains the
+    answer for the reviewer and does not decide it.
+    """
+
+    case_id: Digest
+    rule_id: Identifier
+    object_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    condition: Literal['applies', 'not_present', 'unclear']
+    compliance: Literal['yes', 'no', 'unclear']
+    geometry: Literal['box', 'polygon']
+    reason: Annotated[str, StringConstraints(min_length=1, max_length=300)]
+    evidence_references: list[Literal['image', 'annotations', 'guideline']] = Field(max_length=3)
+
+class FeedbackComparisonItem(Record):
+    """Text interpretation of reviewer feedback, never a new visual verdict."""
+
+    object_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    relation: Literal['supports_concern', 'does_not_support_concern', 'unclear', 'not_applicable']
+    explanation: Annotated[str, StringConstraints(min_length=1, max_length=300)]
+
+
+class ReviewerFeedbackComparison(Record):
+    # Read compatibility for saved experimental records only. The core recheck
+    # now reassesses visual evidence and does not create text-only comparisons.
+    strategy: Literal['independent-inspection-then-comparison-v1'] = 'independent-inspection-then-comparison-v1'
+    status: Literal['completed', 'unavailable']
+    comment_sha256: Digest
+    requested_object_keys: list[Annotated[str, StringConstraints(min_length=1, max_length=256)]] | None = Field(default=None, max_length=16)
+    items: list[FeedbackComparisonItem] = Field(default_factory=list, max_length=8)
+    failure: Annotated[str, StringConstraints(min_length=1, max_length=100)] | None = None
+    model_verified: bool = False
+    duration_ms: float = Field(ge=0, allow_inf_nan=False)
+
+    @model_validator(mode='after')
+    def coherent(self):
+        if (self.status == 'unavailable') != (self.failure is not None):
+            raise ValueError('Comparison failure status must have a failure code.')
+        if len({item.object_key for item in self.items}) != len(self.items):
+            raise ValueError('Comparison keys must be unique.')
+        if any(item.relation in {'supports_concern', 'does_not_support_concern'} for item in self.items) and (
+                not self.model_verified or self.status != 'completed'):
+            raise ValueError('Text interpretations require a verified completed comparison.')
+        return self
+
+
 class RecordedPrediction(Record):
     prediction: Prediction
     duration_ms: float = Field(ge=0, allow_inf_nan=False)
     model_verified: bool
     enclosure: EnclosureEvidence | None = Field(default=None, exclude_if=lambda value: value is None)
+    # Recorded for v5 executions only; earlier recorded predictions serialize exactly as before.
+    scope: TargetScope | None = Field(default=None, exclude_if=lambda value: value is None)
     visual_assessment: VisualAssessment | None = Field(default=None, exclude_if=lambda value: value is None)
+    feedback_comparison: ReviewerFeedbackComparison | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def verified_outcome(self):

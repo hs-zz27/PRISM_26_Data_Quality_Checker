@@ -41,6 +41,7 @@ from ..checks.registry import (
 )
 from ..models.json_value import FiniteJsonValue
 from ..models.rule import RuleProposal
+from ..services.rule_applicability import MEASURED_VALUE, derive_applicability
 from .extraction_grounding import explicit_vocabulary, grounded_numeric_parameters, measured_value
 
 
@@ -49,14 +50,10 @@ LineRole = Literal["requirement", "context", "requirement_and_context", "other"]
 REQUIREMENT_ROLES = {"requirement", "requirement_and_context"}
 CONTEXT_ROLES = {"context", "requirement_and_context"}
 
-# An explicit measured value: a number followed by a measurement unit. Visual
-# model checks cannot measure such values, so they are never mapped to them.
-_MEASURED_VALUE = re.compile(
-    r"(?<![\w.])\d+(?:[.,]\d+)?\s*(?:px\b|pixels?\b|%|per\s*cent\b|percent\b|degrees?\b|°|"
-    r"mm\b|cm\b|millimet(?:er|re)s?\b|centimet(?:er|re)s?\b|met(?:er|re)s?\b|"
-    r"milliseconds?\b|seconds?\b|ms\b|fps\b|frames?\b)",
-    re.IGNORECASE,
-)
+# An explicit measured value: a number followed by a measurement unit. Visual model checks cannot
+# measure such values, so they are never mapped to them. One definition is shared with the audit-time
+# scope check, which refuses to judge such a requirement visually for rules not created here.
+_MEASURED_VALUE = MEASURED_VALUE
 _NUMBER = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)(\s*(?:%|percent\b|per\s*cent\b))?", re.IGNORECASE)
 
 
@@ -290,10 +287,19 @@ def expand_response(content: str, sources: list[str]) -> list[RuleProposal]:
             sentence = sources[index - 1]
             if sentence != requirement and sentence not in sentences:
                 sentences.append(sentence)
+        notes = list(draft['notes'])
+        applicability = None
+        if draft['check_name'] == 'annotation_guideline':
+            # Derived from the requirement only, never from its context sentences. Shown to the
+            # reviewer with the rule; an ambiguous result is also called out in the notes.
+            applicability = derive_applicability(requirement)
+            if applicability.status == 'ambiguous':
+                notes.append('Geometry applicability is ambiguous: ' + applicability.basis)
         proposals.append(RuleProposal(
             rule_id=f'RULE-{len(proposals) + 1}', description=requirement,
             check_name=draft['check_name'], parameters=draft['parameters'],
-            source_sentence=requirement, context_sentences=sentences, extraction_notes=draft['notes'],
+            source_sentence=requirement, context_sentences=sentences, extraction_notes=notes,
+            applicability=applicability,
         ))
     return _RuleResponse(rules=proposals).rules
 

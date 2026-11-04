@@ -78,7 +78,8 @@ class RecheckRepository(CorrectionRepository):
                 'sample_revisions':request.sample_revisions,'source_mode':'snapshot',
                 'reviewer_feedback': {} if request.feedback is None else {request.sample_ids[0]: ImageReviewFeedback(
                     reviewer_id=request.reviewer_id, source_audit_id=parent_audit_id,
-                    comment=request.feedback, propose_correction=request.propose_correction)}})
+                    comment=request.feedback, propose_correction=request.propose_correction,
+                    **({} if request.object_keys is None else {'object_keys': request.object_keys}))}})
             # Private shared insertion seam; no second connection or generic queue.
             audit,job=AuditRepository(settings=self.settings)._start_audit_locked(
                 connection,batch,sample_manifests=pins,preserve_enclosure_runtime=True)

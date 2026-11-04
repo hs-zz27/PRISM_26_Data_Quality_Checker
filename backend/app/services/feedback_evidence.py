@@ -84,6 +84,50 @@ def evidence(manifest, execution: EvidenceLimits | ExecutionPin, asset_settings,
     return image, inputs
 
 
+def scope_inputs(manifest, execution, asset_settings):
+    """Verified normalized objects plus the provenance a requirement's eligibility depends on.
+
+    Reuses the same verified source as the model request, so the objects judged for eligibility are
+    exactly the objects shown to the model. Returns (image identity, objects, mask state by key).
+    Mask state is read from the source: Penn-Fudan masks are separate PNG files (supplied but not
+    shown to the visual check); JSON formats can only carry a mask in an encoding that is kept and
+    not decoded.
+    """
+    from ..models.applicability import ScopeImage
+    from .rule_applicability import object_key
+    _, _, objects = _evidence(manifest, execution, asset_settings, compact=True, native_table=True)
+    masks = {}
+    if manifest.annotation_format == 'penn_fudan':
+        availability = manifest.raw_mask.availability.value
+        state = ('supplied_not_shown' if availability == 'available' else
+                 'absent' if availability == 'not_supplied' else 'referenced_unavailable')
+        masks = {object_key(obj): state for obj in objects}
+    else:
+        from ..datasets.json_sample import read_annotation
+        try:
+            _, annotation = read_manifest_asset_file(manifest, AssetKind.ANNOTATION_TEXT, asset_settings,
+                                                     max_bytes=checked(ExecutionPin, execution).max_annotation_bytes)
+            _, record = read_annotation(annotation, manifest.annotation_format, manifest.image_key)
+        except (AssetIntegrityError, AssetReadLimitError, AssetUnavailableError, OSError, ValueError, UnicodeError) as error:
+            raise FeedbackError('FEEDBACK_NOT_READY') from error
+        masks = {source.key: 'unsupported_encoding' if source.mask is not None else 'absent'
+                 for source in record.annotations}
+    image = ScopeImage(sample_id=manifest.sample_id, sample_revision=manifest.sample_revision,
+                       image_key=manifest.image_key, image_sha256=manifest.original_image.sha256,
+                       annotation_sha256=manifest.annotation_text.sha256)
+    return image, objects, masks
+
+
+def compute_scope(manifest, rule, execution, asset_settings):
+    """Requirement eligibility for one sample. No model call, no database access."""
+    from .rule_applicability import resolve_scope
+    image, objects, masks = scope_inputs(manifest, execution, asset_settings)
+    # v6 derives applicability with derived-v2; v5 and every stored rule keep derived-v1 (frozen).
+    algorithm = 'derived-v2' if execution.prompt_version == 'annotation-guideline-v6' else 'derived-v1'
+    return resolve_scope(rule, objects, image=image, annotation_format=manifest.annotation_format, masks=masks,
+                         algorithm=algorithm)
+
+
 def visual_evidence(manifest, execution, asset_settings):
     """Use the same verified source and normalized objects for the text and overlay."""
     from .annotation_overlay import annotation_overlay

@@ -153,10 +153,13 @@ def test_unknown_acceptance_commit_never_retries_or_fabricates_success(dataset_d
     assert repository.evaluations().total == 1
 
 def test_migration_preserves_prior_history_and_is_repeatable(dataset_database_settings):
-    before = read_sql(dataset_database_settings, 'SELECT version FROM schema_migrations ORDER BY version')
+    from backend.app.storage.database import MIGRATIONS_DIRECTORY
+    before = read_sql(dataset_database_settings, 'SELECT version, applied_at FROM schema_migrations ORDER BY version')
     initialize_database(dataset_database_settings)
-    assert read_sql(dataset_database_settings, 'SELECT version FROM schema_migrations ORDER BY version') == before
-    assert before[-1]['version'] == 13
+    assert read_sql(dataset_database_settings, 'SELECT version, applied_at FROM schema_migrations ORDER BY version') == before
+    expected = [int(path.name[:3]) for path in sorted(MIGRATIONS_DIRECTORY.glob('[0-9][0-9][0-9]_*.sql'))]
+    assert [row['version'] for row in before] == expected
+    assert 13 in expected  # Feedback migration must be present, even after later additions.
     assert read_sql(dataset_database_settings, 'SELECT count(*) AS n FROM feedback_sets')[0]['n'] == 0
 
 def test_generic_create_rejects_managed_feedback_without_database_access():
@@ -210,11 +213,57 @@ def test_enqueue_known_failure_is_full_transaction_rollback(dataset_database_set
     assert read_sql(repository.settings, 'SELECT count(*) AS n FROM jobs')[0]['n'] == before
     assert read_sql(repository.settings, 'SELECT count(*) AS n FROM feedback_evaluations')[0]['n'] == 0
 
+def seed_pre_feedback_audit(settings, tmp_path):
+    """Seed schema 12 using its columns, independently of today's repository writers."""
+    from types import SimpleNamespace
+    from backend.tests.export_support import synthetic
+
+    frozen, _, _ = synthetic(tmp_path)
+    manifest = frozen.samples[0].manifest
+    audit = SimpleNamespace(audit_id='audit_pre_feedback', job_id='job_pre_feedback',
+                            rulebook_id='rulebook_demo', rulebook_version=3)
+    values = [manifest.dataset_id, manifest.sample_id, manifest.sample_revision]
+    for role in ('original_image', 'raw_mask', 'annotation_text'):
+        asset = getattr(manifest, role)
+        values.extend((asset.availability.value, asset.storage_key, asset.content_type, asset.sha256, asset.size_bytes))
+    request = dict(dataset_id=manifest.dataset_id, dataset_root='unused-private-legacy-field',
+        rulebook_id=audit.rulebook_id, rulebook_version=audit.rulebook_version, source_mode='snapshot',
+        sample_ids=[manifest.sample_id], sample_revisions={manifest.sample_id: manifest.sample_revision})
+    result = dict(kind='audit', id=audit.audit_id, version=None, href=f'/api/v1/audits/{audit.audit_id}')
+    with database_connection(settings) as connection:
+        connection.execute('''INSERT INTO sample_asset_manifests (
+            dataset_id, sample_id, sample_revision,
+            original_image_availability, original_image_storage_key, original_image_content_type,
+            original_image_sha256, original_image_size_bytes,
+            raw_mask_availability, raw_mask_storage_key, raw_mask_content_type, raw_mask_sha256, raw_mask_size_bytes,
+            annotation_text_availability, annotation_text_storage_key, annotation_text_content_type,
+            annotation_text_sha256, annotation_text_size_bytes)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''', values)
+        connection.execute('''INSERT INTO jobs (
+            job_id, kind, status, progress, result, created_at, updated_at, resource_kind, resource_id)
+            VALUES (%s,'audit','completed',%s,%s,%s,%s,'audit',%s)''',
+            (audit.job_id, Jsonb(dict(phase='completed', processed=1, total=1, fraction=1.0)),
+             Jsonb(result), NOW, NOW, audit.audit_id))
+        connection.execute('''INSERT INTO audit_runs (
+            audit_id, job_id, dataset_id, dataset_root, rulebook_id, rulebook_version,
+            status, request, sample_count, processed_count, created_at, updated_at, source_mode)
+            VALUES (%s,%s,%s,%s,%s,%s,'completed',%s,1,1,%s,%s,'snapshot')''',
+            (audit.audit_id, audit.job_id, manifest.dataset_id, request['dataset_root'],
+             audit.rulebook_id, audit.rulebook_version, Jsonb(request), NOW, NOW))
+        connection.execute('''INSERT INTO audit_samples (
+            audit_id, sample_id, sample_revision, ordinal, status, finished_at, manifest_dataset_id)
+            VALUES (%s,%s,%s,0,'completed',%s,%s)''',
+            (audit.audit_id, manifest.sample_id, manifest.sample_revision, NOW, manifest.dataset_id))
+        connection.execute('''INSERT INTO sample_reviews (
+            audit_id, sample_id, sample_revision, revision, decision, reviewer_id, comment, updated_at)
+            VALUES (%s,%s,%s,1,'accepted','old-human','Preserve this historical sample review.',%s)''',
+            (audit.audit_id, manifest.sample_id, manifest.sample_revision, NOW))
+    return audit
+
+
 def test_additive_migration_preserves_seeded_audits_findings_and_reviews(empty_dataset_database_settings, tmp_path, monkeypatch):
-    from pathlib import Path
     from shutil import copyfile
     from backend.app.storage import database as module
-    from backend.tests.test_export_repository import seed as seed_old_audit
     directory = tmp_path / 'migrations'
     directory.mkdir()
     original = module.MIGRATIONS_DIRECTORY
@@ -223,7 +272,7 @@ def test_additive_migration_preserves_seeded_audits_findings_and_reviews(empty_d
             copyfile(path, directory / path.name)
     monkeypatch.setattr(module, 'MIGRATIONS_DIRECTORY', directory)
     initialize_database(empty_dataset_database_settings)
-    audit, _ = seed_old_audit(empty_dataset_database_settings, tmp_path)
+    audit = seed_pre_feedback_audit(empty_dataset_database_settings, tmp_path)
     from backend.app.models.rule import Rule
     rule = Rule(rule_id='old_rule', description='Existing allowed labels.', check_name='allowed_labels', parameters={'allowed_labels': ['person']}, origin='reviewer', confirmation_state='confirmed')
     old = _make_finding(rule=rule, outcome=FindingOutcome.PASS, reason=None, evidence={}, audit_id=audit.audit_id, sample_id='sample_0', sample_revision=2, object_id=1, occurrence='old', rulebook_id=audit.rulebook_id, rulebook_version=audit.rulebook_version)
@@ -235,10 +284,27 @@ def test_additive_migration_preserves_seeded_audits_findings_and_reviews(empty_d
     def snapshots():
         return {table: sorted((row['document'] for row in read_sql(empty_dataset_database_settings, 'SELECT to_jsonb(t) AS document FROM ' + table + ' t')), key=lambda value: json.dumps(value, sort_keys=True)) for table in tables}
     before = snapshots()
+    history = read_sql(empty_dataset_database_settings, 'SELECT version, applied_at FROM schema_migrations ORDER BY version')
     copyfile(original / '013_feedback_improvement.sql', directory / '013_feedback_improvement.sql')
     initialize_database(empty_dataset_database_settings)
     assert snapshots() == before
+    assert read_sql(empty_dataset_database_settings, 'SELECT version, applied_at FROM schema_migrations WHERE version <= 12 ORDER BY version') == history
     assert read_sql(empty_dataset_database_settings, 'SELECT count(*) AS n FROM feedback_sets')[0]['n'] == 0
+
+    # Finish the real upgrade path, allowing additive columns but preserving every
+    # historical value, hash, annotation identity and attributed review.
+    monkeypatch.setattr(module, 'MIGRATIONS_DIRECTORY', original)
+    initialize_database(empty_dataset_database_settings)
+    upgraded = snapshots()
+    for table, rows in before.items():
+        fields = set(rows[0]) if rows else set()
+        preserved = [{key: row[key] for key in fields} for row in upgraded[table]]
+        assert sorted(preserved, key=lambda value: json.dumps(value, sort_keys=True)) == rows
+    assert upgraded['sample_asset_manifests'][0]['annotation_format'] == 'penn_fudan'
+    assert upgraded['sample_asset_manifests'][0]['image_key'] is None
+    initialize_database(empty_dataset_database_settings)
+    assert snapshots() == upgraded
+    assert findings.get_finding(old.finding_id).review.reviewer_id == 'old-human'
 
 
 

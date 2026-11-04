@@ -969,6 +969,11 @@ export interface components {
          *     They travel with the rule into every audit and recheck request. They are
          *     context, not separate requirements. ``extraction_notes`` are backend
          *     explanations for the reviewer, for example why a mapping was kept unsupported.
+         *
+         *     ``applicability`` states which supplied annotation geometry the requirement judges (see
+         *     ``RuleApplicability``). It is derived from the requirement itself, never from context
+         *     sentences, may be set by a reviewer, and is pinned with the rule. A rule without it is judged
+         *     against an applicability derived at audit time, which the finding records.
          */
         Rule: {
             /** Rule Id */
@@ -996,6 +1001,42 @@ export interface components {
             context_sentences?: string[];
             /** Extraction Notes */
             extraction_notes?: string[];
+            applicability?: components["schemas"]["RuleApplicability"] | null;
+        };
+        /**
+         * RuleApplicability
+         * @description Supplied geometry a requirement judges.
+         *
+         *     ``geometry`` lists the kinds the requirement is about. ``combine`` says how an annotation must
+         *     have them: ``all`` means every listed kind must have been supplied for that annotation (for
+         *     example a polygon judged against its own box); ``any`` means alternatives (a box or a polygon).
+         *     An empty list means the requirement does not depend on a geometry type and every annotation is
+         *     eligible. ``status`` is ``ambiguous`` when the text could not be resolved confidently; the
+         *     reviewer should check it. ``source`` records who decided: the backend derivation or a reviewer.
+         */
+        RuleApplicability: {
+            /** Geometry */
+            geometry?: ("box" | "polygon" | "mask")[];
+            /**
+             * Combine
+             * @default all
+             * @enum {string}
+             */
+            combine: "any" | "all";
+            /**
+             * Source
+             * @default derived-v1
+             * @enum {string}
+             */
+            source: "derived-v1" | "derived-v2" | "reviewer";
+            /**
+             * Status
+             * @default clear
+             * @enum {string}
+             */
+            status: "clear" | "ambiguous";
+            /** Basis */
+            basis: string;
         };
         /**
          * RuleOrigin
@@ -2498,6 +2539,8 @@ export interface components {
              * @default false
              */
             propose_correction: boolean;
+            /** Object Keys */
+            object_keys?: string[] | null;
         };
         /** CaseReference */
         CaseReference: {
@@ -2971,13 +3014,13 @@ export interface components {
              * @default annotation-guideline-v1
              * @enum {string}
              */
-            prompt_version: "annotation-guideline-v1" | "annotation-guideline-v2" | "annotation-guideline-v3" | "annotation-guideline-v4" | "pedestrian-box-feedback-v1";
+            prompt_version: "annotation-guideline-v1" | "annotation-guideline-v2" | "annotation-guideline-v3" | "annotation-guideline-v4" | "annotation-guideline-v5" | "annotation-guideline-v6" | "pedestrian-box-feedback-v1";
             /**
              * Preprocessing
              * @default original-png-no-transform-v1
              * @enum {string}
              */
-            preprocessing: "original-png-no-transform-v1" | "original-and-annotation-overlay-v1" | "box-context-png-v1";
+            preprocessing: "original-png-no-transform-v1" | "original-and-annotation-overlay-v1" | "target-focus-overlay-v1" | "box-context-png-v1";
             /**
              * Schema Version
              * @default 1
@@ -3030,6 +3073,59 @@ export interface components {
             /** @default null */
             enclosure: components["schemas"]["EnclosureExecutionPin"] | null;
         };
+        /**
+         * FeedbackComparisonItem
+         * @description Text interpretation of reviewer feedback, never a new visual verdict.
+         */
+        FeedbackComparisonItem: {
+            /** Object Key */
+            object_key: string;
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "supports_concern" | "does_not_support_concern" | "unclear" | "not_applicable";
+            /** Explanation */
+            explanation: string;
+        };
+        /**
+         * IneligibleObject
+         * @description An annotation that is context for this requirement, not a target.
+         */
+        IneligibleObject: {
+            /** Object Key */
+            object_key: string;
+            /** Object Id */
+            object_id: number;
+            /** Label */
+            label: string;
+            geometry: components["schemas"]["ObjectGeometry"];
+            /** Missing */
+            missing: ("box" | "polygon" | "mask")[];
+            /** Detail */
+            detail: string;
+        };
+        /**
+         * ObjectGeometry
+         * @description How each geometry of one annotation was obtained.
+         */
+        ObjectGeometry: {
+            /**
+             * Box
+             * @enum {string}
+             */
+            box: "supplied" | "derived_from_polygon" | "absent";
+            /**
+             * Polygon
+             * @enum {string}
+             */
+            polygon: "supplied" | "absent";
+            /**
+             * Mask
+             * @enum {string}
+             */
+            mask: "supplied_not_shown" | "referenced_unavailable" | "unsupported_encoding" | "absent";
+        };
         /** Prediction */
         Prediction: {
             /** Case Id */
@@ -3056,7 +3152,168 @@ export interface components {
             /** @default null */
             enclosure: components["schemas"]["EnclosureEvidence"] | null;
             /** @default null */
+            scope: components["schemas"]["TargetScope"] | null;
+            /** @default null */
             visual_assessment: components["schemas"]["VisualAssessment"] | null;
+            /** @default null */
+            feedback_comparison: components["schemas"]["ReviewerFeedbackComparison"] | null;
+        };
+        /** ReviewerFeedbackComparison */
+        ReviewerFeedbackComparison: {
+            /**
+             * Strategy
+             * @default independent-inspection-then-comparison-v1
+             * @constant
+             */
+            strategy: "independent-inspection-then-comparison-v1";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "completed" | "unavailable";
+            /** Comment Sha256 */
+            comment_sha256: string;
+            /**
+             * Requested Object Keys
+             * @default null
+             */
+            requested_object_keys: string[] | null;
+            /** Items */
+            items?: components["schemas"]["FeedbackComparisonItem"][];
+            /**
+             * Failure
+             * @default null
+             */
+            failure: string | null;
+            /**
+             * Model Verified
+             * @default false
+             */
+            model_verified: boolean;
+            /** Duration Ms */
+            duration_ms: number;
+        };
+        /**
+         * ScopeImage
+         * @description Image identity that, with object_key, makes an annotation reference unambiguous.
+         */
+        ScopeImage: {
+            /** Sample Id */
+            sample_id: string;
+            /** Sample Revision */
+            sample_revision: number;
+            /**
+             * Image Key
+             * @default null
+             */
+            image_key: string | null;
+            /** Image Sha256 */
+            image_sha256: string;
+            /** Annotation Sha256 */
+            annotation_sha256: string;
+        };
+        /**
+         * ScopeObject
+         * @description One annotation identified by its stable source key; object_id is only a display number.
+         */
+        ScopeObject: {
+            /** Object Key */
+            object_key: string;
+            /** Object Id */
+            object_id: number;
+            /** Label */
+            label: string;
+            geometry: components["schemas"]["ObjectGeometry"];
+        };
+        /**
+         * ScopeUnavailable
+         * @description Why no model call was made. ``code`` is stable; ``detail`` is for the reviewer.
+         */
+        ScopeUnavailable: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "no_annotations" | "no_eligible_annotation" | "supplied_box_not_available" | "mask_not_supplied" | "mask_referenced_unavailable" | "mask_encoding_unsupported" | "mask_not_visible_to_visual_check" | "measurement_not_supported" | "condition_not_present" | "no_valid_assessment" | "too_many_targets";
+            /** Detail */
+            detail: string;
+        };
+        /**
+         * TargetResult
+         * @description The final result for one eligible target after backend checks of the model's assessment.
+         */
+        TargetResult: {
+            /** Object Key */
+            object_key: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "pass" | "fail" | "unsure" | "unavailable";
+            /**
+             * Model Outcome
+             * @default null
+             */
+            model_outcome: ("pass" | "fail" | "unsure" | "unavailable") | null;
+            /**
+             * Geometry
+             * @default null
+             */
+            geometry: ("box" | "polygon") | null;
+            /**
+             * Condition
+             * @default null
+             */
+            condition: ("applies" | "not_present" | "unclear") | null;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+            /** Flags */
+            flags?: string[];
+        };
+        /**
+         * TargetScope
+         * @description Eligibility and per-target results recorded with a visual finding.
+         */
+        TargetScope: {
+            /**
+             * Version
+             * @default target-scope-v1
+             * @constant
+             */
+            version: "target-scope-v1";
+            image: components["schemas"]["ScopeImage"];
+            applicability: components["schemas"]["RuleApplicability"];
+            /**
+             * Applicability Origin
+             * @enum {string}
+             */
+            applicability_origin: "rule" | "derived_at_audit";
+            /** Eligible */
+            eligible?: components["schemas"]["ScopeObject"][];
+            /** Ineligible */
+            ineligible?: components["schemas"]["IneligibleObject"][];
+            /** @default null */
+            unavailable: components["schemas"]["ScopeUnavailable"] | null;
+            /** Results */
+            results?: components["schemas"]["TargetResult"][];
+            /** Rejected References */
+            rejected_references?: string[];
+            /**
+             * Model Reported Outcome
+             * @default null
+             */
+            model_reported_outcome: ("pass" | "fail" | "unsure" | "unavailable") | null;
+            /**
+             * Outcome Source
+             * @default no_model_call
+             * @enum {string}
+             */
+            outcome_source: "no_model_call" | "derived_from_target_results";
+            /** Notes */
+            notes?: string[];
         };
         /** VisualAssessment */
         VisualAssessment: {

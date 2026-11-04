@@ -64,6 +64,20 @@ def object_key(obj):
     return obj.get('source_key', f"penn_fudan:{obj['object_id']}")
 
 
+def flagged_object_keys(findings):
+    """Stable keys a v4 observation or v5 scoped assessment judged fail or unsure."""
+    keys = []
+    for finding in findings or []:
+        proposal = finding.evidence.measurements.get('model_proposal')
+        scope = proposal.get('scope') if isinstance(proposal, dict) else None
+        assessment = proposal.get('visual_assessment') if isinstance(proposal, dict) else None
+        results = (scope or {}).get('results', []) or (assessment or {}).get('observations', [])
+        for result in results:
+            if result.get('outcome') in ('fail', 'unsure') and result.get('object_key') not in keys:
+                keys.append(result['object_key'])
+    return keys
+
+
 def apply_draft_edits(objects, edits, size, format):
     """Construct bounded editable objects, preserving all untouched source identities."""
     by_key = {object_key(obj): index for index, obj in enumerate(objects)}
@@ -118,8 +132,9 @@ def apply_draft_edits(objects, edits, size, format):
     return proposed
 
 
-def propose_correction(measurements, feedback, manifest, rulebook, settings, execution, *, client_factory=GuidelineClient):
-    compact = execution is not None and execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4'}
+def propose_correction(measurements, feedback, manifest, rulebook, settings, execution, *, client_factory=GuidelineClient,
+                       editable_keys=None):
+    compact = execution is not None and execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5', 'annotation-guideline-v6'}
     base = dict(protocol='review-correction-v2' if compact else PROTOCOL, dataset_id=manifest.dataset_id, sample_id=manifest.sample_id,
         sample_revision=manifest.sample_revision, image_key=manifest.image_key,
         annotation_format=manifest.annotation_format, image_sha256=manifest.original_image.sha256,
@@ -128,6 +143,7 @@ def propose_correction(measurements, feedback, manifest, rulebook, settings, exe
     if execution is None:
         return base
     client = None
+    scope_fields = {}
     try:
         _, image = read_manifest_asset_file(manifest, 'original_image', settings, max_bytes=execution.max_image_bytes)
         # Verify the annotation identity even though normalized geometry comes from the collector.
@@ -143,11 +159,21 @@ def propose_correction(measurements, feedback, manifest, rulebook, settings, exe
         if len(overlay) > execution.max_image_bytes:
             raise InferenceUnavailable('overlay_limit')
         case_id = sha256(json.dumps(base, sort_keys=True).encode()).hexdigest()
+        known = {object_key(obj) for obj in objects}
+        allowed = list(getattr(feedback, 'object_keys', None) or editable_keys or [])
+        if any(key not in known for key in allowed):
+            raise ValueError('Unknown reviewed object reference.')
+        if allowed:
+            scope_fields = {'editable_object_keys': allowed}
         context = {'case_id': case_id, 'guidelines': [rule.model_dump(mode='json') for rule in rulebook.rules],
             'reviewer_feedback': feedback.comment, 'image_key': manifest.image_key, 'image_size': [width, height],
             'coordinate_system': 'one_based_inclusive' if manifest.annotation_format == 'penn_fudan' else 'zero_based_continuous',
             'image_attachments': ['original', 'annotation_overlay'],
             'objects': [{'object_key': object_key(obj), **obj} for obj in objects]}
+        if allowed:
+            context['editable_object_keys'] = allowed
+            context['editing_scope'] = ('Edit only the objects listed in editable_object_keys. Every other object is '
+                                        'unchanged context and must not appear in edits.')
         if compact:
             context['guidelines'] = [compact_rule(rule) for rule in rulebook.rules]
             context['object_columns'] = OBJECT_COLUMNS
@@ -188,7 +214,11 @@ def propose_correction(measurements, feedback, manifest, rulebook, settings, exe
         if proposal.status != 'proposed':
             if proposal.edits:
                 raise ValueError('An uncertain response cannot supply edits.')
-            return {**base, 'status': proposal.status, 'reason': proposal.reason}
+            return {**base, **scope_fields, 'status': proposal.status, 'reason': proposal.reason}
+        if allowed and any(edit.object_key not in allowed for edit in proposal.edits):
+            return {**base, **scope_fields, 'status': 'unsure',
+                    'reason': ('The model proposed changes to annotations outside the reviewed targets, so the draft '
+                               'was discarded and every annotation stays unchanged. Review the annotation manually.')}
         updated = apply_draft_edits(objects, proposal.edits, (width, height), manifest.annotation_format)
         if manifest.annotation_format != 'penn_fudan':
             document, record = read_annotation(annotation, manifest.annotation_format, manifest.image_key)
@@ -202,19 +232,21 @@ def propose_correction(measurements, feedback, manifest, rulebook, settings, exe
                 if (document.format == 'coco' and new['label'] != old['label']
                     and sum(c.get('name') == new['label'] for c in document.source['categories']) != 1):
                     raise ValueError('Select an existing unambiguous source category.')
-        return {**base, 'status': 'proposed', 'reason': proposal.reason, 'objects': updated}
+        return {**base, **scope_fields, 'status': 'proposed', 'reason': proposal.reason, 'objects': updated}
     except (ValueError, TypeError, KeyError, IndexError, RecursionError, InferenceUnavailable,
             AssetIntegrityError, AssetReadLimitError, AssetUnavailableError):
-        return {**base, 'reason': 'A valid, bounded correction could not be established. Review the annotation manually.'}
+        return {**base, **scope_fields, 'reason': 'A valid, bounded correction could not be established. Review the annotation manually.'}
     finally:
         if client is not None:
             client.close()
 
 
-def attach_review_context(measurements, feedback, manifest, rulebook, settings, feedback_runtime, enclosure_runtime):
+def attach_review_context(measurements, feedback, manifest, rulebook, settings, feedback_runtime, enclosure_runtime,
+                          *, evaluation=None):
     result = deepcopy(dict(measurements))
     result['reviewer_feedback'] = feedback.model_dump(mode='json')
     if feedback.propose_correction:
-        result['correction_proposal'] = propose_correction(result, feedback, manifest, rulebook, settings,
-                                                          transport_pin(feedback_runtime, enclosure_runtime))
+        result['correction_proposal'] = propose_correction(
+            result, feedback, manifest, rulebook, settings, transport_pin(feedback_runtime, enclosure_runtime),
+            editable_keys=flagged_object_keys(getattr(evaluation, 'findings', None)))
     return result
