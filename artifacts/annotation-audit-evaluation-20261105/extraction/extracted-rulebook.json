@@ -1,0 +1,212 @@
+{
+  "rulebook_id": "local_extraction_verification",
+  "version": 1,
+  "guideline_text": "Scope: image annotation labels, bounding boxes and polygons. These are team-authored development guidelines for extraction verification.\nDefinitions: a person is a real human in the scene, excluding people on posters or screens; a car is a passenger motor vehicle, excluding buses and trucks.\nUncertainty policy: when blur, darkness, occlusion or small image size prevents a reliable judgement, report uncertain for human review.\n1. Allowed annotation labels are person and car.\n2. Each annotation label must name the actual object visible inside its geometry; a visible person must not be labelled car.\n3. Each supplied bounding box must lie entirely within the image bounds.\n4. A fully visible person's bounding box must include the whole visible head, including hair and headwear.\n5. A fully visible person's bounding box must include the visible lower legs and feet, including footwear.\n6. A person's bounding box must include every other visible body part, including raised arms, hands and elbows.\n7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen.\n8. A person polygon must follow that person's visible boundary without being displaced into the background or enclosing large regions of background.\n9. Every polygon part in one person annotation must belong to that same person and must not outline a different person or object.\n10. For this development test, a person's bounding box must be at least 20 pixels high, measured in original image coordinates.\n",
+  "rules": [
+    {
+      "rule_id": "RULE-1",
+      "description": "1. Allowed annotation labels are person and car.",
+      "check_name": "allowed_labels",
+      "parameters": {
+        "allowed_labels": [
+          "person",
+          "car"
+        ]
+      },
+      "origin": "extracted",
+      "source_sentence": "1. Allowed annotation labels are person and car.",
+      "confirmation_state": "draft"
+    },
+    {
+      "rule_id": "RULE-2",
+      "description": "2. Each annotation label must name the actual object visible inside its geometry; a visible person must not be labelled car.",
+      "check_name": "annotation_guideline",
+      "parameters": {},
+      "origin": "extracted",
+      "source_sentence": "2. Each annotation label must name the actual object visible inside its geometry; a visible person must not be labelled car.",
+      "confirmation_state": "draft",
+      "context_sentences": [
+        "Scope: image annotation labels, bounding boxes and polygons. These are team-authored development guidelines for extraction verification.",
+        "Definitions: a person is a real human in the scene, excluding people on posters or screens; a car is a passenger motor vehicle, excluding buses and trucks.",
+        "Uncertainty policy: when blur, darkness, occlusion or small image size prevents a reliable judgement, report uncertain for human review.",
+        "7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen."
+      ],
+      "applicability": {
+        "geometry": [],
+        "combine": "all",
+        "source": "derived-v2",
+        "status": "clear",
+        "basis": "The requirement names no geometry type, so it can be checked against any annotation."
+      }
+    },
+    {
+      "rule_id": "RULE-3",
+      "description": "3. Each supplied bounding box must lie entirely within the image bounds.",
+      "check_name": "box_validity",
+      "parameters": {},
+      "origin": "extracted",
+      "source_sentence": "3. Each supplied bounding box must lie entirely within the image bounds.",
+      "confirmation_state": "draft"
+    },
+    {
+      "rule_id": "RULE-4",
+      "description": "4. A fully visible person's bounding box must include the whole visible head, including hair and headwear.",
+      "check_name": "annotation_guideline",
+      "parameters": {},
+      "origin": "extracted",
+      "source_sentence": "4. A fully visible person's bounding box must include the whole visible head, including hair and headwear.",
+      "confirmation_state": "draft",
+      "context_sentences": [
+        "Scope: image annotation labels, bounding boxes and polygons. These are team-authored development guidelines for extraction verification.",
+        "Definitions: a person is a real human in the scene, excluding people on posters or screens; a car is a passenger motor vehicle, excluding buses and trucks.",
+        "Uncertainty policy: when blur, darkness, occlusion or small image size prevents a reliable judgement, report uncertain for human review.",
+        "7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen."
+      ],
+      "applicability": {
+        "geometry": [
+          "box"
+        ],
+        "combine": "all",
+        "source": "derived-v2",
+        "status": "clear",
+        "basis": "The requirement judges the supplied bounding box only."
+      }
+    },
+    {
+      "rule_id": "RULE-5",
+      "description": "5. A fully visible person's bounding box must include the visible lower legs and feet, including footwear.",
+      "check_name": "annotation_guideline",
+      "parameters": {},
+      "origin": "extracted",
+      "source_sentence": "5. A fully visible person's bounding box must include the visible lower legs and feet, including footwear.",
+      "confirmation_state": "draft",
+      "context_sentences": [
+        "Scope: image annotation labels, bounding boxes and polygons. These are team-authored development guidelines for extraction verification.",
+        "Definitions: a person is a real human in the scene, excluding people on posters or screens; a car is a passenger motor vehicle, excluding buses and trucks.",
+        "Uncertainty policy: when blur, darkness, occlusion or small image size prevents a reliable judgement, report uncertain for human review.",
+        "7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen."
+      ],
+      "applicability": {
+        "geometry": [
+          "box"
+        ],
+        "combine": "all",
+        "source": "derived-v2",
+        "status": "clear",
+        "basis": "The requirement judges the supplied bounding box only."
+      }
+    },
+    {
+      "rule_id": "RULE-6",
+      "description": "6. A person's bounding box must include every other visible body part, including raised arms, hands and elbows.",
+      "check_name": "annotation_guideline",
+      "parameters": {},
+      "origin": "extracted",
+      "source_sentence": "6. A person's bounding box must include every other visible body part, including raised arms, hands and elbows.",
+      "confirmation_state": "draft",
+      "context_sentences": [
+        "Scope: image annotation labels, bounding boxes and polygons. These are team-authored development guidelines for extraction verification.",
+        "Definitions: a person is a real human in the scene, excluding people on posters or screens; a car is a passenger motor vehicle, excluding buses and trucks.",
+        "Uncertainty policy: when blur, darkness, occlusion or small image size prevents a reliable judgement, report uncertain for human review.",
+        "7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen."
+      ],
+      "applicability": {
+        "geometry": [
+          "box"
+        ],
+        "combine": "all",
+        "source": "derived-v2",
+        "status": "clear",
+        "basis": "The requirement judges the supplied bounding box only."
+      }
+    },
+    {
+      "rule_id": "RULE-7",
+      "description": "7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen.",
+      "check_name": "annotation_guideline",
+      "parameters": {},
+      "origin": "extracted",
+      "source_sentence": "7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen.",
+      "confirmation_state": "draft",
+      "context_sentences": [
+        "Scope: image annotation labels, bounding boxes and polygons. These are team-authored development guidelines for extraction verification.",
+        "Definitions: a person is a real human in the scene, excluding people on posters or screens; a car is a passenger motor vehicle, excluding buses and trucks.",
+        "Uncertainty policy: when blur, darkness, occlusion or small image size prevents a reliable judgement, report uncertain for human review."
+      ],
+      "applicability": {
+        "geometry": [
+          "box",
+          "polygon"
+        ],
+        "combine": "any",
+        "source": "derived-v2",
+        "status": "clear",
+        "basis": "The requirement allows alternatives (bounding box or polygon); an annotation is eligible when it has any of them supplied."
+      }
+    },
+    {
+      "rule_id": "RULE-8",
+      "description": "8. A person polygon must follow that person's visible boundary without being displaced into the background or enclosing large regions of background.",
+      "check_name": "annotation_guideline",
+      "parameters": {},
+      "origin": "extracted",
+      "source_sentence": "8. A person polygon must follow that person's visible boundary without being displaced into the background or enclosing large regions of background.",
+      "confirmation_state": "draft",
+      "context_sentences": [
+        "Scope: image annotation labels, bounding boxes and polygons. These are team-authored development guidelines for extraction verification.",
+        "Definitions: a person is a real human in the scene, excluding people on posters or screens; a car is a passenger motor vehicle, excluding buses and trucks.",
+        "Uncertainty policy: when blur, darkness, occlusion or small image size prevents a reliable judgement, report uncertain for human review.",
+        "7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen."
+      ],
+      "applicability": {
+        "geometry": [
+          "polygon"
+        ],
+        "combine": "all",
+        "source": "derived-v2",
+        "status": "clear",
+        "basis": "The requirement judges the supplied polygon only."
+      }
+    },
+    {
+      "rule_id": "RULE-9",
+      "description": "9. Every polygon part in one person annotation must belong to that same person and must not outline a different person or object.",
+      "check_name": "annotation_guideline",
+      "parameters": {},
+      "origin": "extracted",
+      "source_sentence": "9. Every polygon part in one person annotation must belong to that same person and must not outline a different person or object.",
+      "confirmation_state": "draft",
+      "context_sentences": [
+        "Scope: image annotation labels, bounding boxes and polygons. These are team-authored development guidelines for extraction verification.",
+        "Definitions: a person is a real human in the scene, excluding people on posters or screens; a car is a passenger motor vehicle, excluding buses and trucks.",
+        "Uncertainty policy: when blur, darkness, occlusion or small image size prevents a reliable judgement, report uncertain for human review.",
+        "7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen."
+      ],
+      "applicability": {
+        "geometry": [
+          "polygon"
+        ],
+        "combine": "all",
+        "source": "derived-v2",
+        "status": "clear",
+        "basis": "The requirement judges the supplied polygon only."
+      }
+    },
+    {
+      "rule_id": "RULE-10",
+      "description": "10. For this development test, a person's bounding box must be at least 20 pixels high, measured in original image coordinates.",
+      "check_name": null,
+      "parameters": {},
+      "origin": "extracted",
+      "source_sentence": "10. For this development test, a person's bounding box must be at least 20 pixels high, measured in original image coordinates.",
+      "confirmation_state": "draft",
+      "context_sentences": [
+        "Scope: image annotation labels, bounding boxes and polygons. These are team-authored development guidelines for extraction verification.",
+        "Definitions: a person is a real human in the scene, excluding people on posters or screens; a car is a passenger motor vehicle, excluding buses and trucks.",
+        "Uncertainty policy: when blur, darkness, occlusion or small image size prevents a reliable judgement, report uncertain for human review.",
+        "7. For a person partly hidden by another object or the image edge, annotate only visible portions and do not extend boxes or polygons over body parts that cannot be seen."
+      ]
+    }
+  ],
+  "confirmation_state": "draft"
+}

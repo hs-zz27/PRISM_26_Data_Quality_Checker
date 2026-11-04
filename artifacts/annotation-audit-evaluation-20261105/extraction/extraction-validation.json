@@ -1,0 +1,14 @@
+{
+  "requirements_retained": 10,
+  "duplicates": 0,
+  "expected_mappings_match": true,
+  "source_and_context_preserved": true,
+  "occlusion_geometry": [
+    "box",
+    "polygon"
+  ],
+  "occlusion_status": "clear",
+  "unsupported_numeric_requirement_retained": true,
+  "state": "local_draft_only_no_database_write",
+  "elapsed_seconds": 166.9
+}

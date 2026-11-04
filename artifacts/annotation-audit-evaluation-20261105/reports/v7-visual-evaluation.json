@@ -1,0 +1,602 @@
+{
+  "started": "2026-11-04T07:35:40.125690+00:00",
+  "execution": {
+    "max_image_bytes": 8388608,
+    "max_annotation_bytes": 131072,
+    "max_pixels": 16000000,
+    "model": "qwen3-vl:4b-instruct",
+    "model_digest": "sha256:ee4b975b58c17ce268cd19d40db35d5edc64603035d2ffc1fee1968eb0947f7b",
+    "prompt_version": "annotation-guideline-v7",
+    "preprocessing": "target-focus-overlay-v1",
+    "schema_version": 1,
+    "identity_assurance": "local-server-reported-pre-post-v1",
+    "temperature": 0,
+    "num_ctx": 16384,
+    "num_predict": 2048,
+    "num_thread": 10,
+    "timeout_seconds": 600,
+    "max_request_bytes": 67108864,
+    "max_response_bytes": 65536
+  },
+  "rulebook": {
+    "rulebook_id": "rulebook_8274be9367dc4594ba94569704fb645f",
+    "version": 3,
+    "guideline_text": "Scope: person polygon annotations in the supplied image.\nA person means a real human in the scene; people shown on posters or screens are excluded.\nEach person polygon must follow the visible boundary of that same person, without displacement into the background or onto another object.\nThe term visible boundary excludes body parts hidden behind other objects.\nIf the image is too unclear to judge this boundary requirement reliably, report uncertain for human review.\n",
+    "rules": [
+      {
+        "rule_id": "RULE-1",
+        "description": "Each person polygon must follow the visible boundary of that same person, without displacement into the background or onto another object.",
+        "check_name": "annotation_guideline",
+        "parameters": {},
+        "origin": "extracted",
+        "source_sentence": "Each person polygon must follow the visible boundary of that same person, without displacement into the background or onto another object.",
+        "confirmation_state": "confirmed",
+        "context_sentences": [
+          "Scope: person polygon annotations in the supplied image.",
+          "A person means a real human in the scene; people shown on posters or screens are excluded.",
+          "The term visible boundary excludes body parts hidden behind other objects.",
+          "If the image is too unclear to judge this boundary requirement reliably, report uncertain for human review."
+        ]
+      }
+    ],
+    "confirmation_state": "confirmed",
+    "name": {
+      "title": "Scope: person polygon annotations in the supplied image.",
+      "title_revision": 0,
+      "title_updated_at": null,
+      "title_updated_by": null,
+      "rulebook_id": "rulebook_8274be9367dc4594ba94569704fb645f",
+      "number": 17,
+      "label": "Rules 017"
+    }
+  },
+  "feedback": {
+    "reviewer_id": "workflow-verification",
+    "source_audit_id": "local_control",
+    "comment": "The man at /shapes/0 may have a polygon displaced to the right of his visible body, enclosing background. Recheck its boundary against the original image. Treat this as a claim to verify; disagree if the polygon follows him correctly.",
+    "propose_correction": false,
+    "object_keys": [
+      "/shapes/0"
+    ]
+  },
+  "scope": "Single image comparison, no general accuracy claim. No database or policy changes.",
+  "cases": {
+    "baseline": {
+      "result": {
+        "prediction": {
+          "case_id": "389db3e337e718e0b192019930135a2c7323aff2fe383c22754f107f77d289e3",
+          "rule_id": "RULE-1",
+          "outcome": "unsure",
+          "reason": "person /shapes/0: unsure - The annotation polygon for the person (object_id 1) is drawn around the couple, not individually. The guideline requires each person polygon to follow the visible boundary of that same person. Since the annotation merges two people into one polygon, it violates the rule. However, the image is clear,; person /shapes/1: unsure - The annotation polygon for the person (object_id 2) follows the visible boundary of the person, but the image is too blurry to reliably verify if any part of the polygon is displaced into background or onto another object. The polygon appears to be correctly drawn around the person, but the low-clip",
+          "evidence_references": [
+            "image",
+            "annotations",
+            "guideline"
+          ]
+        },
+        "duration_ms": 911470.8973749948,
+        "model_verified": true,
+        "scope": {
+          "version": "target-scope-v1",
+          "image": {
+            "sample_id": "258421_0239e2d75db2092d",
+            "sample_revision": 1,
+            "image_key": "",
+            "image_sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+            "annotation_sha256": "6dff908bc14e61aee78aef2a9e83a027027f2635c6920efa14de14b0efa7268a"
+          },
+          "applicability": {
+            "geometry": [
+              "polygon"
+            ],
+            "combine": "all",
+            "source": "derived-v2",
+            "status": "clear",
+            "basis": "The requirement judges the supplied polygon only."
+          },
+          "applicability_origin": "derived_at_audit",
+          "eligible": [
+            {
+              "object_key": "/shapes/0",
+              "object_id": 1,
+              "label": "person",
+              "geometry": {
+                "box": "derived_from_polygon",
+                "polygon": "supplied",
+                "mask": "absent"
+              }
+            },
+            {
+              "object_key": "/shapes/1",
+              "object_id": 2,
+              "label": "person",
+              "geometry": {
+                "box": "derived_from_polygon",
+                "polygon": "supplied",
+                "mask": "absent"
+              }
+            }
+          ],
+          "ineligible": [],
+          "unavailable": null,
+          "results": [
+            {
+              "object_key": "/shapes/0",
+              "outcome": "unsure",
+              "model_outcome": "unsure",
+              "model_compliance": "unclear",
+              "geometry": "polygon",
+              "condition": "applies",
+              "reason": "The annotation polygon for the person (object_id 1) is drawn around the couple, not individually. The guideline requires each person polygon to follow the visible boundary of that same person. Since the annotation merges two people into one polygon, it violates the rule. However, the image is clear,",
+              "flags": []
+            },
+            {
+              "object_key": "/shapes/1",
+              "outcome": "unsure",
+              "model_outcome": "unsure",
+              "model_compliance": "unclear",
+              "geometry": "polygon",
+              "condition": "applies",
+              "reason": "The annotation polygon for the person (object_id 2) follows the visible boundary of the person, but the image is too blurry to reliably verify if any part of the polygon is displaced into background or onto another object. The polygon appears to be correctly drawn around the person, but the low-clip",
+              "flags": []
+            }
+          ],
+          "rejected_references": [],
+          "model_reported_outcome": null,
+          "outcome_source": "derived_from_target_results",
+          "notes": [
+            "One request per target: /shapes/0 ok 460s; /shapes/1 ok 451s"
+          ]
+        }
+      },
+      "calls": [
+        {
+          "object_key": "/shapes/0",
+          "status": "ok",
+          "duration_ms": 460484.1,
+          "prompt_eval_count": 6764,
+          "eval_count": 173
+        },
+        {
+          "object_key": "/shapes/1",
+          "status": "ok",
+          "duration_ms": 450965.0,
+          "prompt_eval_count": 6764,
+          "eval_count": 175
+        }
+      ],
+      "diagnostics": [],
+      "source": {
+        "dataset_id": "dataset_compare",
+        "sample_id": "258421_0239e2d75db2092d",
+        "sample_revision": 1,
+        "annotation_format": "labelme",
+        "image_key": "",
+        "original_image": {
+          "availability": "available",
+          "storage_key": "snapshots/v1/4304ef1e8d58d322931ea931b62085bbb409ab0710d6770c9b7d22e8e8d441a9/92c75e4d177cc4b09449129b2a64f6df1293e06a0fbc3b9d09d4060d9ded2a95/1/original_image/fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+          "content_type": "image/jpeg",
+          "sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+          "size_bytes": 751077
+        },
+        "raw_mask": {
+          "availability": "not_supplied",
+          "storage_key": null,
+          "content_type": null,
+          "sha256": null,
+          "size_bytes": null
+        },
+        "annotation_text": {
+          "availability": "available",
+          "storage_key": "snapshots/v1/4304ef1e8d58d322931ea931b62085bbb409ab0710d6770c9b7d22e8e8d441a9/92c75e4d177cc4b09449129b2a64f6df1293e06a0fbc3b9d09d4060d9ded2a95/1/annotation_text/6dff908bc14e61aee78aef2a9e83a027027f2635c6920efa14de14b0efa7268a",
+          "content_type": "application/json",
+          "sha256": "6dff908bc14e61aee78aef2a9e83a027027f2635c6920efa14de14b0efa7268a",
+          "size_bytes": 4474
+        }
+      }
+    },
+    "altered": {
+      "result": {
+        "prediction": {
+          "case_id": "6ebaef3d2176b8496d97b188e4e4a8e1822ea7458dc1275c3661397e3a089ae0",
+          "rule_id": "RULE-1",
+          "outcome": "unsure",
+          "reason": "person /shapes/0: unsure - The annotation polygon for the person (object_id 1) is visually aligned with the person's outline, but the overlay crop (image_attachment 4) shows the polygon extending beyond the person's visible boundary into the background foliage, suggesting displacement or misalignment. The original image (1) &; person /shapes/1: unsure - The magenta polygon outlines a person (woman) standing on the railway tracks, but the annotation's polygon is not fully aligned with the visible boundary of the person; it includes parts of the background and does not precisely follow the person's silhouette. The crop shows the polygon is not a true",
+          "evidence_references": [
+            "image",
+            "annotations",
+            "guideline"
+          ]
+        },
+        "duration_ms": 897847.9089169996,
+        "model_verified": true,
+        "scope": {
+          "version": "target-scope-v1",
+          "image": {
+            "sample_id": "258421_0239e2d75db2092d",
+            "sample_revision": 1,
+            "image_key": "",
+            "image_sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+            "annotation_sha256": "77efb47d13a1c518e185d960df84e0cd4521d9fac3c5b43f92477187277baf43"
+          },
+          "applicability": {
+            "geometry": [
+              "polygon"
+            ],
+            "combine": "all",
+            "source": "derived-v2",
+            "status": "clear",
+            "basis": "The requirement judges the supplied polygon only."
+          },
+          "applicability_origin": "derived_at_audit",
+          "eligible": [
+            {
+              "object_key": "/shapes/0",
+              "object_id": 1,
+              "label": "person",
+              "geometry": {
+                "box": "derived_from_polygon",
+                "polygon": "supplied",
+                "mask": "absent"
+              }
+            },
+            {
+              "object_key": "/shapes/1",
+              "object_id": 2,
+              "label": "person",
+              "geometry": {
+                "box": "derived_from_polygon",
+                "polygon": "supplied",
+                "mask": "absent"
+              }
+            }
+          ],
+          "ineligible": [],
+          "unavailable": null,
+          "results": [
+            {
+              "object_key": "/shapes/0",
+              "outcome": "unsure",
+              "model_outcome": "unsure",
+              "model_compliance": "unclear",
+              "geometry": "polygon",
+              "condition": "applies",
+              "reason": "The annotation polygon for the person (object_id 1) is visually aligned with the person's outline, but the overlay crop (image_attachment 4) shows the polygon extending beyond the person's visible boundary into the background foliage, suggesting displacement or misalignment. The original image (1) &",
+              "flags": []
+            },
+            {
+              "object_key": "/shapes/1",
+              "outcome": "unsure",
+              "model_outcome": "unsure",
+              "model_compliance": "unclear",
+              "geometry": "polygon",
+              "condition": "applies",
+              "reason": "The magenta polygon outlines a person (woman) standing on the railway tracks, but the annotation's polygon is not fully aligned with the visible boundary of the person; it includes parts of the background and does not precisely follow the person's silhouette. The crop shows the polygon is not a true",
+              "flags": []
+            }
+          ],
+          "rejected_references": [],
+          "model_reported_outcome": null,
+          "outcome_source": "derived_from_target_results",
+          "notes": [
+            "One request per target: /shapes/0 ok 445s; /shapes/1 ok 452s"
+          ]
+        }
+      },
+      "calls": [
+        {
+          "object_key": "/shapes/0",
+          "status": "ok",
+          "duration_ms": 445394.9,
+          "prompt_eval_count": 6762,
+          "eval_count": 172
+        },
+        {
+          "object_key": "/shapes/1",
+          "status": "ok",
+          "duration_ms": 452425.6,
+          "prompt_eval_count": 6762,
+          "eval_count": 171
+        }
+      ],
+      "diagnostics": [],
+      "source": {
+        "dataset_id": "dataset_compare",
+        "sample_id": "258421_0239e2d75db2092d",
+        "sample_revision": 1,
+        "annotation_format": "labelme",
+        "image_key": "",
+        "original_image": {
+          "availability": "available",
+          "storage_key": "snapshots/v1/4304ef1e8d58d322931ea931b62085bbb409ab0710d6770c9b7d22e8e8d441a9/92c75e4d177cc4b09449129b2a64f6df1293e06a0fbc3b9d09d4060d9ded2a95/1/original_image/fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+          "content_type": "image/jpeg",
+          "sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+          "size_bytes": 751077
+        },
+        "raw_mask": {
+          "availability": "not_supplied",
+          "storage_key": null,
+          "content_type": null,
+          "sha256": null,
+          "size_bytes": null
+        },
+        "annotation_text": {
+          "availability": "available",
+          "storage_key": "snapshots/v1/4304ef1e8d58d322931ea931b62085bbb409ab0710d6770c9b7d22e8e8d441a9/92c75e4d177cc4b09449129b2a64f6df1293e06a0fbc3b9d09d4060d9ded2a95/1/annotation_text/77efb47d13a1c518e185d960df84e0cd4521d9fac3c5b43f92477187277baf43",
+          "content_type": "application/json",
+          "sha256": "77efb47d13a1c518e185d960df84e0cd4521d9fac3c5b43f92477187277baf43",
+          "size_bytes": 4474
+        }
+      }
+    },
+    "baseline_feedback": {
+      "result": {
+        "prediction": {
+          "case_id": "389db3e337e718e0b192019930135a2c7323aff2fe383c22754f107f77d289e3",
+          "rule_id": "RULE-1",
+          "outcome": "unsure",
+          "reason": "person /shapes/0: unsure - The magenta polygon for the man at /shapes/0 encloses his visible body but also extends into background foliage to the right, violating the 'visible boundary' requirement. However, the annotation evidence is ambiguous due to crop scale and overlay vs. original image discrepancies; the original image; person /shapes/1: unsure - The annotation polygon for the person (object_id 2) follows the visible boundary of the person, but the image is too blurry to reliably verify if any part of the polygon is displaced into background or onto another object. The polygon appears to be correctly drawn around the person, but the low-clip",
+          "evidence_references": [
+            "image",
+            "annotations",
+            "guideline"
+          ]
+        },
+        "duration_ms": 84190.84574999579,
+        "model_verified": true,
+        "scope": {
+          "version": "target-scope-v1",
+          "image": {
+            "sample_id": "258421_0239e2d75db2092d",
+            "sample_revision": 1,
+            "image_key": "",
+            "image_sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+            "annotation_sha256": "6dff908bc14e61aee78aef2a9e83a027027f2635c6920efa14de14b0efa7268a"
+          },
+          "applicability": {
+            "geometry": [
+              "polygon"
+            ],
+            "combine": "all",
+            "source": "derived-v2",
+            "status": "clear",
+            "basis": "The requirement judges the supplied polygon only."
+          },
+          "applicability_origin": "derived_at_audit",
+          "eligible": [
+            {
+              "object_key": "/shapes/0",
+              "object_id": 1,
+              "label": "person",
+              "geometry": {
+                "box": "derived_from_polygon",
+                "polygon": "supplied",
+                "mask": "absent"
+              }
+            },
+            {
+              "object_key": "/shapes/1",
+              "object_id": 2,
+              "label": "person",
+              "geometry": {
+                "box": "derived_from_polygon",
+                "polygon": "supplied",
+                "mask": "absent"
+              }
+            }
+          ],
+          "ineligible": [],
+          "unavailable": null,
+          "results": [
+            {
+              "object_key": "/shapes/0",
+              "outcome": "unsure",
+              "model_outcome": "unsure",
+              "model_compliance": "unclear",
+              "geometry": "polygon",
+              "condition": "applies",
+              "reason": "The magenta polygon for the man at /shapes/0 encloses his visible body but also extends into background foliage to the right, violating the 'visible boundary' requirement. However, the annotation evidence is ambiguous due to crop scale and overlay vs. original image discrepancies; the original image",
+              "flags": []
+            },
+            {
+              "object_key": "/shapes/1",
+              "outcome": "unsure",
+              "model_outcome": "unsure",
+              "model_compliance": "unclear",
+              "geometry": "polygon",
+              "condition": "applies",
+              "reason": "The annotation polygon for the person (object_id 2) follows the visible boundary of the person, but the image is too blurry to reliably verify if any part of the polygon is displaced into background or onto another object. The polygon appears to be correctly drawn around the person, but the low-clip",
+              "flags": []
+            }
+          ],
+          "rejected_references": [],
+          "model_reported_outcome": null,
+          "outcome_source": "derived_from_target_results",
+          "notes": [
+            "One request per target: /shapes/0 ok 46s; /shapes/1 ok 38s"
+          ]
+        }
+      },
+      "calls": [
+        {
+          "object_key": "/shapes/0",
+          "status": "ok",
+          "duration_ms": 46228.6,
+          "prompt_eval_count": 6863,
+          "eval_count": 172
+        },
+        {
+          "object_key": "/shapes/1",
+          "status": "ok",
+          "duration_ms": 37933.8,
+          "prompt_eval_count": 6764,
+          "eval_count": 175
+        }
+      ],
+      "diagnostics": [],
+      "source": {
+        "dataset_id": "dataset_compare",
+        "sample_id": "258421_0239e2d75db2092d",
+        "sample_revision": 1,
+        "annotation_format": "labelme",
+        "image_key": "",
+        "original_image": {
+          "availability": "available",
+          "storage_key": "snapshots/v1/4304ef1e8d58d322931ea931b62085bbb409ab0710d6770c9b7d22e8e8d441a9/92c75e4d177cc4b09449129b2a64f6df1293e06a0fbc3b9d09d4060d9ded2a95/1/original_image/fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+          "content_type": "image/jpeg",
+          "sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+          "size_bytes": 751077
+        },
+        "raw_mask": {
+          "availability": "not_supplied",
+          "storage_key": null,
+          "content_type": null,
+          "sha256": null,
+          "size_bytes": null
+        },
+        "annotation_text": {
+          "availability": "available",
+          "storage_key": "snapshots/v1/4304ef1e8d58d322931ea931b62085bbb409ab0710d6770c9b7d22e8e8d441a9/92c75e4d177cc4b09449129b2a64f6df1293e06a0fbc3b9d09d4060d9ded2a95/1/annotation_text/6dff908bc14e61aee78aef2a9e83a027027f2635c6920efa14de14b0efa7268a",
+          "content_type": "application/json",
+          "sha256": "6dff908bc14e61aee78aef2a9e83a027027f2635c6920efa14de14b0efa7268a",
+          "size_bytes": 4474
+        }
+      }
+    },
+    "altered_feedback": {
+      "result": {
+        "prediction": {
+          "case_id": "6ebaef3d2176b8496d97b188e4e4a8e1822ea7458dc1275c3661397e3a089ae0",
+          "rule_id": "RULE-1",
+          "outcome": "unsure",
+          "reason": "person /shapes/0: unsure - The magenta polygon for the man at /shapes/0 appears to enclose background foliage to his right, suggesting displacement from his visible body. The original image shows no such displacement; the polygon\u2019s boundary does not match the man\u2019s actual silhouette. The annotation evidence is ambiguous due: ; person /shapes/1: unsure - The magenta polygon outlines a person (woman) standing on the railway tracks, but the annotation's polygon is not fully aligned with the visible boundary of the person; it includes parts of the background and does not precisely follow the person's silhouette. The crop shows the polygon is not a true",
+          "evidence_references": [
+            "image",
+            "annotations",
+            "guideline"
+          ]
+        },
+        "duration_ms": 84564.32104200212,
+        "model_verified": true,
+        "scope": {
+          "version": "target-scope-v1",
+          "image": {
+            "sample_id": "258421_0239e2d75db2092d",
+            "sample_revision": 1,
+            "image_key": "",
+            "image_sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+            "annotation_sha256": "77efb47d13a1c518e185d960df84e0cd4521d9fac3c5b43f92477187277baf43"
+          },
+          "applicability": {
+            "geometry": [
+              "polygon"
+            ],
+            "combine": "all",
+            "source": "derived-v2",
+            "status": "clear",
+            "basis": "The requirement judges the supplied polygon only."
+          },
+          "applicability_origin": "derived_at_audit",
+          "eligible": [
+            {
+              "object_key": "/shapes/0",
+              "object_id": 1,
+              "label": "person",
+              "geometry": {
+                "box": "derived_from_polygon",
+                "polygon": "supplied",
+                "mask": "absent"
+              }
+            },
+            {
+              "object_key": "/shapes/1",
+              "object_id": 2,
+              "label": "person",
+              "geometry": {
+                "box": "derived_from_polygon",
+                "polygon": "supplied",
+                "mask": "absent"
+              }
+            }
+          ],
+          "ineligible": [],
+          "unavailable": null,
+          "results": [
+            {
+              "object_key": "/shapes/0",
+              "outcome": "unsure",
+              "model_outcome": "unsure",
+              "model_compliance": "unclear",
+              "geometry": "polygon",
+              "condition": "applies",
+              "reason": "The magenta polygon for the man at /shapes/0 appears to enclose background foliage to his right, suggesting displacement from his visible body. The original image shows no such displacement; the polygon\u2019s boundary does not match the man\u2019s actual silhouette. The annotation evidence is ambiguous due: ",
+              "flags": []
+            },
+            {
+              "object_key": "/shapes/1",
+              "outcome": "unsure",
+              "model_outcome": "unsure",
+              "model_compliance": "unclear",
+              "geometry": "polygon",
+              "condition": "applies",
+              "reason": "The magenta polygon outlines a person (woman) standing on the railway tracks, but the annotation's polygon is not fully aligned with the visible boundary of the person; it includes parts of the background and does not precisely follow the person's silhouette. The crop shows the polygon is not a true",
+              "flags": []
+            }
+          ],
+          "rejected_references": [],
+          "model_reported_outcome": null,
+          "outcome_source": "derived_from_target_results",
+          "notes": [
+            "One request per target: /shapes/0 ok 44s; /shapes/1 ok 41s"
+          ]
+        }
+      },
+      "calls": [
+        {
+          "object_key": "/shapes/0",
+          "status": "ok",
+          "duration_ms": 43988.9,
+          "prompt_eval_count": 6861,
+          "eval_count": 168
+        },
+        {
+          "object_key": "/shapes/1",
+          "status": "ok",
+          "duration_ms": 40548.1,
+          "prompt_eval_count": 6762,
+          "eval_count": 171
+        }
+      ],
+      "diagnostics": [],
+      "source": {
+        "dataset_id": "dataset_compare",
+        "sample_id": "258421_0239e2d75db2092d",
+        "sample_revision": 1,
+        "annotation_format": "labelme",
+        "image_key": "",
+        "original_image": {
+          "availability": "available",
+          "storage_key": "snapshots/v1/4304ef1e8d58d322931ea931b62085bbb409ab0710d6770c9b7d22e8e8d441a9/92c75e4d177cc4b09449129b2a64f6df1293e06a0fbc3b9d09d4060d9ded2a95/1/original_image/fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+          "content_type": "image/jpeg",
+          "sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+          "size_bytes": 751077
+        },
+        "raw_mask": {
+          "availability": "not_supplied",
+          "storage_key": null,
+          "content_type": null,
+          "sha256": null,
+          "size_bytes": null
+        },
+        "annotation_text": {
+          "availability": "available",
+          "storage_key": "snapshots/v1/4304ef1e8d58d322931ea931b62085bbb409ab0710d6770c9b7d22e8e8d441a9/92c75e4d177cc4b09449129b2a64f6df1293e06a0fbc3b9d09d4060d9ded2a95/1/annotation_text/77efb47d13a1c518e185d960df84e0cd4521d9fac3c5b43f92477187277baf43",
+          "content_type": "application/json",
+          "sha256": "77efb47d13a1c518e185d960df84e0cd4521d9fac3c5b43f92477187277baf43",
+          "size_bytes": 4474
+        }
+      }
+    }
+  },
+  "completed": "2026-11-04T08:08:38.339797+00:00"
+}
