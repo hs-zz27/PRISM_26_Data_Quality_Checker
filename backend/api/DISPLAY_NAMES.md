@@ -135,6 +135,17 @@ machine-readable input, so labels are not added to it.
 
 ## Owner steps
 
+Integration verification on 4 November 2026 combined this change with PR #19's
+rule applicability and focused visual rechecks. Both rule model fields are
+preserved, and regenerating the API contracts and frontend types changes no files.
+The full backend run passed 3,573 tests and exposed one obsolete legacy-migration
+fixture. That fixture now seeds the pre-014 schema directly, checks all original
+fields for preservation, and checks the added format defaults separately. The
+follow-up PostgreSQL run passed all 48 dataset-migration and display-name tests.
+Frontend verification passed 158 tests, ESLint and the production build, including
+TypeScript checking. Database tests used isolated schemas; no live review records
+were migrated during these checks. No model inference was required.
+
 Back up the database first (it holds real reviews):
 
 ```sh

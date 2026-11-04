@@ -1,4 +1,4 @@
-"""Authored additive migration and relational-constraint regressions; unrun."""
+"""Additive migration and relational-constraint regressions."""
 
 import json
 
@@ -20,8 +20,12 @@ LEGACY_TABLES = (
 
 
 def snapshot(settings):
-    return {table: read_sql(settings, f"SELECT to_jsonb(t) AS document FROM {table} t ORDER BY to_jsonb(t)::text")
-            for table in LEGACY_TABLES}
+    # Migration 014 adds these fields; compare all original fields exactly and
+    # verify the new defaults separately in the upgrade test.
+    return {table: read_sql(settings, f"SELECT {expression} AS document FROM {table} t ORDER BY to_jsonb(t)::text")
+            for table in LEGACY_TABLES
+            for expression in ["to_jsonb(t) - 'annotation_format' - 'image_key'"
+                               if table == "sample_asset_manifests" else "to_jsonb(t)"]}
 
 
 def test_upgrade_keeps_existing_manifests_audits_findings_and_reviews_exact(
@@ -47,7 +51,19 @@ def test_upgrade_keeps_existing_manifests_audits_findings_and_reviews_exact(
         connection.execute("""INSERT INTO rulebook_reviews VALUES
             ('legacy_book',2,'legacy_reviewer','confirm',clock_timestamp())""")
         original = prepared_sample(dataset_id="legacy_dataset").manifest
-        DatasetRepository._insert_manifest(connection, original)
+        # Seed the actual pre-014 layout. The current repository writer rightly
+        # requires newer columns and cannot be used to manufacture old data.
+        columns = ["dataset_id", "sample_id", "sample_revision"]
+        values = [original.dataset_id, original.sample_id, original.sample_revision]
+        for role in ("original_image", "raw_mask", "annotation_text"):
+            entry = getattr(original, role).model_dump(mode="json")
+            for field in ("availability", "storage_key", "content_type", "sha256", "size_bytes"):
+                columns.append(f"{role}_{field}")
+                values.append(entry[field])
+        connection.execute(
+            "INSERT INTO sample_asset_manifests (" + ",".join(columns) + ") VALUES ("
+            + ",".join(["%s"] * len(columns)) + ")", values,
+        )
         connection.execute("""INSERT INTO audit_runs
             (audit_id,job_id,dataset_id,dataset_root,rulebook_id,rulebook_version,status,request,sample_count,
              created_at,updated_at,source_mode) VALUES
@@ -69,6 +85,9 @@ def test_upgrade_keeps_existing_manifests_audits_findings_and_reviews_exact(
     before = snapshot(settings)
     initialize_database(settings)
     assert snapshot(settings) == before
+    assert read_sql(settings, "SELECT annotation_format, image_key FROM sample_asset_manifests") == [
+        {"annotation_format": "penn_fudan", "image_key": None},
+    ]
     for table in ("datasets", "dataset_import_requests", "dataset_samples",
                   "dataset_sample_revisions", "dataset_sample_heads"):
         assert read_sql(settings, f"SELECT count(*) AS n FROM {table}") == [{"n": 0}]
