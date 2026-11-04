@@ -14,6 +14,7 @@ from pydantic import (
 )
 
 from .detection_evidence import DetectorConfiguration
+from .display_names import AuditName, RulebookName
 from .job import JobStatus
 from .enclosure import EnclosureRuntime
 from .feedback import FeedbackRuntime
@@ -21,6 +22,10 @@ from .review_feedback import ImageReviewFeedback
 
 
 NonBlank = Annotated[str, StringConstraints(min_length=1, pattern=r"\S")]
+
+
+def _absent(value) -> bool:
+    return value is None
 
 
 class AuditSourceMode(StrEnum):
@@ -117,6 +122,9 @@ class AuditRun(BaseModel):
     incomplete_count: int = Field(default=0, ge=0)
     created_at: AwareDatetime
     updated_at: AwareDatetime
+    # Display metadata only, joined at read time; never part of pinned inputs.
+    name: AuditName | None = Field(default=None, exclude_if=_absent, description="Permanent label and editable title.")
+    rulebook_name: RulebookName | None = Field(default=None, exclude_if=_absent, description="The audited rulebook's label; pair it with rulebook_version.")
 
     @model_validator(mode="after")
     def validate_counts(self) -> "AuditRun":

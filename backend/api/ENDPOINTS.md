@@ -4,7 +4,7 @@ Generated from `build_contract.py`. Paths include `/api/v1`.
 
 Use implemented-openapi.json for callable endpoint schemas and client generation. openapi.json is the combined reference and marks each operation with x-implementation-status. examples.json contains synthetic fixtures.
 
-## Implemented (50 operations)
+## Implemented (53 operations)
 
 ### System
 
@@ -24,6 +24,7 @@ Use implemented-openapi.json for callable endpoint schemas and client generation
 - `POST /api/v1/rulebooks/{rulebook_id}/confirm` — Confirm a reviewed rulebook (`confirmRulebook`; implemented).
 - `POST /api/v1/rulebooks/{rulebook_id}/reject` — Reject a draft rulebook (`rejectRulebook`; implemented).
 - `POST /api/v1/rulebooks/{rulebook_id}/revisions` — Start a new draft from a final version (`reviseRulebook`; implemented).
+- `PUT /api/v1/rulebooks/{rulebook_id}/title` — Rename a rulebook (`updateRulebookTitle`; implemented).
 
 ### Datasets
 
@@ -44,6 +45,7 @@ Use implemented-openapi.json for callable endpoint schemas and client generation
 - `POST /api/v1/audits` — Start an audit against confirmed rules (`startAudit`; implemented).
 - `GET /api/v1/audits` — List audit runs (`listAudits`; implemented).
 - `GET /api/v1/audits/{audit_id}` — Read persisted audit progress (`getAudit`; implemented).
+- `PUT /api/v1/audits/{audit_id}/title` — Rename an audit (`updateAuditTitle`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples` — Read the complete review queue (`listAuditSamples`; implemented).
 - `GET /api/v1/audits/{audit_id}/samples/{sample_id}` — Read sample findings, evidence and measurements (`getAuditSample`; implemented).
 - `GET /api/v1/audits/{audit_id}/findings` — List findings with rule sources and review state (`listAuditFindings`; implemented).

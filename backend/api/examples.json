@@ -212,7 +212,16 @@
               "confirmation_state": "draft"
             }
           ],
-          "confirmation_state": "draft"
+          "confirmation_state": "draft",
+          "name": {
+            "title": "Use person labels.",
+            "title_revision": 0,
+            "title_updated_at": null,
+            "title_updated_by": null,
+            "rulebook_id": "rulebook_manual_demo",
+            "number": 3,
+            "label": "Rules 003"
+          }
         }
       }
     },
@@ -293,7 +302,16 @@
                   "confirmation_state": "confirmed"
                 }
               ],
-              "confirmation_state": "confirmed"
+              "confirmation_state": "confirmed",
+              "name": {
+                "title": "Person annotation checks",
+                "title_revision": 1,
+                "title_updated_at": "2026-10-14T10:00:00Z",
+                "title_updated_by": "reviewer_demo",
+                "rulebook_id": "rulebook_demo",
+                "number": 3,
+                "label": "Rules 003"
+              }
             }
           ],
           "limit": 20,
@@ -343,7 +361,16 @@
               "confirmation_state": "confirmed"
             }
           ],
-          "confirmation_state": "confirmed"
+          "confirmation_state": "confirmed",
+          "name": {
+            "title": "Person annotation checks",
+            "title_revision": 1,
+            "title_updated_at": "2026-10-14T10:00:00Z",
+            "title_updated_by": "reviewer_demo",
+            "rulebook_id": "rulebook_demo",
+            "number": 3,
+            "label": "Rules 003"
+          }
         }
       }
     },
@@ -390,7 +417,16 @@
                   "confirmation_state": "draft"
                 }
               ],
-              "confirmation_state": "draft"
+              "confirmation_state": "draft",
+              "name": {
+                "title": "Person annotation checks",
+                "title_revision": 1,
+                "title_updated_at": "2026-10-14T10:00:00Z",
+                "title_updated_by": "reviewer_demo",
+                "rulebook_id": "rulebook_demo",
+                "number": 3,
+                "label": "Rules 003"
+              }
             },
             {
               "rulebook_id": "rulebook_demo",
@@ -411,7 +447,16 @@
                   "confirmation_state": "confirmed"
                 }
               ],
-              "confirmation_state": "draft"
+              "confirmation_state": "draft",
+              "name": {
+                "title": "Person annotation checks",
+                "title_revision": 1,
+                "title_updated_at": "2026-10-14T10:00:00Z",
+                "title_updated_by": "reviewer_demo",
+                "rulebook_id": "rulebook_demo",
+                "number": 3,
+                "label": "Rules 003"
+              }
             },
             {
               "rulebook_id": "rulebook_demo",
@@ -432,7 +477,16 @@
                   "confirmation_state": "confirmed"
                 }
               ],
-              "confirmation_state": "confirmed"
+              "confirmation_state": "confirmed",
+              "name": {
+                "title": "Person annotation checks",
+                "title_revision": 1,
+                "title_updated_at": "2026-10-14T10:00:00Z",
+                "title_updated_by": "reviewer_demo",
+                "rulebook_id": "rulebook_demo",
+                "number": 3,
+                "label": "Rules 003"
+              }
             }
           ],
           "limit": 20,
@@ -545,7 +599,16 @@
               "confirmation_state": "confirmed"
             }
           ],
-          "confirmation_state": "draft"
+          "confirmation_state": "draft",
+          "name": {
+            "title": "Person annotation checks",
+            "title_revision": 1,
+            "title_updated_at": "2026-10-14T10:00:00Z",
+            "title_updated_by": "reviewer_demo",
+            "rulebook_id": "rulebook_demo",
+            "number": 3,
+            "label": "Rules 003"
+          }
         }
       }
     },
@@ -590,7 +653,16 @@
               "confirmation_state": "confirmed"
             }
           ],
-          "confirmation_state": "confirmed"
+          "confirmation_state": "confirmed",
+          "name": {
+            "title": "Person annotation checks",
+            "title_revision": 1,
+            "title_updated_at": "2026-10-14T10:00:00Z",
+            "title_updated_by": "reviewer_demo",
+            "rulebook_id": "rulebook_demo",
+            "number": 3,
+            "label": "Rules 003"
+          }
         }
       }
     },
@@ -635,7 +707,16 @@
               "confirmation_state": "draft"
             }
           ],
-          "confirmation_state": "rejected"
+          "confirmation_state": "rejected",
+          "name": {
+            "title": "Person annotation checks",
+            "title_revision": 1,
+            "title_updated_at": "2026-10-14T10:00:00Z",
+            "title_updated_by": "reviewer_demo",
+            "rulebook_id": "rulebook_demo",
+            "number": 3,
+            "label": "Rules 003"
+          }
         }
       }
     },
@@ -680,7 +761,71 @@
               "confirmation_state": "draft"
             }
           ],
-          "confirmation_state": "draft"
+          "confirmation_state": "draft",
+          "name": {
+            "title": "Person annotation checks",
+            "title_revision": 1,
+            "title_updated_at": "2026-10-14T10:00:00Z",
+            "title_updated_by": "reviewer_demo",
+            "rulebook_id": "rulebook_demo",
+            "number": 3,
+            "label": "Rules 003"
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "updateRulebookTitle",
+      "method": "PUT",
+      "path": "/api/v1/rulebooks/{rulebook_id}/title",
+      "tag": "Rulebooks",
+      "summary": "Rename a rulebook",
+      "implementation": "implemented",
+      "backing_service": "DisplayNameRepository.update_rulebook_title and FastAPI route implemented.",
+      "request": {
+        "path_parameters": {
+          "rulebook_id": "rulebook_demo"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "title": "Person annotation checks",
+          "expected_title_revision": 0,
+          "reviewer_id": "reviewer_demo"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "rulebook_id": "rulebook_demo",
+          "version": 3,
+          "guideline_text": "Allowed labels are person.",
+          "rules": [
+            {
+              "rule_id": "LBL-1",
+              "description": "Use an allowed label.",
+              "check_name": "allowed_labels",
+              "parameters": {
+                "allowed_labels": [
+                  "person"
+                ]
+              },
+              "origin": "extracted",
+              "source_sentence": "Allowed labels are person.",
+              "confirmation_state": "confirmed"
+            }
+          ],
+          "confirmation_state": "confirmed",
+          "name": {
+            "title": "Person annotation checks",
+            "title_revision": 1,
+            "title_updated_at": "2026-10-14T10:00:00Z",
+            "title_updated_by": "reviewer_demo",
+            "rulebook_id": "rulebook_demo",
+            "number": 3,
+            "label": "Rules 003"
+          }
         }
       }
     },
@@ -1221,7 +1366,27 @@
             "failed_count": 0,
             "incomplete_count": 0,
             "created_at": "2026-10-14T10:00:00Z",
-            "updated_at": "2026-10-14T10:00:00Z"
+            "updated_at": "2026-10-14T10:00:00Z",
+            "name": {
+              "title": "LabelMe demo",
+              "title_revision": 0,
+              "title_updated_at": null,
+              "title_updated_by": null,
+              "audit_id": "audit_demo",
+              "root_audit_id": "audit_demo",
+              "number": 14,
+              "recheck_number": null,
+              "label": "Audit 014"
+            },
+            "rulebook_name": {
+              "title": "Person annotation checks",
+              "title_revision": 1,
+              "title_updated_at": "2026-10-14T10:00:00Z",
+              "title_updated_by": "reviewer_demo",
+              "rulebook_id": "rulebook_demo",
+              "number": 3,
+              "label": "Rules 003"
+            }
           },
           "job": {
             "job_id": "job_audit_demo",
@@ -1279,7 +1444,27 @@
               "failed_count": 0,
               "incomplete_count": 0,
               "created_at": "2026-10-14T10:00:00Z",
-              "updated_at": "2026-10-14T10:00:00Z"
+              "updated_at": "2026-10-14T10:00:00Z",
+              "name": {
+                "title": "LabelMe demo",
+                "title_revision": 0,
+                "title_updated_at": null,
+                "title_updated_by": null,
+                "audit_id": "audit_demo",
+                "root_audit_id": "audit_demo",
+                "number": 14,
+                "recheck_number": null,
+                "label": "Audit 014"
+              },
+              "rulebook_name": {
+                "title": "Person annotation checks",
+                "title_revision": 1,
+                "title_updated_at": "2026-10-14T10:00:00Z",
+                "title_updated_by": "reviewer_demo",
+                "rulebook_id": "rulebook_demo",
+                "number": 3,
+                "label": "Rules 003"
+              }
             }
           ],
           "limit": 20,
@@ -1321,7 +1506,151 @@
           "failed_count": 0,
           "incomplete_count": 0,
           "created_at": "2026-10-14T10:00:00Z",
-          "updated_at": "2026-10-14T10:00:00Z"
+          "updated_at": "2026-10-14T10:00:00Z",
+          "name": {
+            "title": "LabelMe demo",
+            "title_revision": 0,
+            "title_updated_at": null,
+            "title_updated_by": null,
+            "audit_id": "audit_demo",
+            "root_audit_id": "audit_demo",
+            "number": 14,
+            "recheck_number": null,
+            "label": "Audit 014"
+          },
+          "rulebook_name": {
+            "title": "Person annotation checks",
+            "title_revision": 1,
+            "title_updated_at": "2026-10-14T10:00:00Z",
+            "title_updated_by": "reviewer_demo",
+            "rulebook_id": "rulebook_demo",
+            "number": 3,
+            "label": "Rules 003"
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "updateAuditTitle",
+      "method": "PUT",
+      "path": "/api/v1/audits/{audit_id}/title",
+      "tag": "Audits",
+      "summary": "Rename an audit",
+      "implementation": "implemented",
+      "backing_service": "DisplayNameRepository.update_audit_title and FastAPI route implemented.",
+      "request": {
+        "path_parameters": {
+          "audit_id": "audit_demo"
+        },
+        "query": {},
+        "content_type": "application/json",
+        "body": {
+          "title": "LabelMe demo",
+          "expected_title_revision": 0,
+          "reviewer_id": "reviewer_demo"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "audit_id": "audit_demo",
+          "job_id": "job_audit_demo",
+          "dataset_id": "dataset_demo",
+          "rulebook_id": "rulebook_demo",
+          "rulebook_version": 3,
+          "source_mode": "snapshot",
+          "status": "completed",
+          "sample_count": 1,
+          "processed_count": 1,
+          "failed_count": 0,
+          "incomplete_count": 0,
+          "created_at": "2026-10-14T10:00:00Z",
+          "updated_at": "2026-10-14T10:00:00Z",
+          "name": {
+            "title": "LabelMe demo",
+            "title_revision": 0,
+            "title_updated_at": null,
+            "title_updated_by": null,
+            "audit_id": "audit_demo",
+            "root_audit_id": "audit_demo",
+            "number": 14,
+            "recheck_number": null,
+            "label": "Audit 014"
+          },
+          "rulebook_name": {
+            "title": "Person annotation checks",
+            "title_revision": 1,
+            "title_updated_at": "2026-10-14T10:00:00Z",
+            "title_updated_by": "reviewer_demo",
+            "rulebook_id": "rulebook_demo",
+            "number": 3,
+            "label": "Rules 003"
+          }
+        }
+      }
+    },
+    {
+      "operation_id": "lookupDisplayNames",
+      "method": "GET",
+      "path": "/api/v1/display-names",
+      "tag": "Display names",
+      "summary": "Look up audit and rulebook labels",
+      "implementation": "implemented",
+      "backing_service": "DisplayNameRepository.lookup and FastAPI route implemented.",
+      "request": {
+        "path_parameters": {},
+        "query": {
+          "audit_id": [
+            "audit_demo",
+            "audit_recheck_demo"
+          ],
+          "rulebook_id": [
+            "rulebook_demo"
+          ]
+        },
+        "content_type": null,
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "audits": [
+            {
+              "title": "LabelMe demo",
+              "title_revision": 0,
+              "title_updated_at": null,
+              "title_updated_by": null,
+              "audit_id": "audit_demo",
+              "root_audit_id": "audit_demo",
+              "number": 14,
+              "recheck_number": null,
+              "label": "Audit 014"
+            },
+            {
+              "title": "Feedback recheck",
+              "title_revision": 0,
+              "title_updated_at": null,
+              "title_updated_by": null,
+              "audit_id": "audit_recheck_demo",
+              "root_audit_id": "audit_demo",
+              "number": 14,
+              "recheck_number": 1,
+              "label": "Audit 014 R01"
+            }
+          ],
+          "rulebooks": [
+            {
+              "title": "Person annotation checks",
+              "title_revision": 1,
+              "title_updated_at": "2026-10-14T10:00:00Z",
+              "title_updated_by": "reviewer_demo",
+              "rulebook_id": "rulebook_demo",
+              "number": 3,
+              "label": "Rules 003"
+            }
+          ]
         }
       }
     },
@@ -2069,7 +2398,27 @@
             "failed_count": 0,
             "incomplete_count": 0,
             "created_at": "2026-10-14T10:00:00Z",
-            "updated_at": "2026-10-14T10:00:00Z"
+            "updated_at": "2026-10-14T10:00:00Z",
+            "name": {
+              "title": "Feedback recheck",
+              "title_revision": 0,
+              "title_updated_at": null,
+              "title_updated_by": null,
+              "audit_id": "audit_recheck_demo",
+              "root_audit_id": "audit_demo",
+              "number": 14,
+              "recheck_number": 1,
+              "label": "Audit 014 R01"
+            },
+            "rulebook_name": {
+              "title": "Person annotation checks",
+              "title_revision": 1,
+              "title_updated_at": "2026-10-14T10:00:00Z",
+              "title_updated_by": "reviewer_demo",
+              "rulebook_id": "rulebook_demo",
+              "number": 3,
+              "label": "Rules 003"
+            }
           },
           "job": {
             "job_id": "job_recheck_demo",

@@ -10,6 +10,7 @@ from .routers.rechecks import router as rechecks_router
 from .routers.audits import router as audits_router
 from .routers.assets import router as assets_router
 from .routers.datasets import router as datasets_router
+from .routers.display_names import router as display_names_router, register_display_name_errors
 from .routers.dataset_ingress import DatasetUploadIngress
 from .routers.errors import register_error_handlers
 from .routers.exports import router as exports_router, register_export_error_handlers
@@ -37,12 +38,14 @@ def create_app(*, dataset_upload_settings_factory=None, correction_settings_fact
     register_feedback_errors(app)
     register_export_error_handlers(app)
     register_correction_errors(app)
+    register_display_name_errors(app)
     app.add_middleware(CorrectionIngress, settings_factory=correction_settings_factory)
     app.add_middleware(DatasetUploadIngress, settings_factory=dataset_upload_settings_factory)
     app.include_router(audits_router, prefix="/api/v1")
     app.include_router(feedback_router,prefix="/api/v1")
     app.include_router(assets_router, prefix="/api/v1")
     app.include_router(datasets_router, prefix="/api/v1")
+    app.include_router(display_names_router, prefix="/api/v1")
     app.include_router(exports_router, prefix="/api/v1")
     app.include_router(corrections_router, prefix="/api/v1")
     app.include_router(rechecks_router, prefix="/api/v1")

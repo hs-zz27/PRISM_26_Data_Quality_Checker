@@ -21,7 +21,8 @@ from backend.app.models.review import (
     RulebookAction, RulebookReplace, RulebookReviewPage, RulebookReviewRecord,
     SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
 )
-from backend.app.models.rule import Rulebook, RulebookPage
+from backend.app.models.display_names import AuditName, DisplayNameLookup, RulebookName, TitleUpdate
+from backend.app.models.rule import Rulebook, RulebookPage, RulebookRecord, RulebookRecordPage
 from backend.app.models.rulebook_creation import RulebookCreate, RulebookCreateRule
 from backend.app.models.rule_extraction import RuleExtractionRequest
 
@@ -35,7 +36,8 @@ def build_schemas() -> JsonObject:
     """Reuse implemented records; keep proposed transport records explicit."""
     schemas = {}
     for model in (
-        RuleExtractionRequest, Rulebook, RulebookPage, RulebookCreate, RulebookCreateRule, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
+        RuleExtractionRequest, Rulebook, RulebookPage, RulebookRecord, RulebookRecordPage,
+        AuditName, RulebookName, TitleUpdate, DisplayNameLookup, RulebookCreate, RulebookCreateRule, Finding, FindingReviewRequest, FindingReviewRecord, FindingReviewPage,
         RulebookReplace, RulebookAction, RulebookReviewRecord, RulebookReviewPage,
         SampleReview, SampleReviewRequest, SampleReviewRecord, SampleReviewPage,
         AuditSamplePage, FindingPage, SampleAudit, SampleAuditSummary,

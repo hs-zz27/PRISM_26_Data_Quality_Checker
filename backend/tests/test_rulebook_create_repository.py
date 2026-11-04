@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from backend.app.main import create_app
+from backend.tests.display_name_helpers import document, documents
 from backend.app.models.audit_read import ErrorResponse
 from backend.app.routers.rulebooks import get_rulebook_repository
 from backend.app.services import rulebook_creation
@@ -47,7 +48,7 @@ def payload():
 def create(client, body=None):
     response = client.post(BASE, json=payload() if body is None else body)
     assert response.status_code == 201, response.text
-    return response.json()
+    return document(response.json())
 
 def path(book):
     return BASE + "/" + book["rulebook_id"]
@@ -83,11 +84,11 @@ def test_post_is_durable_across_repositories_get_list_and_history(client, store)
     original = create(client, body)
     reopened = RulebookRepository(settings=store.settings)
     assert reopened.get_rulebook(original["rulebook_id"], version=1).model_dump(mode="json") == original
-    assert client.get(path(original)).json() == original
-    assert client.get(path(original), params={"version": 1}).json() == original
-    assert client.get(BASE).json()["items"] == [original]
+    assert document(client.get(path(original)).json()) == original
+    assert document(client.get(path(original), params={"version": 1}).json()) == original
+    assert documents(client.get(BASE).json()["items"]) == [original]
     versions = client.get(path(original) + "/versions").json()
-    assert versions["items"] == [original] and versions["total"] == 1
+    assert documents(versions["items"]) == [original] and versions["total"] == 1
     reviews = client.get(path(original) + "/reviews").json()
     assert reviews["items"] == [] and reviews["total"] == 0
     assert reopened.list_rulebook_reviews(original["rulebook_id"]).items == []
@@ -105,16 +106,16 @@ def test_create_edit_confirm_appends_only_real_review_actions(client, store):
     target = path(v1)
     response = client.put(target, json=replacement(v1))
     assert response.status_code == 200
-    v2 = response.json()
+    v2 = document(response.json())
     assert v2["version"] == 2 and v2["confirmation_state"] == "draft"
     response = client.post(target + "/confirm", json=action(2, "confirmer"))
     assert response.status_code == 200
-    v3 = response.json()
+    v3 = document(response.json())
     assert v3["version"] == 3 and v3["confirmation_state"] == "confirmed"
     reopened = RulebookRepository(settings=store.settings)
     assert [item.model_dump(mode="json") for item in reopened.list_rulebook_versions(v1["rulebook_id"]).items] == [v1, v2, v3]
     for version, saved in enumerate((v1, v2, v3), 1):
-        assert client.get(target, params={"version": version}).json() == saved
+        assert document(client.get(target, params={"version": version}).json()) == saved
     history = reopened.list_rulebook_reviews(v1["rulebook_id"])
     assert [(record.version, record.action.value, record.reviewer_id) for record in history.items] == [
         (2, "edit", "reviewer_create"), (3, "confirm", "confirmer"),
@@ -147,7 +148,7 @@ def test_invalid_creation_leaves_no_snapshot_or_review(client, store, change):
     else:
         body["rules"] = None
     assert_error(client.post(BASE, json=body), 422, "VALIDATION_ERROR")
-    assert client.get(BASE).json()["items"] == []
+    assert documents(client.get(BASE).json()["items"]) == []
     assert row_counts(store) == (0, 0)
 
 @pytest.mark.parametrize("failure", ["insert", "commit"])
@@ -178,7 +179,7 @@ def test_failed_transaction_never_succeeds_or_leaves_creation_rows(client, store
     with pytest.raises(RulebookNotFoundError):
         reopened.get_rulebook(identifier)
     assert_error(client.get(BASE + "/" + identifier + "/reviews"), 404, "NOT_FOUND")
-    assert client.get(BASE).json()["items"] == [] and row_counts(store) == (0, 0)
+    assert documents(client.get(BASE).json()["items"]) == [] and row_counts(store) == (0, 0)
     with database_connection(store.settings) as connection:
         connection.execute("DROP TRIGGER block_manual_creation ON rulebook_versions")
     # A later explicit request after a known rollback must not inherit a partial
@@ -201,7 +202,7 @@ def test_collision_preserves_all_existing_versions_and_reviews(client, store, mo
     monkeypatch.setattr(rulebook_creation, "uuid4", lambda: fixed)
     assert_error(client.post(BASE, json={"guideline_text": "new content", "rules": []}), 409, "VERSION_CONFLICT")
     assert fingerprint(store, v1["rulebook_id"]) == before
-    assert client.get(target, params={"version": 1}).json() == v1
+    assert document(client.get(target, params={"version": 1}).json()) == v1
     assert row_counts(store) == (latest_version, latest_version - 1)
 
 def test_missing_versions_rejection_revision_and_stale_actions_stay_unchanged(client, store):
@@ -222,14 +223,14 @@ def test_missing_versions_rejection_revision_and_stale_actions_stay_unchanged(cl
     assert revised.status_code == 201 and revised.json()["version"] == 3
     assert revised.json()["confirmation_state"] == "draft"
     assert all(rule["confirmation_state"] == "draft" for rule in revised.json()["rules"])
-    assert client.get(target, params={"version": 1}).json() == original
+    assert document(client.get(target, params={"version": 1}).json()) == original
     assert [record["action"] for record in client.get(target + "/reviews").json()["items"]] == ["reject", "revise"]
 
 def test_separate_successful_posts_do_not_reuse_ids_or_records(client, store):
     first, second = create(client), create(client)
     assert first["rulebook_id"] != second["rulebook_id"]
     assert client.put(path(first), json=replacement(first)).status_code == 200
-    assert client.get(path(second)).json() == second
+    assert document(client.get(path(second)).json()) == second
     assert store.list_rulebook_reviews(second["rulebook_id"]).items == []
     assert row_counts(store) == (3, 1)
 
@@ -264,6 +265,8 @@ def test_simultaneous_generated_id_collision_has_exactly_one_initial_snapshot(st
         responses = [future.result(timeout=60) for future in futures]
     assert sorted(response.status_code for response in responses) == [201, 409]
     winner = next(response.json() for response in responses if response.status_code == 201)
+    # The rejected contender committed nothing, so it took no number.
+    assert winner.pop("name")["label"] == "Rules 001"
     assert winner["rulebook_id"] == identifier and winner["version"] == 1
     assert winner["guideline_text"] in {"contender 1", "contender 2"}
     assert winner["rules"] == [] and winner["confirmation_state"] == "draft"

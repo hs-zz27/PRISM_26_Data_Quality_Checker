@@ -4,6 +4,11 @@
 connects the imported catalogue to the existing batch engine. It queues work;
 it does not load images, run checks or contact Ollama in the HTTP request.
 
+Every audit response includes `name` (for example `Audit 014`, or `Audit 014 R01`
+for a recheck) and `rulebook_name` (`Rules 003`, shown with `rulebook_version` as
+`Rules 003 v3`). Rename an audit with `PUT /api/v1/audits/{audit_id}/title`.
+Requests still use `audit_id`. See [DISPLAY_NAMES.md](DISPLAY_NAMES.md).
+
 ## Start an audit
 
 Import a dataset, let the dataset worker finish, and choose an explicit confirmed

@@ -12,6 +12,7 @@ from pydantic import ValidationError
 import pytest
 
 from backend.app.main import create_app
+from backend.tests.display_name_helpers import without_display_names
 from backend.app.models.audit_read import ErrorResponse
 from backend.app.models.rule import Rule, Rulebook
 from backend.app.models.rulebook_creation import RulebookCreate
@@ -33,7 +34,7 @@ def payload():
 
 @pytest.fixture
 def api():
-    app = create_app()
+    app = without_display_names(create_app())
     repository = Mock(spec_set=RulebookRepository)
     repository.save_rulebook.side_effect = lambda draft, **kwargs: Rulebook.model_validate(draft.model_dump())
     app.dependency_overrides[rulebooks.get_rulebook_repository] = lambda: repository
@@ -208,7 +209,7 @@ def test_live_creation_schema_and_registration_preserve_existing_routes():
         "$ref": "#/components/schemas/RulebookCreate",
     }
     assert operation["responses"]["201"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/Rulebook",
+        "$ref": "#/components/schemas/RulebookRecord",
     }
     assert set(operation["responses"]) == {"201", "404", "409", "422", "500", "503"}
 

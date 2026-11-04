@@ -48,6 +48,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audits/{audit_id}/title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename an audit
+         * @description Replace the audit's editable title. The audit, its findings, reviews, corrections, rechecks and pinned inputs are unchanged; it is not an annotation correction. Names are permanent and allocated once by the server: they never change, are never reused and are never parsed back into IDs. Only the title changes. Send the title_revision last read as expected_title_revision; a stale value returns 409 VERSION_CONFLICT without a write. The title is trimmed and must be 1-120 characters without line breaks or control characters. Each edit records reviewer_id and time.
+         */
+        put: operations["updateAuditTitle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audits/{audit_id}/samples": {
         parameters: {
             query?: never;
@@ -372,6 +392,26 @@ export interface paths {
          * @description Missing dataset, sample or exact revision is 404. Missing/corrupt pinned manifest fails closed as a storage error; never recapture from mutable files or a deleted staging directory. Sample issues explain basic integrity, not rulebook or reviewer decisions. Source order, duplicate/negative IDs and invalid boxes remain source evidence.
          */
         get: operations["getDatasetSample"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/display-names": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Look up audit and rulebook labels
+         * @description Resolve labels for IDs held by other responses (findings, revisions, exports, attempts, feedback examples). Unknown IDs are omitted, duplicates are returned once, and results follow request order. Reading never allocates or changes a name. Audit and rulebook responses already include their own names.
+         */
+        get: operations["lookupDisplayNames"];
         put?: never;
         post?: never;
         delete?: never;
@@ -816,6 +856,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rulebooks/{rulebook_id}/title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename a rulebook
+         * @description Replace the title shared by every version of the rulebook and return the latest version. No version, review, rule, citation or confirmation state changes, so a confirmed rulebook keeps its meaning and audit pins. Names are permanent and allocated once by the server: they never change, are never reused and are never parsed back into IDs. Only the title changes. Send the title_revision last read as expected_title_revision; a stale value returns 409 VERSION_CONFLICT without a write. The title is trimmed and must be 1-120 characters without line breaks or control characters. Each edit records reviewer_id and time.
+         */
+        put: operations["updateRulebookTitle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -1007,6 +1067,51 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * AuditName
+         * @description An audit's permanent label. A recheck keeps its original root's number.
+         */
+        AuditName: {
+            /**
+             * Title
+             * @description Editable description shown after the permanent label.
+             */
+            title: string;
+            /**
+             * Title Revision
+             * @description 0 until the default title is first edited.
+             */
+            title_revision: number;
+            /**
+             * Title Updated At
+             * @default null
+             */
+            title_updated_at: string | null;
+            /**
+             * Title Updated By
+             * @default null
+             */
+            title_updated_by: string | null;
+            /** Audit Id */
+            audit_id: string;
+            /**
+             * Root Audit Id
+             * @description The original audit this recheck descends from; itself for a root.
+             */
+            root_audit_id: string;
+            /** Number */
+            number: number;
+            /**
+             * Recheck Number
+             * @default null
+             */
+            recheck_number: number | null;
+            /**
+             * Label
+             * @description Audit 014, or Audit 014 R01 for a recheck.
+             */
+            label: string;
+        };
         /** AuditPage */
         AuditPage: {
             /** Items */
@@ -1083,6 +1188,16 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * @description Permanent label and editable title.
+             * @default null
+             */
+            name: components["schemas"]["AuditName"] | null;
+            /**
+             * @description The audited rulebook's label; pair it with rulebook_version.
+             * @default null
+             */
+            rulebook_name: components["schemas"]["RulebookName"] | null;
         };
         /** AuditSamplePage */
         AuditSamplePage: {
@@ -1350,6 +1465,16 @@ export interface components {
             validation: "unknown" | "validated" | "failed";
             /** Architecture */
             architecture: string;
+        };
+        /**
+         * DisplayNameLookup
+         * @description Names for the requested IDs; unknown IDs are omitted, never invented.
+         */
+        DisplayNameLookup: {
+            /** Audits */
+            audits?: components["schemas"]["AuditName"][];
+            /** Rulebooks */
+            rulebooks?: components["schemas"]["RulebookName"][];
         };
         /** EnclosureAggregate */
         EnclosureAggregate: {
@@ -2763,31 +2888,6 @@ export interface components {
             semantic_sha256: string;
         };
         /**
-         * Rulebook
-         * @description Group rules with their original plain text guidelines and a version.
-         *
-         *     Citation matching is exact and does not alter the supplied text. A
-         *     confirmed rulebook contains at least one rule, all confirmed. Rules
-         *     rejected during review can remain in a draft or an earlier saved version.
-         *     Confirmation fields record state; the review service manages reviewer
-         *     actions and appends attributed revisions without changing older versions.
-         */
-        Rulebook: {
-            /** Rulebook Id */
-            rulebook_id: string;
-            /**
-             * Version
-             * @default 1
-             */
-            version: number;
-            /** Guideline Text */
-            guideline_text: string;
-            /** Rules */
-            rules?: components["schemas"]["Rule"][];
-            /** @default draft */
-            confirmation_state: components["schemas"]["ConfirmationState"];
-        };
-        /**
          * RulebookAction
          * @description Identify the reviewed version and the person submitting the action.
          */
@@ -2836,12 +2936,74 @@ export interface components {
             source_sentence: string | null;
         };
         /**
-         * RulebookPage
-         * @description A page of latest rulebooks or one rulebook's saved version history.
+         * RulebookName
+         * @description One number per logical rulebook, shared by all of its versions.
          */
-        RulebookPage: {
+        RulebookName: {
+            /**
+             * Title
+             * @description Editable description shown after the permanent label.
+             */
+            title: string;
+            /**
+             * Title Revision
+             * @description 0 until the default title is first edited.
+             */
+            title_revision: number;
+            /**
+             * Title Updated At
+             * @default null
+             */
+            title_updated_at: string | null;
+            /**
+             * Title Updated By
+             * @default null
+             */
+            title_updated_by: string | null;
+            /** Rulebook Id */
+            rulebook_id: string;
+            /** Number */
+            number: number;
+            /**
+             * Label
+             * @description Rules 003; show a version as Rules 003 v3.
+             */
+            label: string;
+        };
+        /**
+         * RulebookRecord
+         * @description A rulebook version as returned by the API, with its display name.
+         *
+         *     The name is per logical rulebook and joined at read time. It is not part
+         *     of the stored document, so it never changes a version's content or hash.
+         */
+        RulebookRecord: {
+            /** Rulebook Id */
+            rulebook_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+            /** Guideline Text */
+            guideline_text: string;
+            /** Rules */
+            rules?: components["schemas"]["Rule"][];
+            /** @default draft */
+            confirmation_state: components["schemas"]["ConfirmationState"];
+            /**
+             * @description Permanent label and editable title, shared by every version.
+             * @default null
+             */
+            name: components["schemas"]["RulebookName"] | null;
+        };
+        /**
+         * RulebookRecordPage
+         * @description RulebookPage as returned by the API, with each book's display name.
+         */
+        RulebookRecordPage: {
             /** Items */
-            items: components["schemas"]["Rulebook"][];
+            items: components["schemas"]["RulebookRecord"][];
             /** Limit */
             limit: number;
             /** Offset */
@@ -3281,6 +3443,24 @@ export interface components {
             notes?: string[];
         };
         /**
+         * TitleUpdate
+         * @description Replace a title at the title revision the caller last read.
+         */
+        TitleUpdate: {
+            /**
+             * Title
+             * @description 1-120 characters; surrounding whitespace is removed.
+             */
+            title: string;
+            /**
+             * Expected Title Revision
+             * @description Last-read title revision.
+             */
+            expected_title_revision: number;
+            /** Reviewer Id */
+            reviewer_id: string;
+        };
+        /**
          * ToolStatus
          * @enum {string}
          */
@@ -3362,7 +3542,27 @@ export interface operations {
                      *           "failed_count": 0,
                      *           "incomplete_count": 0,
                      *           "created_at": "2026-10-14T10:00:00Z",
-                     *           "updated_at": "2026-10-14T10:00:00Z"
+                     *           "updated_at": "2026-10-14T10:00:00Z",
+                     *           "name": {
+                     *             "title": "LabelMe demo",
+                     *             "title_revision": 0,
+                     *             "title_updated_at": null,
+                     *             "title_updated_by": null,
+                     *             "audit_id": "audit_demo",
+                     *             "root_audit_id": "audit_demo",
+                     *             "number": 14,
+                     *             "recheck_number": null,
+                     *             "label": "Audit 014"
+                     *           },
+                     *           "rulebook_name": {
+                     *             "title": "Person annotation checks",
+                     *             "title_revision": 1,
+                     *             "title_updated_at": "2026-10-14T10:00:00Z",
+                     *             "title_updated_by": "reviewer_demo",
+                     *             "rulebook_id": "rulebook_demo",
+                     *             "number": 3,
+                     *             "label": "Rules 003"
+                     *           }
                      *         }
                      *       ],
                      *       "limit": 20,
@@ -3476,7 +3676,27 @@ export interface operations {
                      *         "failed_count": 0,
                      *         "incomplete_count": 0,
                      *         "created_at": "2026-10-14T10:00:00Z",
-                     *         "updated_at": "2026-10-14T10:00:00Z"
+                     *         "updated_at": "2026-10-14T10:00:00Z",
+                     *         "name": {
+                     *           "title": "LabelMe demo",
+                     *           "title_revision": 0,
+                     *           "title_updated_at": null,
+                     *           "title_updated_by": null,
+                     *           "audit_id": "audit_demo",
+                     *           "root_audit_id": "audit_demo",
+                     *           "number": 14,
+                     *           "recheck_number": null,
+                     *           "label": "Audit 014"
+                     *         },
+                     *         "rulebook_name": {
+                     *           "title": "Person annotation checks",
+                     *           "title_revision": 1,
+                     *           "title_updated_at": "2026-10-14T10:00:00Z",
+                     *           "title_updated_by": "reviewer_demo",
+                     *           "rulebook_id": "rulebook_demo",
+                     *           "number": 3,
+                     *           "label": "Rules 003"
+                     *         }
                      *       },
                      *       "job": {
                      *         "job_id": "job_audit_demo",
@@ -3599,7 +3819,27 @@ export interface operations {
                      *       "failed_count": 0,
                      *       "incomplete_count": 0,
                      *       "created_at": "2026-10-14T10:00:00Z",
-                     *       "updated_at": "2026-10-14T10:00:00Z"
+                     *       "updated_at": "2026-10-14T10:00:00Z",
+                     *       "name": {
+                     *         "title": "LabelMe demo",
+                     *         "title_revision": 0,
+                     *         "title_updated_at": null,
+                     *         "title_updated_by": null,
+                     *         "audit_id": "audit_demo",
+                     *         "root_audit_id": "audit_demo",
+                     *         "number": 14,
+                     *         "recheck_number": null,
+                     *         "label": "Audit 014"
+                     *       },
+                     *       "rulebook_name": {
+                     *         "title": "Person annotation checks",
+                     *         "title_revision": 1,
+                     *         "title_updated_at": "2026-10-14T10:00:00Z",
+                     *         "title_updated_by": "reviewer_demo",
+                     *         "rulebook_id": "rulebook_demo",
+                     *         "number": 3,
+                     *         "label": "Rules 003"
+                     *       }
                      *     }
                      */
                     "application/json": components["schemas"]["AuditRun"];
@@ -3678,6 +3918,152 @@ export interface operations {
                      *       }
                      *     }
                      */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateAuditTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @example audit_demo */
+                audit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "title": "LabelMe demo",
+                 *       "expected_title_revision": 0,
+                 *       "reviewer_id": "reviewer_demo"
+                 *     }
+                 */
+                "application/json": components["schemas"]["TitleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "audit_id": "audit_demo",
+                     *       "job_id": "job_audit_demo",
+                     *       "dataset_id": "dataset_demo",
+                     *       "rulebook_id": "rulebook_demo",
+                     *       "rulebook_version": 3,
+                     *       "source_mode": "snapshot",
+                     *       "status": "completed",
+                     *       "sample_count": 1,
+                     *       "processed_count": 1,
+                     *       "failed_count": 0,
+                     *       "incomplete_count": 0,
+                     *       "created_at": "2026-10-14T10:00:00Z",
+                     *       "updated_at": "2026-10-14T10:00:00Z",
+                     *       "name": {
+                     *         "title": "LabelMe demo",
+                     *         "title_revision": 0,
+                     *         "title_updated_at": null,
+                     *         "title_updated_by": null,
+                     *         "audit_id": "audit_demo",
+                     *         "root_audit_id": "audit_demo",
+                     *         "number": 14,
+                     *         "recheck_number": null,
+                     *         "label": "Audit 014"
+                     *       },
+                     *       "rulebook_name": {
+                     *         "title": "Person annotation checks",
+                     *         "title_revision": 1,
+                     *         "title_updated_at": "2026-10-14T10:00:00Z",
+                     *         "title_updated_by": "reviewer_demo",
+                     *         "rulebook_id": "rulebook_demo",
+                     *         "number": 3,
+                     *         "label": "Rules 003"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["AuditRun"];
+                };
+            };
+            /** @description The requested resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "NOT_FOUND",
+                     *         "message": "The requested audit, sample, or finding does not exist.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The title changed after it was read. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "VALIDATION_ERROR",
+                     *         "message": "One or more request fields are invalid.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INTERNAL_ERROR",
+                     *         "message": "The request could not be completed.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Audit storage unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
@@ -5949,6 +6335,128 @@ export interface operations {
             };
         };
     };
+    lookupDisplayNames: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Repeat for each audit ID; at most 100.
+                 * @example [
+                 *       "audit_demo",
+                 *       "audit_recheck_demo"
+                 *     ]
+                 */
+                audit_id?: string[];
+                /**
+                 * @description Repeat for each rulebook ID; at most 100.
+                 * @example [
+                 *       "rulebook_demo"
+                 *     ]
+                 */
+                rulebook_id?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "audits": [
+                     *         {
+                     *           "title": "LabelMe demo",
+                     *           "title_revision": 0,
+                     *           "title_updated_at": null,
+                     *           "title_updated_by": null,
+                     *           "audit_id": "audit_demo",
+                     *           "root_audit_id": "audit_demo",
+                     *           "number": 14,
+                     *           "recheck_number": null,
+                     *           "label": "Audit 014"
+                     *         },
+                     *         {
+                     *           "title": "Feedback recheck",
+                     *           "title_revision": 0,
+                     *           "title_updated_at": null,
+                     *           "title_updated_by": null,
+                     *           "audit_id": "audit_recheck_demo",
+                     *           "root_audit_id": "audit_demo",
+                     *           "number": 14,
+                     *           "recheck_number": 1,
+                     *           "label": "Audit 014 R01"
+                     *         }
+                     *       ],
+                     *       "rulebooks": [
+                     *         {
+                     *           "title": "Person annotation checks",
+                     *           "title_revision": 1,
+                     *           "title_updated_at": "2026-10-14T10:00:00Z",
+                     *           "title_updated_by": "reviewer_demo",
+                     *           "rulebook_id": "rulebook_demo",
+                     *           "number": 3,
+                     *           "label": "Rules 003"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DisplayNameLookup"];
+                };
+            };
+            /** @description Invalid request fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "VALIDATION_ERROR",
+                     *         "message": "One or more request fields are invalid.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INTERNAL_ERROR",
+                     *         "message": "The request could not be completed.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Name storage unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listExports: {
         parameters: {
             query?: {
@@ -6886,7 +7394,27 @@ export interface operations {
                      *         "failed_count": 0,
                      *         "incomplete_count": 0,
                      *         "created_at": "2026-10-14T10:00:00Z",
-                     *         "updated_at": "2026-10-14T10:00:00Z"
+                     *         "updated_at": "2026-10-14T10:00:00Z",
+                     *         "name": {
+                     *           "title": "Feedback recheck",
+                     *           "title_revision": 0,
+                     *           "title_updated_at": null,
+                     *           "title_updated_by": null,
+                     *           "audit_id": "audit_recheck_demo",
+                     *           "root_audit_id": "audit_demo",
+                     *           "number": 14,
+                     *           "recheck_number": 1,
+                     *           "label": "Audit 014 R01"
+                     *         },
+                     *         "rulebook_name": {
+                     *           "title": "Person annotation checks",
+                     *           "title_revision": 1,
+                     *           "title_updated_at": "2026-10-14T10:00:00Z",
+                     *           "title_updated_by": "reviewer_demo",
+                     *           "rulebook_id": "rulebook_demo",
+                     *           "number": 3,
+                     *           "label": "Rules 003"
+                     *         }
                      *       },
                      *       "job": {
                      *         "job_id": "job_recheck_demo",
@@ -7896,7 +8424,16 @@ export interface operations {
                      *               "confirmation_state": "confirmed"
                      *             }
                      *           ],
-                     *           "confirmation_state": "confirmed"
+                     *           "confirmation_state": "confirmed",
+                     *           "name": {
+                     *             "title": "Person annotation checks",
+                     *             "title_revision": 1,
+                     *             "title_updated_at": "2026-10-14T10:00:00Z",
+                     *             "title_updated_by": "reviewer_demo",
+                     *             "rulebook_id": "rulebook_demo",
+                     *             "number": 3,
+                     *             "label": "Rules 003"
+                     *           }
                      *         }
                      *       ],
                      *       "limit": 20,
@@ -7905,7 +8442,7 @@ export interface operations {
                      *       "next_offset": null
                      *     }
                      */
-                    "application/json": components["schemas"]["RulebookPage"];
+                    "application/json": components["schemas"]["RulebookRecordPage"];
                 };
             };
             /** @description Rulebook or version not found. */
@@ -8023,10 +8560,19 @@ export interface operations {
                      *           "confirmation_state": "draft"
                      *         }
                      *       ],
-                     *       "confirmation_state": "draft"
+                     *       "confirmation_state": "draft",
+                     *       "name": {
+                     *         "title": "Use person labels.",
+                     *         "title_revision": 0,
+                     *         "title_updated_at": null,
+                     *         "title_updated_by": null,
+                     *         "rulebook_id": "rulebook_manual_demo",
+                     *         "number": 3,
+                     *         "label": "Rules 003"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Rulebook"];
+                    "application/json": components["schemas"]["RulebookRecord"];
                 };
             };
             /** @description Rulebook or version not found. */
@@ -8140,10 +8686,19 @@ export interface operations {
                      *           "confirmation_state": "confirmed"
                      *         }
                      *       ],
-                     *       "confirmation_state": "confirmed"
+                     *       "confirmation_state": "confirmed",
+                     *       "name": {
+                     *         "title": "Person annotation checks",
+                     *         "title_revision": 1,
+                     *         "title_updated_at": "2026-10-14T10:00:00Z",
+                     *         "title_updated_by": "reviewer_demo",
+                     *         "rulebook_id": "rulebook_demo",
+                     *         "number": 3,
+                     *         "label": "Rules 003"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Rulebook"];
+                    "application/json": components["schemas"]["RulebookRecord"];
                 };
             };
             /** @description Rulebook or version not found. */
@@ -8268,10 +8823,19 @@ export interface operations {
                      *           "confirmation_state": "confirmed"
                      *         }
                      *       ],
-                     *       "confirmation_state": "draft"
+                     *       "confirmation_state": "draft",
+                     *       "name": {
+                     *         "title": "Person annotation checks",
+                     *         "title_revision": 1,
+                     *         "title_updated_at": "2026-10-14T10:00:00Z",
+                     *         "title_updated_by": "reviewer_demo",
+                     *         "rulebook_id": "rulebook_demo",
+                     *         "number": 3,
+                     *         "label": "Rules 003"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Rulebook"];
+                    "application/json": components["schemas"]["RulebookRecord"];
                 };
             };
             /** @description Rulebook or version not found. */
@@ -8386,7 +8950,16 @@ export interface operations {
                      *               "confirmation_state": "draft"
                      *             }
                      *           ],
-                     *           "confirmation_state": "draft"
+                     *           "confirmation_state": "draft",
+                     *           "name": {
+                     *             "title": "Person annotation checks",
+                     *             "title_revision": 1,
+                     *             "title_updated_at": "2026-10-14T10:00:00Z",
+                     *             "title_updated_by": "reviewer_demo",
+                     *             "rulebook_id": "rulebook_demo",
+                     *             "number": 3,
+                     *             "label": "Rules 003"
+                     *           }
                      *         },
                      *         {
                      *           "rulebook_id": "rulebook_demo",
@@ -8407,7 +8980,16 @@ export interface operations {
                      *               "confirmation_state": "confirmed"
                      *             }
                      *           ],
-                     *           "confirmation_state": "draft"
+                     *           "confirmation_state": "draft",
+                     *           "name": {
+                     *             "title": "Person annotation checks",
+                     *             "title_revision": 1,
+                     *             "title_updated_at": "2026-10-14T10:00:00Z",
+                     *             "title_updated_by": "reviewer_demo",
+                     *             "rulebook_id": "rulebook_demo",
+                     *             "number": 3,
+                     *             "label": "Rules 003"
+                     *           }
                      *         },
                      *         {
                      *           "rulebook_id": "rulebook_demo",
@@ -8428,7 +9010,16 @@ export interface operations {
                      *               "confirmation_state": "confirmed"
                      *             }
                      *           ],
-                     *           "confirmation_state": "confirmed"
+                     *           "confirmation_state": "confirmed",
+                     *           "name": {
+                     *             "title": "Person annotation checks",
+                     *             "title_revision": 1,
+                     *             "title_updated_at": "2026-10-14T10:00:00Z",
+                     *             "title_updated_by": "reviewer_demo",
+                     *             "rulebook_id": "rulebook_demo",
+                     *             "number": 3,
+                     *             "label": "Rules 003"
+                     *           }
                      *         }
                      *       ],
                      *       "limit": 20,
@@ -8437,7 +9028,7 @@ export interface operations {
                      *       "next_offset": null
                      *     }
                      */
-                    "application/json": components["schemas"]["RulebookPage"];
+                    "application/json": components["schemas"]["RulebookRecordPage"];
                 };
             };
             /** @description Rulebook or version not found. */
@@ -8654,10 +9245,19 @@ export interface operations {
                      *           "confirmation_state": "confirmed"
                      *         }
                      *       ],
-                     *       "confirmation_state": "confirmed"
+                     *       "confirmation_state": "confirmed",
+                     *       "name": {
+                     *         "title": "Person annotation checks",
+                     *         "title_revision": 1,
+                     *         "title_updated_at": "2026-10-14T10:00:00Z",
+                     *         "title_updated_by": "reviewer_demo",
+                     *         "rulebook_id": "rulebook_demo",
+                     *         "number": 3,
+                     *         "label": "Rules 003"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Rulebook"];
+                    "application/json": components["schemas"]["RulebookRecord"];
                 };
             };
             /** @description Rulebook or version not found. */
@@ -8775,10 +9375,19 @@ export interface operations {
                      *           "confirmation_state": "draft"
                      *         }
                      *       ],
-                     *       "confirmation_state": "rejected"
+                     *       "confirmation_state": "rejected",
+                     *       "name": {
+                     *         "title": "Person annotation checks",
+                     *         "title_revision": 1,
+                     *         "title_updated_at": "2026-10-14T10:00:00Z",
+                     *         "title_updated_by": "reviewer_demo",
+                     *         "rulebook_id": "rulebook_demo",
+                     *         "number": 3,
+                     *         "label": "Rules 003"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Rulebook"];
+                    "application/json": components["schemas"]["RulebookRecord"];
                 };
             };
             /** @description Rulebook or version not found. */
@@ -8896,10 +9505,19 @@ export interface operations {
                      *           "confirmation_state": "draft"
                      *         }
                      *       ],
-                     *       "confirmation_state": "draft"
+                     *       "confirmation_state": "draft",
+                     *       "name": {
+                     *         "title": "Person annotation checks",
+                     *         "title_revision": 1,
+                     *         "title_updated_at": "2026-10-14T10:00:00Z",
+                     *         "title_updated_by": "reviewer_demo",
+                     *         "rulebook_id": "rulebook_demo",
+                     *         "number": 3,
+                     *         "label": "Rules 003"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Rulebook"];
+                    "application/json": components["schemas"]["RulebookRecord"];
                 };
             };
             /** @description Rulebook or version not found. */
@@ -8912,6 +9530,137 @@ export interface operations {
                 };
             };
             /** @description Conflict; see the error code. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "VALIDATION_ERROR",
+                     *         "message": "One or more request fields are invalid.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INTERNAL_ERROR",
+                     *         "message": "The request could not be completed.",
+                     *         "details": [],
+                     *         "request_id": "request_demo"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rulebook storage unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRulebookTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @example rulebook_demo */
+                rulebook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "title": "Person annotation checks",
+                 *       "expected_title_revision": 0,
+                 *       "reviewer_id": "reviewer_demo"
+                 *     }
+                 */
+                "application/json": components["schemas"]["TitleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "rulebook_id": "rulebook_demo",
+                     *       "version": 3,
+                     *       "guideline_text": "Allowed labels are person.",
+                     *       "rules": [
+                     *         {
+                     *           "rule_id": "LBL-1",
+                     *           "description": "Use an allowed label.",
+                     *           "check_name": "allowed_labels",
+                     *           "parameters": {
+                     *             "allowed_labels": [
+                     *               "person"
+                     *             ]
+                     *           },
+                     *           "origin": "extracted",
+                     *           "source_sentence": "Allowed labels are person.",
+                     *           "confirmation_state": "confirmed"
+                     *         }
+                     *       ],
+                     *       "confirmation_state": "confirmed",
+                     *       "name": {
+                     *         "title": "Person annotation checks",
+                     *         "title_revision": 1,
+                     *         "title_updated_at": "2026-10-14T10:00:00Z",
+                     *         "title_updated_by": "reviewer_demo",
+                     *         "rulebook_id": "rulebook_demo",
+                     *         "number": 3,
+                     *         "label": "Rules 003"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RulebookRecord"];
+                };
+            };
+            /** @description Rulebook or version not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The title changed after it was read. */
             409: {
                 headers: {
                     [name: string]: unknown;

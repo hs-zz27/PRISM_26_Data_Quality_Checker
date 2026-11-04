@@ -24,6 +24,7 @@ from .common import (
     JsonObject, choice, ref,
 )
 from .fixtures import EXAMPLE_MODEL, SOURCE, TIMESTAMP, build_examples, job, page
+from .display_name_examples import audit_name, named_audit, named_book, rulebook_name
 from .schemas import build_schemas
 from .dataset_contract import align_dataset_contract
 from .export_contract import align_export_contract
@@ -171,7 +172,7 @@ def build_contract() -> JsonObject:
         {"ollama": {"reachable": False, "model": EXAMPLE_MODEL, "model_available": None},
          "detector": {"weights_cached": True, "integration_ready": False}, "execution_device": "cpu"},
         description="Read-only readiness. Does not start services, download models or change configuration.")
-    add("POST", "/rulebooks", "createRulebook", "Rulebooks", "Create a manually assembled draft", "Rulebook", examples["manual_draft"], status=201,
+    add("POST", "/rulebooks", "createRulebook", "Rulebooks", "Create a manually assembled draft", "RulebookRecord", named_book(examples["manual_draft"], title="Use person labels.", edited=False), status=201,
         body_schema="RulebookCreate", body_example=examples["manual_create"],
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES,
         conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting."},
@@ -182,12 +183,12 @@ def build_contract() -> JsonObject:
         error_examples={404: RULEBOOK_ERROR_EXAMPLES[404], 503: {"DEPENDENCY_UNAVAILABLE": "Extraction could not be durably accepted."}},
         backing="ExtractionRepository atomically enqueues private inputs; explicitly started supervised extraction worker atomically publishes draft and completed job.",
         description="Durably accept exact nonblank plain text without inline inference or a placeholder book. HTTP 202 does not establish worker readiness. Start the extraction worker separately. Poll GET /jobs/{job_id}; every state, including failed, remains HTTP 200. One processing attempt only; stale attempts fail without replay. Completion publishes one version-1 extracted/draft rulebook, empty review history and a result.href pinned with ?version=1. Existing cancellation route is supported; cancelled jobs publish no output. Errors are safe job.error codes, not retrospective submission errors. See EXTRACTIONS.md for error mapping, finite deadlines and operator workflow.")
-    add("GET", "/rulebooks", "listRulebooks", "Rulebooks", "List latest rulebook versions", "RulebookPage", page([examples["confirmed"]]), parameters=pagination_parameters(),
+    add("GET", "/rulebooks", "listRulebooks", "Rulebooks", "List latest rulebook versions", "RulebookRecordPage", page([named_book(examples["confirmed"])]), parameters=pagination_parameters(),
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, backing="RulebookRepository.list_rulebooks and FastAPI route implemented.")
-    add("GET", "/rulebooks/{rulebook_id}", "getRulebook", "Rulebooks", "Read a rulebook version", "Rulebook", examples["confirmed"],
+    add("GET", "/rulebooks/{rulebook_id}", "getRulebook", "Rulebooks", "Read a rulebook version", "RulebookRecord", named_book(examples["confirmed"]),
         parameters=[parameter("version", "query", {"anyOf": [VERSION, {"type": "null"}], "default": None}, examples["confirmed"]["version"], description="Omit for latest; audits must reference a specific version.")],
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, backing="RulebookRepository.get_rulebook and FastAPI route implemented.")
-    add("GET", "/rulebooks/{rulebook_id}/versions", "listRulebookVersions", "Rulebooks", "Read rulebook version history", "RulebookPage", page([examples["draft"], examples["reviewed"], examples["confirmed"]]), parameters=pagination_parameters(),
+    add("GET", "/rulebooks/{rulebook_id}/versions", "listRulebookVersions", "Rulebooks", "Read rulebook version history", "RulebookRecordPage", page([named_book(examples[key]) for key in ("draft", "reviewed", "confirmed")]), parameters=pagination_parameters(),
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, backing="RulebookRepository.list_rulebook_versions and FastAPI route implemented.",
         description="Snapshots are ordered by ascending version. Unknown rulebooks return 404; an offset past the last version returns an empty page.")
     add("GET", "/rulebooks/{rulebook_id}/reviews", "listRulebookReviews", "Rulebooks", "Read rulebook review attribution", "RulebookReviewPage",
@@ -197,26 +198,32 @@ def build_contract() -> JsonObject:
         ]),
         parameters=pagination_parameters(), implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, backing="RulebookRepository.list_rulebook_reviews and FastAPI route implemented.",
         description="Attributed review actions ordered by ascending version. Each action and snapshot commit together. Manual creation, extraction and older low-level saves have no invented review records. reviewer_id is attribution, not authentication.")
-    add("PUT", "/rulebooks/{rulebook_id}", "replaceDraftRulebook", "Rulebooks", "Save a reviewed draft", "Rulebook", examples["reviewed"],
+    add("PUT", "/rulebooks/{rulebook_id}", "replaceDraftRulebook", "Rulebooks", "Save a reviewed draft", "RulebookRecord", named_book(examples["reviewed"]),
         body_schema="RulebookReplace", body_example={"expected_version": 1, "reviewer_id": "reviewer_demo", "guideline_text": SOURCE, "rules": examples["confirmed"]["rules"]},
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state."},
         backing="save_rulebook_review service and transactional PostgreSQL review history and FastAPI route implemented.",
         description="Only latest drafts are editable. Submit the complete rule list and explicit rule decisions; omission removes a rule. Retained IDs preserve origin; added IDs must use reviewer origin. All citations must match the supplied text. Save increments version, attributes the reviewer and preserves history. The book stays draft; example save confirms individual rules only.")
-    add("POST", "/rulebooks/{rulebook_id}/confirm", "confirmRulebook", "Rulebooks", "Confirm a reviewed rulebook", "Rulebook", examples["confirmed"],
+    add("POST", "/rulebooks/{rulebook_id}/confirm", "confirmRulebook", "Rulebooks", "Confirm a reviewed rulebook", "RulebookRecord", named_book(examples["confirmed"]),
         body_schema="RulebookAction", body_example={"expected_version": 2, "reviewer_id": "reviewer_demo"},
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state.", "RULEBOOK_NOT_READY": "Confirm every retained rule and remove rejected rules before confirming the book."},
         backing="confirm_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         description="Only a latest draft can be confirmed. Require a nonempty book with all included rules confirmed. Rejected rules must be removed; prior versions preserve them. Append expected_version + 1 as a frozen confirmed snapshot for audits. 409 RULEBOOK_NOT_READY when rules are unconfirmed or empty.")
-    add("POST", "/rulebooks/{rulebook_id}/reject", "rejectRulebook", "Rulebooks", "Reject a draft rulebook", "Rulebook", {**examples["draft"], "version": 2, "confirmation_state": "rejected"},
+    add("POST", "/rulebooks/{rulebook_id}/reject", "rejectRulebook", "Rulebooks", "Reject a draft rulebook", "RulebookRecord", named_book({**examples["draft"], "version": 2, "confirmation_state": "rejected"}),
         body_schema="RulebookAction", body_example={"expected_version": 1, "reviewer_id": "reviewer_demo"},
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state."},
         backing="reject_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         description="Reject the latest draft as a whole. Append a new version without changing individual rule decisions. Start a revision before further edits. This example is an alternative branch from the original version-1 draft, not a step after confirmation.")
-    add("POST", "/rulebooks/{rulebook_id}/revisions", "reviseRulebook", "Rulebooks", "Start a new draft from a final version", "Rulebook", {**examples["draft"], "version": 4}, status=201,
+    add("POST", "/rulebooks/{rulebook_id}/revisions", "reviseRulebook", "Rulebooks", "Start a new draft from a final version", "RulebookRecord", named_book({**examples["draft"], "version": 4}), status=201,
         body_schema="RulebookAction", body_example={"expected_version": 3, "reviewer_id": "reviewer_demo"},
         implementation="implemented", error_examples=RULEBOOK_ERROR_EXAMPLES, conflict_examples={"VERSION_CONFLICT": "The rulebook is out of date. Refresh before resubmitting.", "INVALID_RULEBOOK_STATE": "This action is not allowed in the current rulebook state."},
         backing="revise_rulebook service and transactional PostgreSQL review history and FastAPI route implemented.",
         description="Require the latest confirmed or rejected book. Keep its snapshot immutable; append expected_version + 1 as a draft and reset every included rule to draft. Draft books are already editable. Invalid state transitions return 409 INVALID_RULEBOOK_STATE; stale expected_version returns 409 VERSION_CONFLICT.")
+    add("PUT", "/rulebooks/{rulebook_id}/title", "updateRulebookTitle", "Rulebooks", "Rename a rulebook", "RulebookRecord", named_book(examples["confirmed"], title="Person annotation checks"),
+        body_schema="TitleUpdate", body_example={"title": "Person annotation checks", "expected_title_revision": 0, "reviewer_id": "reviewer_demo"},
+        implementation="implemented", error_examples={**RULEBOOK_ERROR_EXAMPLES, 503: {"DEPENDENCY_UNAVAILABLE": "Display name storage is unavailable."}},
+        conflict_examples={"VERSION_CONFLICT": "The title was changed by someone else. Refresh before saving."},
+        backing="DisplayNameRepository.update_rulebook_title and FastAPI route implemented.",
+        description="Replace the title shared by every version of the rulebook and return the latest version. No version, review, rule, citation or confirmation state changes, so a confirmed rulebook keeps its meaning and audit pins. Names are permanent and allocated once by the server: they never change, are never reused and are never parsed back into IDs. Only the title changes. Send the title_revision last read as expected_title_revision; a stale value returns 409 VERSION_CONFLICT without a write. The title is trimmed and must be 1-120 characters without line breaks or control characters. Each edit records reviewer_id and time.")
     dataset_errors = {
         404: {"NOT_FOUND": "The requested dataset, sample or revision does not exist."},
         503: {"DEPENDENCY_UNAVAILABLE": "Dataset storage or durable acceptance is unavailable."},
@@ -288,7 +295,7 @@ def build_contract() -> JsonObject:
     add("GET", "/datasets/{dataset_id}/samples/{sample_id}/revisions", "listAnnotationRevisions", "Corrections", "Read correction history", "RevisionPage", page([examples["revision"]]), parameters=pagination_parameters())
     audit_request = {"dataset_id": "dataset_demo", "rulebook_id": "rulebook_demo", "rulebook_version": examples["confirmed"]["version"], "sample_ids": None, "feedback_policy_id": None}
     add("POST", "/audits", "startAudit", "Audits", "Start an audit against confirmed rules", "AuditStarted",
-        {"audit": {**examples["audit"], "status": "queued", "processed_count": 0}, "job": job("audit", "audit", "audit_demo"),
+        {"audit": named_audit({**examples["audit"], "status": "queued", "processed_count": 0}), "job": job("audit", "audit", "audit_demo"),
          "parent_audit_id": None, "feedback_policy_id": None}, status=202,
         body_schema="AuditRequest", body_example=audit_request, implementation="implemented",
         backing="AuditSubmissionService, catalogue-owned revision selection and BatchAuditService.start; an explicit audit worker processes the queue.",
@@ -301,16 +308,35 @@ def build_contract() -> JsonObject:
             422: {"VALIDATION_ERROR": "One or more request fields or selected rule parameters are invalid."},
         },
         description="Omit sample_ids or send null for every sample in catalogue order; a nonempty unique subset preserves request order. Require a ready imported dataset and a nonempty confirmed rulebook version containing only confirmed rules. Resolve all selected current heads in one database snapshot and durably pin those immutable manifests before returning 202. Dirty sample annotations remain auditable. Processing runs in the explicitly started audit worker, never in the HTTP request. Unsupported rules yield unavailable findings and all findings remain pending human review. feedback_policy_id optionally selects an active compatible frozen policy; null uses baseline context. No source paths, model execution settings or client-supplied sample revisions are accepted. Repeated submissions create separate audits; after a lost response inspect the audit list before resubmitting.")
-    add("GET", "/audits", "listAudits", "Audits", "List audit runs", "AuditPage", page([examples["audit"]]),
+    add("GET", "/audits", "listAudits", "Audits", "List audit runs", "AuditPage", page([named_audit(examples["audit"])]),
         parameters=[pagination_parameters()[0], parameter("offset", "query", {
             "type": "integer", "minimum": 0, "maximum": 9223372036854775807, "default": 0,
         }, 0), parameter("roots_only", "query", {"type": "boolean", "default": False}, True)], implementation="implemented", not_found=False,
         backing="AuditRepository.list_audits and FastAPI route implemented.",
         description="roots_only=true lists original audit workspaces and hides linked recheck attempts; false preserves the historical all-runs list. Read every persisted lifecycle state, newest created_at first and descending audit_id for ties. limit is 1–100 (default 20); offset is a nonnegative BIGINT (default 0). Count and page use one database snapshot. Empty and past-the-end pages return 200. Exposes only AuditRun summaries, never private paths, request documents, claims or asset keys. Listing does not execute or recover jobs. Offset pages may shift when new audits are added between requests.")
-    add("GET", "/audits/{audit_id}", "getAudit", "Audits", "Read persisted audit progress", "AuditRun", examples["audit_run"],
+    add("GET", "/audits/{audit_id}", "getAudit", "Audits", "Read persisted audit progress", "AuditRun", named_audit(examples["audit_run"]),
         implementation="implemented",
         backing="AuditRepository.get_audit and FastAPI route implemented.",
         description="Read the persisted audit lifecycle summary without executing, claiming, recovering or modifying work, inspecting asset files or contacting Ollama. HTTP 200 is returned for every persisted lifecycle state. Processing completion does not imply reviewer acceptance.")
+    add("PUT", "/audits/{audit_id}/title", "updateAuditTitle", "Audits", "Rename an audit", "AuditRun", named_audit(examples["audit_run"]),
+        body_schema="TitleUpdate", body_example={"title": "LabelMe demo", "expected_title_revision": 0, "reviewer_id": "reviewer_demo"},
+        implementation="implemented", error_examples={503: {"DEPENDENCY_UNAVAILABLE": "Display name storage is unavailable."}},
+        conflict_examples={"VERSION_CONFLICT": "The title was changed by someone else. Refresh before saving."},
+        backing="DisplayNameRepository.update_audit_title and FastAPI route implemented.",
+        description="Replace the audit's editable title. The audit, its findings, reviews, corrections, rechecks and pinned inputs are unchanged; it is not an annotation correction. Names are permanent and allocated once by the server: they never change, are never reused and are never parsed back into IDs. Only the title changes. Send the title_revision last read as expected_title_revision; a stale value returns 409 VERSION_CONFLICT without a write. The title is trimmed and must be 1-120 characters without line breaks or control characters. Each edit records reviewer_id and time.")
+    add("GET", "/display-names", "lookupDisplayNames", "Display names", "Look up audit and rulebook labels", "DisplayNameLookup",
+        {"audits": [audit_name(), audit_name("audit_recheck_demo", recheck_number=1, title="Feedback recheck")],
+          "rulebooks": [rulebook_name()]},
+        parameters=[
+            parameter("audit_id", "query", {"type": "array", "maxItems": 100, "items": {**TEXT, "minLength": 1, "pattern": r"\S"}, "default": []},
+                      ["audit_demo", "audit_recheck_demo"], description="Repeat for each audit ID; at most 100."),
+            parameter("rulebook_id", "query", {"type": "array", "maxItems": 100, "items": {**TEXT, "minLength": 1, "pattern": r"\S"}, "default": []},
+                      ["rulebook_demo"], description="Repeat for each rulebook ID; at most 100."),
+        ],
+        implementation="implemented", not_found=False,
+        error_examples={503: {"DEPENDENCY_UNAVAILABLE": "Display name storage is unavailable."}},
+        backing="DisplayNameRepository.lookup and FastAPI route implemented.",
+        description="Resolve labels for IDs held by other responses (findings, revisions, exports, attempts, feedback examples). Unknown IDs are omitted, duplicates are returned once, and results follow request order. Reading never allocates or changes a name. Audit and rulebook responses already include their own names.")
     add("GET", "/audits/{audit_id}/samples", "listAuditSamples", "Audits", "Read the complete review queue", "AuditSamplePage", page([examples["summary"]]),
         parameters=pagination_parameters() + [parameter("tool_status", "query", {"anyOf": [TOOL_STATUS, {"type": "null"}], "default": None}, "flagged"), parameter("review_status", "query", {"anyOf": [SAMPLE_REVIEW_STATUS, {"type": "null"}], "default": None}, "pending_review"), parameter("include_rechecks", "query", {"type": "boolean", "default": False}, True)],
         implementation="implemented", backing="AuditReadRepository.list_samples and FastAPI route implemented.",
@@ -360,7 +386,7 @@ def build_contract() -> JsonObject:
         )
     }
     add("POST", "/audits/{audit_id}/rechecks", "recheckSamples", "Audits", "Audit corrected sample revisions again", "AuditStarted",
-        {"audit": {**examples["audit"], "audit_id": "audit_recheck_demo", "status": "queued", "processed_count": 0, "job_id": "job_recheck_demo"},
+        {"audit": named_audit({**examples["audit"], "audit_id": "audit_recheck_demo", "status": "queued", "processed_count": 0, "job_id": "job_recheck_demo"}, recheck_number=1, title="Feedback recheck"),
          "job": {**job("audit", "audit", "audit_recheck_demo"), "job_id": "job_recheck_demo"}, "parent_audit_id": "audit_demo", "feedback_policy_id": None}, status=202,
         body_schema="RecheckRequest", body_example={"sample_ids": ["sample_001"], "sample_revisions": {"sample_001": 2}, "reviewer_id": "reviewer_demo"},
         conflict_examples={

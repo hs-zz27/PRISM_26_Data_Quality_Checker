@@ -11,6 +11,7 @@ import pytest
 
 from backend.app.core.config import DatabaseConfigurationError
 from backend.app.main import create_app
+from backend.tests.display_name_helpers import without_display_names
 from backend.app.models.audit import AuditRun
 from backend.app.models.audit_read import AuditSamplePage, SampleAudit
 from backend.app.models.job import JobStatus
@@ -43,7 +44,7 @@ from backend.app.storage.workflow_repository import (
 
 @pytest.fixture
 def api():
-    app = create_app()
+    app = without_display_names(create_app())
     repository = Mock(spec=AuditReadRepository)
     repository.get_audit = Mock()
     finding_repository = Mock(spec=FindingRepository)
@@ -584,8 +585,11 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "/api/v1/rulebooks/{rulebook_id}/confirm",
         "/api/v1/rulebooks/{rulebook_id}/reject",
         "/api/v1/rulebooks/{rulebook_id}/revisions",
+        "/api/v1/rulebooks/{rulebook_id}/title",
         "/api/v1/audits",
         "/api/v1/audits/{audit_id}",
+        "/api/v1/audits/{audit_id}/title",
+        "/api/v1/display-names",
         "/api/v1/audits/{audit_id}/samples",
         "/api/v1/audits/{audit_id}/samples/{sample_id}",
         "/api/v1/audits/{audit_id}/findings",
@@ -628,6 +632,7 @@ def test_live_openapi_lists_implemented_routes_and_rejects_invalid_writes(api):
         "listFeedbackExamples", "createFeedbackPolicy", "listFeedbackPolicies", "getFeedbackPolicy",
         "createGroundTruth", "getGroundTruth", "evaluateFeedbackPolicy", "getFeedbackEvaluation",
         "listFeedbackEvaluations", "activateFeedbackPolicy",
+        "updateAuditTitle", "updateRulebookTitle", "lookupDisplayNames",
     }
     assert client.post("/api/v1/audits/audit_1/samples").status_code == 405
     response = client.put("/api/v1/audits/audit_1/samples/sample_1/review", json={})

@@ -18,6 +18,10 @@ and `implementation` in each fixture mark every operation implemented. Server se
 includes the launch command. The running server's `/docs` and `/openapi.json`
 include only real routes; this folder adds frontend examples and workflow guidance.
 
+Audit and rulebook responses carry permanent readable labels (`Audit 014`,
+`Audit 014 R01`, `Rules 003 v3`) and editable titles. Show those to people and keep
+using IDs in requests. See [DISPLAY_NAMES.md](DISPLAY_NAMES.md).
+
 The development base address is `http://127.0.0.1:8000/api/v1`.
 Keep the base URL configurable in the frontend.
 For a frontend served on another port, use its development server's proxy for

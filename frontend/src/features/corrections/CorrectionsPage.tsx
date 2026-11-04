@@ -15,6 +15,8 @@ import { parseJsonGeometry, type JsonObject } from './jsonGeometry';
 import { PolygonEditor } from './PolygonEditor';
 import { validateCorrectionObjects, type EditableObject } from './correctionValidation';
 import type { components } from '../../api/generated/openapi';
+import { useDisplayNames } from '../../hooks/useDisplayNames';
+import { auditHeading, auditLabel, rulebookLabel } from '../../lib/names';
 
 type DragState = { id: number; mode: 'move' | ResizeHandle; x: number; y: number; bbox: BBox1Based };
 const HANDLES: ResizeHandle[] = ['nw', 'ne', 'sw', 'se'];
@@ -62,6 +64,7 @@ const CorrectionWorkspace: React.FC = () => {
   const revisionsQuery = useQuery({ queryKey: ['revisions', datasetId, sampleId], queryFn: () => apiGetAllPages('/datasets/{dataset_id}/samples/{sample_id}/revisions', { path: { dataset_id: datasetId, sample_id: sampleId }, query: { limit: 100, offset: 0 } }), enabled: !!datasetId && !!sampleId });
   const auditsQuery = useQuery({ queryKey: queryKeys.audits(), queryFn: () => apiGetAllPages('/audits', { query: { limit: 100, offset: 0 } }) });
   const datasetAudits = useMemo(() => (auditsQuery.data?.items ?? []).filter((audit) => audit.dataset_id === datasetId), [auditsQuery.data, datasetId]);
+  const sourceAuditNames = useDisplayNames({ auditIds: revisionsQuery.data?.items.map((revision) => revision.source_audit_id) ?? [] });
   // The audit's pinned revision decides whether it can be recorded as the correction's source.
   const auditSampleQuery = useQuery({
     queryKey: queryKeys.auditSample(auditId, sampleId),
@@ -166,10 +169,11 @@ const CorrectionWorkspace: React.FC = () => {
       if (!recheckStatus.canRecheck) throw new Error(RECHECK_IN_PROGRESS_MESSAGE);
       const workspaceId = auditSampleQuery.data?.workspace_audit_id ?? auditId;
       const result = await apiPost('/audits/{audit_id}/rechecks', { path: { audit_id: auditId }, body: { sample_ids: [sampleId], sample_revisions: { [sampleId]: sample.revision }, reviewer_id: reviewerId.trim(), feedback: null, propose_correction: false } });
-      return { jobId: result.job.job_id, workspaceId, sampleId };
+      return { jobId: result.job.job_id, workspaceId, sampleId, label: auditLabel(result.audit.name) };
     },
     onSuccess: (target) => {
       setRecheckTarget(target);
+      setMessage({ tone: 'ok', text: `${target.label} started for ${target.sampleId}.` });
       recheckStatus.track(target.jobId);
       void queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
     },
@@ -246,7 +250,7 @@ const CorrectionWorkspace: React.FC = () => {
           </select>
           <select aria-label="Audit for re-check" value={auditId} onChange={(e) => setParam({ audit: e.target.value })} disabled={!datasetId || editingLocked}>
             <option value="">No audit (just correct)</option>
-            {datasetAudits.map((a) => <option key={a.audit_id} value={a.audit_id}>{a.audit_id} · rulebook {a.rulebook_id} v{a.rulebook_version}</option>)}
+            {datasetAudits.map((a) => <option key={a.audit_id} value={a.audit_id}>{auditHeading(a.name)} · {rulebookLabel(a.rulebook_name, a.rulebook_version)}</option>)}
           </select>
         </div>
       </header>
@@ -396,7 +400,7 @@ const CorrectionWorkspace: React.FC = () => {
                     <b>r{revision.revision}</b> · {formatTimestamp(revision.created_at)} · {revision.reviewer_id ?? 'original import'}
                     {revision.reason && <span> — “{revision.reason}”</span>}
                     {revision.mask_changed && <span> · mask replaced</span>}
-                    {revision.source_audit_id && <span> · from audit {revision.source_audit_id}</span>}
+                    {revision.source_audit_id && <span title={revision.source_audit_id}> · from {auditLabel(sourceAuditNames.audit(revision.source_audit_id))}</span>}
                   </li>
                 ))}
               </ol>

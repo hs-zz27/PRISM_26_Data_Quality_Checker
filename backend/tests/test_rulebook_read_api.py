@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from backend.app.main import create_app
+from backend.tests.display_name_helpers import without_display_names
 from backend.app.models.audit_read import ErrorResponse
 from backend.app.models.review import RulebookReviewPage, RulebookReviewRecord
 from backend.app.models.rule import ConfirmationState, Rule, Rulebook, RulebookPage
@@ -16,7 +17,7 @@ from backend.app.storage.repository import RulebookNotFoundError, RulebookReposi
 
 @pytest.fixture
 def api():
-    app = create_app()
+    app = without_display_names(create_app())
     repository = Mock(spec_set=RulebookRepository)
     app.dependency_overrides[get_rulebook_repository] = lambda: repository
     with TestClient(app, raise_server_exceptions=False) as client:

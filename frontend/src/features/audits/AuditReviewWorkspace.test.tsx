@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuditReviewWorkspace } from './AuditReviewWorkspace';
 import { useReviewerStore } from '../../store/reviewerStore';
-import { makeFinding, makeRule, makeSampleAudit, makeSummary } from '../../test/fixtures';
+import { makeAuditName, makeFinding, makeRule, makeSampleAudit, makeSummary } from '../../test/fixtures';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -218,12 +218,20 @@ describe('rechecks inside the original workspace', () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       const parsed = new URL(url, 'http://localhost');
       if (parsed.pathname === '/api/v1/audits/audit-1/samples/sample-1' && parsed.searchParams.get('include_rechecks') === 'true') return json(childDetail());
+      if (parsed.pathname === '/api/v1/display-names') {
+        // Attempts are labelled by one batched lookup of their internal IDs.
+        expect(parsed.searchParams.getAll('audit_id')).toEqual(['audit-1', 'child-1']);
+        return json({ audits: [makeAuditName(), makeAuditName({ audit_id: 'child-1', recheck_number: 1, label: 'Audit 014 R01', title: 'Feedback recheck' })], rulebooks: [] });
+      }
       return routeFetch(url, init);
     });
     vi.stubGlobal('fetch', fetchMock);
     renderWorkspace();
-    fireEvent.change(await screen.findByLabelText('Attempt history'), { target: { value: 'audit-1' } });
-    expect(await screen.findByText(/Previous attempt — read only/)).toBeInTheDocument();
+    const history = await screen.findByLabelText('Attempt history');
+    expect(await within(history).findByRole('option', { name: /^Audit 014 · / })).toHaveValue('audit-1');
+    expect(within(history).getByRole('option', { name: 'Latest attempt · Audit 014 R01' })).toHaveValue('');
+    fireEvent.change(history, { target: { value: 'audit-1' } });
+    expect(await screen.findByText(/Previous attempt \(Audit 014\) — read only/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Accept$/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Re-check this image' })).toBeDisabled();
     fireEvent.keyDown(window, { key: 'A', shiftKey: true });

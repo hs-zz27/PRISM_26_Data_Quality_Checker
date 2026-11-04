@@ -285,7 +285,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Rulebook"
+                  "$ref": "#/components/schemas/RulebookRecord"
                 },
                 "example": {
                   "rulebook_id": "rulebook_manual_demo",
@@ -306,7 +306,16 @@
                       "confirmation_state": "draft"
                     }
                   ],
-                  "confirmation_state": "draft"
+                  "confirmation_state": "draft",
+                  "name": {
+                    "title": "Use person labels.",
+                    "title_revision": 0,
+                    "title_updated_at": null,
+                    "title_updated_by": null,
+                    "rulebook_id": "rulebook_manual_demo",
+                    "number": 3,
+                    "label": "Rules 003"
+                  }
                 }
               }
             }
@@ -459,7 +468,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RulebookPage"
+                  "$ref": "#/components/schemas/RulebookRecordPage"
                 },
                 "example": {
                   "items": [
@@ -482,7 +491,16 @@
                           "confirmation_state": "confirmed"
                         }
                       ],
-                      "confirmation_state": "confirmed"
+                      "confirmation_state": "confirmed",
+                      "name": {
+                        "title": "Person annotation checks",
+                        "title_revision": 1,
+                        "title_updated_at": "2026-10-14T10:00:00Z",
+                        "title_updated_by": "reviewer_demo",
+                        "rulebook_id": "rulebook_demo",
+                        "number": 3,
+                        "label": "Rules 003"
+                      }
                     }
                   ],
                   "limit": 20,
@@ -755,7 +773,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Rulebook"
+                  "$ref": "#/components/schemas/RulebookRecord"
                 },
                 "example": {
                   "rulebook_id": "rulebook_demo",
@@ -776,7 +794,16 @@
                       "confirmation_state": "confirmed"
                     }
                   ],
-                  "confirmation_state": "confirmed"
+                  "confirmation_state": "confirmed",
+                  "name": {
+                    "title": "Person annotation checks",
+                    "title_revision": 1,
+                    "title_updated_at": "2026-10-14T10:00:00Z",
+                    "title_updated_by": "reviewer_demo",
+                    "rulebook_id": "rulebook_demo",
+                    "number": 3,
+                    "label": "Rules 003"
+                  }
                 }
               }
             }
@@ -913,7 +940,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Rulebook"
+                  "$ref": "#/components/schemas/RulebookRecord"
                 },
                 "example": {
                   "rulebook_id": "rulebook_demo",
@@ -934,7 +961,16 @@
                       "confirmation_state": "confirmed"
                     }
                   ],
-                  "confirmation_state": "draft"
+                  "confirmation_state": "draft",
+                  "name": {
+                    "title": "Person annotation checks",
+                    "title_revision": 1,
+                    "title_updated_at": "2026-10-14T10:00:00Z",
+                    "title_updated_by": "reviewer_demo",
+                    "rulebook_id": "rulebook_demo",
+                    "number": 3,
+                    "label": "Rules 003"
+                  }
                 }
               }
             }
@@ -1118,7 +1154,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RulebookPage"
+                  "$ref": "#/components/schemas/RulebookRecordPage"
                 },
                 "example": {
                   "items": [
@@ -1141,7 +1177,16 @@
                           "confirmation_state": "draft"
                         }
                       ],
-                      "confirmation_state": "draft"
+                      "confirmation_state": "draft",
+                      "name": {
+                        "title": "Person annotation checks",
+                        "title_revision": 1,
+                        "title_updated_at": "2026-10-14T10:00:00Z",
+                        "title_updated_by": "reviewer_demo",
+                        "rulebook_id": "rulebook_demo",
+                        "number": 3,
+                        "label": "Rules 003"
+                      }
                     },
                     {
                       "rulebook_id": "rulebook_demo",
@@ -1162,7 +1207,16 @@
                           "confirmation_state": "confirmed"
                         }
                       ],
-                      "confirmation_state": "draft"
+                      "confirmation_state": "draft",
+                      "name": {
+                        "title": "Person annotation checks",
+                        "title_revision": 1,
+                        "title_updated_at": "2026-10-14T10:00:00Z",
+                        "title_updated_by": "reviewer_demo",
+                        "rulebook_id": "rulebook_demo",
+                        "number": 3,
+                        "label": "Rules 003"
+                      }
                     },
                     {
                       "rulebook_id": "rulebook_demo",
@@ -1183,7 +1237,16 @@
                           "confirmation_state": "confirmed"
                         }
                       ],
-                      "confirmation_state": "confirmed"
+                      "confirmation_state": "confirmed",
+                      "name": {
+                        "title": "Person annotation checks",
+                        "title_revision": 1,
+                        "title_updated_at": "2026-10-14T10:00:00Z",
+                        "title_updated_by": "reviewer_demo",
+                        "rulebook_id": "rulebook_demo",
+                        "number": 3,
+                        "label": "Rules 003"
+                      }
                     }
                   ],
                   "limit": 20,
@@ -1501,7 +1564,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Rulebook"
+                  "$ref": "#/components/schemas/RulebookRecord"
                 },
                 "example": {
                   "rulebook_id": "rulebook_demo",
@@ -1522,7 +1585,16 @@
                       "confirmation_state": "confirmed"
                     }
                   ],
-                  "confirmation_state": "confirmed"
+                  "confirmation_state": "confirmed",
+                  "name": {
+                    "title": "Person annotation checks",
+                    "title_revision": 1,
+                    "title_updated_at": "2026-10-14T10:00:00Z",
+                    "title_updated_by": "reviewer_demo",
+                    "rulebook_id": "rulebook_demo",
+                    "number": 3,
+                    "label": "Rules 003"
+                  }
                 }
               }
             }
@@ -1701,7 +1773,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Rulebook"
+                  "$ref": "#/components/schemas/RulebookRecord"
                 },
                 "example": {
                   "rulebook_id": "rulebook_demo",
@@ -1722,7 +1794,16 @@
                       "confirmation_state": "draft"
                     }
                   ],
-                  "confirmation_state": "rejected"
+                  "confirmation_state": "rejected",
+                  "name": {
+                    "title": "Person annotation checks",
+                    "title_revision": 1,
+                    "title_updated_at": "2026-10-14T10:00:00Z",
+                    "title_updated_by": "reviewer_demo",
+                    "rulebook_id": "rulebook_demo",
+                    "number": 3,
+                    "label": "Rules 003"
+                  }
                 }
               }
             }
@@ -1890,7 +1971,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Rulebook"
+                  "$ref": "#/components/schemas/RulebookRecord"
                 },
                 "example": {
                   "rulebook_id": "rulebook_demo",
@@ -1911,7 +1992,16 @@
                       "confirmation_state": "draft"
                     }
                   ],
-                  "confirmation_state": "draft"
+                  "confirmation_state": "draft",
+                  "name": {
+                    "title": "Person annotation checks",
+                    "title_revision": 1,
+                    "title_updated_at": "2026-10-14T10:00:00Z",
+                    "title_updated_by": "reviewer_demo",
+                    "rulebook_id": "rulebook_demo",
+                    "number": 3,
+                    "label": "Rules 003"
+                  }
                 }
               }
             }
@@ -2056,6 +2146,194 @@
               },
               "example": {
                 "expected_version": 3,
+                "reviewer_id": "reviewer_demo"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rulebooks/{rulebook_id}/title": {
+      "put": {
+        "operationId": "updateRulebookTitle",
+        "tags": [
+          "Rulebooks"
+        ],
+        "summary": "Rename a rulebook",
+        "description": "Replace the title shared by every version of the rulebook and return the latest version. No version, review, rule, citation or confirmation state changes, so a confirmed rulebook keeps its meaning and audit pins. Names are permanent and allocated once by the server: they never change, are never reused and are never parsed back into IDs. Only the title changes. Send the title_revision last read as expected_title_revision; a stale value returns 409 VERSION_CONFLICT without a write. The title is trimmed and must be 1-120 characters without line breaks or control characters. Each edit records reviewer_id and time.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "DisplayNameRepository.update_rulebook_title and FastAPI route implemented.",
+        "responses": {
+          "200": {
+            "description": "Rename a rulebook",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulebookRecord"
+                },
+                "example": {
+                  "rulebook_id": "rulebook_demo",
+                  "version": 3,
+                  "guideline_text": "Allowed labels are person.",
+                  "rules": [
+                    {
+                      "rule_id": "LBL-1",
+                      "description": "Use an allowed label.",
+                      "check_name": "allowed_labels",
+                      "parameters": {
+                        "allowed_labels": [
+                          "person"
+                        ]
+                      },
+                      "origin": "extracted",
+                      "source_sentence": "Allowed labels are person.",
+                      "confirmation_state": "confirmed"
+                    }
+                  ],
+                  "confirmation_state": "confirmed",
+                  "name": {
+                    "title": "Person annotation checks",
+                    "title_revision": 1,
+                    "title_updated_at": "2026-10-14T10:00:00Z",
+                    "title_updated_by": "reviewer_demo",
+                    "rulebook_id": "rulebook_demo",
+                    "number": 3,
+                    "label": "Rules 003"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested rulebook or version does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "The requested rulebook or version does not exist.",
+                    "value": {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "The requested rulebook or version does not exist.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict; see the error code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The title was changed by someone else. Refresh before saving.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The title was changed by someone else. Refresh before saving.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "One or more request fields are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rulebook storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Display name storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Display name storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "rulebook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "example": "rulebook_demo",
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TitleUpdate"
+              },
+              "example": {
+                "title": "Person annotation checks",
+                "expected_title_revision": 0,
                 "reviewer_id": "reviewer_demo"
               }
             }
@@ -3954,7 +4232,27 @@
                     "failed_count": 0,
                     "incomplete_count": 0,
                     "created_at": "2026-10-14T10:00:00Z",
-                    "updated_at": "2026-10-14T10:00:00Z"
+                    "updated_at": "2026-10-14T10:00:00Z",
+                    "name": {
+                      "title": "LabelMe demo",
+                      "title_revision": 0,
+                      "title_updated_at": null,
+                      "title_updated_by": null,
+                      "audit_id": "audit_demo",
+                      "root_audit_id": "audit_demo",
+                      "number": 14,
+                      "recheck_number": null,
+                      "label": "Audit 014"
+                    },
+                    "rulebook_name": {
+                      "title": "Person annotation checks",
+                      "title_revision": 1,
+                      "title_updated_at": "2026-10-14T10:00:00Z",
+                      "title_updated_by": "reviewer_demo",
+                      "rulebook_id": "rulebook_demo",
+                      "number": 3,
+                      "label": "Rules 003"
+                    }
                   },
                   "job": {
                     "job_id": "job_audit_demo",
@@ -4194,7 +4492,27 @@
                       "failed_count": 0,
                       "incomplete_count": 0,
                       "created_at": "2026-10-14T10:00:00Z",
-                      "updated_at": "2026-10-14T10:00:00Z"
+                      "updated_at": "2026-10-14T10:00:00Z",
+                      "name": {
+                        "title": "LabelMe demo",
+                        "title_revision": 0,
+                        "title_updated_at": null,
+                        "title_updated_by": null,
+                        "audit_id": "audit_demo",
+                        "root_audit_id": "audit_demo",
+                        "number": 14,
+                        "recheck_number": null,
+                        "label": "Audit 014"
+                      },
+                      "rulebook_name": {
+                        "title": "Person annotation checks",
+                        "title_revision": 1,
+                        "title_updated_at": "2026-10-14T10:00:00Z",
+                        "title_updated_by": "reviewer_demo",
+                        "rulebook_id": "rulebook_demo",
+                        "number": 3,
+                        "label": "Rules 003"
+                      }
                     }
                   ],
                   "limit": 20,
@@ -4332,7 +4650,27 @@
                   "failed_count": 0,
                   "incomplete_count": 0,
                   "created_at": "2026-10-14T10:00:00Z",
-                  "updated_at": "2026-10-14T10:00:00Z"
+                  "updated_at": "2026-10-14T10:00:00Z",
+                  "name": {
+                    "title": "LabelMe demo",
+                    "title_revision": 0,
+                    "title_updated_at": null,
+                    "title_updated_by": null,
+                    "audit_id": "audit_demo",
+                    "root_audit_id": "audit_demo",
+                    "number": 14,
+                    "recheck_number": null,
+                    "label": "Audit 014"
+                  },
+                  "rulebook_name": {
+                    "title": "Person annotation checks",
+                    "title_revision": 1,
+                    "title_updated_at": "2026-10-14T10:00:00Z",
+                    "title_updated_by": "reviewer_demo",
+                    "rulebook_id": "rulebook_demo",
+                    "number": 3,
+                    "label": "Rules 003"
+                  }
                 }
               }
             }
@@ -4422,6 +4760,355 @@
             },
             "example": "audit_demo",
             "description": ""
+          }
+        ]
+      }
+    },
+    "/audits/{audit_id}/title": {
+      "put": {
+        "operationId": "updateAuditTitle",
+        "tags": [
+          "Audits"
+        ],
+        "summary": "Rename an audit",
+        "description": "Replace the audit's editable title. The audit, its findings, reviews, corrections, rechecks and pinned inputs are unchanged; it is not an annotation correction. Names are permanent and allocated once by the server: they never change, are never reused and are never parsed back into IDs. Only the title changes. Send the title_revision last read as expected_title_revision; a stale value returns 409 VERSION_CONFLICT without a write. The title is trimmed and must be 1-120 characters without line breaks or control characters. Each edit records reviewer_id and time.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "DisplayNameRepository.update_audit_title and FastAPI route implemented.",
+        "responses": {
+          "200": {
+            "description": "Rename an audit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditRun"
+                },
+                "example": {
+                  "audit_id": "audit_demo",
+                  "job_id": "job_audit_demo",
+                  "dataset_id": "dataset_demo",
+                  "rulebook_id": "rulebook_demo",
+                  "rulebook_version": 3,
+                  "source_mode": "snapshot",
+                  "status": "completed",
+                  "sample_count": 1,
+                  "processed_count": 1,
+                  "failed_count": 0,
+                  "incomplete_count": 0,
+                  "created_at": "2026-10-14T10:00:00Z",
+                  "updated_at": "2026-10-14T10:00:00Z",
+                  "name": {
+                    "title": "LabelMe demo",
+                    "title_revision": 0,
+                    "title_updated_at": null,
+                    "title_updated_by": null,
+                    "audit_id": "audit_demo",
+                    "root_audit_id": "audit_demo",
+                    "number": 14,
+                    "recheck_number": null,
+                    "label": "Audit 014"
+                  },
+                  "rulebook_name": {
+                    "title": "Person annotation checks",
+                    "title_revision": 1,
+                    "title_updated_at": "2026-10-14T10:00:00Z",
+                    "title_updated_by": "reviewer_demo",
+                    "rulebook_id": "rulebook_demo",
+                    "number": 3,
+                    "label": "Rules 003"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested audit, sample, or finding does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "The requested audit, sample, or finding does not exist.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict; see the error code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VERSION_CONFLICT": {
+                    "summary": "The title was changed by someone else. Refresh before saving.",
+                    "value": {
+                      "error": {
+                        "code": "VERSION_CONFLICT",
+                        "message": "The title was changed by someone else. Refresh before saving.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "One or more request fields are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Audit storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Display name storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Display name storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "example": "audit_demo",
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TitleUpdate"
+              },
+              "example": {
+                "title": "LabelMe demo",
+                "expected_title_revision": 0,
+                "reviewer_id": "reviewer_demo"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/display-names": {
+      "get": {
+        "operationId": "lookupDisplayNames",
+        "tags": [
+          "Display names"
+        ],
+        "summary": "Look up audit and rulebook labels",
+        "description": "Resolve labels for IDs held by other responses (findings, revisions, exports, attempts, feedback examples). Unknown IDs are omitted, duplicates are returned once, and results follow request order. Reading never allocates or changes a name. Audit and rulebook responses already include their own names.",
+        "x-implementation-status": "implemented",
+        "x-backing-service-status": "DisplayNameRepository.lookup and FastAPI route implemented.",
+        "responses": {
+          "200": {
+            "description": "Look up audit and rulebook labels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisplayNameLookup"
+                },
+                "example": {
+                  "audits": [
+                    {
+                      "title": "LabelMe demo",
+                      "title_revision": 0,
+                      "title_updated_at": null,
+                      "title_updated_by": null,
+                      "audit_id": "audit_demo",
+                      "root_audit_id": "audit_demo",
+                      "number": 14,
+                      "recheck_number": null,
+                      "label": "Audit 014"
+                    },
+                    {
+                      "title": "Feedback recheck",
+                      "title_revision": 0,
+                      "title_updated_at": null,
+                      "title_updated_by": null,
+                      "audit_id": "audit_recheck_demo",
+                      "root_audit_id": "audit_demo",
+                      "number": 14,
+                      "recheck_number": 1,
+                      "label": "Audit 014 R01"
+                    }
+                  ],
+                  "rulebooks": [
+                    {
+                      "title": "Person annotation checks",
+                      "title_revision": 1,
+                      "title_updated_at": "2026-10-14T10:00:00Z",
+                      "title_updated_by": "reviewer_demo",
+                      "rulebook_id": "rulebook_demo",
+                      "number": 3,
+                      "label": "Rules 003"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "One or more request fields are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "One or more request fields are invalid.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Audit storage is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "DEPENDENCY_UNAVAILABLE": {
+                    "summary": "Display name storage is unavailable.",
+                    "value": {
+                      "error": {
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Display name storage is unavailable.",
+                        "details": [],
+                        "request_id": "request_demo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The request could not be completed.",
+                    "details": [],
+                    "request_id": "request_demo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "default": []
+            },
+            "example": [
+              "audit_demo",
+              "audit_recheck_demo"
+            ],
+            "description": "Repeat for each audit ID; at most 100."
+          },
+          {
+            "name": "rulebook_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "default": []
+            },
+            "example": [
+              "rulebook_demo"
+            ],
+            "description": "Repeat for each rulebook ID; at most 100."
           }
         ]
       }
@@ -8050,7 +8737,27 @@
                     "failed_count": 0,
                     "incomplete_count": 0,
                     "created_at": "2026-10-14T10:00:00Z",
-                    "updated_at": "2026-10-14T10:00:00Z"
+                    "updated_at": "2026-10-14T10:00:00Z",
+                    "name": {
+                      "title": "Feedback recheck",
+                      "title_revision": 0,
+                      "title_updated_at": null,
+                      "title_updated_by": null,
+                      "audit_id": "audit_recheck_demo",
+                      "root_audit_id": "audit_demo",
+                      "number": 14,
+                      "recheck_number": 1,
+                      "label": "Audit 014 R01"
+                    },
+                    "rulebook_name": {
+                      "title": "Person annotation checks",
+                      "title_revision": 1,
+                      "title_updated_at": "2026-10-14T10:00:00Z",
+                      "title_updated_by": "reviewer_demo",
+                      "rulebook_id": "rulebook_demo",
+                      "number": 3,
+                      "label": "Rules 003"
+                    }
                   },
                   "job": {
                     "job_id": "job_recheck_demo",
@@ -12831,6 +13538,315 @@
         "title": "RulebookPage",
         "type": "object"
       },
+      "RulebookName": {
+        "additionalProperties": false,
+        "description": "One number per logical rulebook, shared by all of its versions.",
+        "properties": {
+          "title": {
+            "description": "Editable description shown after the permanent label.",
+            "title": "Title",
+            "type": "string"
+          },
+          "title_revision": {
+            "description": "0 until the default title is first edited.",
+            "minimum": 0,
+            "title": "Title Revision",
+            "type": "integer"
+          },
+          "title_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title Updated At"
+          },
+          "title_updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title Updated By"
+          },
+          "rulebook_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rulebook Id",
+            "type": "string"
+          },
+          "number": {
+            "minimum": 1,
+            "title": "Number",
+            "type": "integer"
+          },
+          "label": {
+            "description": "Rules 003; show a version as Rules 003 v3.",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "title_revision",
+          "rulebook_id",
+          "number",
+          "label"
+        ],
+        "title": "RulebookName",
+        "type": "object"
+      },
+      "RulebookRecord": {
+        "additionalProperties": false,
+        "description": "A rulebook version as returned by the API, with its display name.\n\nThe name is per logical rulebook and joined at read time. It is not part\nof the stored document, so it never changes a version's content or hash.",
+        "properties": {
+          "rulebook_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rulebook Id",
+            "type": "string"
+          },
+          "version": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "guideline_text": {
+            "title": "Guideline Text",
+            "type": "string"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "confirmation_state": {
+            "$ref": "#/components/schemas/ConfirmationState",
+            "default": "draft"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RulebookName"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Permanent label and editable title, shared by every version."
+          }
+        },
+        "required": [
+          "rulebook_id",
+          "guideline_text"
+        ],
+        "title": "RulebookRecord",
+        "type": "object"
+      },
+      "RulebookRecordPage": {
+        "additionalProperties": false,
+        "description": "RulebookPage as returned by the API, with each book's display name.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RulebookRecord"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "items",
+          "limit",
+          "offset",
+          "total"
+        ],
+        "title": "RulebookRecordPage",
+        "type": "object"
+      },
+      "AuditName": {
+        "additionalProperties": false,
+        "description": "An audit's permanent label. A recheck keeps its original root's number.",
+        "properties": {
+          "title": {
+            "description": "Editable description shown after the permanent label.",
+            "title": "Title",
+            "type": "string"
+          },
+          "title_revision": {
+            "description": "0 until the default title is first edited.",
+            "minimum": 0,
+            "title": "Title Revision",
+            "type": "integer"
+          },
+          "title_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title Updated At"
+          },
+          "title_updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title Updated By"
+          },
+          "audit_id": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "root_audit_id": {
+            "description": "The original audit this recheck descends from; itself for a root.",
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Root Audit Id",
+            "type": "string"
+          },
+          "number": {
+            "minimum": 1,
+            "title": "Number",
+            "type": "integer"
+          },
+          "recheck_number": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recheck Number"
+          },
+          "label": {
+            "description": "Audit 014, or Audit 014 R01 for a recheck.",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "title_revision",
+          "audit_id",
+          "root_audit_id",
+          "number",
+          "label"
+        ],
+        "title": "AuditName",
+        "type": "object"
+      },
+      "TitleUpdate": {
+        "additionalProperties": false,
+        "description": "Replace a title at the title revision the caller last read.",
+        "properties": {
+          "title": {
+            "description": "1-120 characters; surrounding whitespace is removed.",
+            "title": "Title",
+            "type": "string"
+          },
+          "expected_title_revision": {
+            "description": "Last-read title revision.",
+            "minimum": 0,
+            "title": "Expected Title Revision",
+            "type": "integer"
+          },
+          "reviewer_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reviewer Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "expected_title_revision",
+          "reviewer_id"
+        ],
+        "title": "TitleUpdate",
+        "type": "object"
+      },
+      "DisplayNameLookup": {
+        "additionalProperties": false,
+        "description": "Names for the requested IDs; unknown IDs are omitted, never invented.",
+        "properties": {
+          "audits": {
+            "items": {
+              "$ref": "#/components/schemas/AuditName"
+            },
+            "title": "Audits",
+            "type": "array"
+          },
+          "rulebooks": {
+            "items": {
+              "$ref": "#/components/schemas/RulebookName"
+            },
+            "title": "Rulebooks",
+            "type": "array"
+          }
+        },
+        "title": "DisplayNameLookup",
+        "type": "object"
+      },
       "RulebookCreateRule": {
         "additionalProperties": false,
         "description": "Reviewer-authored content without server-owned origin or review state.",
@@ -14568,6 +15584,30 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuditName"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Permanent label and editable title."
+          },
+          "rulebook_name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RulebookName"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The audited rulebook's label; pair it with rulebook_version."
           }
         },
         "required": [

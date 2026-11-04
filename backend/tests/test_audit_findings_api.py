@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
 from backend.app.main import create_app
+from backend.tests.display_name_helpers import without_display_names
 from backend.app.models.audit import AuditRun
 from backend.app.models.audit_read import AuditSamplePage, FindingPage
 from backend.app.models.finding import Finding, FindingOutcome
@@ -25,7 +26,7 @@ URL = "/api/v1/audits/audit_1/findings"
 
 @pytest.fixture
 def api():
-    app = create_app()
+    app = without_display_names(create_app())
     repository = Mock(spec=AuditReadRepository)
     app.dependency_overrides[get_audit_read_repository] = lambda: repository
     with TestClient(app, raise_server_exceptions=False) as client:

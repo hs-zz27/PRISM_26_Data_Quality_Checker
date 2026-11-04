@@ -76,3 +76,15 @@ it('retains the selected attempt identity in downloaded report rows', () => {
   expect(reportToCsv(rows)).toContain('result_audit_id');
   expect(reportToCsv(rows)).toContain('recheck-2');
 });
+
+it('adds the attempt label after the existing columns, keeping the internal ID column', () => {
+  const rows = buildReportRows([makeSampleAudit([makeFinding({ audit_id: 'recheck-2' })], { audit_id: 'recheck-2' })],
+    (id) => (id === 'recheck-2' ? 'Audit 014 R02' : ''));
+  expect(rows[0]?.result_audit_label).toBe('Audit 014 R02');
+  const [header, first] = reportToCsv(rows).split('\r\n');
+  const columns = header!.split(',');
+  // Existing machine-readable columns keep their positions; the label is appended.
+  expect(columns.slice(-2)).toEqual(['result_audit_id', 'result_audit_label']);
+  expect(first!.split(',').slice(-2)).toEqual(['recheck-2', 'Audit 014 R02']);
+  expect(buildReportRows([makeSampleAudit([makeFinding()])])[0]?.result_audit_label).toBe('');
+});

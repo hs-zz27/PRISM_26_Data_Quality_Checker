@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, BookOpen, Database, Search, SearchCode } from 'lucide-react';
 import { apiGetAllPages } from '../../api/client';
 import { queryKeys } from '../../api/queryClient';
+import { auditHeading, rulebookHeading } from '../../lib/names';
 
-interface PaletteItem { label: string; detail: string; path: string; kind: 'screen' | 'audit' | 'dataset' | 'rulebook' }
+/** keywords are searchable but not shown, so a pasted internal ID still finds its record. */
+interface PaletteItem { label: string; detail: string; path: string; kind: 'screen' | 'audit' | 'dataset' | 'rulebook'; keywords?: string }
 const screens: PaletteItem[] = [
   { label: 'Overview', detail: 'Workflow steps and next action', path: '/', kind: 'screen' },
   { label: 'Audits', detail: 'All audit runs', path: '/audits', kind: 'screen' },
@@ -40,11 +42,18 @@ export const CommandPalette: React.FC = () => {
 
   const items = useMemo<PaletteItem[]>(() => [
     ...screens,
-    ...(audits.data?.items ?? []).map((audit) => ({ label: audit.audit_id, detail: `Audit · ${audit.dataset_id} · ${audit.status}`, path: `/audits/${audit.audit_id}/review`, kind: 'audit' as const })),
+    ...(audits.data?.items ?? []).map((audit) => ({
+      label: auditHeading(audit.name),
+      detail: `Audit · ${datasets.data?.items.find((dataset) => dataset.dataset_id === audit.dataset_id)?.name ?? audit.dataset_id} · ${audit.status}`,
+      path: `/audits/${audit.audit_id}/review`, kind: 'audit' as const, keywords: audit.audit_id,
+    })),
     ...(datasets.data?.items ?? []).map((dataset) => ({ label: dataset.name, detail: `Dataset · ${dataset.dataset_id}`, path: `/datasets/${dataset.dataset_id}`, kind: 'dataset' as const })),
-    ...(rulebooks.data?.items ?? []).map((book) => ({ label: book.rulebook_id, detail: `Rulebook · v${book.version} · ${book.confirmation_state}`, path: `/rulebooks/${book.rulebook_id}`, kind: 'rulebook' as const })),
+    ...(rulebooks.data?.items ?? []).map((book) => ({
+      label: rulebookHeading(book.name, book.version), detail: `Rulebook · ${book.confirmation_state}`,
+      path: `/rulebooks/${book.rulebook_id}`, kind: 'rulebook' as const, keywords: book.rulebook_id,
+    })),
   ], [audits.data, datasets.data, rulebooks.data]);
-  const filtered = items.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 12);
+  const filtered = items.filter((item) => `${item.label} ${item.detail} ${item.keywords ?? ''}`.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 12);
   const loading = audits.isLoading || datasets.isLoading || rulebooks.isLoading;
   const failed = audits.isError || datasets.isError || rulebooks.isError;
   const choose = (item: PaletteItem) => { navigate(item.path); setOpen(false); };

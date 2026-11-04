@@ -21,6 +21,10 @@ import {
 import { ApiError, apiGet, apiGetAllPages, apiPost, apiPut } from '../../api/client';
 import { queryKeys } from '../../api/queryClient';
 import { useReviewerStore } from '../../store/reviewerStore';
+import { useDisplayNames } from '../../hooks/useDisplayNames';
+import { auditLabel, rulebookLabel } from '../../lib/names';
+import { AuditNameText, TechnicalId } from '../../components/ui/RecordName';
+import { TitleEditor } from '../names/TitleEditor';
 import { useCanvasStore } from '../../store/canvasStore';
 import { Badge, type BadgeVariant } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -79,6 +83,7 @@ export const AuditReviewWorkspace: React.FC = () => {
   const [reviewError, setReviewError] = useState<string | null>(null);
   // Separate from reviewError: loading the other recheck's new attempt must not hide it.
   const [recheckNotice, setRecheckNotice] = useState<string | null>(null);
+  const [recheckStarted, setRecheckStarted] = useState<string | null>(null);
   const [historyFindingId, setHistoryFindingId] = useState<string | null>(null);
   const [correctionPrompt, setCorrectionPrompt] = useState<{ datasetId: string; sampleId: string; auditId: string } | null>(null);
   const [leftWidth, setLeftWidth] = useState(() => readPaneWidth('left', 264));
@@ -153,6 +158,8 @@ export const AuditReviewWorkspace: React.FC = () => {
     }),
     enabled: Boolean(historicalAttemptId && activeSampleId),
   });
+  // Each attempt is its own audit or recheck; label them "Audit 014", "Audit 014 R01", ...
+  const attemptNames = useDisplayNames({ auditIds: latestDetail.data?.attempts?.map((attempt) => attempt.audit_id) ?? [] });
   const displayedDetail = historicalAttemptId ? historicalDetail : latestDetail;
   const sampleDetail = displayedDetail.data;
   const detailError = displayedDetail.error;
@@ -192,6 +199,7 @@ export const AuditReviewWorkspace: React.FC = () => {
       recheckStatus.track(result.job.job_id);
       setReviewError(null);
       setRecheckNotice(null);
+      setRecheckStarted(`${auditLabel(result.audit.name)} started for this image.`);
       return queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
     },
     onError: (error) => {
@@ -262,6 +270,7 @@ export const AuditReviewWorkspace: React.FC = () => {
         });
         recheckStatus.track(result.job.job_id);
         setReviewError(null);
+        setRecheckStarted(`Correction saved as r${saved.revision}. ${auditLabel(result.audit.name)} started for this image.`);
         void queryClient.invalidateQueries({ queryKey: queryKeys.audits() });
       } catch (error) {
         setReviewError(`Correction saved as r${saved.revision}, but recheck could not start. Use Re-check this image to retry. ${error instanceof Error ? error.message : ''}`);
@@ -522,10 +531,14 @@ export const AuditReviewWorkspace: React.FC = () => {
           </Button>
           <div className="h-4 w-px bg-border" />
           <div className="min-w-0">
-            <div className="font-mono text-xs font-semibold text-text truncate">{auditId}</div>
-            <div className="text-2xs font-mono text-text-muted truncate">
-              dataset {datasetName(audit?.dataset_id)} · rulebook {audit?.rulebook_id ?? '…'} v{audit?.rulebook_version ?? '…'}
+            <div className="flex min-w-0 items-center gap-2 text-xs">
+              {audit ? <AuditNameText name={audit.name} /> : <span className="text-text-muted">Loading audit…</span>}
+              {audit && <TitleEditor kind="audit" id={audit.audit_id} name={audit.name} />}
             </div>
+            <div className="text-2xs font-mono text-text-muted truncate">
+              Dataset {datasetName(audit?.dataset_id)} · {audit ? rulebookLabel(audit.rulebook_name, audit.rulebook_version) : '…'}
+            </div>
+            {audit && <TechnicalId label="Audit ID" value={audit.audit_id} />}
           </div>
         </div>
 
@@ -561,6 +574,12 @@ export const AuditReviewWorkspace: React.FC = () => {
         <div role="alert" className="review-alert">
           <AlertTriangle size={14} /> <span>{recheckNotice}</span>
           <button onClick={() => setRecheckNotice(null)} aria-label="Dismiss">×</button>
+        </div>
+      )}
+      {recheckStarted && (
+        <div role="status" className="review-notice">
+          <RefreshCw size={14} /> <span>{recheckStarted}</span>
+          <button onClick={() => setRecheckStarted(null)} aria-label="Dismiss">×</button>
         </div>
       )}
       {correctionPrompt && (
@@ -710,16 +729,16 @@ export const AuditReviewWorkspace: React.FC = () => {
                   <select aria-label="Attempt history" className="w-full mt-1" value={historicalAttemptId ?? ''}
                     disabled={sampleReviewMutation.isPending || findingReviewMutation.isPending || submittingImageChange}
                     onChange={(event) => setHistoricalAttemptId(event.target.value || null)}>
-                    <option value="">Latest attempt</option>
+                    <option value="">Latest attempt · {auditLabel(attemptNames.audit(latestDetail.data!.attempts![0]?.audit_id))}</option>
                     {latestDetail.data!.attempts!.slice(1).map((attempt) => (
                       <option key={attempt.audit_id} value={attempt.audit_id}>
-                        {formatTimestamp(attempt.created_at)} · r{attempt.sample_revision} · {attempt.processing_status}
+                        {auditLabel(attemptNames.audit(attempt.audit_id))} · {formatTimestamp(attempt.created_at)} · r{attempt.sample_revision} · {attempt.processing_status}
                       </option>
                     ))}
                   </select>
                 </label>
               )}
-              {historicalAttemptId && <p className="text-2xs text-status-unsure mt-2">Previous attempt — read only. Select Latest attempt to review.</p>}
+              {historicalAttemptId && <p className="text-2xs text-status-unsure mt-2">Previous attempt ({auditLabel(attemptNames.audit(historicalAttemptId))}) — read only. Select Latest attempt to review.</p>}
             </section>
             {isDetailLoading && <p className="text-xs text-text-muted"><Loader2 className="inline w-3 h-3 animate-spin" /> Loading findings…</p>}
 

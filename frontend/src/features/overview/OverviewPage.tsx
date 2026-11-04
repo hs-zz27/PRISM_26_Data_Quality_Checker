@@ -8,6 +8,8 @@ import { formatTimestamp } from '../../lib/format';
 import { jobStatusLabel } from '../../lib/labels';
 import { workflowSteps, type WorkflowCounts } from './workflow';
 import { useDatasetName } from '../../hooks/useDatasetName';
+import { rulebookLabel } from '../../lib/names';
+import { AuditNameText } from '../../components/ui/RecordName';
 
 const ICONS = [BookOpen, ListChecks, Database, SearchCode, DownloadCloud];
 
@@ -68,9 +70,9 @@ export const OverviewPage: React.FC = () => {
             <tbody>
               {recentAudits.map((audit) => (
                 <tr key={audit.audit_id}>
-                  <td className="font-mono">{audit.audit_id}</td>
+                  <td className="max-w-[18rem]"><AuditNameText name={audit.name} /></td>
                   <td>{datasetName(audit.dataset_id)}</td>
-                  <td className="font-mono">{audit.rulebook_id} v{audit.rulebook_version}</td>
+                  <td className="font-mono whitespace-nowrap">{rulebookLabel(audit.rulebook_name, audit.rulebook_version)}</td>
                   <td>{jobStatusLabel(audit.status)} · {audit.processed_count}/{audit.sample_count ?? '?'}</td>
                   <td>{formatTimestamp(audit.created_at)}</td>
                   <td><Link to={`/audits/${audit.audit_id}/review`}>Review</Link> · <Link to={`/audits/${audit.audit_id}/report`}>Report</Link></td>

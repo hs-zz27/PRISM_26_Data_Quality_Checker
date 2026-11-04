@@ -11,6 +11,7 @@ from backend.api.build_contract import build_contract
 from backend.api.dataset_contract import schema_closure, structural
 from backend.api.fixtures import build_examples
 from backend.app.main import create_app
+from backend.tests.display_name_helpers import without_display_names
 from backend.app.models.audit import AuditRun
 from backend.app.models.audit_submission import AuditPage, AuditRequest, AuditStarted
 from backend.app.models.job import Job, JobKind
@@ -24,7 +25,7 @@ from backend.app.storage.workflow_repository import AuditRepository, RetryableWo
 
 @pytest.fixture
 def api():
-    app = create_app()
+    app = without_display_names(create_app())
     service = Mock(spec=AuditSubmissionService)
     repository = Mock(spec=AuditRepository)
     audit = AuditRun.model_validate_json(json.dumps({

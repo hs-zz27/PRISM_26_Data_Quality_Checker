@@ -17,19 +17,21 @@ from backend.app.models.rule_extraction import RuleExtractionRequest
 API = Path(__file__).resolve().parents[1] / "api"
 OPERATIONS = {
     "extractRulebook": ("/rulebooks/extractions", "post", "202", "Job", "RuleExtractionRequest", set()),
-    "createRulebook": ("/rulebooks", "post", "201", "Rulebook", "RulebookCreate", {"VERSION_CONFLICT"}),
-    "listRulebooks": ("/rulebooks", "get", "200", "RulebookPage", None, set()),
-    "getRulebook": ("/rulebooks/{rulebook_id}", "get", "200", "Rulebook", None, set()),
-    "listRulebookVersions": ("/rulebooks/{rulebook_id}/versions", "get", "200", "RulebookPage", None, set()),
+    "createRulebook": ("/rulebooks", "post", "201", "RulebookRecord", "RulebookCreate", {"VERSION_CONFLICT"}),
+    "listRulebooks": ("/rulebooks", "get", "200", "RulebookRecordPage", None, set()),
+    "getRulebook": ("/rulebooks/{rulebook_id}", "get", "200", "RulebookRecord", None, set()),
+    "listRulebookVersions": ("/rulebooks/{rulebook_id}/versions", "get", "200", "RulebookRecordPage", None, set()),
     "listRulebookReviews": ("/rulebooks/{rulebook_id}/reviews", "get", "200", "RulebookReviewPage", None, set()),
-    "replaceDraftRulebook": ("/rulebooks/{rulebook_id}", "put", "200", "Rulebook", "RulebookReplace",
+    "replaceDraftRulebook": ("/rulebooks/{rulebook_id}", "put", "200", "RulebookRecord", "RulebookReplace",
                               {"VERSION_CONFLICT", "INVALID_RULEBOOK_STATE"}),
-    "confirmRulebook": ("/rulebooks/{rulebook_id}/confirm", "post", "200", "Rulebook", "RulebookAction",
+    "confirmRulebook": ("/rulebooks/{rulebook_id}/confirm", "post", "200", "RulebookRecord", "RulebookAction",
                          {"VERSION_CONFLICT", "INVALID_RULEBOOK_STATE", "RULEBOOK_NOT_READY"}),
-    "rejectRulebook": ("/rulebooks/{rulebook_id}/reject", "post", "200", "Rulebook", "RulebookAction",
+    "rejectRulebook": ("/rulebooks/{rulebook_id}/reject", "post", "200", "RulebookRecord", "RulebookAction",
                         {"VERSION_CONFLICT", "INVALID_RULEBOOK_STATE"}),
-    "reviseRulebook": ("/rulebooks/{rulebook_id}/revisions", "post", "201", "Rulebook", "RulebookAction",
+    "reviseRulebook": ("/rulebooks/{rulebook_id}/revisions", "post", "201", "RulebookRecord", "RulebookAction",
                         {"VERSION_CONFLICT", "INVALID_RULEBOOK_STATE"}),
+    "updateRulebookTitle": ("/rulebooks/{rulebook_id}/title", "put", "200", "RulebookRecord", "TitleUpdate",
+                            {"VERSION_CONFLICT"}),
 }
 
 def _resolve(schema, components):
@@ -98,7 +100,7 @@ def test_full_generated_implemented_inventory_matches_live_once():
               for path, methods in live["paths"].items() for method, op in methods.items()}
     assert implemented == actual
     identifiers = [op["operationId"] for methods in live["paths"].values() for op in methods.values()]
-    assert len(identifiers) == len(set(identifiers)) == 50
+    assert len(identifiers) == len(set(identifiers)) == 53
     # OpenAPI dictionaries hide duplicate registrations. Traverse included routers
     # as well as directly registered routes so repeated inclusions remain visible.
     routes = [
@@ -107,7 +109,7 @@ def test_full_generated_implemented_inventory_matches_live_once():
         if isinstance(context.original_route, APIRoute)
         and context.original_route.include_in_schema
     ]
-    assert len(routes) == len(set(routes)) == 50
+    assert len(routes) == len(set(routes)) == 53
     for identifier in OPERATIONS:
         assert routes.count(identifier) == 1
     assert generated["paths"]["/rulebooks"]["post"]["x-implementation-status"] == "implemented"
