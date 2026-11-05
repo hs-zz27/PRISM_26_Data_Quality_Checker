@@ -217,6 +217,7 @@ def test_opt_in_postgresql_accept_worker_manifest_and_download(
             assert int(downloaded.headers['content-length']) == len(downloaded.content)
             with ZipFile(BytesIO(downloaded.content)) as archive:
                 assert json.loads(archive.read('manifest.json')) == manifest
+                assert 'review_report.csv' in archive.namelist()
                 for entry in manifest['entries']:
                     sample_id = entry['sample_id']
                     roles = [('annotation_text', f'Annotation/{sample_id}.txt'),
@@ -225,11 +226,14 @@ def test_opt_in_postgresql_accept_worker_manifest_and_download(
                         roles.append(('original_image', f'PNGImages/{sample_id}.png'))
                     for role, name in roles:
                         if entry['included']:
-                            assert archive.read(name) == expected[(sample_id, role)]
-                        else:
-                            assert name not in archive.namelist()
+                            # The folder is chosen only by the frozen human decision.
+                            folder = {'accepted': 'accepted', 'rejected': 'rejected'}[entry['review_decision']]
+                            assert archive.read(f'{folder}/{name}') == expected[(sample_id, role)]
+                        for folder in ('accepted', 'rejected'):
+                            if not entry['included'] or folder != entry['review_decision']:
+                                assert f'{folder}/{name}' not in archive.namelist()
                 if not images:
-                    assert not any(name.startswith('PNGImages/') for name in archive.namelist())
+                    assert not any('/PNGImages/' in name for name in archive.namelist())
                 if selection == 'all_reviewed':
                     assert manifest['entries'][1]['review_decision'] == 'rejected'
                     assert manifest['entries'][1]['included']

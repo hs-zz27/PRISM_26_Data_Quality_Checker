@@ -69,7 +69,10 @@ def _extract(path, destination, request):
             suffix = Path(parts[-1]).suffix.lower()
             metadata = "__MACOSX" in parts or parts[-1] == ".DS_Store"
             chosen = not info.is_dir() and not metadata and suffix in {".json", ".png", ".jpg", ".jpeg"}
-            if not chosen and not metadata and not info.is_dir():
+            # A reviewed export's own spreadsheet, by exact root name only, is
+            # documentation like its README; it is never imported as sample data.
+            export_report = parts == ("review_report.csv",)
+            if not chosen and not metadata and not info.is_dir() and not export_report:
                 unsupported |= suffix not in {".txt", ".md"} and parts[-1].lower() not in {"license", "readme", "copying"}
             target = destination.joinpath(*parts) if chosen else None
             if target is not None:

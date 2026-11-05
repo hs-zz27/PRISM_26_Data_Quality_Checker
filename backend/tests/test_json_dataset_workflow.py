@@ -220,8 +220,9 @@ def test_native_export_roundtrips_to_import(tmp_path, format):
     build_archive(frozen, settings=export_settings, directory=directory, stop_event=Event(),
                   deadline_end=time.monotonic()+30, progress=lambda _: None)
     with ZipFile(directory/'archive.zip') as archive:
-        assert archive.read(f'data/{source.sample_id}/image.jpg') == original_image
-        doc = json.loads(archive.read(f'data/{source.sample_id}/annotations.json'))
+        assert archive.read(f'accepted/data/{source.sample_id}/image.jpg') == original_image
+        doc = json.loads(archive.read(f'accepted/data/{source.sample_id}/annotations.json'))
+        assert 'review_report.csv' in archive.namelist()
         assert (doc['images'][0]['file_name'] if format == 'coco' else doc['imagePath']) == 'image.jpg'
     next_root = tmp_path/'roundtrip'; next_root.mkdir()
     path, request, _ = staged(next_root, (directory/'archive.zip').read_bytes())

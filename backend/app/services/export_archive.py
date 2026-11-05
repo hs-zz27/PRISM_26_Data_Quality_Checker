@@ -10,6 +10,7 @@ from ..core.export import (
     ExportDependencyError, ExportLimitError, ExportNameError, ExportStopped,
 )
 from ..models.export import FrozenExport
+from ..models.review import SampleReviewDecision
 from .export_files import (
     CHUNK_BYTES, directory_fd, fingerprint, open_relative, write_private,
 )
@@ -20,8 +21,24 @@ def manifest_bytes(frozen):
                        ensure_ascii=True, allow_nan=False, separators=(',', ':')) + '\n').encode('utf-8')
 
 
+REPORT_NAME = 'review_report.csv'
+FOLDERS = {SampleReviewDecision.ACCEPTED: 'accepted', SampleReviewDecision.REJECTED: 'rejected'}
+
+
+def decision_folder(entry):
+    """Top-level folder for an included sample, chosen ONLY by its frozen human decision."""
+    folder = FOLDERS.get(entry.review_decision)
+    if folder is None:  # The selection policy never includes pending/needs_correction.
+        raise ExportDependencyError('An included sample has no final human decision.')
+    return folder
+
+
 def member_names(frozen):
-    """Reject, never rename, unsafe or cross-platform-colliding selected IDs."""
+    """Reject, never rename, unsafe or cross-platform-colliding selected IDs.
+
+    Each included sample keeps its native layout under accepted/ or rejected/.
+    Collisions are checked on the unprefixed name, exactly as before folders existed.
+    """
     names, seen = [], set()
     for sample in frozen.samples:
         if not sample.entry.included:
@@ -32,6 +49,7 @@ def member_names(frozen):
                 or sample_id.endswith('.') or base in {'CON','PRN','AUX','NUL'}
                 or re.fullmatch(r'(COM|LPT)[1-9]', base)):
             raise ExportNameError()
+        folder = decision_folder(sample.entry)
         rows = [('annotation_text', f'Annotation/{sample_id}.txt'),
                 ('raw_mask', f'PedMasks/{sample_id}_mask.png')]
         if frozen.manifest.format != 'penn_fudan':
@@ -45,8 +63,79 @@ def member_names(frozen):
             if key in seen:
                 raise ExportNameError()
             seen.add(key)
-            names.append((sample, role, name))
+            names.append((sample, role, f'{folder}/{name}'))
     return names
+
+
+REPORT_COLUMNS = (
+    'ordinal', 'sample_id', 'sample_revision', 'result_audit_id', 'processing_state',
+    'review_decision', 'reviewer_id', 'reviewed_at', 'review_comment',
+    'exported', 'export_folder', 'exclusion_reason',
+    'findings_recorded', 'pass', 'fail', 'unsure', 'unavailable', 'errors_found',
+    'corrected_from_revision', 'correction_reviewer', 'correction_reason',
+)
+_RESOLUTION_TEXT = {'pending': 'not reviewed', 'accepted': 'reviewer agreed',
+                    'rejected': 'reviewer overrode', 'unsure': 'reviewer unsure'}
+
+
+def _cell(value):
+    """Spreadsheet-safe cell: text that Excel could execute as a formula is quoted."""
+    if value is None:
+        return ''
+    if isinstance(value, bool):
+        return 'yes' if value else 'no'
+    if isinstance(value, int):
+        return str(value)
+    text = str(value)
+    return "'" + text if text[:1] in ('=', '+', '-', '@', '\t', '\r') else text
+
+
+def _issue_text(issue):
+    target = 'whole sample' if issue.object_id is None else f'object {issue.object_id}'
+    text = f'{issue.rule_id} {target}: {issue.outcome} ({_RESOLUTION_TEXT[issue.resolution]})'
+    return text + (f' - {issue.reason}' if issue.reason else '')
+
+
+def report_bytes(frozen):
+    """One row per audited sample, exported or not. Built only from frozen input."""
+    import csv
+    from io import StringIO
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator='\r\n')
+    writer.writerow(REPORT_COLUMNS)
+    for sample in frozen.samples:
+        entry, report = sample.entry, sample.report
+        row = {
+            'ordinal': entry.ordinal, 'sample_id': entry.sample_id,
+            'sample_revision': entry.sample_revision,
+            'result_audit_id': entry.result_audit_id or frozen.manifest.audit_id,
+            'processing_state': entry.processing_state,
+            'review_decision': entry.review_decision.value, 'reviewer_id': entry.reviewer_id,
+            'reviewed_at': None if entry.reviewed_at is None else entry.reviewed_at.isoformat(),
+            'exported': entry.included,
+            'export_folder': decision_folder(entry) + '/' if entry.included else None,
+            'exclusion_reason': None if entry.reason is None else entry.reason.value,
+            'findings_recorded': report is not None,
+        }
+        if report is None:
+            row['errors_found'] = 'Not recorded for this export.'
+        else:
+            issues = [_issue_text(issue) for issue in report.issues]
+            if report.issues_omitted:
+                issues.append(f'+{report.issues_omitted} more not listed')
+            row.update({
+                'review_comment': report.review_comment,
+                'pass': report.pass_count, 'fail': report.fail_count,
+                'unsure': report.unsure_count, 'unavailable': report.unavailable_count,
+                'errors_found': ' | '.join(issues),
+            })
+            if report.correction is not None:
+                row.update({'corrected_from_revision': report.correction.parent_revision,
+                            'correction_reviewer': report.correction.reviewer_id,
+                            'correction_reason': report.correction.reason})
+        writer.writerow([_cell(row.get(column)) for column in REPORT_COLUMNS])
+    # BOM so Excel detects UTF-8; CRLF rows per RFC 4180.
+    return ('﻿' + buffer.getvalue()).encode('utf-8')
 
 
 def _image_name(manifest):
@@ -115,11 +204,16 @@ def _readme(frozen):
         'Historical audited revisions are exported, not current catalogue heads.\n'
         'all_reviewed is diagnostic: included rejected samples remain rejected and are not certified for training.\n'
         'pending_review and needs_correction samples are excluded. See every decision in manifest.json.\n'
+        'Human-accepted samples are under accepted/ and, for all_reviewed, human-rejected samples under rejected/.\n'
+        'Each folder keeps the native dataset layout. The folder reflects only the frozen human decision.\n'
+        f'{REPORT_NAME} (opens in Excel) has one row per audited sample, including excluded ones: its decision,\n'
+        'reviewer comment, export folder or exclusion reason, machine finding counts, up to five listed errors\n'
+        'with the reviewer\'s agreement, and any manual correction lineage. Machine findings are proposals.\n'
         + ('Original images are included.\n' if frozen.manifest.include_images else
            'Original images were explicitly omitted; this archive is not a standalone image dataset.\n')
         + ('Captured annotation text, masks and requested images are copied without transformation.\n'
            if frozen.manifest.format == 'penn_fudan' else
-           'Each data/<sample>/ directory contains a native JSON document for that image. Image references are rebased.\n'
+           'Each <folder>/data/<sample>/ directory contains a native JSON document for that image. Image references are rebased.\n'
            'COCO documents contain only that image and its assigned annotations; categories and other source fields are retained.\n'
            'Original image bytes are unchanged. Structural problems and unsupported annotations may still be present.\n')
         + 'Layout is not a certificate of valid content. No annotation correction or recheck is performed.\n'
@@ -141,7 +235,10 @@ def build_archive(frozen: FrozenExport, *, settings, directory, stop_event, dead
     if len(document) > frozen.policy.max_metadata_bytes:
         raise ExportLimitError()
     readme = _readme(frozen)
-    total_input = len(document) + len(readme)
+    report = report_bytes(frozen)
+    if len(report) > frozen.policy.max_metadata_bytes:
+        raise ExportLimitError()
+    total_input = len(document) + len(readme) + len(report)
     if total_input > frozen.policy.max_input_bytes:
         raise ExportLimitError()
     write_private(directory, 'manifest.json', document)
@@ -205,7 +302,8 @@ def build_archive(frozen: FrozenExport, *, settings, directory, stop_event, dead
                 if previous is not None:
                     processed += 1
                     progress(processed)
-                for name, content in [('manifest.json', document), ('README.txt', readme)]:
+                for name, content in [('manifest.json', document), ('README.txt', readme),
+                                      (REPORT_NAME, report)]:
                     check()
                     with archive.open(_info(name), 'w', force_zip64=True) as target:
                         for offset in range(0, len(content), CHUNK_BYTES):

@@ -10,7 +10,9 @@ import pytest
 
 from backend.app.core.export import ExportDependencyError, ExportLimitError, ExportNameError, ExportStopped
 from backend.app.models.export import ExportPolicy, FrozenExport
-from backend.app.services.export_archive import _BoundedOutput, build_archive, manifest_bytes, member_names
+from backend.app.services.export_archive import (
+    REPORT_NAME, _BoundedOutput, build_archive, manifest_bytes, member_names, report_bytes,
+)
 from backend.app.services.export_files import create_attempt
 from backend.tests.export_support import synthetic
 
@@ -29,12 +31,13 @@ def test_exact_bytes_order_and_manifest_agreement(tmp_path, images):
     recorded = []
     directory = build(frozen, settings, progress=recorded.append)
     with ZipFile(directory / 'archive.zip') as archive:
-        expected_names = [name for _, _, name in member_names(frozen)] + ['manifest.json', 'README.txt']
+        expected_names = [name for _, _, name in member_names(frozen)] + ['manifest.json', 'README.txt', REPORT_NAME]
         assert archive.namelist() == expected_names
         for sample, role, name in member_names(frozen):
             assert archive.read(name) == expected[(sample.entry.sample_id, role)]
         assert archive.read('manifest.json') == (directory / 'manifest.json').read_bytes() == manifest_bytes(frozen)
         assert 'diagnostic' in archive.read('README.txt').decode()
+        assert archive.read(REPORT_NAME) == report_bytes(frozen)
     assert recorded == [1, 2]
     assert not any('PNGImages/' in name for name in expected_names) if not images else True
 
@@ -56,14 +59,14 @@ def test_valid_high_valued_png_is_not_reencoded(tmp_path):
     frozen = FrozenExport.model_validate_json(__import__('json').dumps(document))
     directory = build(frozen, settings)
     with ZipFile(directory / 'archive.zip') as archive:
-        assert archive.read('PedMasks/sample_0_mask.png') == content
+        assert archive.read('accepted/PedMasks/sample_0_mask.png') == content
 
 
-def test_zero_inclusions_produces_only_manifest_and_readme(tmp_path):
+def test_zero_inclusions_produces_only_manifest_readme_and_report(tmp_path):
     frozen, settings, _ = synthetic(tmp_path, decisions=('pending_review', 'needs_correction'))
     directory = build(frozen, settings)
     with ZipFile(directory / 'archive.zip') as archive:
-        assert archive.namelist() == ['manifest.json', 'README.txt']
+        assert archive.namelist() == ['manifest.json', 'README.txt', REPORT_NAME]
     assert len(frozen.manifest.entries) == 2
 
 
