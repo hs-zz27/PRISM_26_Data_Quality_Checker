@@ -267,7 +267,7 @@ class EvidenceLimits(Record):
 class ExecutionPin(EvidenceLimits):
     model: Text
     model_digest: Annotated[str, StringConstraints(pattern='^sha256:[0-9a-f]{64}$')]
-    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5', 'annotation-guideline-v6', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
+    prompt_version: Literal['annotation-guideline-v1', 'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5', 'annotation-guideline-v6', 'annotation-guideline-v7', 'pedestrian-box-feedback-v1'] = 'annotation-guideline-v1'
     preprocessing: Literal['original-png-no-transform-v1', 'original-and-annotation-overlay-v1', 'target-focus-overlay-v1', 'box-context-png-v1'] = 'original-png-no-transform-v1'
     schema_version: Literal[1] = 1
     identity_assurance: Literal['local-server-reported-pre-post-v1'] = 'local-server-reported-pre-post-v1'
@@ -303,7 +303,8 @@ class ExecutionPin(EvidenceLimits):
                         'annotation-guideline-v4': 'original-and-annotation-overlay-v1',
                         'annotation-guideline-v5': 'original-and-annotation-overlay-v1',
                         # v6: per-target focused views (full + crop of original and overlay), one request per target.
-                        'annotation-guideline-v6': 'target-focus-overlay-v1'}
+                        'annotation-guideline-v6': 'target-focus-overlay-v1',
+                        'annotation-guideline-v7': 'target-focus-overlay-v1'}
             if expected.get(self.prompt_version) != self.preprocessing:
                 raise ValueError('Prompt and preprocessing versions must match.')
         else:

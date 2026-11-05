@@ -103,7 +103,8 @@ def test_older_versions_reject_the_focused_preprocessing_and_v6_requires_it(vers
 
 def test_new_audits_keep_defaulting_to_v5_and_v6_is_opt_in_with_its_own_preprocessing(monkeypatch):
     monkeypatch.setenv('FEEDBACK_MODEL_DIGEST', 'sha256:' + 'b' * 64)
-    monkeypatch.delenv('FEEDBACK_PROMPT_VERSION', raising=False)
+    # Empty override exercises the default even when the owner's .env opts into v6.
+    monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', '')
     assert load_execution_pin().prompt_version == 'annotation-guideline-v5'
     monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', 'annotation-guideline-v6')
     selected = load_execution_pin()
@@ -111,7 +112,7 @@ def test_new_audits_keep_defaulting_to_v5_and_v6_is_opt_in_with_its_own_preproce
     for version in ('annotation-guideline-v3', 'annotation-guideline-v4'):
         monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', version)
         assert load_execution_pin().preprocessing == SHARED
-    monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', 'annotation-guideline-v7')
+    monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', 'annotation-guideline-v99')
     with pytest.raises(FeedbackError):
         load_execution_pin()
 

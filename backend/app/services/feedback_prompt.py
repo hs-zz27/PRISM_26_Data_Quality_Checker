@@ -140,7 +140,7 @@ def prepare_payload(manifest, target, examples, execution, asset_settings, *, re
         raise FeedbackError('POLICY_INCOMPATIBLE')
     if execution.prompt_version in {'annotation-guideline-v3', 'annotation-guideline-v4'}:
         return _visual_payload(manifest, target, examples, execution, asset_settings, reviewer_feedback)
-    if execution.prompt_version == 'annotation-guideline-v6':
+    if execution.prompt_version in {'annotation-guideline-v6', 'annotation-guideline-v7'}:
         # One request per eligible target; policy examples are not part of this protocol.
         if examples:
             raise FeedbackError('POLICY_INCOMPATIBLE')

@@ -122,8 +122,8 @@ def compute_scope(manifest, rule, execution, asset_settings):
     """Requirement eligibility for one sample. No model call, no database access."""
     from .rule_applicability import resolve_scope
     image, objects, masks = scope_inputs(manifest, execution, asset_settings)
-    # v6 derives applicability with derived-v2; v5 and every stored rule keep derived-v1 (frozen).
-    algorithm = 'derived-v2' if execution.prompt_version == 'annotation-guideline-v6' else 'derived-v1'
+    # Focused protocols derive with v2. All stored applicability is preserved as-is.
+    algorithm = 'derived-v2' if execution.prompt_version in {'annotation-guideline-v6', 'annotation-guideline-v7'} else 'derived-v1'
     return resolve_scope(rule, objects, image=image, annotation_format=manifest.annotation_format, masks=masks,
                          algorithm=algorithm)
 
