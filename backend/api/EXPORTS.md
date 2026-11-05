@@ -114,10 +114,40 @@ fails; membership never changes to hide source damage.
 
 ## Archive and byte preservation
 
-Included files are `Annotation/{sample_id}.txt`, `PedMasks/{sample_id}_mask.png`
-and optionally `PNGImages/{sample_id}.png`, with UTF-8 `manifest.json` and
-`README.txt` at the root. Empty eligible selections are valid manifest/README-only
-archives. No data files are fabricated and empty progress is coherent with Job.
+Included files are grouped by the frozen human sample decision: human-accepted
+samples under `accepted/` and, for `all_reviewed`, human-rejected samples under
+`rejected/`. Each folder keeps the native layout: `Annotation/{sample_id}.txt`,
+`PedMasks/{sample_id}_mask.png` and optionally `PNGImages/{sample_id}.png` for
+Penn-Fudan, or `data/{sample_id}/` for COCO/LabelMe. UTF-8 `manifest.json`,
+`README.txt` and `review_report.csv` are at the root. Empty eligible selections
+are valid manifest/README/report-only archives. No data files are fabricated and
+empty progress is coherent with Job. Name collisions are checked on the
+unprefixed path, exactly as before folders were introduced.
+
+### Review report spreadsheet
+
+`review_report.csv` is UTF-8 with a byte-order mark and CRLF rows, so Excel opens
+it directly. It has one row per audited sample, **including excluded samples**:
+ordinal, sample ID and revision, result audit, processing state, human decision,
+reviewer, time and comment, whether and where it was exported or why it was
+excluded, machine finding counts (pass/fail/unsure/unavailable), up to five listed
+non-passing findings with the reviewer's agreement (`reviewer agreed`,
+`reviewer overrode`, `reviewer unsure`, `not reviewed`) and any manual correction
+lineage (parent revision, reviewer, reason). Text cells that a spreadsheet could
+evaluate as a formula are prefixed with `'`. Long text is shortened to a single
+line and every shortening ends with `…`.
+
+These facts are frozen privately in the same read-only snapshot as the human
+decisions, so later reviews never change an existing export. They are not added to
+the public `ExportManifest`, and the API contract is unchanged. Exports frozen
+before this feature, or whose report would exceed the metadata limit, say
+`Not recorded for this export.` instead of inventing values. Machine findings
+remain proposals; the report certifies nothing.
+
+Re-importing: the JSON importer ignores only a root-level `review_report.csv`.
+A COCO/LabelMe export re-imports from its folders. A Penn-Fudan importer accepts
+one dataset root, so re-import an `accepted_only` export directly; an
+`all_reviewed` export has two roots and must be split first.
 
 Source bytes are copied without parsing or reencoding: malformed captured text,
 one-based inclusive coordinates, palette/high-valued mask IDs and original image
