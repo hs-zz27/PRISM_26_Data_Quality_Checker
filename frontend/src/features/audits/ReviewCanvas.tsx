@@ -222,12 +222,13 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
 
     const cx = (b.x0 + b.x1) / 2;
     const cy = (b.y0 + b.y1) / 2;
-    const panX = (r.width / 2) - cx * targetZoom;
-    const panY = (r.height / 2) - cy * targetZoom;
+    // The stage is centred in the canvas and scales around its own centre.
+    const panX = -(cx - width / 2) * targetZoom;
+    const panY = -(cy - height / 2) * targetZoom;
 
     setZoom(targetZoom);
     setPan({ x: panX, y: panY });
-  }, [selectedInstanceId, objects, setZoom, setPan]);
+  }, [selectedInstanceId, objects, setZoom, setPan, width, height]);
 
   // Keyboard shortcut listener
   useEffect(() => {
@@ -367,12 +368,12 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
         const dn = displayNumberMap.get(obj.object_id) ?? 0;
         const objColor = colorFor(dn);
         const isDerived = obj.bbox_origin === 'derived_from_polygon';
-        return <g key={obj.object_id} role="button" tabIndex={0} aria-label={`Object ${dn}, ${obj.label}, ${obj.bbox ? formatBbox(obj.bbox) : "no box"}`} onClick={(e) => { e.stopPropagation(); handleStageClick(e); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleStageClick(e as unknown as React.MouseEvent); } }} className={`box-${state}${selected ? ' is-selected' : ''}`}>
+        return <g key={obj.object_id} role="button" tabIndex={0} aria-label={`Object ${dn}, ${obj.label}, ${obj.bbox ? formatBbox(obj.bbox) : "no box"}`} onClick={(e) => { e.stopPropagation(); handleStageClick(e); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); } }} className={`box-${state}${selected ? ' is-selected' : ''}`}>
           {/* Polygons */}
           {showPolygons && obj.polygons?.map((part, index) => <polygon key={index} points={part.map((point) => point.join(',')).join(' ')} fill="none" stroke={objColor} strokeWidth={selected ? 2.5 : 1.5} vectorEffect="non-scaling-stroke" />)}
           {/* Boxes: solid for supplied, dashed for derived */}
           {showBoxes && b && <>
-            <rect x={b.left} y={b.top} width={b.width} height={b.height} stroke={objColor} strokeDasharray={isDerived ? '6 4' : 'none'} vectorEffect="non-scaling-stroke" />
+            <rect x={b.left} y={b.top} width={b.width} height={b.height} stroke={objColor} style={{ stroke: objColor }} strokeDasharray={isDerived ? '6 4' : 'none'} vectorEffect="non-scaling-stroke" />
           </>}
           {/* Visual indicator for objects without visible geometry */}
           {!b && !obj.polygons?.length && <circle cx={width / 2} cy={height / 2} r={8} fill={objColor} fillOpacity={0.3} stroke={objColor} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}

@@ -280,7 +280,46 @@ describe('ReviewCanvas', () => {
     const zoomToBtn = screen.getByRole('button', { name: 'Zoom to selected object' });
     fireEvent.click(zoomToBtn);
 
-    expect(useCanvasStore.getState().zoom).toBeGreaterThan(1);
+    const { zoom, pan } = useCanvasStore.getState();
+    expect(zoom).toBeGreaterThan(1);
+    // The stage scales around its centre, so the object's centre (40,40)
+    // must move by its offset from the image centre (100,100) times zoom.
+    expect(pan.x).toBeCloseTo(60 * zoom);
+    expect(pan.y).toBeCloseTo(60 * zoom);
+  });
+
+  it('selects an object from the keyboard without needing a pointer position', () => {
+    const onSelect = vi.fn();
+    useCanvasStore.setState({ selectedInstanceId: null });
+
+    render(
+      <ReviewCanvas
+        imageSize={[200, 200]}
+        objects={sampleObjects}
+        findings={[]}
+        onSelectObject={onSelect}
+      />,
+    );
+
+    const object2 = screen.getByRole('button', { name: /^Object 2, pedestrian/ });
+    fireEvent.keyDown(object2, { key: 'Enter' });
+
+    expect(onSelect).toHaveBeenCalledWith(2);
+    expect(useCanvasStore.getState().selectedInstanceId).toBe(2);
+  });
+
+  it('colours box outlines by object, not by finding outcome', () => {
+    const { container } = render(
+      <ReviewCanvas
+        imageSize={[200, 200]}
+        objects={sampleObjects}
+        findings={[]}
+      />,
+    );
+
+    const boxes = container.querySelectorAll<SVGRectElement>('g[role="button"] rect');
+    expect(boxes[0]?.style.stroke).toBe(colorFor(1));
+    expect(boxes[1]?.style.stroke).toBe(colorFor(2));
   });
 });
 

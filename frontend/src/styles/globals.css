@@ -196,7 +196,7 @@
   .canvas-overlay rect { fill:transparent; stroke-width:2; vector-effect:non-scaling-stroke; }
   .canvas-overlay text { font:11px var(--font-mono); paint-order:stroke; stroke:var(--color-base); stroke-width:3px; fill:var(--color-text); }
   .canvas-overlay .box-pass rect { stroke:var(--color-pass); }.canvas-overlay .box-fail rect { stroke:var(--color-fail); }.canvas-overlay .box-unsure rect { stroke:var(--color-unsure); }.canvas-overlay .box-unavailable rect { stroke:var(--color-unavailable); }
-  .canvas-overlay .is-selected rect { stroke-width:3; }.canvas-overlay g:focus-visible rect { stroke:var(--color-accent); }
+  .canvas-overlay .is-selected rect { stroke-width:3; }.canvas-overlay g:focus-visible rect { stroke:var(--color-accent) !important; }
   .canvas-empty { position:absolute; inset:0; display:grid; place-items:center; color:var(--color-text-muted); font:12px var(--font-mono); }
   .canvas-readout { position:absolute; bottom:7px; left:8px; right:8px; display:flex; justify-content:space-between; gap:12px; padding:5px 7px; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text-muted); font-size:10px; pointer-events:none; }
   .canvas-readout-correction { color:var(--color-unsure); font-weight:bold; }
