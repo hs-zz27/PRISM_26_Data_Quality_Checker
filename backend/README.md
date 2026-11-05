@@ -1025,6 +1025,44 @@ See the rulebook HTTP guide. Audit jobs are documented above.
 
 ## Database tests
 
+### Applicability consistency verification (4 November)
+
+New guideline extractions use `derived-v2` geometry applicability. A prohibition
+such as “do not extend boxes or polygons” retains both geometry types. Existing
+drafts and confirmed rulebooks are not rewritten. For an affected draft, extract
+again and review the new draft, or explicitly edit the rule's applicability using
+the existing rulebook review flow. For a confirmed book, reopen a new draft version
+before editing; earlier rulebook versions and audits remain intact. Unsupported
+numeric requirements remain visible and unsupported.
+
+`FEEDBACK_PROMPT_VERSION=annotation-guideline-v7` opts **new audits** into the
+focused consistency checks. This reuses v6's four views and one call per eligible
+target; it adds no inference stage. The repository default remains v5. Rechecks
+inherit their parent's execution pin, so changing configuration does not upgrade
+an existing v6 audit. Create a new audit to evaluate v7 against the same inputs.
+
+In v7, absent/unclear prerequisites require `compliance=unclear`. Conflicting
+fields become `unsure`, with the raw condition, compliance and explanation kept
+for inspection. Even a consistent model-only exclusion cannot justify an overall
+pass when other targets pass: the finding is `unsure` until human review. Genuine
+excluded objects are still displayed as not applicable, not annotation failures;
+if every target is excluded the result is unavailable. Deterministic geometry
+ineligibility remains separate. This deliberately increases review workload;
+it does not prove the model's object identification is correct.
+
+Ambiguous geometry applicability also needs review. If a rule explicitly names
+multiple supplied geometry types, a response assessing one cannot establish a
+pass for all of them. Such results are `unsure` with `geometry_coverage_incomplete`;
+split the rule by geometry or review the uncovered geometry. A verified failure
+on one applicable geometry remains a finding.
+
+The only contract additions are the v7 execution option and optional
+`TargetResult.model_compliance`. Older records omit the latter unchanged.
+Reviewer acceptance, annotation revisions, export selection and feedback policy
+activation are unchanged. Model confidence does not accept an annotation.
+
+### Running database tests
+
 The normal test command runs unit tests and skips PostgreSQL integration tests
 when `PRISM_TEST_DATABASE_URL` is unset:
 
