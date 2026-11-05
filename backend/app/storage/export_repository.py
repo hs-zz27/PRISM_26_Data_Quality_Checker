@@ -9,7 +9,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 import json
+import logging
 import re
+from typing import Literal
 from uuid import uuid4
 
 from psycopg.types.json import Jsonb
@@ -24,6 +26,8 @@ from ..models.export import (
     CapturedAvailability, Export, ExportClaim, ExportManifest, ExportManifestEntry,
     ExportPage, ExportPolicy, ExportRequest, ExportStarted, FrozenExport, FrozenSample,
     PublishedArtifacts, Record, Revision, exclusion,
+    REPORT_COMMENT_CHARS, REPORT_MAX_ISSUES, REPORT_REASON_CHARS,
+    ReportCorrection, ReportIssue, SampleReport,
 )
 from ..models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
 from ..models.review import SampleReviewDecision
@@ -36,6 +40,9 @@ from .workflow_repository import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 class _ReviewPin(Record):
     audit_id: NonBlankText
     sample_id: NonBlankText
@@ -43,7 +50,94 @@ class _ReviewPin(Record):
     revision: int = Field(ge=1)
     decision: SampleReviewDecision = Field(strict=False)
     reviewer_id: NonBlankText
+    comment: str
     updated_at: AwareDatetime
+
+
+class _FindingRow(Record):
+    """Narrow, strictly typed projection; reasons are bounded in SQL before transfer."""
+    audit_id: NonBlankText
+    sample_id: NonBlankText
+    sample_revision: Revision
+    rule_id: NonBlankText
+    object_id: int | None
+    outcome: Literal["pass", "fail", "unsure", "unavailable"]
+    resolution: Literal["pending", "accepted", "rejected", "unsure"]
+    reason: str | None
+    reason_cut: bool | None
+
+
+class _ProvenancePin(Record):
+    parent_revision: Revision
+    reviewer_id: NonBlankText
+    reason: str
+
+
+def _clip(text, limit, *, cut=False):
+    """Single-line, bounded spreadsheet text; any shortening is marked with an ellipsis."""
+    if text is None:
+        return None
+    flat = " ".join(text.split())
+    if len(flat) > limit:
+        return flat[:limit - 1] + "…"
+    if cut:  # The source was already shortened before transfer.
+        return (flat[:limit - 1] if len(flat) >= limit else flat) + "…"
+    return flat
+
+
+_OUTCOME_ORDER = {"fail": 0, "unsure": 1, "unavailable": 2}
+
+_REPORT_FINDINGS = """
+    SELECT f.audit_id, f.sample_id, f.sample_revision, f.rule_id, f.object_id, f.outcome,
+           COALESCE(latest.resolution, 'pending') AS resolution,
+           left(f.document->>'reason', %s) AS reason,
+           char_length(f.document->>'reason') > %s AS reason_cut
+    FROM findings f
+    LEFT JOIN LATERAL (
+        SELECT resolution FROM finding_reviews WHERE finding_id=f.finding_id
+        ORDER BY revision DESC LIMIT 1
+    ) latest ON TRUE
+    WHERE f.audit_id = ANY(%s)
+    ORDER BY f.audit_id, f.sample_id, f.sample_revision, f.rule_id,
+             f.object_id NULLS FIRST, f.finding_id
+"""
+
+
+def _reports(connection, rows, reviews, provenances):
+    """Per-sample reports from the selection snapshot, keyed by the exact result pin."""
+    keys = [(row["audit_id"], row["sample_id"], row["sample_revision"]) for row in rows]
+    if not keys:
+        return []
+    grouped = {key: [] for key in keys}
+    fetched = REPORT_REASON_CHARS * 2  # whitespace may collapse; the flag marks real cuts
+    for raw in connection.execute(
+            _REPORT_FINDINGS, (fetched, fetched, sorted({key[0] for key in keys}))).fetchall():
+        finding = _decode(_FindingRow, dict(raw))
+        bucket = grouped.get((finding.audit_id, finding.sample_id, finding.sample_revision))
+        if bucket is not None:  # Other family attempts are not this export's results.
+            bucket.append(finding)
+    reports = []
+    for key, review, raw_provenance in zip(keys, reviews, provenances):
+        provenance = None if raw_provenance is None else _decode(_ProvenancePin, raw_provenance)
+        findings = grouped[key]
+        counts = {outcome: sum(f.outcome == outcome for f in findings)
+                  for outcome in ("pass", "fail", "unsure", "unavailable")}
+        failing = sorted((f for f in findings if f.outcome != "pass"),
+                         key=lambda f: _OUTCOME_ORDER[f.outcome])  # stable: keeps SQL order within outcome
+        issues = [ReportIssue(rule_id=f.rule_id, object_id=f.object_id, outcome=f.outcome,
+                              resolution=f.resolution,
+                              reason=_clip(f.reason, REPORT_REASON_CHARS, cut=bool(f.reason_cut)))
+                  for f in failing[:REPORT_MAX_ISSUES]]
+        correction = None if provenance is None else ReportCorrection(
+            parent_revision=provenance.parent_revision, reviewer_id=provenance.reviewer_id,
+            reason=_clip(provenance.reason, REPORT_REASON_CHARS))
+        reports.append(SampleReport(
+            pass_count=counts["pass"], fail_count=counts["fail"], unsure_count=counts["unsure"],
+            unavailable_count=counts["unavailable"], issues=issues,
+            issues_omitted=len(failing) - len(issues),
+            review_comment="" if review is None else _clip(review.comment, REPORT_COMMENT_CHARS),
+            correction=correction))
+    return reports
 
 
 def _decode(model, value):
@@ -118,14 +212,20 @@ class ExportRepository:
             selection_filter = "TRUE" if request.include_rechecks else "s.audit_id=%s"
             rows = connection.execute(
                 prefix + f"""SELECT s.*, {ordinal_column} AS selection_ordinal,
-                   to_jsonb(m) AS registered_manifest,to_jsonb(r) AS current_review
+                   to_jsonb(m) AS registered_manifest,to_jsonb(r) AS current_review,
+                   CASE WHEN p.sample_revision IS NULL THEN NULL ELSE jsonb_build_object(
+                       'parent_revision',p.parent_revision,'reviewer_id',p.reviewer_id,
+                       'reason',p.reason) END AS correction_provenance
                    FROM {source}
                    LEFT JOIN sample_asset_manifests m
                      ON (m.dataset_id,m.sample_id,m.sample_revision)=
                         (s.manifest_dataset_id,s.sample_id,s.sample_revision)
+                   LEFT JOIN annotation_revision_provenance p
+                     ON (p.dataset_id,p.sample_id,p.sample_revision)=
+                        (s.manifest_dataset_id,s.sample_id,s.sample_revision)
                    LEFT JOIN LATERAL (
                        SELECT r.audit_id,r.sample_id,r.sample_revision,r.revision,
-                              r.decision,r.reviewer_id,r.updated_at FROM sample_reviews r
+                              r.decision,r.reviewer_id,r.comment,r.updated_at FROM sample_reviews r
                        WHERE (r.audit_id,r.sample_id,r.sample_revision)=
                              (s.audit_id,s.sample_id,s.sample_revision)
                        ORDER BY r.revision DESC LIMIT 1
@@ -135,7 +235,7 @@ class ExportRepository:
             ).fetchall()
             if len(rows) != audit.sample_count or len(rows) > policy.max_samples:
                 raise ExportDependencyError("The audit pin ledger is inconsistent.")
-            samples = []
+            samples, pinned_reviews, provenances = [], [], []
             for ordinal, row in enumerate(rows):
                 if (row["selection_ordinal"] != ordinal or row["manifest_dataset_id"] != audit.dataset_id
                         or row["registered_manifest"] is None):
@@ -166,6 +266,16 @@ class ExportRepository:
                     availability=availability, reason=reason,
                 )
                 samples.append(FrozenSample(entry=entry, manifest=manifest))
+                pinned_reviews.append(review)
+                provenances.append(row["correction_provenance"])
+            # Same REPEATABLE READ snapshot as the decisions above. Reports are
+            # optional detail: unreadable report facts never block the export.
+            # Database failures still propagate through _connection unchanged.
+            try:
+                reports = _reports(connection, rows, pinned_reviews, provenances)
+            except (ValidationError, ExportDependencyError):
+                logger.warning("Export %s: review report details could not be recorded.", export_id)
+                reports = [None] * len(samples)
             document = ExportManifest(
                 format=request.format,
                 export_id=export_id, audit_id=audit.audit_id, dataset_id=audit.dataset_id,
@@ -175,7 +285,11 @@ class ExportRepository:
                 include_rechecks=request.include_rechecks,
                 entries=[s.entry for s in samples],
             )
-            frozen = FrozenExport(manifest=document, samples=samples, policy=policy)
+            reported = [s.model_copy(update={"report": report}) for s, report in zip(samples, reports)]
+            frozen = FrozenExport(manifest=document, samples=reported, policy=policy)
+            if len(frozen.model_dump_json().encode("utf-8")) > policy.max_metadata_bytes:
+                # Reports are optional detail: never fail an export that fits without them.
+                frozen = FrozenExport(manifest=document, samples=samples, policy=policy)
             if len(frozen.model_dump_json().encode("utf-8")) > policy.max_metadata_bytes:
                 raise ExportDependencyError("Frozen export metadata exceeds its resource limit.")
         return frozen

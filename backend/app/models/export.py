@@ -211,9 +211,57 @@ class ExportPolicy(Record):
     poll_seconds: int = Field(default=1, ge=1, le=60)
 
 
+REPORT_MAX_ISSUES = 5
+REPORT_REASON_CHARS = 200
+REPORT_COMMENT_CHARS = 500
+ReportText = Annotated[str, StringConstraints(max_length=REPORT_COMMENT_CHARS)]
+
+
+class ReportIssue(Record):
+    """One non-passing machine finding, as frozen with its latest human resolution."""
+    rule_id: Identifier
+    object_id: int | None = Field(default=None, ge=-2_147_483_648, le=2_147_483_647)
+    outcome: Literal["fail", "unsure", "unavailable"]
+    resolution: Literal["pending", "accepted", "rejected", "unsure"]
+    reason: Annotated[str, StringConstraints(max_length=REPORT_REASON_CHARS)] | None = None
+
+
+class ReportCorrection(Record):
+    """Human annotation-correction lineage of the exported revision."""
+    parent_revision: Revision
+    reviewer_id: Identifier
+    reason: Annotated[str, StringConstraints(max_length=REPORT_REASON_CHARS)]
+
+
+class SampleReport(Record):
+    """Bounded spreadsheet facts frozen in the SAME snapshot as the review decision.
+
+    Private: never part of the public manifest. Counts cover every finding; issues
+    list at most REPORT_MAX_ISSUES non-passing findings and the omitted remainder.
+    """
+    pass_count: Count
+    fail_count: Count
+    unsure_count: Count
+    unavailable_count: Count
+    issues: list[ReportIssue] = Field(max_length=REPORT_MAX_ISSUES)
+    issues_omitted: Count
+    review_comment: ReportText
+    correction: ReportCorrection | None = None
+
+    @model_validator(mode="after")
+    def bounded(self):
+        non_passing = self.fail_count + self.unsure_count + self.unavailable_count
+        if len(self.issues) + self.issues_omitted != non_passing:
+            raise ValueError("Listed and omitted issues must account for every non-passing finding.")
+        return self
+
+
 class FrozenSample(Record):
     entry: ExportManifestEntry
     manifest: SampleAssetManifest
+    # None for exports frozen before reports existed or when reports exceed the
+    # metadata budget; the spreadsheet then says details were not recorded.
+    report: SampleReport | None = None
 
 
 class FrozenExport(Record):
