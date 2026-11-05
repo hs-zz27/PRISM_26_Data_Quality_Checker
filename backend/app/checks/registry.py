@@ -92,6 +92,13 @@ class MaximumComponentCountParameters(_RuleParameters):
     max_component_count: NonnegativeInteger = Field(ge=1)
 
 
+class PersonCoverageParameters(_RuleParameters):
+    """Tolerance for comparing an annotation with the detected person: max(px, fraction x person height)."""
+
+    min_tolerance_px: NonnegativeInteger = Field(default=8, ge=0)
+    tolerance_fraction: FiniteNumber = Field(default=0.04, ge=0, le=1)
+
+
 @dataclass(frozen=True)
 class CheckDefinition:
     """Execution metadata for one supported measurement check.
@@ -128,6 +135,14 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
         "pedestrian_box_enclosure", "sample", EmptyParameters,
         "Model-assisted judgment that each annotation box encloses a visible pedestrian, using one marked context view per box. Opt-in; a box entirely on background is a violation. Not a tightness, size or completeness check.",
         model_assisted=True,
+    ),
+    "person_coverage": CheckDefinition(
+        "person_coverage", "object", PersonCoverageParameters,
+        "Each person annotation (box, mask or polygon) must cover the whole person, including head and feet, "
+        "without large extra background. Measured against a person outline detected in the image, with a pixel "
+        "tolerance; reports where the annotation differs.",
+        evidence_terms=("whole", "entire", "complete", "head", "feet", "foot", "cover", "contain", "include",
+                        "background", "outline"),
     ),
     "allowed_labels": CheckDefinition(
         "allowed_labels", "object", AllowedLabelsParameters,
