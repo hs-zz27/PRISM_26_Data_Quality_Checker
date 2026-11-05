@@ -38,6 +38,7 @@ import { formatTimestamp } from '../../lib/format';
 import { RECHECK_IN_PROGRESS_MESSAGE, useImageRecheckStatus } from '../../hooks/useImageRecheckStatus';
 import { useDatasetName } from '../../hooks/useDatasetName';
 import {
+  colorFor,
   groupFindings,
   isReasonRequired,
   nextUnreviewedIndex,
@@ -46,6 +47,7 @@ import {
   resolveReviewKey,
   reviewProgress,
   rulesWithoutFindings,
+  textColorFor,
 } from './reviewWorkspace';
 import type { components } from '../../api/generated/openapi';
 import type { operations } from '../../api/generated/openapi';
@@ -66,7 +68,7 @@ export const AuditReviewWorkspace: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { reviewerId, openPrompt } = useReviewerStore();
-  const { toggleMask, toggleBoxes, resetView, zoom, setZoom, setSelectedInstanceId } = useCanvasStore();
+  const { toggleMask, toggleBoxes, togglePolygons, toggleLabels, resetView, zoom, setZoom, selectedInstanceId, setSelectedInstanceId } = useCanvasStore();
   const commentRef = useRef<HTMLTextAreaElement>(null);
   const datasetName = useDatasetName();
   const [searchParams] = useSearchParams();
@@ -242,13 +244,52 @@ export const AuditReviewWorkspace: React.FC = () => {
       object_id: obj.object_id,
       label: obj.label,
       bbox: obj.bbox,
-      ...('coordinate_system' in obj ? { coordinate_system: obj.coordinate_system, polygons: obj.polygons, bbox_origin: obj.bbox_origin } : {}),
+      ...('coordinate_system' in obj ? {
+        coordinate_system: obj.coordinate_system,
+        polygons: obj.polygons,
+        bbox_origin: obj.bbox_origin,
+        source_key: obj.source_key,
+        source_id: obj.source_id,
+      } : {}),
     }));
   }, [rawSample]);
 
   const proposal = useMemo(() => correctionPreview(sampleDetail?.measurements?.correction_proposal), [sampleDetail]);
-  const proposalMatches = proposal?.sample_id === activeSampleId && proposal?.dataset_id === sampleDetail?.dataset_id
-    && proposal?.sample_revision === sampleDetail?.summary.sample_revision;
+  const proposalMatches = Boolean(
+    proposal &&
+    proposal.sample_id === activeSampleId &&
+    proposal.dataset_id === sampleDetail?.dataset_id &&
+    proposal.sample_revision === sampleDetail?.summary.sample_revision &&
+    !historicalAttemptId,
+  );
+
+  // Proposal preview must never bleed across image, revision, or attempt changes
+  useEffect(() => {
+    setPreviewCorrection(false);
+  }, [activeSampleId, sampleDetail?.summary.sample_revision, historicalAttemptId]);
+
+  const hasMaskAsset = Boolean(
+    sampleDetail?.assets?.mask?.url ||
+    sampleDetail?.assets?.mask_preview?.url ||
+    rawSample?.assets?.mask?.url ||
+    rawSample?.assets?.mask_preview?.url,
+  );
+  const maskFailure = sampleDetail?.failures?.find((f) => f.reason === 'raw_mask_missing' || f.reason === 'raw_mask_unreadable');
+  const annotationFormat = (rawSample?.annotation_format
+    ?? (sampleDetail as unknown as { annotation_format?: string })?.annotation_format
+    ?? (sampleDetail?.measurements?.correction_proposal as unknown as { annotation_format?: string })?.annotation_format) as 'penn_fudan' | 'coco' | 'labelme' | undefined;
+  const isPennFudan = annotationFormat === 'penn_fudan';
+  const isMaskMissing = !hasMaskAsset && (isPennFudan || Boolean(maskFailure));
+  const undisplayableObjects = useMemo(() => {
+    return canvasObjects
+      .filter((obj) => obj.bbox == null && (!obj.polygons || obj.polygons.length === 0))
+      .map((obj) => ({
+        objectId: obj.object_id,
+        displayNumber: canvasObjects.findIndex((o) => o.object_id === obj.object_id) + 1,
+        label: obj.label,
+      }));
+  }, [canvasObjects]);
+  const diagnosticsCount = (isMaskMissing ? 1 : 0) + undisplayableObjects.length + (rawSample?.issues?.length ?? 0);
   const applyProposal = useMutation({
     mutationFn: async () => {
       if (!reviewerId.trim()) { openPrompt(); throw new Error('Set your reviewer name first.'); }
@@ -493,6 +534,8 @@ export const AuditReviewWorkspace: React.FC = () => {
         case 'mask': e.preventDefault(); toggleMask(); break;
         case 'boxes': e.preventDefault(); toggleBoxes(); break;
         case 'fit': e.preventDefault(); resetView(); break;
+        case 'polygons': e.preventDefault(); togglePolygons(); break;
+        case 'labels': e.preventDefault(); toggleLabels(); break;
         case 'help': e.preventDefault(); setIsKeyboardHelpOpen(true); break;
         default:
           if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom(zoom * 1.25); }
@@ -501,7 +544,7 @@ export const AuditReviewWorkspace: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [decideFinding, decideSample, findings, selectedFindingId, navigateQueue, toggleMask, toggleBoxes, resetView, setZoom, zoom]);
+  }, [decideFinding, decideSample, findings, selectedFindingId, navigateQueue, toggleMask, toggleBoxes, togglePolygons, toggleLabels, resetView, setZoom, zoom]);
 
   const renderFinding = (f: Finding) => (
     <FindingCard
@@ -671,12 +714,13 @@ export const AuditReviewWorkspace: React.FC = () => {
           <ReviewCanvas
             sampleId={activeSampleId ?? undefined}
             imageSize={rawSample?.image_size}
-            annotationFormat={rawSample?.annotation_format}
+            annotationFormat={annotationFormat}
             assets={sampleDetail?.assets ?? rawSample?.assets}
             objects={previewCorrection && proposalMatches && proposal?.objects ? proposal.objects : canvasObjects}
             hiddenObjectIds={hiddenObjectIds}
             findings={findings}
             onSelectObject={selectObject}
+            isCorrection={previewCorrection && proposalMatches}
           />
         </div>
 
@@ -773,16 +817,123 @@ export const AuditReviewWorkspace: React.FC = () => {
               <p className="text-xs">{reviewFeedbackComment(sampleDetail?.measurements?.reviewer_feedback)}</p>
               <p className="text-2xs text-text-muted mt-2">The confirmed guidelines remain unchanged. Structural checks use the annotation data; available visual checks also consider this feedback.</p>
             </section>}
-            <details className="object-visibility">
+            <details className="object-visibility" open>
               <summary>Objects on image · {canvasObjects.length}</summary>
-              <div>{canvasObjects.map((object) => {
+              <div className="object-list-grid">{canvasObjects.map((object, idx) => {
                 const hidden = hiddenObjectIds.includes(object.object_id);
+                const displayNum = idx + 1;
+                const objColor = colorFor(displayNum);
+                const txtColor = textColorFor(displayNum);
+                const isDerived = object.bbox_origin === 'derived_from_polygon';
+                const hasBox = object.bbox != null;
+                const hasPolygons = !!(object.polygons && object.polygons.length > 0);
+                const noGeom = !hasBox && !hasPolygons;
+                const sourceIdText = object.source_id != null ? String(object.source_id) : null;
+                const sourceKeyText = object.source_key ?? null;
+                const isSelected = selectedInstanceId === object.object_id;
                 return (
-                  <button type="button" key={object.object_id} onClick={() => setHiddenObjectIds((old) => hidden ? old.filter((id) => id !== object.object_id) : [...old, object.object_id])} onDoubleClick={() => selectObject(object.object_id)} title="Toggle box visibility; double-click to select its finding">
-                    <span>{hidden ? <EyeOff size={13} /> : <Eye size={13} />}</span><span>#{object.object_id} {object.label}</span>
+                  <button
+                    type="button"
+                    key={object.object_id}
+                    onClick={() => {
+                      const nextId = isSelected ? null : object.object_id;
+                      setSelectedInstanceId(nextId);
+                      selectObject(nextId);
+                    }}
+                    title={`Click to select object on canvas. Display #${displayNum}, object_id=${object.object_id}${sourceIdText ? `, source=${sourceIdText}` : ''}${isDerived ? ' (box derived from polygon)' : ''}${noGeom ? ' (no displayable geometry)' : ''}`}
+                    className={`${isSelected ? 'is-selected ' : ''}${hidden ? 'is-hidden' : ''}`.trim()}
+                  >
+                    <span className="object-list-swatch" style={{ background: objColor, color: txtColor }}>#{displayNum}</span>
+                    <span className="object-list-details">
+                      <span className="object-list-label">{object.label}{isDerived && <abbr title="Box derived from polygon vertices, not in source file">*</abbr>}{noGeom && <abbr title="No displayable geometry" className="object-list-warn">⚠</abbr>}</span>
+                      <span className="object-list-meta">
+                        {sourceIdText ? `id ${sourceIdText}` : `obj ${object.object_id}`}
+                        {sourceKeyText && <> · {sourceKeyText}</>}
+                      </span>
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="object-list-eye"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHiddenObjectIds((old) => hidden ? old.filter((id) => id !== object.object_id) : [...old, object.object_id]);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setHiddenObjectIds((old) => hidden ? old.filter((id) => id !== object.object_id) : [...old, object.object_id]);
+                        }
+                      }}
+                      title={hidden ? 'Show on canvas' : 'Hide from canvas'}
+                    >
+                      {hidden ? <EyeOff size={11} /> : <Eye size={11} />}
+                    </span>
                   </button>
                 );
               })}</div>
+            </details>
+
+            {/* Annotation Diagnostics Inspector Panel */}
+            <details className="annotation-diagnostics" open>
+              <summary>Annotation diagnostics · {diagnosticsCount} note{diagnosticsCount === 1 ? '' : 's'}</summary>
+              <div className="diagnostics-content">
+                <div className="diagnostic-row">
+                  <span className="diagnostic-label">Mask status:</span>
+                  <span className="diagnostic-value">
+                    {hasMaskAsset ? (
+                      <span className="text-status-pass">✓ Mask asset loaded</span>
+                    ) : isMaskMissing ? (
+                      <span className="text-status-fail font-semibold">⚠ Referenced mask file is missing</span>
+                    ) : (
+                      <span className="text-text-muted">Optional mask never supplied</span>
+                    )}
+                  </span>
+                </div>
+
+                {undisplayableObjects.length > 0 ? (
+                  <div className="diagnostic-row is-warning">
+                    <span className="diagnostic-label">Unsupported geometry:</span>
+                    <div className="diagnostic-list">
+                      {undisplayableObjects.map((item) => (
+                        <div key={item.objectId} className="diagnostic-item">
+                          <span className="object-list-swatch" style={{ background: colorFor(item.displayNumber), color: textColorFor(item.displayNumber) }}>#{item.displayNumber}</span>
+                          <span>{item.label}: No bounding box or polygon coordinates supplied in annotation data.</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="diagnostic-row">
+                    <span className="diagnostic-label">Geometry:</span>
+                    <span className="diagnostic-value text-status-pass">✓ All {canvasObjects.length} objects have displayable geometry</span>
+                  </div>
+                )}
+
+                <div className="diagnostic-row">
+                  <span className="diagnostic-label">Coordinate system:</span>
+                  <span className="diagnostic-value">
+                    {isPennFudan
+                      ? 'Penn-Fudan: 1-based inclusive pixel bounds'
+                      : `${rawSample?.annotation_format?.toUpperCase() ?? 'JSON'}: 0-based continuous coordinates`}
+                  </span>
+                </div>
+
+                {rawSample?.issues && rawSample.issues.length > 0 && (
+                  <div className="diagnostic-row is-warning">
+                    <span className="diagnostic-label">Catalogue integrity issues:</span>
+                    <div className="diagnostic-list">
+                      {rawSample.issues.map((issue, idx) => (
+                        <div key={idx} className="diagnostic-item">
+                          <span className="font-mono text-2xs">{issue.field ?? 'general'}:</span>
+                          <span>{issue.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </details>
 
             <p className="checklist-hint">The tool proposes; you decide. Agree with each result or override it — overrides need a reason.</p>
@@ -876,7 +1027,8 @@ export const AuditReviewWorkspace: React.FC = () => {
   );
 };
 
-function humanStage(stage: string): string {
+function humanStage(stage?: string): string {
+  if (!stage) return '';
   return stage.charAt(0).toUpperCase() + stage.slice(1).replace(/_/g, ' ');
 }
 

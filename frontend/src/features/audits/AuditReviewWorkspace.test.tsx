@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuditReviewWorkspace } from './AuditReviewWorkspace';
 import { useReviewerStore } from '../../store/reviewerStore';
+import { useCanvasStore } from '../../store/canvasStore';
 import { makeAuditName, makeFinding, makeRule, makeSampleAudit, makeSummary } from '../../test/fixtures';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -239,4 +240,112 @@ describe('rechecks inside the original workspace', () => {
     fireEvent.change(screen.getByLabelText('Attempt history'), { target: { value: '' } });
     await waitFor(() => expect(screen.getByRole('button', { name: /^Accept$/ })).toBeEnabled());
   });
+
+  it('distinguishes referenced mask file missing from optional mask never supplied in diagnostics', async () => {
+    const pennFudanDetail = {
+      ...sample,
+      annotation_format: 'penn_fudan' as const,
+      assets: { image: { url: '/image.png' }, mask: null, mask_preview: null },
+      failures: [{ failure_id: 'fail-1', stage: 'extraction', reason: 'raw_mask_missing', object_id: null, check_name: 'mask_exists', detail: 'Missing mask file' }],
+    };
+    const pennFudanRaw = {
+      sample_id: 'sample-1', dataset_id: 'dataset-1', revision: 1, image_size: [100, 80], integrity_status: 'valid',
+      objects: [
+        { object_id: 1, label: 'vehicle', bbox: [10, 10, 40, 40] },
+        { object_id: 2, label: 'ghost', bbox: null, polygons: [] },
+      ],
+      issues: ['mask_file_missing: PedMasks/sample-1.png'],
+    };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url, 'http://localhost').pathname;
+      if (path === '/api/v1/audits/audit-1/samples/sample-1') return json(pennFudanDetail);
+      if (path === '/api/v1/datasets/dataset-1/samples/sample-1') return json(pennFudanRaw);
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkspace();
+
+    expect(await screen.findByText(/Referenced mask file is missing/i)).toBeInTheDocument();
+    expect(screen.getByText(/ghost: No bounding box or polygon coordinates supplied/i)).toBeInTheDocument();
+    expect(screen.getAllByText('#2', { selector: '.object-list-swatch' }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/1-based inclusive/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('reports optional mask never supplied for datasets without masks', async () => {
+    const cocoDetail = {
+      ...sample,
+      annotation_format: 'coco' as const,
+      assets: { image: { url: '/image.png' }, mask: null, mask_preview: null },
+      failures: [],
+    };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url, 'http://localhost').pathname;
+      if (path === '/api/v1/audits/audit-1/samples/sample-1') return json(cocoDetail);
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkspace();
+
+    expect(await screen.findByText(/Optional mask never supplied/i)).toBeInTheDocument();
+  });
+
+  it('isolates proposal state and resets preview when viewing historical attempts', async () => {
+    const objects = [{ object_id: 1, label: 'vehicle', bbox: [10, 10, 40, 50] }];
+    const child = childDetail();
+    const draft = {
+      ...child,
+      measurements: {
+        ...child.measurements,
+        correction_proposal: {
+          protocol: 'review-correction-v2', annotation_format: 'penn_fudan', dataset_id: 'dataset-1', sample_id: 'sample-1',
+          sample_revision: 1, status: 'proposed', reason: 'Extend edge', feedback: { comment: 'Check feet' }, objects,
+        },
+      },
+    };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url, 'http://localhost').pathname;
+      if (path === '/api/v1/audits/audit-1/samples/sample-1') return json(draft);
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkspace();
+
+    const previewBtn = await screen.findByRole('button', { name: 'Preview correction' });
+    fireEvent.click(previewBtn);
+    expect(screen.getByText(/Proposed correction \(preview, not saved\)/i)).toBeInTheDocument();
+
+    // Switch to older attempt
+    fireEvent.change(screen.getByLabelText('Attempt history'), { target: { value: 'audit-1' } });
+
+    // Preview state should reset and proposal should not be shown on the older attempt
+    await waitFor(() => {
+      expect(screen.queryByText(/Proposed correction \(preview, not saved\)/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('suppresses review and canvas keyboard shortcuts while typing in the feedback textarea', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => routeFetch(url, init));
+    vi.stubGlobal('fetch', fetchMock);
+    useCanvasStore.setState({ showBoxes: true, showPolygons: true, showLabels: true, showMask: true });
+    renderWorkspace();
+    await screen.findByRole('article', { name: 'Rule LBL-1: Fail' });
+
+    const feedbackInput = screen.getByLabelText('Feedback for this image');
+    feedbackInput.focus();
+
+    // Trigger shortcut keys while focused on feedback box
+    fireEvent.keyDown(feedbackInput, { key: 'b' });
+    fireEvent.keyDown(feedbackInput, { key: 'p' });
+    fireEvent.keyDown(feedbackInput, { key: 'l' });
+    fireEvent.keyDown(feedbackInput, { key: 'm' });
+    fireEvent.keyDown(feedbackInput, { key: 'a' });
+    fireEvent.keyDown(feedbackInput, { key: 'r' });
+
+    // Canvas visibility toggles must remain unchanged
+    expect(useCanvasStore.getState().showBoxes).toBe(true);
+    expect(useCanvasStore.getState().showPolygons).toBe(true);
+    expect(useCanvasStore.getState().showLabels).toBe(true);
+    expect(useCanvasStore.getState().showMask).toBe(true);
+  });
 });
+

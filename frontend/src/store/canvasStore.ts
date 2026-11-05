@@ -16,12 +16,18 @@ import { create } from 'zustand';
 interface CanvasState {
   showMask: boolean;
   showBoxes: boolean;
+  showPolygons: boolean;
+  showLabels: boolean;
+  showLegend: boolean;
   maskOpacity: number;
   selectedInstanceId: number | null;
   zoom: number;
   pan: { x: number; y: number };
   toggleMask: () => void;
   toggleBoxes: () => void;
+  togglePolygons: () => void;
+  toggleLabels: () => void;
+  toggleLegend: () => void;
   setMaskOpacity: (opacity: number) => void;
   setSelectedInstanceId: (id: number | null) => void;
   setZoom: (zoom: number) => void;
@@ -32,12 +38,18 @@ interface CanvasState {
 export const useCanvasStore = create<CanvasState>((set) => ({
   showMask: true,
   showBoxes: true,
+  showPolygons: true,
+  showLabels: true,
+  showLegend: false,
   maskOpacity: 0.45,
   selectedInstanceId: null,
   zoom: 1.0,
   pan: { x: 0, y: 0 },
   toggleMask: () => set((s) => ({ showMask: !s.showMask })),
   toggleBoxes: () => set((s) => ({ showBoxes: !s.showBoxes })),
+  togglePolygons: () => set((s) => ({ showPolygons: !s.showPolygons })),
+  toggleLabels: () => set((s) => ({ showLabels: !s.showLabels })),
+  toggleLegend: () => set((s) => ({ showLegend: !s.showLegend })),
   setMaskOpacity: (maskOpacity) => set({ maskOpacity }),
   setSelectedInstanceId: (selectedInstanceId) => set({ selectedInstanceId }),
   setZoom: (zoom) => set({ zoom: Math.max(0.2, Math.min(zoom, 10.0)) }),
