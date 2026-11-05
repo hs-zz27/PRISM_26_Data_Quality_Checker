@@ -101,6 +101,16 @@ def test_a_single_version_can_be_run_and_existing_output_is_never_overwritten(se
     assert run(setup, "--versions", "v2", out="other.json") == 2
 
 
+def test_api_display_name_does_not_change_the_rulebook_used_in_comparison(setup):
+    path = setup / 'rulebook.json'
+    original = compare.load_rulebook(path)
+    document = original.model_dump(mode='json')
+    document['name'] = {'rulebook_id': original.rulebook_id, 'number': 20,
+                        'label': 'Rules 020', 'title': 'Verification', 'title_revision': 0}
+    path.write_text(json.dumps(document))
+    assert compare.load_rulebook(path) == original
+
+
 def test_imported_comparison_images_survive_a_symlinked_temporary_root(setup):
     real = setup / 'real-work'
     real.mkdir()
@@ -165,14 +175,15 @@ def test_the_report_records_what_is_needed_to_reproduce_a_comparison(setup):
     assert report['rulebook'] == 'book@3' and report['rules_run'] == ['RULE-7']
 
 
-def test_v6_records_one_timed_call_per_target_and_no_call_for_an_eligibility_skip(setup):
-    run(setup, '--versions', 'v6')
-    rows = {r['rule_id']: r for r in json.loads((setup / 'report.json').read_text())['results']['v6']['altered']}
+@pytest.mark.parametrize('version', ['v6', 'v7'])
+def test_focused_protocol_records_one_timed_call_per_target_and_no_call_for_an_eligibility_skip(setup, version):
+    run(setup, '--versions', version)
+    rows = {r['rule_id']: r for r in json.loads((setup / 'report.json').read_text())['results'][version]['altered']}
     assert rows['RULE-2']['calls'] == [] and rows['RULE-2']['categories']['status'] == 'eligibility_skip'
     calls = rows['RULE-7']['calls']
     assert [c['object_key'] for c in calls] == ['/shapes/0', '/shapes/1']
     assert all(c['status'] == 'ok' and c['duration_ms'] >= 0 and c['prompt_eval_count'] == 1000 for c in calls)
-    summary = json.loads((setup / 'report.json').read_text())['summary']['v6']['altered']
+    summary = json.loads((setup / 'report.json').read_text())['summary'][version]['altered']
     coverage = {c['rule_id']: c for c in summary['coverage']}
     assert coverage['RULE-7']['targets'] == 2 and coverage['RULE-7']['explicit'] == 2 and coverage['RULE-7']['calls'] == 2
     assert coverage['RULE-2']['status'] == 'eligibility_skip' and coverage['RULE-2']['calls'] == 0

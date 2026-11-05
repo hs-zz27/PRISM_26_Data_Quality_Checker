@@ -52,14 +52,14 @@ from backend.app.datasets.json_zip import prepare_sample, unpack_archive       #
 from backend.app.inference.annotation_guideline import GuidelineClient         # noqa: E402
 from backend.app.models.dataset_import import ImportPolicy, ImportRequest      # noqa: E402
 from backend.app.models.feedback import ExecutionPin, RulePin                  # noqa: E402
-from backend.app.models.rule import ConfirmationState, Rulebook               # noqa: E402
+from backend.app.models.rule import ConfirmationState, Rulebook, RulebookRecord  # noqa: E402
 from comparison_report import (                                                # noqa: E402
     DEPRECATED_FIELDS, REPORT_FORMAT_VERSION, add_categories, evaluate_expectations, legacy_evaluation,
     legacy_expectations, summarize)
 
 VERSIONS = {"v3": "annotation-guideline-v3", "v4": "annotation-guideline-v4", "v5": "annotation-guideline-v5",
-            "v6": "annotation-guideline-v6"}
-PREPROCESSING = {"v6": "target-focus-overlay-v1"}          # every other version uses the shared overlay
+            "v6": "annotation-guideline-v6", "v7": "annotation-guideline-v7"}
+PREPROCESSING = {"v6": "target-focus-overlay-v1", "v7": "target-focus-overlay-v1"}          # every other version uses the shared overlay
 DEFAULT_PREPROCESSING = "original-and-annotation-overlay-v1"
 
 
@@ -95,7 +95,10 @@ def load_rulebook(path: Path) -> Rulebook:
     document = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(document, dict) and "items" in document:      # a rulebook list/version page
         document = document["items"][0]
-    return Rulebook.model_validate(document)
+    # API records now include display-name metadata. Validate that shape, then
+    # retain only the immutable rulebook content used by inference.
+    record = RulebookRecord.model_validate(document)
+    return Rulebook.model_validate(record.model_dump(exclude={'name'}))
 
 
 def pin_for(version: str, mock: bool) -> ExecutionPin:
@@ -123,7 +126,7 @@ def mock_transport(execution: ExecutionPin, shifted_key: str):
         document = json.loads(json.loads(request.content)["messages"][-1]["content"])
         body = {"case_id": document["case_id"], "rule_id": document["rule_id"], "evidence_references": ["image"]}
         scope = document.get("requirement_scope")
-        if execution.prompt_version == 'annotation-guideline-v6':
+        if execution.prompt_version in {'annotation-guideline-v6', 'annotation-guideline-v7'}:
             key = document["focus"]["object_key"]
             supplied = document["requirement_scope"]["eligible_targets"][0]["supplied_geometry"]
             body.update(object_key=key, condition="applies", compliance="no" if key == shifted_key else "yes",
@@ -211,7 +214,7 @@ def main(argv=None) -> int:
         return 2
     versions = [v.strip() for v in args.versions.split(",")]
     if any(v not in VERSIONS for v in versions):
-        print("--versions must be a comma-separated selection of v3, v4, v5 and v6", file=sys.stderr)
+        print("--versions must be a comma-separated selection of v3, v4, v5, v6 and v7", file=sys.stderr)
         return 2
     book = load_rulebook(args.rulebook)
     args.rulebook_id, args.rulebook_version = book.rulebook_id, book.version
