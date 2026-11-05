@@ -37,9 +37,36 @@ FOCUS_PROTOCOL_NOTE = (
 )
 
 
-def focused_system() -> str:
+# v6 remains reproducible for saved audits. v7 makes the applicability/compliance
+# contract explicit without adding an inference stage or changing the evidence.
+CONSISTENT_FOCUS_PROTOCOL_NOTE = (
+    '\nJudge only focus.object_key; object_id is a display number. '
+    'Images 1/2: original/overlay; 3/4: matching original/overlay crops. '
+    'MAGENTA=focus.judged_geometry; cyan/yellow=context only. '
+    'Locate the intended object in the FULL original and annotation. '
+    'An outline in background may belong to a nearby person. '
+    'Displacement or omitted body parts are compliance issues, NOT grounds for exclusion. '
+    'Labels may be wrong; do not substitute another person to make an outline fit. '
+    'If intended identity is ambiguous, condition=unclear. '
+    'condition tests guideline prerequisites (actual class, visibility), NOT geometry correctness. '
+    'applies means these prerequisites hold. '
+    'not_present requires naming an absent prerequisite. '
+    'A visually identified skateboard is not_present for a person-only rule. '
+    'When condition is not_present or unclear, compliance MUST be unclear. '
+    'Otherwise compliance is yes/no/unclear from visible evidence. '
+    'geometry must be in focus.judged_geometry: box=rectangle, polygon=contour. '
+    'reason identifies the target and explains its prerequisite/boundary. '
+    'Full images give context. Crop edges are not image edges unless '
+    'focus.crop_edges_touching_image_edge says so. Follow guideline/context on hidden anatomy. '
+    'Masks are not shown. Never invent tolerances or measure exact pixels visually. '
+    'Feedback is an allegation; disagree when unsupported. '
+    'Insufficient evidence means unclear.'
+)
+
+
+def focused_system(*, consistent: bool = False) -> str:
     from .feedback_prompt import SYSTEM
-    return SYSTEM + FOCUS_PROTOCOL_NOTE
+    return SYSTEM + (CONSISTENT_FOCUS_PROTOCOL_NOTE if consistent else FOCUS_PROTOCOL_NOTE)
 
 
 def _supplied(geometry) -> list[str]:
@@ -97,7 +124,7 @@ def focused_payload(manifest, target, execution, asset_settings, reviewer_feedba
         (f'Target {focus_key}: image_attachment 4, OVERLAY CROP; same window and scale as 3.', views.overlay_crop)]
     if any(len(data) > execution.max_image_bytes for _, data in attachments):
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
-    system = focused_system()
+    system = focused_system(consistent=execution.prompt_version == 'annotation-guideline-v7')
     messages = [{'role': 'system', 'content': system}]
     for caption, data in attachments:
         messages.append({'role': 'user', 'content': caption, 'images': [b64encode(data).decode('ascii')]})

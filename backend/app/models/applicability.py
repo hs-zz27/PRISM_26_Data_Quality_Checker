@@ -25,8 +25,8 @@ Basis = Annotated[str, StringConstraints(min_length=1, max_length=400, pattern=r
 ObjectKey = Annotated[str, StringConstraints(min_length=1, max_length=256)]
 ShortText = Annotated[str, StringConstraints(min_length=1, max_length=400)]
 
-# derived-v1 is what v5 audits and all stored rules use and must not change. derived-v2 (used by prompt v6)
-# only narrows what counts as an excluded geometry term; see rule_applicability.derive_applicability.
+# derived-v1 remains the fallback for v5 audits. New extractions and focused protocols
+# use v2, which narrows geometry exclusions; stored applicability is never re-derived.
 APPLICABILITY_ALGORITHM = "derived-v1"
 APPLICABILITY_ALGORITHMS = ("derived-v1", "derived-v2")
 
@@ -112,6 +112,10 @@ class TargetResult(BaseModel):
     object_key: ObjectKey
     outcome: TargetOutcome
     model_outcome: TargetOutcome | None = None
+    model_compliance: Literal["yes", "no", "unclear"] | None = Field(
+        default=None, exclude_if=lambda value: value is None,
+        description="Raw focused-model compliance answer, when retained by the execution protocol.",
+    )
     geometry: Literal["box", "polygon"] | None = None
     condition: Condition | None = None
     reason: ShortText | None = None

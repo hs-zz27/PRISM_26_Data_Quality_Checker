@@ -315,7 +315,8 @@ def combine_results(scope: TargetScope, response) -> tuple[str, str, TargetScope
 
 def _finalize(scope: TargetScope, results: list[TargetResult], rejected: list[str],
               reported_outcome: str | None, extra_notes: Sequence[str] = (), *,
-              explain_not_applicable: bool = False) -> tuple[str, str, TargetScope]:
+              explain_not_applicable: bool = False,
+              review_exclusions: bool = False) -> tuple[str, str, TargetScope]:
     """Sample outcome, reason and scope from per-target results (shared by every protocol)."""
     counted = [r for r in results if "condition_not_present" not in r.flags]
     unavailable = None
@@ -337,6 +338,13 @@ def _finalize(scope: TargetScope, results: list[TargetResult], rejected: list[st
         final = "unavailable"
         unavailable = {"code": "no_valid_assessment",
                        "detail": "The model could not establish the requirement for any eligible annotation."}
+    exclusion_review = review_exclusions and final == "pass" and len(counted) != len(results)
+    if exclusion_review:
+        # Geometry exclusions are deterministic and already in scope.ineligible.
+        # These are visual-model prerequisites instead. A pass on the remaining
+        # target cannot validate an unreviewed exemption, even with consistent
+        # JSON. Keep it excluded, but require review of the overall finding.
+        final = "unsure"
     labels = {o.object_key: o.label for o in scope.eligible}
     lines = []
     for r in results:
@@ -352,6 +360,8 @@ def _finalize(scope: TargetScope, results: list[TargetResult], rejected: list[st
             line += f" [{', '.join(r.flags)}]"
         lines.append(line)
     reason = "; ".join(lines) or "No eligible annotation was assessed."
+    if exclusion_review:
+        reason = "Review required: the model excluded a target as not applicable. " + reason
     if len(reason) > 1024:
         reason = reason[:1023] + "…"
     update = {"results": results, "rejected_references": rejected[:32],
@@ -359,6 +369,9 @@ def _finalize(scope: TargetScope, results: list[TargetResult], rejected: list[st
     if unavailable is not None:
         update["unavailable"] = ScopeUnavailable(**unavailable)
     notes = list(scope.notes)
+    if exclusion_review:
+        notes.append("Other targets passed, but a model-only applicability exclusion needs reviewer confirmation. "
+                     "The excluded target was not counted as an annotation failure.")
     if reported_outcome is not None and reported_outcome != final:
         notes.append(f"The model reported {reported_outcome}; the outcome follows its per-target results."[:400])
     notes.extend(extra_notes)
@@ -383,7 +396,8 @@ class FocusedCall:
 _COMPLIANCE_OUTCOME = {"yes": "pass", "no": "fail", "unclear": "unsure"}
 
 
-def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall]) -> tuple[str, str, TargetScope]:
+def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall], *,
+                    consistent: bool = False) -> tuple[str, str, TargetScope]:
     """Sample-level (outcome, reason, scope) from per-target requests; every eligible target gets a result.
 
     The outcome of a target is derived from the model's structured fields, never from its prose:
@@ -392,6 +406,10 @@ def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall]) -> tuple[s
     applicable target without a trusted answer can never allow an overall pass) and carries the failure code;
     a target answered under a different key is ``unsure`` with ``no_assessment`` and the reference is rejected.
     A failure on one target never discards a valid failure on another.
+
+    ``consistent=True`` is the v7 policy: preserve raw compliance, flag contradictory
+    fields, require review of model-only exclusions before an overall pass, and do
+    not claim coverage of unassessed supplied geometry. v6 replay uses the default.
     """
     by_key: dict[str, list[FocusedCall]] = {}
     for call in calls:
@@ -418,7 +436,14 @@ def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall]) -> tuple[s
             continue
         a = call.assessment
         flags: list[str] = []
-        if a.condition == "not_present":
+        if consistent and a.condition != "applies" and a.compliance != "unclear":
+            # v7 requires no compliance claim unless prerequisites hold. Keep the
+            # raw condition/reason, but do not exclude this contradictory answer
+            # or manufacture a failure from it. Other valid failures still count.
+            outcome = "unsure"
+            model_outcome = _COMPLIANCE_OUTCOME[a.compliance]
+            flags.append("condition_compliance_conflict")
+        elif a.condition == "not_present":
             outcome = model_outcome = "unavailable"
             flags.append("condition_not_present")
         elif a.condition == "unclear":
@@ -430,12 +455,31 @@ def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall]) -> tuple[s
                                   scope.applicability)
         if outcome in ("pass", "fail") and DOWNGRADING_FLAGS & set(flags):
             outcome = "unsure"
+        if consistent and scope.applicability.status == "ambiguous":
+            outcome = "unsure"
+            flags = [flag for flag in flags if flag != "condition_not_present"]
+            flags.append("applicability_ambiguous")
+        if consistent and outcome == "pass" and scope.applicability.geometry:
+            # The response carries ONE judged geometry. A pass on it cannot prove
+            # compliance of another supplied geometry named by the same rule.
+            required = [kind for kind in scope.applicability.geometry if _has(target.geometry, kind)]
+            if len(required) > 1:
+                outcome = "unsure"
+                flags.append("geometry_coverage_incomplete")
         results.append(TargetResult(object_key=target.object_key, outcome=outcome, model_outcome=model_outcome,
-                                    geometry=a.geometry, condition=a.condition, reason=a.reason, flags=flags))
+                                    geometry=a.geometry, condition=a.condition, reason=a.reason, flags=flags,
+                                    **({"model_compliance": a.compliance} if consistent else {})))
     timing = "; ".join(f"{c.object_key} {c.failure or ('mismatch' if c.answered_for else 'ok')} {c.duration_ms / 1000:.0f}s"
                        for c in calls)
-    return _finalize(scope, results, rejected[:32], None, [f"One request per target: {timing}"[:400]],
-                     explain_not_applicable=True)
+    notes = [f"One request per target: {timing}"[:400]]
+    if any("condition_compliance_conflict" in r.flags for r in results):
+        notes.append("Applicability and compliance contradict each other. These targets need review; "
+                     "they were not excluded and were not counted as annotation failures.")
+    if any("geometry_coverage_incomplete" in r.flags for r in results):
+        notes.append("Only one of several required supplied geometries was assessed. Split the requirement "
+                     "by geometry for separate checks or review the remaining geometry manually.")
+    return _finalize(scope, results, rejected[:32], None, notes,
+                     explain_not_applicable=True, review_exclusions=consistent)
 
 
 def keys_needing_review(scope: TargetScope | None) -> list[str]:

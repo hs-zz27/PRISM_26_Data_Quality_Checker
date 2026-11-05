@@ -74,7 +74,7 @@ class GuidelineClient:
             raise InferenceUnavailable('inference_unavailable') from error
 
     def verify(self):
-        if self.execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5', 'annotation-guideline-v6'}:
+        if self.execution.prompt_version in {'annotation-guideline-v2', 'annotation-guideline-v3', 'annotation-guideline-v4', 'annotation-guideline-v5', 'annotation-guideline-v6', 'annotation-guideline-v7'}:
             version = self.request('GET', '/api/version').get('version')
             match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', version or '') if isinstance(version, str) else None
             if match is None or tuple(map(int, match.groups())) < (0, 33, 3):
@@ -232,7 +232,8 @@ class GuidelineClient:
                                       'duration_ms': round(call.duration_ms, 1), **self._last_exchange_counts()})
             self.verify()
             verified = any(call.failure is None for call in calls)
-            outcome, reason, scope = combine_focused(scope, calls)
+            outcome, reason, scope = combine_focused(
+                scope, calls, consistent=self.execution.prompt_version == 'annotation-guideline-v7')
             references = list(dict.fromkeys(ref for call in calls if call.assessment for ref in call.assessment.evidence_references))
             prediction = Prediction(case_id=case_id, rule_id=target.rule.rule_id, outcome=outcome, reason=reason,
                                     evidence_references=references[:3] if verified else [])
@@ -256,7 +257,7 @@ class GuidelineClient:
         return {key: self._last_exchange[key] for key in ('prompt_eval_count', 'eval_count') if key in self._last_exchange}
 
     def predict(self, manifest, target, examples, asset_settings, *, reviewer_feedback=None):
-        if self.execution.prompt_version == 'annotation-guideline-v6':
+        if self.execution.prompt_version in {'annotation-guideline-v6', 'annotation-guideline-v7'}:
             return self._predict_focused(manifest, target, examples, asset_settings, reviewer_feedback)
         if self.execution.prompt_version == 'annotation-guideline-v5':
             return self._predict_scoped(manifest, target, examples, asset_settings, reviewer_feedback)
