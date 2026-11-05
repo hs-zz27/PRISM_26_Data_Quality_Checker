@@ -15534,6 +15534,7 @@
               "annotation-guideline-v4",
               "annotation-guideline-v5",
               "annotation-guideline-v6",
+              "annotation-guideline-v7",
               "pedestrian-box-feedback-v1"
             ],
             "title": "Prompt Version",
@@ -19761,6 +19762,24 @@
             ],
             "default": null,
             "title": "Model Outcome"
+          },
+          "model_compliance": {
+            "anyOf": [
+              {
+                "enum": [
+                  "yes",
+                  "no",
+                  "unclear"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Raw focused-model compliance answer, when retained by the execution protocol.",
+            "title": "Model Compliance"
           },
           "geometry": {
             "anyOf": [

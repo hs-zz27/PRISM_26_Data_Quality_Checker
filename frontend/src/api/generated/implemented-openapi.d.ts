@@ -1750,7 +1750,7 @@ export interface components {
              * @default annotation-guideline-v1
              * @enum {string}
              */
-            prompt_version: "annotation-guideline-v1" | "annotation-guideline-v2" | "annotation-guideline-v3" | "annotation-guideline-v4" | "annotation-guideline-v5" | "annotation-guideline-v6" | "pedestrian-box-feedback-v1";
+            prompt_version: "annotation-guideline-v1" | "annotation-guideline-v2" | "annotation-guideline-v3" | "annotation-guideline-v4" | "annotation-guideline-v5" | "annotation-guideline-v6" | "annotation-guideline-v7" | "pedestrian-box-feedback-v1";
             /**
              * Preprocessing
              * @default original-png-no-transform-v1
@@ -3382,6 +3382,12 @@ export interface components {
              * @default null
              */
             model_outcome: ("pass" | "fail" | "unsure" | "unavailable") | null;
+            /**
+             * Model Compliance
+             * @description Raw focused-model compliance answer, when retained by the execution protocol.
+             * @default null
+             */
+            model_compliance: ("yes" | "no" | "unclear") | null;
             /**
              * Geometry
              * @default null
