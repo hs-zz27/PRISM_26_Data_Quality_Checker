@@ -500,6 +500,10 @@
   .polygon-saved { fill:none; stroke:white; stroke-width:1.5; stroke-dasharray:5 4; vector-effect:non-scaling-stroke; pointer-events:none; }
   .polygon-supplied-box { fill:none; stroke:#ffdd00; stroke-width:1; stroke-dasharray:4 3; vector-effect:non-scaling-stroke; pointer-events:none; }
   .polygon-vertex { fill:var(--color-base); fill-opacity:.6; stroke:#00e5ef; stroke-width:1; vector-effect:non-scaling-stroke; cursor:grab; }
+  .canvas-coverage { pointer-events:none; }
+  .canvas-overlay .canvas-coverage-region { fill:rgba(255,59,59,0.14); stroke:#ff3b3b; stroke-width:2; stroke-dasharray:5 3; vector-effect:non-scaling-stroke; }
+  .canvas-overlay .canvas-coverage-label { font:bold 10px var(--font-mono); fill:#ff5c5c; stroke:#000; stroke-width:3px; paint-order:stroke; }
+  .canvas-legend-coverage { border-color:#ff3b3b !important; border-style:dashed !important; }
   .polygon-crossing { fill:none; stroke:var(--color-fail); stroke-width:2; vector-effect:non-scaling-stroke; pointer-events:none; }
   .polygon-vertex.is-selected,.polygon-vertex:focus { fill:#ffdd00; stroke:#181818; outline:none; }
   @media(max-width:1100px) { .correction-layout { grid-template-columns:1fr; } }
