@@ -13,6 +13,34 @@ const proposal = {
 };
 
 describe('per-object visual evidence', () => {
+  it('shows conflicting applicability as unsure rather than hiding it as not applicable', () => {
+    render(<VisualObservations proposal={{ model_verified: true, scope: {
+      version: 'target-scope-v1', outcome_source: 'derived_from_target_results',
+      results: [{ object_key: '/shapes/0', geometry: 'polygon', outcome: 'unsure',
+        condition: 'not_present', model_compliance: 'no',
+        reason: 'The polygon is displaced into background.', flags: ['condition_compliance_conflict'] }],
+      ineligible: [], notes: [], unavailable: null,
+    } }} />);
+    expect(screen.getByText('/shapes/0 · Unsure')).toBeInTheDocument();
+    expect(screen.queryByText('/shapes/0 · Not applicable')).not.toBeInTheDocument();
+    expect(screen.getByText(/conflicting applicability and compliance/)).toBeInTheDocument();
+    expect(screen.getByText('The polygon is displaced into background.')).toBeInTheDocument();
+  });
+
+  it('keeps legitimate exclusions visible alongside the overall review requirement', () => {
+    const note = 'Other targets passed, but a model-only applicability exclusion needs reviewer confirmation.';
+    render(<VisualObservations proposal={{ model_verified: true, scope: {
+      version: 'target-scope-v1', outcome_source: 'derived_from_target_results',
+      results: [
+        { object_key: '/shapes/0', outcome: 'pass', condition: 'applies', flags: [] },
+        { object_key: '/shapes/1', outcome: 'unavailable', condition: 'not_present',
+          reason: 'This is a skateboard.', flags: ['condition_not_present'] },
+      ], ineligible: [], notes: [note], unavailable: null,
+    } }} />);
+    expect(screen.getByText('/shapes/1 · Not applicable')).toBeInTheDocument();
+    expect(screen.getByText(note)).toBeInTheDocument();
+  });
+
   it('labels absent conditions as not applicable and keeps contradictory prose in raw evidence', () => {
     const rawReason = 'The skateboard box excludes the shoes and violates the guideline.';
     render(<VisualObservations proposal={{ model_verified: true, scope: {

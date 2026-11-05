@@ -63,6 +63,8 @@ function readScope(proposal: unknown): Scope | null {
 }
 
 function ScopedObservations({ scope }: { scope: Scope }) {
+  const excluded = (row: Scope['results'][number]) =>
+    row.condition === 'not_present' && row.outcome === 'unavailable';
   return (
     <section className="finding-evidence" aria-label="Per-object visual observations">
       <span className="finding-section-label">Per-object visual observations</span>
@@ -70,9 +72,12 @@ function ScopedObservations({ scope }: { scope: Scope }) {
       <ul className="space-y-2 text-xs">
         {scope.results.map((row) => (
           <li key={row.object_key}>
-            <b>{row.object_key} · {row.condition === 'not_present' ? 'Not applicable' : OUTCOMES[row.outcome]}</b>
+            <b>{row.object_key} · {excluded(row) ? 'Not applicable' : OUTCOMES[row.outcome]}</b>
             {row.geometry && <span> · {row.geometry}</span>}
-            {row.condition === 'not_present' ? <>
+            {(row.flags ?? []).includes('condition_compliance_conflict') && <p>
+              The model gave conflicting applicability and compliance answers. This target needs review and has not been excluded.
+            </p>}
+            {excluded(row) ? <>
               <p>The model reported that the guideline condition does not apply to this object. No compliance verdict was counted.</p>
               {row.reason && <details>
                 <summary>Raw model explanation</summary>
