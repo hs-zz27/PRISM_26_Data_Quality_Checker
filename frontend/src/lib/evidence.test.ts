@@ -71,3 +71,25 @@ it('does not present absent mask IDs as an empty set', () => {
   expect(rows['Mask regions']).toBe('—');
   expect(rows['Annotated objects']).toBe('none');
 });
+
+it('says where an annotation leaves part of the person out', () => {
+  const coverageFail = { status: 'completed', reason: null, detail: null, source_index: 0,
+    result: {
+      problems: ['box: head/top of the person is outside the annotation (45 px)'],
+      geometries: [
+        { geometry: 'box', tolerance_px: 12, match_iou: 0.86, person_box: [111, 51, 191, 350],
+          regions: [{ kind: 'missing', side: 'top', pixels: 45, box: [111, 51, 191, 96] }] },
+        { geometry: 'mask', tolerance_px: 12, match_iou: 0.93, person_box: [111, 51, 191, 350], regions: [] },
+      ] } };
+  const rows = asMap(summarizeEvidence('person_coverage', coverageFail));
+  expect(rows['Where it differs']).toBe('box: head/top of the person is outside the annotation (45 px)');
+  expect(rows['Box']).toContain('differs from the detected person (tolerance 12 px');
+  expect(rows['Mask']).toContain('matches the detected person');
+  expect(rows['Detected person']).toBe('[111, 51, 191, 350]');
+});
+
+it('shows why a coverage result needs a human look', () => {
+  const rows = asMap(summarizeEvidence('person_coverage', { status: 'completed',
+    result: { problems: [], geometries: [{ geometry: 'polygon', reason: 'no_matching_person', best_match_iou: 0.1 }] } }));
+  expect(rows['Polygon']).toBe('No detected person matches this annotation — check it by eye');
+});

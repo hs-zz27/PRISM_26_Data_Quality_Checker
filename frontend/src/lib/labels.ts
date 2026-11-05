@@ -67,6 +67,7 @@ const CHECK_NAMES: Record<string, string> = {
   mask_components: 'Mask is one connected piece',
   mask_dimensions: 'Mask size matches image',
   mask_ids: 'Mask IDs match objects',
+  person_coverage: 'Whole person covered (measured)',
   person_detection: 'Person detection',
   detection_annotation_matches: 'Detections match annotations',
   detection_mask_coverage: 'Detection mask coverage',
@@ -76,6 +77,10 @@ const CHECK_NAMES: Record<string, string> = {
 
 /** Reason codes emitted by checks and the audit worker. */
 const REASONS: Record<string, string> = {
+  no_person_detected: 'No person was found in the photo for this annotation — check it by eye',
+  no_matching_person: 'No detected person matches this annotation — check it by eye',
+  person_segmenter_unavailable: 'The person-outline model is not installed or could not run',
+  no_supplied_geometry: 'The annotation has no box, mask or polygon to compare',
   label_not_allowed: 'Label is not in the approved list',
   invalid_label: 'Label is empty or invalid',
   invalid_box: 'Box coordinates are invalid or outside the image',
@@ -177,6 +182,8 @@ export function describeRequirement(checkName: string | null | undefined, parame
         : null;
     case 'mask_components':
       return num('max_component_count') ? `At most ${num('max_component_count')} connected mask piece(s)` : null;
+    case 'person_coverage':
+      return `Whole person covered, within ${formatValue(p.min_tolerance_px ?? 8)} px or ${percent(p.tolerance_fraction ?? 0.04)} of the person's height`;
     default: {
       const entries = Object.entries(p);
       return entries.length ? entries.map(([k, v]) => `${humanizeCode(k)}: ${formatValue(v)}`).join(' · ') : null;

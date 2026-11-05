@@ -69,6 +69,20 @@ function knownRows(checkName: string, result: Json, measurements: Json): Evidenc
       if (typeof result.reason === 'string') rows.push({ label: 'Why not measured', value: reasonLabel(result.reason) });
       return rows;
     }
+    case 'person_coverage': {
+      const problems = Array.isArray(result.problems) ? result.problems : [];
+      const rows: EvidenceRow[] = [{ label: 'Where it differs', value: problems.length ? problems.map(formatValue).join('; ') : 'Nowhere beyond the tolerance' }];
+      for (const geometry of Array.isArray(result.geometries) ? result.geometries : []) {
+        if (!isRecord(geometry)) continue;
+        const name = humanizeCode(String(geometry.geometry ?? 'annotation'));
+        rows.push(typeof geometry.reason === 'string'
+          ? { label: name, value: reasonLabel(geometry.reason) }
+          : { label: name, value: `${Array.isArray(geometry.regions) && geometry.regions.length ? 'differs from' : 'matches'} the detected person (tolerance ${px(geometry.tolerance_px)}, match ${formatValue(geometry.match_iou)})` });
+      }
+      const first = (Array.isArray(result.geometries) ? result.geometries : []).find((g) => isRecord(g) && Array.isArray(g.person_box));
+      if (isRecord(first)) rows.push({ label: 'Detected person', value: box(first.person_box) });
+      return rows;
+    }
     case 'allowed_labels':
       return [
         { label: 'Label', value: formatValue(measurements.actual_label) },
