@@ -21,7 +21,8 @@ Investigate why the visual audit sometimes returns an outcome that appears corre
 3. Apply the v7 backend consistency safeguards during aggregation. For prompt comparisons, locally override only the system wording; do not change the production version or its configuration.
 4. Compare outcomes and read the full explanation. A pass/fail label alone does not count as a reliable result if its explanation refers to the wrong object or geometry.
 5. Run an overlay ablation on the altered case: hide all other annotation outlines while keeping the four image inputs otherwise byte-identical. This checks whether contextual outlines explain target confusion.
-6. Run a neutral-color wording ablation with the same images to check whether naming colors in the prompt primes the model's explanation. The altered case completed; run the matching baseline with the same wording before claiming the prompt both detects errors and preserves correct annotations.
+6. Run a neutral-color wording ablation with the same images to check whether naming colors in the prompt primes the model's explanation. Both the altered case and the matching baseline completed; see results.md. This is one pair and does not establish reliability.
+7. Offline segmentation proof: predict person masks from the image alone with Mask R-CNN, then compare each supplied polygon with its matched predicted person by overlap and boundary distance. See `segmentation/`.
 
 ## Inference settings
 

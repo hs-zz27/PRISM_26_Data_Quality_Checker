@@ -1,0 +1,183 @@
+{
+  "experiment": "Offline segmentation proof; not an application feature or accuracy evaluation",
+  "model": "torchvision maskrcnn_resnet50_fpn_v2",
+  "weights": "MaskRCNN_ResNet50_FPN_V2_Weights.COCO_V1",
+  "device": "cpu",
+  "torch": "2.14.1",
+  "min_score": 0.5,
+  "mask_threshold": 0.5,
+  "model_load_seconds": 113.6,
+  "note": "The segmenter receives only the image. Supplied polygons are compared afterwards by code. No tolerance is applied: numbers are evidence, not verdicts.",
+  "cases": {
+    "baseline": {
+      "image_sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+      "annotation_sha256": "edb9fc7d7627dcff7f6c50ca6b55b6173d11250fc2badfa4d47395e937a4bb57",
+      "inference_seconds": 1.31,
+      "people_detected": [
+        {
+          "index": 0,
+          "score": 0.9993,
+          "box_xyxy": [
+            367.6,
+            441.0,
+            459.1,
+            773.7
+          ]
+        },
+        {
+          "index": 1,
+          "score": 0.999,
+          "box_xyxy": [
+            339.4,
+            464.5,
+            420.5,
+            773.9
+          ]
+        }
+      ],
+      "supplied_polygons": {
+        "/shapes/0": {
+          "best_match": {
+            "person": 0,
+            "iou": 0.8946,
+            "supplied_outside_person_fraction": 0.0356,
+            "person_not_covered_fraction": 0.0749,
+            "boundary_distance_mean_px": 2.1,
+            "boundary_distance_p95_px": 7.6
+          },
+          "all_people": [
+            {
+              "person": 0,
+              "iou": 0.8946,
+              "supplied_outside_person_fraction": 0.0356,
+              "person_not_covered_fraction": 0.0749,
+              "boundary_distance_mean_px": 2.1,
+              "boundary_distance_p95_px": 7.6
+            },
+            {
+              "person": 1,
+              "iou": 0.0001,
+              "supplied_outside_person_fraction": 0.9999,
+              "person_not_covered_fraction": 0.9998,
+              "boundary_distance_mean_px": 27.9,
+              "boundary_distance_p95_px": 65.0
+            }
+          ]
+        },
+        "/shapes/1": {
+          "best_match": {
+            "person": 1,
+            "iou": 0.8947,
+            "supplied_outside_person_fraction": 0.0426,
+            "person_not_covered_fraction": 0.0682,
+            "boundary_distance_mean_px": 1.6,
+            "boundary_distance_p95_px": 5.0
+          },
+          "all_people": [
+            {
+              "person": 1,
+              "iou": 0.8947,
+              "supplied_outside_person_fraction": 0.0426,
+              "person_not_covered_fraction": 0.0682,
+              "boundary_distance_mean_px": 1.6,
+              "boundary_distance_p95_px": 5.0
+            },
+            {
+              "person": 0,
+              "iou": 0.0045,
+              "supplied_outside_person_fraction": 0.9901,
+              "person_not_covered_fraction": 0.9919,
+              "boundary_distance_mean_px": 26.4,
+              "boundary_distance_p95_px": 60.6
+            }
+          ]
+        }
+      }
+    },
+    "altered": {
+      "image_sha256": "fffae741a0fd8453cf199338cf1988ad992fb38208b37aac28808e25244572a8",
+      "annotation_sha256": "f5012f4043d0d3b64f1f871c960889bd54c94f7394d6c3cafa7f2a19115053e1",
+      "inference_seconds": 1.08,
+      "people_detected": [
+        {
+          "index": 0,
+          "score": 0.9993,
+          "box_xyxy": [
+            367.6,
+            441.0,
+            459.1,
+            773.7
+          ]
+        },
+        {
+          "index": 1,
+          "score": 0.999,
+          "box_xyxy": [
+            339.4,
+            464.5,
+            420.5,
+            773.9
+          ]
+        }
+      ],
+      "supplied_polygons": {
+        "/shapes/0": {
+          "best_match": {
+            "person": 0,
+            "iou": 0.0009,
+            "supplied_outside_person_fraction": 0.9981,
+            "person_not_covered_fraction": 0.9982,
+            "boundary_distance_mean_px": 50.4,
+            "boundary_distance_p95_px": 78.0
+          },
+          "all_people": [
+            {
+              "person": 0,
+              "iou": 0.0009,
+              "supplied_outside_person_fraction": 0.9981,
+              "person_not_covered_fraction": 0.9982,
+              "boundary_distance_mean_px": 50.4,
+              "boundary_distance_p95_px": 78.0
+            },
+            {
+              "person": 1,
+              "iou": 0.0,
+              "supplied_outside_person_fraction": 1.0,
+              "person_not_covered_fraction": 1.0,
+              "boundary_distance_mean_px": 98.5,
+              "boundary_distance_p95_px": 136.6
+            }
+          ]
+        },
+        "/shapes/1": {
+          "best_match": {
+            "person": 1,
+            "iou": 0.8947,
+            "supplied_outside_person_fraction": 0.0426,
+            "person_not_covered_fraction": 0.0682,
+            "boundary_distance_mean_px": 1.6,
+            "boundary_distance_p95_px": 5.0
+          },
+          "all_people": [
+            {
+              "person": 1,
+              "iou": 0.8947,
+              "supplied_outside_person_fraction": 0.0426,
+              "person_not_covered_fraction": 0.0682,
+              "boundary_distance_mean_px": 1.6,
+              "boundary_distance_p95_px": 5.0
+            },
+            {
+              "person": 0,
+              "iou": 0.0045,
+              "supplied_outside_person_fraction": 0.9901,
+              "person_not_covered_fraction": 0.9919,
+              "boundary_distance_mean_px": 26.4,
+              "boundary_distance_p95_px": 60.6
+            }
+          ]
+        }
+      }
+    }
+  }
+}
