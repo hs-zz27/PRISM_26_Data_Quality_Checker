@@ -308,6 +308,21 @@ describe('ReviewCanvas', () => {
     expect(useCanvasStore.getState().selectedInstanceId).toBe(2);
   });
 
+  it('never draws a guessed location for an object without a box or polygon', () => {
+    const { container } = render(
+      <ReviewCanvas
+        imageSize={[200, 200]}
+        objects={[...sampleObjects, { object_id: 3, label: 'ghost', bbox: null, coordinate_system: 'zero_based_continuous', polygons: [] }]}
+        findings={[]}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /^Object 3, ghost/ })).toBeNull();
+    expect(container.querySelector('.canvas-overlay circle')).toBeNull();
+    expect(screen.queryByText('#3', { selector: '.canvas-badge-text' })).toBeNull();
+    expect(screen.getByRole('status', { name: 'Objects not drawn on the image' })).toHaveTextContent('#3ghost: not drawn, the annotation has no box or polygon');
+  });
+
   it('colours box outlines by object, not by finding outcome', () => {
     const { container } = render(
       <ReviewCanvas

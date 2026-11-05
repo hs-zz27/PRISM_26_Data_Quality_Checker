@@ -329,6 +329,13 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
     return placeBadges(badgeInputs, width, height);
   }, [visibleObjects, displayNumberMap, width, height, findings]);
 
+  // Objects with no box and no polygon have no location, so they are never
+  // drawn on the image; they are listed in a fixed strip instead.
+  const undrawableObjects = useMemo(() =>
+    objects.filter((obj) => !getObjectBounds(obj)),
+    [objects],
+  );
+
   return <section ref={containerRef} className="review-canvas" aria-label="Image review canvas" onWheel={(e) => { e.preventDefault(); updateZoom(e.deltaY < 0 ? 1.12 : 0.89); }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
     <div className="canvas-toolbar">
       <button title="Zoom out" aria-label="Zoom out" onClick={() => updateZoom(1 / 1.2)}><Minus size={14}/></button>
@@ -368,6 +375,7 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
         const dn = displayNumberMap.get(obj.object_id) ?? 0;
         const objColor = colorFor(dn);
         const isDerived = obj.bbox_origin === 'derived_from_polygon';
+        if (!b && !obj.polygons?.length) return null;
         return <g key={obj.object_id} role="button" tabIndex={0} aria-label={`Object ${dn}, ${obj.label}, ${obj.bbox ? formatBbox(obj.bbox) : "no box"}`} onClick={(e) => { e.stopPropagation(); handleStageClick(e); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); } }} className={`box-${state}${selected ? ' is-selected' : ''}`}>
           {/* Polygons */}
           {showPolygons && obj.polygons?.map((part, index) => <polygon key={index} points={part.map((point) => point.join(',')).join(' ')} fill="none" stroke={objColor} strokeWidth={selected ? 2.5 : 1.5} vectorEffect="non-scaling-stroke" />)}
@@ -375,8 +383,6 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
           {showBoxes && b && <>
             <rect x={b.left} y={b.top} width={b.width} height={b.height} stroke={objColor} style={{ stroke: objColor }} strokeDasharray={isDerived ? '6 4' : 'none'} vectorEffect="non-scaling-stroke" />
           </>}
-          {/* Visual indicator for objects without visible geometry */}
-          {!b && !obj.polygons?.length && <circle cx={width / 2} cy={height / 2} r={8} fill={objColor} fillOpacity={0.3} stroke={objColor} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
         </g>;
       })}
       {/* Numbered badges */}
@@ -397,6 +403,16 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
       })}
       </svg>}
     </div>
+
+    {undrawableObjects.length > 0 && <div className="canvas-undisplayable" role="status" aria-label="Objects not drawn on the image">
+      {undrawableObjects.map((obj) => {
+        const dn = displayNumberMap.get(obj.object_id) ?? 0;
+        return <span key={obj.object_id} className="canvas-undisplayable-item">
+          <span className="canvas-undisplayable-marker" style={{ background: colorFor(dn), color: textColorFor(dn) }}>#{dn}</span>
+          {obj.label}: not drawn, the annotation has no box or polygon
+        </span>;
+      })}
+    </div>}
 
     <div className="canvas-readout">
       <span ref={cursorRef} className="mono">[X: —, Y: —]</span>
