@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { imagePoint, insertVertex, moveVertex, removeVertex, vertices } from './polygonEditing';
+import { imagePoint, insertVertex, moveVertex, removeVertex, selfCrossings, vertices } from './polygonEditing';
 import { polygonObjects } from './polygonFixtures';
 
 const selected = { key: '/shapes/0', part: 0, point: 0 };
@@ -58,5 +58,24 @@ describe('native polygon edits', () => {
     const triangle = removeVertex(original, selected);
     expect(() => removeVertex(triangle, selected)).toThrow('three different points');
     expect(() => moveVertex(original, { ...selected, key: 'unknown' }, [1, 2], [100, 80])).toThrow('existing polygon');
+  });
+});
+
+describe('selfCrossings', () => {
+  it('finds no crossing on a simple outline', () => {
+    expect(selfCrossings([[0, 0], [10, 0], [10, 10], [0, 10]])).toEqual([]);
+  });
+
+  it('locates the tiny crossing from two swapped neighbouring points (PennPed00052, person #2 foot)', () => {
+    const found = selfCrossings([[238, 466], [239, 475], [242, 486], [261, 489], [249, 490], [263, 487], [260, 479], [251, 465]]);
+    expect(found).toHaveLength(1);
+    expect(found[0]![0]).toBeGreaterThan(249);
+    expect(found[0]![0]).toBeLessThan(263);
+    expect(found[0]![1]).toBeGreaterThan(486);
+    expect(found[0]![1]).toBeLessThan(490);
+  });
+
+  it('ignores a closing endpoint that repeats the first point', () => {
+    expect(selfCrossings([[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]])).toEqual([]);
   });
 });

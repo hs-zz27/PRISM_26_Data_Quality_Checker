@@ -1,7 +1,7 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { Button } from '../../components/ui/Button';
 import type { JsonObject } from './jsonGeometry';
-import { imagePoint, insertVertex, moveVertex, removeVertex, vertices, type Point, type Vertex } from './polygonEditing';
+import { imagePoint, insertVertex, moveVertex, removeVertex, selfCrossings, vertices, type Point, type Vertex } from './polygonEditing';
 
 interface Props {
   objects: JsonObject[];
@@ -27,6 +27,21 @@ export function PolygonEditor({ objects, savedObjects, imageUrl, imageSize, samp
   const current = objects.find((object) => object.source_key === selected?.key);
   const point = selected && current?.polygons?.[selected.part]?.[selected.point];
   const locked = disabled || imageError;
+
+  // Size points in screen pixels, not image pixels, so dense outlines stay readable
+  // and points stay small at any zoom.
+  const [renderedWidth, setRenderedWidth] = useState(0);
+  useEffect(() => {
+    const element = svg.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => setRenderedWidth(entry?.contentRect.width ?? 0));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const unitsPerPixel = renderedWidth > 0 ? imageSize[0] / renderedWidth : imageSize[0] / (700 * zoom);
+  const vertexRadius = (isSelected: boolean) => (isSelected ? 4.5 : 3) * unitsPerPixel;
+  const crossings = polygonObjects.flatMap((object) => (object.polygons ?? []).flatMap((part, partIndex) =>
+    selfCrossings(part).map((at) => ({ object, partIndex, at }))));
 
   const remember = (before: JsonObject[]) => { setPast((items) => [...items.slice(-49), before]); setFuture([]); };
   const commit = (change: () => JsonObject[], nextSelection = selected) => {
@@ -118,17 +133,25 @@ export function PolygonEditor({ objects, savedObjects, imageUrl, imageSize, samp
                 onKeyDown={(event) => { if (!locked && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setSelected({ key: object.source_key, part: partIndex, point: 0 }); } }} />
               {selected?.key === object.source_key && vertices(part).map((vertex, index) => <circle key={index}
                 className={`polygon-vertex${selected.part === partIndex && selected.point === index ? ' is-selected' : ''}`}
-                cx={vertex[0]} cy={vertex[1]} r={Math.max(2, imageSize[0] / (140 * zoom))} role="button" tabIndex={locked ? -1 : 0}
+                cx={vertex[0]} cy={vertex[1]} r={vertexRadius(selected.part === partIndex && selected.point === index)} role="button" tabIndex={locked ? -1 : 0}
                 aria-label={`Object ${object.object_id} polygon ${partIndex + 1} point ${index + 1}`} aria-disabled={locked}
                 onPointerDown={(event) => start(event, { key: object.source_key, part: partIndex, point: index })}
                 onKeyDown={(event) => keyDown(event, { key: object.source_key, part: partIndex, point: index })}
                 onFocus={() => setSelected({ key: object.source_key, part: partIndex, point: index })} />)}
             </g>)}
           </g>)}
+          {crossings.map(({ object, partIndex, at }, index) => <circle key={`crossing-${index}`} className="polygon-crossing"
+            cx={at[0]} cy={at[1]} r={9 * unitsPerPixel}>
+            <title>{`Object ${object.object_id} outline ${partIndex + 1} crosses itself here`}</title>
+          </circle>)}
         </svg>
       </div>
     </div>
     {imageError && <p role="alert">The image could not be loaded. Visual editing is disabled.</p>}
+    {crossings.length > 0 && <p role="status" className="text-xs text-status-fail">
+      {crossings.map(({ object, at }) => `#${object.object_id} ${object.label} crosses itself at (${Math.round(at[0])}, ${Math.round(at[1])})`).join('; ')}
+      {' '}— marked with a red ring. Zoom in there and move or remove the out-of-order point.
+    </p>}
     {point && selected && <div className="flex flex-wrap items-center gap-2 text-xs">
       <span>Polygon {selected.part + 1}, point {selected.point + 1}</span>
       {(['X', 'Y'] as const).map((axis, index) => <label key={axis}>{axis} <input aria-label={`Selected point ${axis}`} type="number" step="any"

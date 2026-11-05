@@ -13,6 +13,32 @@ export function vertices(part: number[][]): number[][] {
   return isClosed(part) ? part.slice(0, -1) : part;
 }
 
+/**
+ * Where an outline crosses itself: the meeting point of every pair of
+ * non-adjacent edges that intersect. Used only to show the reviewer where to
+ * look; the backend's exact check stays the source of truth.
+ */
+export function selfCrossings(part: number[][]): Point[] {
+  const points = vertices(part);
+  const n = points.length;
+  const found: Point[] = [];
+  if (n < 4) return found;
+  const cross = (o: number[], a: number[], b: number[]) => (a[0]! - o[0]!) * (b[1]! - o[1]!) - (a[1]! - o[1]!) * (b[0]! - o[0]!);
+  for (let i = 0; i < n; i++) {
+    const a = points[i]!, b = points[(i + 1) % n]!;
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue; // first and last edges share a point
+      const c = points[j]!, d = points[(j + 1) % n]!;
+      const d1 = cross(c, d, a), d2 = cross(c, d, b), d3 = cross(a, b, c), d4 = cross(a, b, d);
+      if (((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0)) && d1 !== 0 && d2 !== 0 && d3 !== 0 && d4 !== 0) {
+        const t = d1 / (d1 - d2);
+        found.push([a[0]! + t * (b[0]! - a[0]!), a[1]! + t * (b[1]! - a[1]!)]);
+      }
+    }
+  }
+  return found;
+}
+
 export function imagePoint(client: Point, rect: { left: number; top: number; width: number; height: number }, size: Point): Point | null {
   if (![...client, rect.left, rect.top, rect.width, rect.height, ...size].every(Number.isFinite)
     || rect.width <= 0 || rect.height <= 0 || size[0] <= 0 || size[1] <= 0) return null;
