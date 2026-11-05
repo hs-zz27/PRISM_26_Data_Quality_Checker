@@ -77,7 +77,7 @@ def test_extraction_derives_applicability_for_visual_rules_from_the_requirement_
     proposals = {p.source_sentence: p for p in extract(ANIMAL_TEXT, ANIMAL_LINES, animal_rules())}
     tail = proposals[ANIMALS[5]]                     # "A fully visible animal's box must include its tail."
     assert tail.check_name == 'annotation_guideline' and tail.applicability.geometry == ['box']
-    assert tail.applicability.source == 'derived-v1' and tail.applicability.status == 'clear'
+    assert tail.applicability.source == 'derived-v2' and tail.applicability.status == 'clear'
     # The scope line names boxes only through context; the label rule is not made box-specific.
     assert proposals[ANIMALS[3]].applicability.geometry == []
     assert proposals[ANIMALS[6]].applicability.geometry == []

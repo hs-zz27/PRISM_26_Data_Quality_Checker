@@ -292,7 +292,9 @@ def expand_response(content: str, sources: list[str]) -> list[RuleProposal]:
         if draft['check_name'] == 'annotation_guideline':
             # Derived from the requirement only, never from its context sentences. Shown to the
             # reviewer with the rule; an ambiguous result is also called out in the notes.
-            applicability = derive_applicability(requirement)
+            # New drafts use the prohibition-aware algorithm. Persisted rules are
+            # never re-derived here; their versioned applicability stays pinned.
+            applicability = derive_applicability(requirement, 'derived-v2')
             if applicability.status == 'ambiguous':
                 notes.append('Geometry applicability is ambiguous: ' + applicability.basis)
         proposals.append(RuleProposal(
