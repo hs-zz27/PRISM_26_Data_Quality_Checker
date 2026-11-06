@@ -9,7 +9,6 @@ const generator = resolve(frontendRoot, 'node_modules/openapi-typescript/bin/cli
 const tempRoot = mkdtempSync(join(tmpdir(), 'prism-api-types-'));
 const outputs = [
   { contract: '../backend/api/openapi.json', generated: 'openapi.d.ts' },
-  { contract: '../backend/api/implemented-openapi.json', generated: 'implemented-openapi.d.ts' },
 ];
 let failed = false;
 

@@ -19,7 +19,7 @@ Regenerate all five API artifacts together when the transport source changes:
 Local assistant: run this command only after separate explicit authorization,
 from the repository root with the existing environment. Do not hand-edit generated
 artifacts or suppress structural/freshness failures. It regenerates openapi.json,
-implemented-openapi.json, examples.json, ENDPOINTS.md and PLANNED_ENDPOINTS.md.
+examples.json and ENDPOINTS.md.
 The checked-in files now include correction/recheck schemas, examples and status.
 
 Four existing planned operations are promoted in place. Static source inventory

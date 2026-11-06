@@ -241,11 +241,10 @@ After prerequisites are available, regenerate rather than editing generated text
 .venv/bin/python -B -m backend.api.build_contract
 ```
 
-All five outputs must be freshly produced from the same reviewed source:
-openapi.json, implemented-openapi.json, examples.json, ENDPOINTS.md,
-PLANNED_ENDPOINTS.md. If imports/schema alignment or inventory checks fail, stop;
+All three outputs must be freshly produced from the same reviewed source:
+openapi.json, examples.json and ENDPOINTS.md. If imports/schema alignment or inventory checks fail, stop;
 do not weaken constraints, alter assertions or publish old artifacts as fresh.
-All documents are rendered before the existing writer starts, but the five file
+All documents are rendered before the existing writer starts, but the three file
 writes are not a single atomic multi-file commit; a write failure requires a full
 regeneration and freshness verification before client handoff.
 

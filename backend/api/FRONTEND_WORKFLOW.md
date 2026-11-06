@@ -13,9 +13,7 @@ routes and services are unavailable until backend implementation is delivered.
 Keep those calls behind your mock transport so the UI can progress independently.
 
 - ENDPOINTS.md: status of every operation.
-- PLANNED_ENDPOINTS.md: future requests, responses and examples.
-- implemented-openapi.json: generate the live client here.
-- openapi.json: complete implemented/planned schema reference.
+- openapi.json: every endpoint's schema; generate the client here.
 - examples.json: synthetic requests, resources and review scenarios.
 - RULEBOOKS.md: current manual creation and versioned review behavior.
 - RULE_APPLICABILITY.md: rule applicability, per-annotation visual findings (`scope` evidence) and the

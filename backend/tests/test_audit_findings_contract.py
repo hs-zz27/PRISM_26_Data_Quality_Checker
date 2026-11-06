@@ -7,7 +7,7 @@ import pytest
 from fastapi.routing import APIRoute, iter_route_contexts
 from jsonschema import Draft202012Validator, FormatChecker
 
-from backend.api.build_contract import render_artifacts
+from backend.api.build_contract import build_implemented_contract, render_artifacts
 from backend.api.common import replace_model_refs
 from backend.api.schemas import build_schemas
 from backend.app.main import create_app
@@ -18,7 +18,7 @@ API = Path(__file__).resolve().parents[1] / "api"
 PATH = "/audits/{audit_id}/findings"
 LIVE_PATH = "/api/v1" + PATH
 SPEC = json.loads((API / "openapi.json").read_text(encoding="utf-8"))
-IMPLEMENTED = json.loads((API / "implemented-openapi.json").read_text(encoding="utf-8"))
+IMPLEMENTED = build_implemented_contract(SPEC)
 EXAMPLES = json.loads((API / "examples.json").read_text(encoding="utf-8"))
 EXAMPLE_NAMES = {"first_page_with_more", "last_page", "filtered_by_sample_and_outcome", "empty"}
 
@@ -177,16 +177,6 @@ def test_the_inventory_is_fifty_implemented_and_nothing_planned():
         assert {op["x-implementation-status"] for op in found} == {"implemented"}
     assert "listAuditFindings" in {op["operation_id"] for op in EXAMPLES["operations"]}
     assert {entry["implementation"] for entry in EXAMPLES["operations"]} == {"implemented"}
-
-
-def test_the_empty_planned_inventory_is_stated_coherently():
-    planned = (API / "PLANNED_ENDPOINTS.md").read_text(encoding="utf-8")
-    index = (API / "ENDPOINTS.md").read_text(encoding="utf-8")
-    assert "No operations are currently planned" in planned
-    assert "All 0 operations" not in planned and "\n## listAuditFindings\n" not in planned
-    assert "## Referenced schemas" not in planned
-    assert "## Planned — unavailable on the running server (0 operations)\n\nNone." in index.replace("\r\n", "\n")
-    assert "(`listAuditFindings`; implemented)" in index
 
 
 def test_existing_finding_review_and_sample_detail_contracts_stay_compatible():

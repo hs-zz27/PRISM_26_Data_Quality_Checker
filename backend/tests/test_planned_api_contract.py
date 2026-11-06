@@ -10,22 +10,6 @@ API = Path(__file__).resolve().parents[1] / "api"
 SPEC = json.loads((API / "openapi.json").read_text())
 EXAMPLES = json.loads((API / "examples.json").read_text())
 
-def test_planned_reference_covers_every_future_operation_and_no_live_operation():
-    guide = (API / "PLANNED_ENDPOINTS.md").read_text()
-    planned = []
-    for methods in SPEC["paths"].values():
-        for operation in methods.values():
-            heading = "\n## " + operation["operationId"] + "\n"
-            if operation["x-implementation-status"] == "planned":
-                planned.append(operation)
-                assert guide.count(heading) == 1
-                assert "500" in operation["responses"]
-            else:
-                assert heading not in guide
-    assert planned == []
-    # With nothing planned the reference says so instead of listing zero operations.
-    assert "No operations are currently planned" in guide
-
 def test_future_audit_payloads_reuse_the_live_audit_transport():
     schemas = SPEC["components"]["schemas"]
     assert schemas["AuditStarted"]["properties"]["audit"] == {"$ref": "#/components/schemas/AuditRun"}

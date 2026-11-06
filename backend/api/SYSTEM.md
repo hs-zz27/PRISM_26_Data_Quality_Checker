@@ -2,7 +2,7 @@
 
 Three read-only endpoints let a frontend show whether the backend is alive, what it can
 do, and whether its local model services are ready. They start nothing, download nothing
-and run no inference. Generated schemas are in `implemented-openapi.json`.
+and run no inference. Generated schemas are in `openapi.json`.
 
 ## `GET /api/v1/health` (`getHealth`)
 

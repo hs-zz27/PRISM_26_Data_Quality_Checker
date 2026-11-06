@@ -28,13 +28,11 @@ start jobs, repair data, inspect dataset assets or perform model inference.
 No GET declares mutation-only 409 responses. Dependency configuration is
 resolved at request time, not import time.
 
-Use implemented-openapi.json for live client generation
-and examples.json for request/response fixtures. The combined
-`openapi.json` also includes planned operations. Manual draft creation is
+Use `openapi.json` for client generation
+and examples.json for request/response fixtures. Manual draft creation is
 callable; plain-text extraction submission is also implemented in the checkpoint source.
 
-Generated `openapi.json`, `implemented-openapi.json`, `examples.json` and
-`ENDPOINTS.md` and `PLANNED_ENDPOINTS.md` must be refreshed
+Generated `openapi.json`, `examples.json` and `ENDPOINTS.md` must be refreshed
 with `.venv/bin/python -B -m backend.api.build_contract`. They are generated
 outputs, not hand-edited sources. Examples are independent synthetic snapshots.
 

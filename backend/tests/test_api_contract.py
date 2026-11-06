@@ -18,7 +18,7 @@ from backend.app.models.review import (
     FindingReviewPage, FindingReviewRequest, RulebookAction, RulebookReplace, RulebookReviewPage,
     SampleReview, SampleReviewPage, SampleReviewRequest,
 )
-from backend.api.build_contract import render_artifacts
+from backend.api.build_contract import build_implemented_contract, render_artifacts
 
 API_ROOT = Path(__file__).resolve().parents[1] / "api"
 SPEC = json.loads((API_ROOT / "openapi.json").read_text())
@@ -477,7 +477,7 @@ def test_creation_schema_has_real_input_constraints_and_default_null_semantics()
     assert "origin" not in rule["properties"] and "confirmation_state" not in rule["properties"]
 
 def test_openapi_server_prefix_conventions_are_preserved():
-    implemented = json.loads((API_ROOT / "implemented-openapi.json").read_text())
+    implemented = build_implemented_contract(SPEC)
     assert SPEC["servers"][0]["url"] == "http://127.0.0.1:8000/api/v1"
     assert implemented["servers"][0]["url"] == "http://127.0.0.1:8000"
     assert "/rulebooks" in SPEC["paths"] and "/api/v1/rulebooks" not in SPEC["paths"]

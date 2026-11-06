@@ -60,9 +60,3 @@ def test_system_examples_validate_against_the_generated_schemas():
         ).validate(example)
         assert example == system_examples()[identifier]
         json.dumps(example, allow_nan=False)
-
-
-def test_the_planned_reference_no_longer_lists_the_system_operations():
-    guide = (API / "PLANNED_ENDPOINTS.md").read_text(encoding="utf-8")
-    for identifier in SYSTEM:
-        assert "\n## " + identifier + "\n" not in guide

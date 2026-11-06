@@ -2,7 +2,7 @@
 
 Generated from `build_contract.py`. Paths include `/api/v1`.
 
-Use implemented-openapi.json for callable endpoint schemas and client generation. openapi.json is the combined reference and marks each operation with x-implementation-status. examples.json contains synthetic fixtures.
+Use openapi.json for endpoint schemas and client generation. examples.json contains synthetic fixtures.
 
 ## Implemented (53 operations)
 
@@ -84,7 +84,3 @@ Use implemented-openapi.json for callable endpoint schemas and client generation
 - `GET /api/v1/feedback/evaluations/{evaluation_id}` — Read comparison results (`getFeedbackEvaluation`; implemented).
 - `GET /api/v1/feedback/evaluations` — List comparisons (`listFeedbackEvaluations`; implemented).
 - `POST /api/v1/feedback/policies/{policy_id}/activate` — Record explicit reviewer activation (`activateFeedbackPolicy`; implemented).
-
-## Planned — unavailable on the running server (0 operations)
-
-None.

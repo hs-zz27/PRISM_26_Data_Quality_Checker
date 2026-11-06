@@ -9,7 +9,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import ValidationError
 import pytest
 
-from backend.api.build_contract import build_contract, render_artifacts
+from backend.api.build_contract import build_contract, build_implemented_contract, render_artifacts
 from backend.api.common import replace_model_refs
 from backend.api.dataset_contract import (
     DATASET_OPERATIONS, align_dataset_contract, schema_closure, structural,
@@ -23,7 +23,7 @@ from backend.app.models.dataset import Dataset, DatasetPage, DatasetImportStarte
 from backend.app.models.job import Job, JobStatus
 
 API = Path(__file__).resolve().parents[1] / "api"
-FILES = {"openapi.json", "implemented-openapi.json", "examples.json", "ENDPOINTS.md", "PLANNED_ENDPOINTS.md"}
+FILES = {"openapi.json", "examples.json", "ENDPOINTS.md"}
 
 
 def _validate(document, schema, value):
@@ -40,7 +40,7 @@ def _transport(operation):
 def test_every_dataset_shape_matches_live_and_both_generated_documents():
     live = create_app().openapi()
     combined = json.loads((API / "openapi.json").read_text())
-    implemented = json.loads((API / "implemented-openapi.json").read_text())
+    implemented = build_implemented_contract(combined)
     for identifier, (path, method) in DATASET_OPERATIONS.items():
         actual = live["paths"]["/api/v1" + path][method]
         for document, prefix in ((combined, ""), (implemented, "/api/v1")):

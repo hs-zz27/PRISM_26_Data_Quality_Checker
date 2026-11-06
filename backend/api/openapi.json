@@ -3,7 +3,7 @@
   "info": {
     "title": "PRISM Data Quality Checker — API contract",
     "version": "0.1.0",
-    "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Liveness, capabilities and local readiness reads and the audit-wide finding list are implemented. No operations are currently planned; x-implementation-status remains on every operation. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."
+    "description": "Every operation in this contract is implemented and callable on the running backend. Use this document for frontend client generation. Examples are synthetic, not model accuracy results."
   },
   "servers": [
     {

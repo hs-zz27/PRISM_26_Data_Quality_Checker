@@ -29,7 +29,6 @@ from .schemas import build_schemas
 from .dataset_contract import align_dataset_contract
 from .export_contract import align_export_contract
 from .system_contract import align_system_contract
-from .planned_endpoints import render_planned_endpoints
 
 API_DIRECTORY = Path(__file__).resolve().parent
 RULEBOOK_ERROR_EXAMPLES = {
@@ -55,7 +54,7 @@ def build_contract() -> JsonObject:
     contract: JsonObject = {
         "openapi": "3.1.0",
         "info": {"title": "PRISM Data Quality Checker — API contract", "version": "0.1.0",
-                 "description": "Combined implementation and planning reference. Audit creation/listing/metadata/queue/detail reads, revision-pinned asset delivery, job status/cancellation, finding/sample review, plain-text extraction jobs, manual rulebook creation and saved-rulebook read/review operations are implemented. Dataset import and catalogue reads are implemented in the applied checkpoint source. Liveness, capabilities and local readiness reads and the audit-wide finding list are implemented. No operations are currently planned; x-implementation-status remains on every operation. Use implemented-openapi.json for clients targeting the running backend. Examples are synthetic, not model accuracy results."},
+                 "description": "Every operation in this contract is implemented and callable on the running backend. Use this document for frontend client generation. Examples are synthetic, not model accuracy results."},
         "servers": [{"url": "http://127.0.0.1:8000/api/v1", "description": "Local development server; only implemented operations are callable."}],
         "tags": [{"name": name} for name in ("System", "Rulebooks", "Datasets", "Jobs", "Audits", "Reviews", "Corrections", "Exports", "Feedback")],
         "paths": {}, "components": {"schemas": schemas},
@@ -553,8 +552,9 @@ def render_artifacts() -> dict[str, str]:
     export_scenarios = contract.pop("x-export-scenarios")
     recheck_job_scenarios = contract.pop("x-recheck-job-scenarios")
     feedback_job_states = contract.pop("x-feedback-job-scenarios")
-    documents = {"openapi.json": contract, "implemented-openapi.json": build_implemented_contract(contract), "examples.json": {
-        "notice": "Synthetic frontend fixtures, not stored resources, measured model accuracy or a stateful server. Feedback policies, adjudicated truth, comparisons and explicit activation are implemented in source. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, the audit-wide finding list, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use implemented-openapi.json for live client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
+    build_implemented_contract(contract)  # raises when the contract and the live routes disagree
+    documents = {"openapi.json": contract, "examples.json": {
+        "notice": "Synthetic frontend fixtures, not stored resources, measured model accuracy or a stateful server. Feedback policies, adjudicated truth, comparisons and explicit activation are implemented in source. Only operations marked implemented are callable. Annotation/mask corrections, history and linked audit-kind rechecks, dataset import/catalogue, reviewed exports, audit creation/listing/metadata, queue/detail, the audit-wide finding list, assets, jobs, finding/sample reviews and extraction/manual rulebook creation/read/review are implemented in the applied checkpoint source. Use openapi.json for client generation. Lifecycle and review scenarios are independent snapshots; binary assets are not embedded.",
         "base_url": "http://127.0.0.1:8000", "operations": fixtures,
         "review_scenarios": scenarios, "review_scenario_rulebooks": scenario_rulebooks,
         "job_scenarios": job_scenarios, "audit_scenarios": audit_scenarios,
@@ -572,31 +572,26 @@ def render_artifacts() -> dict[str, str]:
     }
     lines = [
         "# Endpoint index", "", "Generated from `build_contract.py`. Paths include `/api/v1`.", "",
-        "Use implemented-openapi.json for callable endpoint schemas and client generation. "
-        "openapi.json is the combined reference and marks each operation with x-implementation-status. "
+        "Use openapi.json for endpoint schemas and client generation. "
         "examples.json contains synthetic fixtures.", "",
     ]
-    for status, heading in (("implemented", "Implemented"), ("planned", "Planned — unavailable on the running server")):
-        matching = [operation for operation in fixtures if operation["implementation"] == status]
-        lines.extend([f"## {heading} ({len(matching)} operations)", ""])
-        if not matching:
-            lines.extend(["None.", ""])
-        for tag in contract["tags"]:
-            grouped = [operation for operation in matching if operation["tag"] == tag["name"]]
-            if not grouped:
-                continue
-            lines.extend([f"### {tag['name']}", ""])
-            for operation in grouped:
-                lines.append(f"- `{operation['method']} {operation['path']}` — {operation['summary']} (`{operation['operation_id']}`; {status}).")
-            lines.append("")
+    lines.extend([f"## Implemented ({len(fixtures)} operations)", ""])
+    for tag in contract["tags"]:
+        grouped = [operation for operation in fixtures if operation["tag"] == tag["name"]]
+        if not grouped:
+            continue
+        lines.extend([f"### {tag['name']}", ""])
+        for operation in grouped:
+            lines.append(f"- `{operation['method']} {operation['path']}` — {operation['summary']} "
+                         f"(`{operation['operation_id']}`; {operation['implementation']}).")
+        lines.append("")
     artifacts["ENDPOINTS.md"] = "\n".join(lines)
-    artifacts["PLANNED_ENDPOINTS.md"] = render_planned_endpoints(contract)
     return artifacts
 
 def main() -> None:
     for filename, content in render_artifacts().items():
         (API_DIRECTORY / filename).write_text(content, encoding="utf-8")
-    print("Generated combined and implemented-only OpenAPI, frontend fixtures and live/planned endpoint references.")
+    print("Generated the OpenAPI contract, frontend fixtures and the endpoint index.")
 
 if __name__ == "__main__":
     main()

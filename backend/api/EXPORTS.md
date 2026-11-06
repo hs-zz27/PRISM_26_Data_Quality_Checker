@@ -43,8 +43,7 @@ changes, regenerate from the complete pinned environment with explicit permissio
 python -B -m backend.api.build_contract
 ```
 
-This produces `openapi.json`, `implemented-openapi.json`, `examples.json`,
-`ENDPOINTS.md` and `PLANNED_ENDPOINTS.md` together. Do not hand-edit generated
+This produces `openapi.json`, `examples.json` and `ENDPOINTS.md` together. Do not hand-edit generated
 schemas, relax constraints, remove the BIGINT/null-default OpenAPI adapter, or
 invent hashes for ungenerated artifacts.
 

@@ -349,10 +349,8 @@ Regenerate in the complete checkout, never hand-edit these five artifacts:
 ```
 
 - `backend/api/openapi.json`
-- `backend/api/implemented-openapi.json`
 - `backend/api/examples.json`
 - `backend/api/ENDPOINTS.md`
-- `backend/api/PLANNED_ENDPOINTS.md`
 
 Only source/syntax checks were possible in this handoff. Dependencies/imports,
 artifact freshness and runtime/PG/HTTP/model correctness must be verified in the

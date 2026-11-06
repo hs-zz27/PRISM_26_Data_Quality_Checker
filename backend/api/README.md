@@ -27,10 +27,8 @@ Keep the base URL configurable in the frontend.
 For a frontend served on another port, use its development server's proxy for
 `/api/v1`; cross-origin access is not enabled by default.
 
-Use implemented-openapi.json to generate a client
-for the running backend. Its server URL is `http://127.0.0.1:8000` and paths
-already include `/api/v1`. The combined `openapi.json` uses a server URL ending
-in `/api/v1` and paths without that prefix. Apply the prefix exactly once.
+Use `openapi.json` to generate a client for the running backend. Its server URL ends
+in `/api/v1` and its paths do not include that prefix. Apply the prefix exactly once.
 `examples.json` uses the origin in `base_url` and includes the prefix in paths.
 Resolve asset URLs and `result.href` against the backend origin or its proxy,
 not an SPA route.
@@ -56,14 +54,9 @@ when API models or routes change.
 - AUDITS.md: catalogue-backed audit creation, listing and explicit worker commands.
 - EXPORTS.md: frozen reviewed selections, managed export jobs, manifests and downloads.
 - dataset_contract.py / dataset_examples.py: live-aligned dataset shapes and model-validated lifecycle snapshots.
-- PLANNED_ENDPOINTS.md: future operations, with parameters, request/response examples,
-  proposed errors and referenced schemas. It currently states that none are planned.
 - FRONTEND_WORKFLOW.md: screen flows, mock setup, jobs,
   correction/recheck pins and export/feedback interactions.
-- implemented-openapi.json: callable endpoints only,
-  with actual FastAPI transport schemas and frontend examples; use for client generation.
-- openapi.json: combined implementation/planning reference; every operation is
-  implemented now, and a future planned design would be marked in x-implementation-status.
+- openapi.json: every endpoint, all implemented; use for client generation.
 - examples.json: frontend fixtures with path parameters, query
   values, request body, response status and response body. Also includes flagged,
   no-issue, uncertain and unavailable review scenarios, plus a legacy audit with
@@ -526,7 +519,7 @@ Do not invent default thresholds for vague rules.
 
 Fixtures are independent synthetic snapshots, not a mutable mock server. Example
 IDs are not stored resources, and no binary PNG/ZIP files are embedded. Generate
-live clients from `implemented-openapi.json`; mock planned operations separately.
+clients from `openapi.json`.
 
 ## Implemented rulebook HTTP workflow
 
