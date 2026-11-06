@@ -5,9 +5,7 @@ torchvision==0.29.1
 numpy==2.5.4
 pillow==12.3.0
 opencv-python-headless==5.0.0.93
-streamlit==1.65.0
 pydantic==2.14.1
-ollama==0.6.3
 httpx==0.28.1
 pytest==9.1.1
 jsonschema==4.26.0
