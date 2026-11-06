@@ -43,6 +43,7 @@ from .sample_worker import (
     SampleComputationError,
     SampleDataError,
     TransientSampleError,
+    run_rule_checks,
     run_sample_child,
 )
 
@@ -736,43 +737,18 @@ class BatchAuditService:
                     # child and checkpoints continuously from the parent.
                     self._checkpoint(sample_claim, renew=True)
                     self._checkpoint(sample_claim, renew=False)
-                    evaluation = self.rule_evaluator(
-                        rulebook,
-                        measurements,
-                        audit_id=sample_claim.audit_id,
-                        sample_id=sample_claim.sample_id,
+                    measurements, evaluation = run_rule_checks(
+                        self.rule_evaluator, rulebook, measurements,
+                        manifest=self._snapshot_for_claim(request, sample_claim),
+                        asset_settings=(self.manifest_repository.asset_settings
+                                        if self.manifest_repository is not None else None),
+                        feedback_runtime=request.feedback_runtime, enclosure_runtime=request.enclosure_runtime,
+                        reviewer_feedback=request.reviewer_feedback.get(sample_claim.sample_id),
+                        processing_deadline=sample_claim.processing_deadline,
+                        checkpoint=lambda: self._checkpoint(sample_claim, renew=False),
+                        audit_id=sample_claim.audit_id, sample_id=sample_claim.sample_id,
                         sample_revision=sample_claim.sample_revision,
                     )
-                    if any(rule.check_name == "person_coverage" for rule in rulebook.rules):
-                        from .person_coverage import augment_person_coverage
-                        evaluation = augment_person_coverage(evaluation, rulebook, measurements,
-                            self._snapshot_for_claim(request, sample_claim), self.manifest_repository.asset_settings,
-                            audit_id=sample_claim.audit_id, sample_id=sample_claim.sample_id,
-                            sample_revision=sample_claim.sample_revision)
-                    if request.feedback_runtime is not None:
-                        from .feedback import augment_evaluation
-                        evaluation=augment_evaluation(evaluation,rulebook,self._snapshot_for_claim(request,sample_claim),
-                            request.feedback_runtime,self.manifest_repository.asset_settings,
-                            audit_id=sample_claim.audit_id,sample_id=sample_claim.sample_id,sample_revision=sample_claim.sample_revision,
-                            **({'reviewer_feedback': request.reviewer_feedback[sample_claim.sample_id]}
-                               if sample_claim.sample_id in request.reviewer_feedback else {}))
-                    if request.enclosure_runtime is not None:
-                        from .enclosure import augment_enclosure
-                        evaluation = augment_enclosure(evaluation, rulebook, self._snapshot_for_claim(request, sample_claim),
-                            request.enclosure_runtime, self.manifest_repository.asset_settings,
-                            processing_deadline=sample_claim.processing_deadline,
-                            checkpoint=lambda: self._checkpoint(sample_claim, renew=False),
-                            audit_id=sample_claim.audit_id, sample_id=sample_claim.sample_id,
-                            sample_revision=sample_claim.sample_revision,
-                            **({'reviewer_feedback': request.reviewer_feedback[sample_claim.sample_id]}
-                               if sample_claim.sample_id in request.reviewer_feedback else {}),
-                            **({'feedback_policy': request.feedback_runtime.policy} if request.feedback_runtime is not None
-                                and request.feedback_runtime.execution.enclosure is not None else {}))
-                    if sample_claim.sample_id in request.reviewer_feedback:
-                        from .review_correction import attach_review_context
-                        measurements = attach_review_context(measurements, request.reviewer_feedback[sample_claim.sample_id],
-                            self._snapshot_for_claim(request, sample_claim), rulebook, self.manifest_repository.asset_settings,
-                            request.feedback_runtime, request.enclosure_runtime, evaluation=evaluation)
                 # Preserve the collector's source-processing status. The
                 # durable incomplete flag also records evaluator health.
                 stored_measurements = deepcopy(dict(measurements))
@@ -932,7 +908,7 @@ class BatchAuditService:
             raise
         except JobCancellationError:
             return self.audit_repository.get_job(audit_id)
-        except Exception as error:  # noqa: BLE001 - convert worker failure to a readable job
+        except Exception:  # noqa: BLE001 - convert worker failure to a readable job
             logger.exception("Audit worker failed", extra={"audit_id": audit_id})
             safe_error = ApiError(
                 code="AUDIT_FAILED",

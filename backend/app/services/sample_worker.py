@@ -57,6 +57,53 @@ def _send_message(result_connection: Any, message: tuple[Any, ...]) -> None:
         pass
 
 
+def run_rule_checks(
+    evaluator: Callable[..., Any],
+    rulebook: Any,
+    measurements: Any,
+    *,
+    manifest: SampleAssetManifest | None,
+    asset_settings: AssetStorageSettings | None,
+    feedback_runtime: Any = None,
+    enclosure_runtime: Any = None,
+    reviewer_feedback: Any = None,
+    processing_deadline: datetime | None = None,
+    checkpoint: Callable[[], None] | None = None,
+    audit_id: str,
+    sample_id: str,
+    sample_revision: int,
+) -> tuple[Any, Any]:
+    """Evaluate one sample's rules in order: measured checks, the person check, model checks, reviewer feedback.
+
+    Returns the measurements (with any feedback context attached) and the evaluation.
+    """
+    ids = {"audit_id": audit_id, "sample_id": sample_id, "sample_revision": sample_revision}
+    evaluation = evaluator(rulebook, measurements, **ids)
+    if any(rule.check_name == "person_coverage" for rule in rulebook.rules):
+        from .person_coverage import augment_person_coverage
+        evaluation = augment_person_coverage(evaluation, rulebook, measurements, manifest, asset_settings, **ids)
+    if (feedback_runtime is not None or enclosure_runtime is not None) and (manifest is None or asset_settings is None):
+        raise SampleComputationError("Model checks require immutable snapshot evidence.")
+    feedback = {"reviewer_feedback": reviewer_feedback} if reviewer_feedback is not None else {}
+    if feedback_runtime is not None:
+        from .feedback import augment_evaluation
+        evaluation = augment_evaluation(evaluation, rulebook, manifest, feedback_runtime, asset_settings,
+                                        **ids, **feedback)
+    if enclosure_runtime is not None:
+        from .enclosure import augment_enclosure
+        policy = ({"feedback_policy": feedback_runtime.policy}
+                  if feedback_runtime is not None and feedback_runtime.execution.enclosure is not None else {})
+        evaluation = augment_enclosure(evaluation, rulebook, manifest, enclosure_runtime, asset_settings,
+                                       processing_deadline=processing_deadline,
+                                       **({"checkpoint": checkpoint} if checkpoint is not None else {}),
+                                       **ids, **feedback, **policy)
+    if reviewer_feedback is not None:
+        from .review_correction import attach_review_context
+        measurements = attach_review_context(measurements, reviewer_feedback, manifest, rulebook, asset_settings,
+                                             feedback_runtime, enclosure_runtime, evaluation=evaluation)
+    return measurements, evaluation
+
+
 def run_collector_child(
     result_connection: Any,
     collector: Callable[..., Any],
@@ -131,38 +178,12 @@ def run_sample_child(
             message = ("transient", type(error).__name__, str(error))
         else:
             try:
-                evaluation = evaluator(
-                    rulebook,
-                    measurements,
-                    audit_id=audit_id,
-                    sample_id=sample_id,
-                    sample_revision=sample_revision,
+                measurements, evaluation = run_rule_checks(
+                    evaluator, rulebook, measurements, manifest=snapshot_manifest, asset_settings=asset_settings,
+                    feedback_runtime=feedback_runtime, enclosure_runtime=enclosure_runtime,
+                    reviewer_feedback=reviewer_feedback, processing_deadline=processing_deadline,
+                    audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision,
                 )
-                if any(rule.check_name == "person_coverage" for rule in rulebook.rules):
-                    from .person_coverage import augment_person_coverage
-                    evaluation = augment_person_coverage(evaluation, rulebook, measurements, snapshot_manifest,
-                        asset_settings, audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision)
-                if feedback_runtime is not None:
-                    if snapshot_manifest is None or asset_settings is None:
-                        raise SampleComputationError("Model checks require immutable snapshot evidence.")
-                    from .feedback import augment_evaluation
-                    evaluation = augment_evaluation(evaluation,rulebook,snapshot_manifest,feedback_runtime,asset_settings,
-                        audit_id=audit_id,sample_id=sample_id,sample_revision=sample_revision,
-                        **({'reviewer_feedback': reviewer_feedback} if reviewer_feedback is not None else {}))
-                if enclosure_runtime is not None:
-                    if snapshot_manifest is None or asset_settings is None:
-                        raise SampleComputationError("Model checks require immutable snapshot evidence.")
-                    from .enclosure import augment_enclosure
-                    evaluation = augment_enclosure(evaluation, rulebook, snapshot_manifest, enclosure_runtime, asset_settings,
-                        processing_deadline=processing_deadline,
-                        audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision,
-                        **({'reviewer_feedback': reviewer_feedback} if reviewer_feedback is not None else {}),
-                        **({'feedback_policy': feedback_runtime.policy} if feedback_runtime is not None
-                            and feedback_runtime.execution.enclosure is not None else {}))
-                if reviewer_feedback is not None:
-                    from .review_correction import attach_review_context
-                    measurements = attach_review_context(measurements, reviewer_feedback, snapshot_manifest,
-                        rulebook, asset_settings, feedback_runtime, enclosure_runtime, evaluation=evaluation)
                 message = (
                     "success", measurements, evaluation.findings,
                     evaluation.internal_check_failures,
