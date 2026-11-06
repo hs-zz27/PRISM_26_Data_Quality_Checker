@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi.routing import APIRoute, iter_route_contexts
 
-from backend.api.build_contract import render_artifacts
+from backend.tests.contract_cache import live_openapi
 from backend.api.common import replace_model_refs
 from backend.api.schemas import build_schemas
 from backend.app.main import create_app
@@ -93,7 +93,7 @@ def test_rulebook_models_are_generated_without_handwritten_page_overrides():
 
 def test_full_generated_implemented_inventory_matches_live_once():
     generated = json.loads((API / "openapi.json").read_text())
-    live = create_app().openapi()
+    live = live_openapi()
     implemented = {(path, method, op["operationId"]) for path, methods in generated["paths"].items()
                    for method, op in methods.items() if op["x-implementation-status"] == "implemented"}
     actual = {(path.removeprefix("/api/v1"), method, op["operationId"])
@@ -117,7 +117,7 @@ def test_full_generated_implemented_inventory_matches_live_once():
 
 def test_rulebook_live_generated_operations_match_without_constraint_normalization():
     generated = json.loads((API / "openapi.json").read_text())
-    live = create_app().openapi()
+    live = live_openapi()
     gc, lc = generated["components"]["schemas"], live["components"]["schemas"]
     for identifier, (path, method, success, response_model, request_model, conflicts) in OPERATIONS.items():
         one, two = generated["paths"][path][method], live["paths"]["/api/v1" + path][method]
@@ -146,7 +146,3 @@ def test_rulebook_live_generated_operations_match_without_constraint_normalizati
                 examples = op["responses"]["409"]["content"]["application/json"]["examples"]
                 assert set(examples) == conflicts
                 assert {item["value"]["error"]["code"] for item in examples.values()} == conflicts
-
-def test_rulebook_and_existing_generated_artifacts_are_fresh():
-    for name, expected in render_artifacts().items():
-        assert (API / name).read_text(encoding="utf-8") == expected

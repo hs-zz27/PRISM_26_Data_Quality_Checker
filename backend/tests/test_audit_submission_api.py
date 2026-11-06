@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 import pytest
 
-from backend.api.build_contract import build_contract
+from backend.tests.contract_cache import build_contract, live_openapi
 from backend.api.dataset_contract import schema_closure, structural
 from backend.api.fixtures import build_examples
 from backend.app.main import create_app
@@ -123,7 +123,7 @@ def test_list_rejects_invalid_pagination(api, query):
 
 def test_creation_and_listing_contracts_match_live_transports():
     contract = build_contract()
-    live = create_app().openapi()
+    live = live_openapi()
     for method, statuses in (("post", {"202", "404", "409", "422", "500", "503"}),
                              ("get", {"200", "422", "500", "503"})):
         documented = contract["paths"]["/audits"][method]

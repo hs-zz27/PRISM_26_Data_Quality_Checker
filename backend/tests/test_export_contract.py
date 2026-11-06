@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi.routing import APIRoute, iter_route_contexts
 
-from backend.api.build_contract import build_contract, render_artifacts
+from backend.tests.contract_cache import build_contract, live_openapi
 from backend.api.export_examples import export_examples
 from backend.api.schemas import build_schemas
 from backend.api.common import replace_model_refs
@@ -25,7 +25,7 @@ EXPECTED = {
 
 
 def test_all_five_export_operations_are_unique_and_live():
-    live, generated = create_app().openapi(), build_contract()
+    live, generated = live_openapi(), build_contract()
     ids = [c.original_route.operation_id for c in iter_route_contexts(create_app().routes)
            if isinstance(c.original_route, APIRoute) and c.original_route.include_in_schema]
     assert len(ids) == len(set(ids)) == 53
@@ -58,7 +58,7 @@ def test_export_models_are_not_overridden_by_handwritten_schemas():
 
 
 def test_binary_and_pagination_shapes_are_lossless():
-    live = create_app().openapi()
+    live = live_openapi()
     download = live['paths']['/api/v1/exports/{export_id}/download']['get']
     assert set(download['responses']['200']['content']) == {'application/zip'}
     assert download['responses']['200']['content']['application/zip']['schema'] == {'type': 'string', 'format': 'binary'}
@@ -83,8 +83,3 @@ def test_synthetic_lifecycle_and_provenance_fixtures_validate():
     assert manifest.entries[1].included and manifest.entries[1].review_decision.value == 'rejected'
     assert manifest.entries[0].sample_revision != manifest.entries[0].review_revision
     assert not ExportManifest.model_validate_json(json.dumps(examples['empty_manifest'])).entries
-
-
-def test_generated_artifacts_must_be_regenerated_together():
-    for name, expected in render_artifacts().items():
-        assert (API / name).read_text(encoding='utf-8') == expected

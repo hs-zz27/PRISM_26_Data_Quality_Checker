@@ -7,7 +7,7 @@ import pytest
 from fastapi.routing import APIRoute, iter_route_contexts
 from jsonschema import Draft202012Validator, FormatChecker
 
-from backend.api.build_contract import build_implemented_contract, render_artifacts
+from backend.api.build_contract import build_implemented_contract
 from backend.api.common import replace_model_refs
 from backend.api.schemas import build_schemas
 from backend.app.main import create_app
@@ -192,8 +192,3 @@ def test_existing_finding_review_and_sample_detail_contracts_stay_compatible():
 
 
 # --- freshness ------------------------------------------------------------------------------------------------------------
-
-def test_generated_artifacts_are_fresh():
-    for name, content in render_artifacts().items():
-        on_disk = (API / name).read_text(encoding="utf-8").replace("\r\n", "\n")
-        assert on_disk == content.replace("\r\n", "\n"), f"{name} is stale; run python -B -m backend.api.build_contract"

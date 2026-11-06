@@ -9,7 +9,8 @@ from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import ValidationError
 import pytest
 
-from backend.api.build_contract import build_contract, build_implemented_contract, render_artifacts
+from backend.api.build_contract import build_implemented_contract
+from backend.tests.contract_cache import build_contract, live_openapi, render_artifacts
 from backend.api.common import replace_model_refs
 from backend.api.dataset_contract import (
     DATASET_OPERATIONS, align_dataset_contract, schema_closure, structural,
@@ -38,7 +39,7 @@ def _transport(operation):
 
 
 def test_every_dataset_shape_matches_live_and_both_generated_documents():
-    live = create_app().openapi()
+    live = live_openapi()
     combined = json.loads((API / "openapi.json").read_text())
     implemented = build_implemented_contract(combined)
     for identifier, (path, method) in DATASET_OPERATIONS.items():
@@ -188,15 +189,13 @@ def test_alignment_rejects_schema_collision_before_changing_document():
     reference["components"]["schemas"]["Sample"]["properties"]["revision"]["minimum"] = 2
     before = deepcopy(reference)
     with pytest.raises(ValueError, match="component collision"):
-        align_dataset_contract(reference, create_app().openapi())
+        align_dataset_contract(reference, live_openapi())
     assert reference == before
 
 
 def test_generated_examples_and_inventory_are_complete_unique_and_fresh():
     rendered = render_artifacts()
-    assert set(rendered) == FILES
-    for name, content in rendered.items():
-        assert (API / name).read_text(encoding="utf-8") == content
+    assert set(rendered) == FILES  # freshness itself is checked once, in test_api_contract
     document = json.loads(rendered["openapi.json"])
     examples = json.loads(rendered["examples.json"])
     operations = [op for methods in document["paths"].values() for op in methods.values()]
@@ -233,7 +232,7 @@ def test_generated_examples_and_inventory_are_complete_unique_and_fresh():
 @pytest.mark.parametrize("defect", ["identity", "statuses", "response_media", "request_media", "reference"])
 def test_alignment_fails_closed_without_partial_updates(defect):
     reference = build_contract()
-    live = create_app().openapi()
+    live = live_openapi()
     operation = live["paths"]["/api/v1/datasets"]["post"]
     if defect == "identity":
         operation["operationId"] = "anotherOperation"

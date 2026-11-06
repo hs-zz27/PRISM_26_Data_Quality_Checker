@@ -12,13 +12,13 @@ import pytest
 
 from backend.app.models.rule import Rulebook, RulebookRecord
 from backend.app.models.rulebook_creation import RulebookCreate
-from backend.app.main import create_app
 from backend.app.models.finding import Finding, FindingReview
 from backend.app.models.review import (
     FindingReviewPage, FindingReviewRequest, RulebookAction, RulebookReplace, RulebookReviewPage,
     SampleReview, SampleReviewPage, SampleReviewRequest,
 )
-from backend.api.build_contract import build_implemented_contract, render_artifacts
+from backend.api.build_contract import build_implemented_contract
+from backend.tests.contract_cache import live_openapi, render_artifacts
 
 API_ROOT = Path(__file__).resolve().parents[1] / "api"
 SPEC = json.loads((API_ROOT / "openapi.json").read_text())
@@ -138,7 +138,7 @@ def _normalize_job_schema(value: Any) -> Any:
     return value
 
 def test_generated_job_schemas_match_live_openapi_constraints():
-    live = create_app().openapi()["components"]["schemas"]
+    live = live_openapi()["components"]["schemas"]
     generated = SPEC["components"]["schemas"]
     models = {
         "ErrorDetail", "ApiError", "Progress", "ResultReference", "Job", "JobKind", "JobStatus",

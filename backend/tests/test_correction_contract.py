@@ -1,10 +1,9 @@
 """Authored source/live contracts and frozen audit-kind compatibility adjustment."""
 import json
-from pathlib import Path
 
 from fastapi.routing import APIRoute,iter_route_contexts
 
-from backend.api.build_contract import build_contract,render_artifacts
+from backend.tests.contract_cache import build_contract, live_openapi
 from backend.api.schemas import build_schemas
 from backend.api.common import replace_model_refs
 from backend.api.correction_contract import OPERATIONS
@@ -16,7 +15,7 @@ from backend.tests.test_rulebook_contract import assert_same_schema
 
 
 def test_four_existing_operations_promoted_once_and_exact_inventory():
-    app=create_app();live=app.openapi();generated=build_contract()
+    app=create_app();live=live_openapi();generated=build_contract()
     ids=[c.original_route.operation_id for c in iter_route_contexts(app.routes) if isinstance(c.original_route,APIRoute) and c.original_route.include_in_schema]
     assert len(ids)==len(set(ids))==53
     operations=[op for methods in generated['paths'].values() for op in methods.values()]
@@ -62,9 +61,3 @@ def test_recheck_fixtures_use_executable_audit_kind_and_declared_result_urls():
         if job.result is not None:
             assert job.result.href=='/api/v1/audits/'+job.result.id
     assert set(document['x-future-job-scenarios'])==set()
-
-
-def test_generated_artifact_freshness_remains_a_required_gate():
-    root=Path(__file__).resolve().parents[1]/'api'
-    for name,expected in render_artifacts().items():
-        assert (root/name).read_text(encoding='utf-8')==expected

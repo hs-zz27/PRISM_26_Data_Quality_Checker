@@ -13,7 +13,7 @@ from backend.api.feedback_contract import OPERATIONS, feedback_job_scenarios
 from backend.api.feedback_examples import feedback_examples
 from backend.api.schemas import build_schemas
 from backend.api.common import replace_model_refs
-from backend.api.build_contract import build_contract
+from backend.tests.contract_cache import build_contract
 from backend.tests.test_rulebook_contract import assert_same_schema
 
 @pytest.fixture
