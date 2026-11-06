@@ -2,15 +2,18 @@
 from base64 import b64encode
 from copy import deepcopy
 from hashlib import sha256
+from io import BytesIO
 import json
 from typing import Annotated, Literal
 
+from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from ..core.config import OLLAMA_KEEP_ALIVE_SECONDS
 from ..inference.annotation_guideline import GuidelineClient, InferenceUnavailable, unique_object
 from ..models.correction import CorrectionObject, JsonCorrectionObject
 from ..models.feedback import ExecutionPin
+from ..models.finding import FindingOutcome
 from ..storage.workflow_repository import read_manifest_asset_file, AssetIntegrityError, AssetReadLimitError, AssetUnavailableError
 from ..datasets.annotation_validation import _decode_metadata, _polygon_issues
 from ..datasets.json_sample import read_annotation
@@ -220,25 +223,78 @@ def propose_correction(measurements, feedback, manifest, rulebook, settings, exe
                     'reason': ('The model proposed changes to annotations outside the reviewed targets, so the draft '
                                'was discarded and every annotation stays unchanged. Review the annotation manually.')}
         updated = apply_draft_edits(objects, proposal.edits, (width, height), manifest.annotation_format)
-        if manifest.annotation_format != 'penn_fudan':
-            document, record = read_annotation(annotation, manifest.annotation_format, manifest.image_key)
-            if len(record.annotations) != len(objects):
-                raise ValueError('Source object identity mismatch.')
-            for old, new, source in zip(objects, updated, record.annotations):
-                if old == new:
-                    continue
-                if source.key != new['source_key'] or source.mask is not None or any(i.severity == 'unsupported' for i in source.issues):
-                    raise ValueError('This source encoding cannot be corrected by the current editor.')
-                if (document.format == 'coco' and new['label'] != old['label']
-                    and sum(c.get('name') == new['label'] for c in document.source['categories']) != 1):
-                    raise ValueError('Select an existing unambiguous source category.')
+        _check_source_editable(objects, updated, manifest, annotation)
         return {**base, **scope_fields, 'status': 'proposed', 'reason': proposal.reason, 'objects': updated}
-    except (ValueError, TypeError, KeyError, IndexError, RecursionError, InferenceUnavailable,
-            AssetIntegrityError, AssetReadLimitError, AssetUnavailableError):
-        return {**base, **scope_fields, 'reason': 'A valid, bounded correction could not be established. Review the annotation manually.'}
+    except PROPOSAL_ERRORS:
+        return {**base, **scope_fields, 'reason': NO_VALID_CORRECTION}
     finally:
         if client is not None:
             client.close()
+
+
+PROPOSAL_ERRORS = (ValueError, TypeError, KeyError, IndexError, RecursionError, InferenceUnavailable,
+                   AssetIntegrityError, AssetReadLimitError, AssetUnavailableError)
+NO_VALID_CORRECTION = 'A valid, bounded correction could not be established. Review the annotation manually.'
+
+
+def _check_source_editable(objects, updated, manifest, annotation):
+    """COCO and LabelMe: every changed object must map back to a source shape the editor can rewrite."""
+    if manifest.annotation_format == 'penn_fudan':
+        return
+    document, record = read_annotation(annotation, manifest.annotation_format, manifest.image_key)
+    if len(record.annotations) != len(objects):
+        raise ValueError('Source object identity mismatch.')
+    for old, new, source in zip(objects, updated, record.annotations):
+        if old == new:
+            continue
+        if source.key != new['source_key'] or source.mask is not None or any(i.severity == 'unsupported' for i in source.issues):
+            raise ValueError('This source encoding cannot be corrected by the current editor.')
+        if (document.format == 'coco' and new['label'] != old['label']
+            and sum(c.get('name') == new['label'] for c in document.source['categories']) != 1):
+            raise ValueError('Select an existing unambiguous source category.')
+
+
+def measured_box_proposal(measurements, feedback, manifest, settings, evaluation):
+    """A box correction measured by the person coverage check (Mask R-CNN), without the chat model.
+
+    Each box the check failed moves only its failing sides to the detected person's edges. Returns None when the
+    check measured no box fix for the reviewed objects, so the caller can use the chat-model draft instead.
+    """
+    from .person_coverage import CHECK, measured_box_fix
+    targets = set(feedback.object_keys or [])
+    fixes = {}
+    for finding in getattr(evaluation, 'findings', None) or []:
+        evidence = finding.evidence.measurements
+        annotation = evidence.get('annotation')
+        if finding.check_name != CHECK or finding.outcome != FindingOutcome.FAIL or not isinstance(annotation, dict):
+            continue
+        key = object_key(annotation)
+        fix = measured_box_fix(annotation, evidence.get('result'))
+        if fix is not None and key not in fixes and (not targets or key in targets):
+            fixes[key] = fix
+    if not fixes:
+        return None
+    base = dict(protocol=PROTOCOL, method='person_coverage', dataset_id=manifest.dataset_id,
+                sample_id=manifest.sample_id, sample_revision=manifest.sample_revision, image_key=manifest.image_key,
+                annotation_format=manifest.annotation_format, image_sha256=manifest.original_image.sha256,
+                annotation_sha256=manifest.annotation_text.sha256, feedback=feedback.model_dump(mode='json'),
+                status='unavailable', reason=NO_VALID_CORRECTION, objects=None)
+    try:
+        objects = [row['annotation'] for row in measurements['objects']]
+        _, image = read_manifest_asset_file(manifest, 'original_image', settings)
+        with Image.open(BytesIO(image)) as picture:
+            size = picture.size
+        edits = [Edit(object_key=key, label=None, bbox=tuple(box), polygons=None) for key, (box, _) in fixes.items()]
+        updated = apply_draft_edits(objects, edits, size, manifest.annotation_format)
+        if manifest.annotation_format != 'penn_fudan':
+            _check_source_editable(objects, updated, manifest,
+                                   read_manifest_asset_file(manifest, 'annotation_text', settings)[1])
+    except (*PROPOSAL_ERRORS, OSError):
+        return base
+    labels = {object_key(obj): f"{obj.get('label') or 'Object'} {obj['object_id']}" for obj in objects}
+    moves = ' '.join(f'{labels[key]}: {words}' if len(fixes) > 1 else words for key, (_, words) in fixes.items())
+    reason = f'Measured by the person check (Mask R-CNN). {moves} Other sides are unchanged.'
+    return {**base, 'status': 'proposed', 'reason': reason, 'objects': updated}
 
 
 def attach_review_context(measurements, feedback, manifest, rulebook, settings, feedback_runtime, enclosure_runtime,
@@ -246,7 +302,9 @@ def attach_review_context(measurements, feedback, manifest, rulebook, settings, 
     result = deepcopy(dict(measurements))
     result['reviewer_feedback'] = feedback.model_dump(mode='json')
     if feedback.propose_correction:
-        result['correction_proposal'] = propose_correction(
-            result, feedback, manifest, rulebook, settings, transport_pin(feedback_runtime, enclosure_runtime),
-            editable_keys=flagged_object_keys(getattr(evaluation, 'findings', None)))
+        result['correction_proposal'] = (
+            measured_box_proposal(result, feedback, manifest, settings, evaluation)
+            or propose_correction(result, feedback, manifest, rulebook, settings,
+                                  transport_pin(feedback_runtime, enclosure_runtime),
+                                  editable_keys=flagged_object_keys(getattr(evaluation, 'findings', None))))
     return result

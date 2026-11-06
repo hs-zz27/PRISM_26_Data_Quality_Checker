@@ -164,3 +164,62 @@ def test_json_polygon_findings_one_per_object(monkeypatch):
     failed = next(f for f in result.findings if f.object_id == 2)
     assert "head/top of the person is outside the annotation" in failed.reason
     assert failed.evidence.measurements["segmenter"] == {"model": "fake"}
+
+
+# ── measured box suggestions ─────────────────────────────────────────────────
+@pytest.mark.parametrize("bbox, fixed, words", [
+    # Penn-Fudan, 1-based inclusive: head left out, so only the top edge moves up to the detected head.
+    ([X0 + 1, Y0 + 46, X1 + 1, Y1 + 1], [X0 + 1, Y0 + 1, X1 + 1, Y1 + 1], "Top edge moved up 45 px to include the head/top."),
+    # Extra background on the left: the left edge moves right; the other sides stay as drawn.
+    ([X0 - 29, Y0 + 1, X1 + 1, Y1 + 1], [X0 + 1, Y0 + 1, X1 + 1, Y1 + 1], "Left edge moved right 30 px to remove extra background."),
+])
+def test_measured_box_fix_moves_only_the_failing_sides(bbox, fixed, words):
+    annotation = {"object_id": 1, "label": "PASpersonWalking", "bbox": bbox}
+    outcome, _, result = pc.object_coverage(annotation, "penn_fudan", (W, H), None, SEG, PARAMS)
+    assert outcome is FindingOutcome.FAIL
+    assert pc.measured_box_fix(annotation, result) == (fixed, words)
+
+
+def test_measured_box_fix_keeps_continuous_coordinates_of_sides_that_passed():
+    annotation = {"object_id": 1, "bbox": [X0 + 0.25, Y0, X1 + 0.75, Y1 + 1 - 30], "bbox_origin": "supplied"}
+    _, _, result = pc.object_coverage(annotation, "coco", (W, H), None, SEG, PARAMS)
+    box, words = pc.measured_box_fix(annotation, result)
+    assert box == [X0 + 0.25, Y0, X1 + 0.75, Y1 + 1]  # a continuous bottom edge ends after the last person row
+    assert words == "Bottom edge moved down 30 px to include the feet/bottom."
+    good = {"object_id": 1, "bbox": [X0, Y0, X1 + 1, Y1 + 1], "bbox_origin": "supplied"}
+    assert pc.measured_box_fix(good, pc.object_coverage(good, "coco", (W, H), None, SEG, PARAMS)[2]) is None
+
+
+def feedback(object_keys=None):
+    from backend.app.models.review_feedback import ImageReviewFeedback
+    return ImageReviewFeedback(reviewer_id="reviewer", source_audit_id="audit_parent", comment="The head is cut off.",
+                               propose_correction=True, object_keys=object_keys)
+
+
+def penn_fudan_manifest():
+    return SimpleNamespace(annotation_format="penn_fudan", dataset_id="dataset_1", sample_id="sample_1",
+                           sample_revision=1, image_key="FudanPed00001.png", original_image=SimpleNamespace(sha256="a" * 64),
+                           annotation_text=SimpleNamespace(sha256="b" * 64),
+                           raw_mask=SimpleNamespace(availability=SimpleNamespace(value="not_supplied")))
+
+
+@pytest.mark.parametrize("object_keys, measured", [(None, True), (["penn_fudan:1"], True), (["penn_fudan:2"], False)])
+def test_suggested_correction_uses_the_measured_box_for_reviewed_people(monkeypatch, object_keys, measured):
+    from backend.app.services.review_correction import attach_review_context
+    monkeypatch.setattr("backend.app.storage.workflow_repository.read_manifest_asset_file", fake_reader)
+    monkeypatch.setattr("backend.app.services.review_correction.read_manifest_asset_file", fake_reader)
+    head_cut = {"object_id": 1, "label": "PASpersonWalking", "bbox": [X0 + 1, Y0 + 46, X1 + 1, Y1 + 1]}
+    complete = {"object_id": 2, "label": "PASpersonWalking", "bbox": [X0 + 1, Y0 + 1, X1 + 1, Y1 + 1]}
+    rows = [{"annotation": head_cut}, {"annotation": complete}]
+    evaluation = run(penn_fudan_manifest(), rows, lambda: SimpleNamespace(segment=lambda image: SEG))
+    result = attach_review_context({"objects": rows}, feedback(object_keys), penn_fudan_manifest(), rulebook(),
+                                   SimpleNamespace(), None, None, evaluation=evaluation)
+    proposal = result["correction_proposal"]
+    if not measured:  # nothing measured for the reviewed person: the chat-model draft runs as before
+        assert "method" not in proposal and proposal["status"] == "unavailable"
+        return
+    assert proposal["method"] == "person_coverage" and proposal["status"] == "proposed"
+    assert proposal["objects"] == [{**head_cut, "bbox": [X0 + 1, Y0 + 1, X1 + 1, Y1 + 1]}, complete]
+    assert proposal["reason"] == ("Measured by the person check (Mask R-CNN). Top edge moved up 45 px to include "
+                                  "the head/top. Other sides are unchanged.")
+    assert rows[0]["annotation"]["bbox"] == [X0 + 1, Y0 + 46, X1 + 1, Y1 + 1]  # the draft never edits the source

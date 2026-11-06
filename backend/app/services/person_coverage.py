@@ -15,7 +15,6 @@ COCO val2017 (held-out): see .cache/validation/rcnn-benchmark-20261106/REPORT.md
 """
 from io import BytesIO
 from math import ceil, floor
-from typing import Any, Mapping
 
 import cv2
 import numpy as np
@@ -77,15 +76,18 @@ def judge_box(box, segmentation, params):
     t = _tolerance(person.box, params)
     px0, py0, px1, py1 = person.box
     ex0, ey0, ex1, ey1 = _extent(_with_carried(person, segmentation.carried, t))
+    # "edge" is where that box side belongs: the person's edge, or the edge of the person and what they carry.
     regions = []
-    for side, gap in (("top", box[1] - py0), ("bottom", py1 - box[3]), ("left", box[0] - px0), ("right", px1 - box[2])):
+    for side, gap, edge in (("top", box[1] - py0, py0), ("bottom", py1 - box[3], py1),
+                            ("left", box[0] - px0, px0), ("right", px1 - box[2], px1)):
         if gap > t:
-            regions.append({"kind": "missing", "side": side, "pixels": int(gap),
+            regions.append({"kind": "missing", "side": side, "pixels": int(gap), "edge": edge,
                             "box": {"top": [px0, py0, px1, box[1]], "bottom": [px0, box[3], px1, py1],
                                     "left": [px0, py0, box[0], py1], "right": [box[2], py0, px1, py1]}[side]})
-    for side, gap in (("top", ey0 - box[1]), ("bottom", box[3] - ey1), ("left", ex0 - box[0]), ("right", box[2] - ex1)):
+    for side, gap, edge in (("top", ey0 - box[1], ey0), ("bottom", box[3] - ey1, ey1),
+                            ("left", ex0 - box[0], ex0), ("right", box[2] - ex1, ex1)):
         if gap > t:
-            regions.append({"kind": "extra", "side": side, "pixels": int(gap),
+            regions.append({"kind": "extra", "side": side, "pixels": int(gap), "edge": edge,
                             "box": {"top": [box[0], box[1], box[2], ey0], "bottom": [box[0], ey1, box[2], box[3]],
                                     "left": [box[0], box[1], ex0, box[3]], "right": [ex1, box[1], box[2], box[3]]}[side]})
     result = {"geometry": "box", "tolerance_px": round(t, 1), "person_box": list(person.box),
@@ -163,8 +165,36 @@ def _to_annotation_coordinates(result, annotation_format):
         result["person_box"] = fix(result["person_box"])
     for region in result.get("regions", []):
         region["box"] = fix(region["box"])
+        if "edge" in region:  # a top or left edge starts at its pixel; a bottom or right edge ends after it
+            region["edge"] += shift + (end if region["side"] in ("bottom", "right") else 0)
     result["coordinate_system"] = "one_based_inclusive" if annotation_format == "penn_fudan" else "zero_based_continuous"
     return result
+
+
+_SIDE_INDEX = {"left": 0, "top": 1, "right": 2, "bottom": 3}
+
+
+def measured_box_fix(annotation, result):
+    """The annotation's box with each failing side moved to its measured edge, and a plain description.
+
+    Sides that passed keep their original coordinates. None when the box geometry has no measured fix.
+    """
+    box = next((g for g in (result or {}).get("geometries", []) if g.get("geometry") == "box"), None)
+    regions = [r for r in (box or {}).get("regions", []) if "edge" in r]
+    if not regions or not annotation.get("bbox"):
+        return None
+    old = list(annotation["bbox"])
+    new = list(old)
+    moves = []
+    for region in regions:
+        index = _SIDE_INDEX[region["side"]]
+        new[index] = region["edge"]
+        shift = new[index] - old[index]
+        direction = ("up" if shift < 0 else "down") if index % 2 else ("left" if shift < 0 else "right")
+        purpose = (f"to include the {_PART[region['side']]}" if region["kind"] == "missing"
+                   else "to remove extra background")
+        moves.append(f"{region['side'].capitalize()} edge moved {direction} {round(abs(shift))} px {purpose}.")
+    return new, " ".join(moves)
 
 
 def object_coverage(annotation, annotation_format, size, instance_mask, segmentation, params):
