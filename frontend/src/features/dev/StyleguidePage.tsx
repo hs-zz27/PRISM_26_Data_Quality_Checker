@@ -41,7 +41,7 @@ export const StyleguidePage: React.FC = () => (
         <span className="state-label"><MinusCircle size={14} /><i className="state-dot unavailable" />Unavailable</span>
         <Badge variant="mock" size="sm">Mock</Badge>
         <span className="ready-chip"><Activity size={14} />API online</span>
-        <span className="ready-chip is-unavailable"><Database size={14} />Detector unavailable</span>
+        <span className="ready-chip is-unavailable"><Database size={14} />Mask R-CNN unavailable</span>
       </div>
     </section>
 

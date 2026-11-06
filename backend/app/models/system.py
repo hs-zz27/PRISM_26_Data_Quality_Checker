@@ -104,11 +104,24 @@ class DetectorStatus(BaseModel):
     architecture: str = Field(min_length=1)
 
 
+class PersonModelStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    model: str = Field(min_length=1, description="The segmentation model the person check uses.")
+    checkpoint_file: Literal["present", "missing", "unreadable"] = Field(
+        description=(
+            "Whether the model's weights file is installed. A present file is not hashed, loaded or run "
+            "by this read; the person check reports could not check for a sample when it cannot use it."
+        ),
+    )
+
+
 class SystemStatus(BaseModel):
     """Read-only readiness. Reading it starts nothing and downloads nothing."""
 
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
     ollama: OllamaStatus
+    person_model: PersonModelStatus
     detector: DetectorStatus
     execution_device: Literal["cpu"]

@@ -50,10 +50,8 @@ export const Navbar: React.FC = () => {
   };
   const apiReady = !healthError && health?.status === 'ok';
   const ollamaReady = !systemError && Boolean(system?.ollama?.reachable);
-  const detector = system?.detector;
-  const detectorReady = !systemError && Boolean(detector?.integration_supported
-    && detector.configuration === 'enabled' && detector.checkpoint_file === 'present'
-    && detector.validation === 'validated');
+  // The person check's Mask R-CNN weights are installed; the check itself runs in the audit worker.
+  const personModelReady = !systemError && system?.person_model?.checkpoint_file === 'present';
 
   return <>
     <header className="topbar">
@@ -69,7 +67,7 @@ export const Navbar: React.FC = () => {
         <div className="readiness-group" aria-label="System readiness">
           <Readiness icon={Activity} label="API" ready={apiReady} mockOperation="getHealth" />
           <Readiness icon={Bot} label="Ollama" ready={ollamaReady} mockOperation="getSystemStatus" />
-          <Readiness icon={Layers} label="Detector" ready={detectorReady} mockOperation="getSystemStatus" />
+          <Readiness icon={Layers} label="Mask R-CNN" ready={personModelReady} mockOperation="getSystemStatus" />
         </div>
         <span className="topbar-divider" />
         <span className="job-count" title={`${jobCount} active jobs (queued, running or cancelling)`}><BriefcaseBusiness size={14} /> Jobs <b className="mono">{jobCount}</b></span>

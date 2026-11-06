@@ -221,7 +221,7 @@
           "System"
         ],
         "summary": "Inspect local model readiness",
-        "description": "Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.",
+        "description": "Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. person_model says whether the Mask R-CNN weights file used by the person check is installed (not hashed or loaded). Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.",
         "operationId": "getSystemStatus",
         "responses": {
           "200": {
@@ -237,6 +237,10 @@
                     "reachable": true,
                     "model": "example-local-model:latest",
                     "model_available": true
+                  },
+                  "person_model": {
+                    "model": "maskrcnn_resnet50_fpn_v2_coco",
+                    "checkpoint_file": "present"
                   },
                   "detector": {
                     "integration_supported": true,
@@ -270,7 +274,7 @@
           }
         },
         "x-implementation-status": "implemented",
-        "x-backing-service-status": "SystemStatusService: bounded Ollama model-list probe, detection settings and a checkpoint file-existence check; FastAPI route."
+        "x-backing-service-status": "SystemStatusService: bounded Ollama model-list probe, person model and detection settings with checkpoint file-existence checks; FastAPI route."
       }
     },
     "/rulebooks": {
@@ -20295,6 +20299,9 @@
           "ollama": {
             "$ref": "#/components/schemas/OllamaStatus"
           },
+          "person_model": {
+            "$ref": "#/components/schemas/PersonModelStatus"
+          },
           "detector": {
             "$ref": "#/components/schemas/DetectorStatus"
           },
@@ -20306,6 +20313,7 @@
         },
         "required": [
           "ollama",
+          "person_model",
           "detector",
           "execution_device"
         ],
@@ -20416,6 +20424,33 @@
           "model_available"
         ],
         "title": "OllamaStatus",
+        "type": "object"
+      },
+      "PersonModelStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "description": "The segmentation model the person check uses.",
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "checkpoint_file": {
+            "description": "Whether the model's weights file is installed. A present file is not hashed, loaded or run by this read; the person check reports could not check for a sample when it cannot use it.",
+            "enum": [
+              "present",
+              "missing",
+              "unreadable"
+            ],
+            "title": "Checkpoint File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "checkpoint_file"
+        ],
+        "title": "PersonModelStatus",
         "type": "object"
       }
     }

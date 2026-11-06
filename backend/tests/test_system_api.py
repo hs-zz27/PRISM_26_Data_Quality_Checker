@@ -34,6 +34,7 @@ def fake_service(probe=None, **options):
         detection_settings=lambda: DetectionSettings(enabled=False),
         checkpoint_location=lambda: None,
         packages_available=lambda: True,
+        person_model_checkpoint=lambda: None,
     )
     return SystemStatusService(**(values | options))
 
@@ -85,6 +86,15 @@ def test_status_distinguishes_the_detector_states(tmp_path):
         "integration_supported": True, "configuration": "enabled", "checkpoint_file": "present",
         "validation": "unknown", "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn",
     }
+
+
+def test_status_reports_whether_the_person_model_is_installed(tmp_path):
+    weights = tmp_path / "weights.pth"
+    weights.write_bytes(b"x")
+    body = client_for(fake_service(person_model_checkpoint=lambda: weights)).get("/api/v1/system/status").json()
+    assert body["person_model"] == {"model": "maskrcnn_resnet50_fpn_v2_coco", "checkpoint_file": "present"}
+    missing = client_for(fake_service()).get("/api/v1/system/status").json()
+    assert missing["person_model"]["checkpoint_file"] == "missing"
 
 
 def test_the_status_probe_makes_one_get_request_and_nothing_else():

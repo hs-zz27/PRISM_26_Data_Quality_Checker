@@ -6,7 +6,6 @@ annotation may include. Pass/fail decisions belong to ``services.person_coverage
 """
 from dataclasses import dataclass
 from hashlib import sha256
-import os
 from pathlib import Path
 
 import numpy as np
@@ -15,15 +14,12 @@ from PIL import Image
 from torchvision.models.detection import maskrcnn_resnet50_fpn_v2
 from torchvision.transforms.functional import to_tensor
 
-MODEL_NAME = "maskrcnn_resnet50_fpn_v2_coco"
-CHECKPOINT_NAME = "maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth"
-CHECKPOINT_ENV = "PERSON_SEGMENTER_CHECKPOINT"
+from ..core.person_model import CHECKPOINT_NAME, MODEL_NAME, checkpoint_path
+
 PERSON = 1
 CARRIED = {27, 28, 31, 33}  # COCO: backpack, umbrella, handbag, suitcase
 MIN_SCORE = 0.5
 MASK_PROBABILITY = 0.5
-_DEFAULT_LOCATIONS = (Path("/models") / CHECKPOINT_NAME,
-                      Path(__file__).resolve().parents[2] / "data" / "models" / CHECKPOINT_NAME)
 
 
 class SegmenterUnavailable(RuntimeError):
@@ -46,12 +42,6 @@ class Segmentation:
 def extent(mask: np.ndarray) -> tuple[int, int, int, int]:
     ys, xs = np.nonzero(mask)
     return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())
-
-
-def checkpoint_path() -> Path | None:
-    configured = (os.environ.get(CHECKPOINT_ENV) or "").strip()
-    candidates = [Path(configured)] if configured else list(_DEFAULT_LOCATIONS)
-    return next((path for path in candidates if path.is_file()), None)
 
 
 class PersonSegmenter:

@@ -1,7 +1,8 @@
 """Promote the three planned system declarations in place using the live HTTP shapes."""
 from copy import deepcopy
 
-from backend.app.models.system import DetectorStatus, Health, OllamaStatus, SystemStatus
+from backend.app.core.person_model import MODEL_NAME as PERSON_MODEL
+from backend.app.models.system import DetectorStatus, Health, OllamaStatus, PersonModelStatus, SystemStatus
 from backend.app.services.system_status import build_capabilities
 
 from .common import BASE_PATH
@@ -32,7 +33,8 @@ DESCRIPTIONS = {
     ),
     'getSystemStatus': (
         'Read-only readiness. Ollama is probed with one short model-list request, never text generation; '
-        'an unreachable server or a missing model is a normal state, not an error. Detector status keeps '
+        'an unreachable server or a missing model is a normal state, not an error. person_model says whether '
+        'the Mask R-CNN weights file used by the person check is installed (not hashed or loaded). Detector status keeps '
         'four things apart: whether the packages are installed, whether detection is disabled, enabled or '
         'invalid for new audits, whether a file exists at the configured checkpoint location (it is not '
         'hashed or loaded), and validation, which is unknown unless a real validation has been recorded. '
@@ -44,8 +46,8 @@ BACKING = {
     'getHealth': 'FastAPI route; no dependencies.',
     'getCapabilities': 'CHECK_REGISTRY and a static evidence feature list; FastAPI route.',
     'getSystemStatus': (
-        'SystemStatusService: bounded Ollama model-list probe, detection settings and a checkpoint '
-        'file-existence check; FastAPI route.'
+        'SystemStatusService: bounded Ollama model-list probe, person model and detection settings with '
+        'checkpoint file-existence checks; FastAPI route.'
     ),
 }
 
@@ -57,6 +59,7 @@ def system_examples():
         'getCapabilities': build_capabilities().model_dump(mode='json'),
         'getSystemStatus': SystemStatus(
             ollama=OllamaStatus(configuration='valid', reachable=True, model=EXAMPLE_MODEL, model_available=True),
+            person_model=PersonModelStatus(model=PERSON_MODEL, checkpoint_file='present'),
             detector=DetectorStatus(
                 integration_supported=True, configuration='enabled', checkpoint_file='present',
                 validation='unknown', architecture='fasterrcnn_mobilenet_v3_large_320_fpn',

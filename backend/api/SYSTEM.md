@@ -33,8 +33,8 @@ do not exist. Do not assume them from earlier planning documents.
 
 Bounded, read-only readiness. Always HTTP 200 unless the server itself fails; an offline
 service is a normal state, not an error. The server probes Ollama with one short model-list
-request (never text generation) and checks the detector's configuration and checkpoint file
-without loading, hashing or running anything.
+request (never text generation) and checks the person model's and the detector's checkpoint
+files without loading, hashing or running anything.
 
 `ollama`:
 
@@ -45,7 +45,17 @@ without loading, hashing or running anything.
 | `model` | The configured model name, or null when settings are invalid. |
 | `model_available` | `true`, `false`, or null when unknown (server unreachable or its answer unusable). |
 
-`detector`:
+`person_model`: the Mask R-CNN model the person check (`person_coverage`) uses.
+
+| Field | Meaning |
+| --- | --- |
+| `model` | The model name, `maskrcnn_resnet50_fpn_v2_coco`. |
+| `checkpoint_file` | `present`, `missing` or `unreadable`. A present file is not loaded or hashed by this read. |
+
+The top bar shows this as the Mask R-CNN light. Without the file, the person check reports
+"could not check" for each sample, never a pass.
+
+`detector` (the older Faster R-CNN detection evidence, off unless configured):
 
 | Field | Meaning |
 | --- | --- |
@@ -69,6 +79,7 @@ Illustrative and hand-written. The generated contract carries one typical exampl
 ```json
 {
   "ollama": {"configuration": "valid", "reachable": false, "model": "example-local-model:latest", "model_available": null},
+  "person_model": {"model": "maskrcnn_resnet50_fpn_v2_coco", "checkpoint_file": "present"},
   "detector": {"integration_supported": true, "configuration": "disabled", "checkpoint_file": "not_configured",
                "validation": "unknown", "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"},
   "execution_device": "cpu"
@@ -78,6 +89,7 @@ Illustrative and hand-written. The generated contract carries one typical exampl
 ```json
 {
   "ollama": {"configuration": "valid", "reachable": true, "model": "example-local-model:latest", "model_available": false},
+  "person_model": {"model": "maskrcnn_resnet50_fpn_v2_coco", "checkpoint_file": "missing"},
   "detector": {"integration_supported": true, "configuration": "invalid", "checkpoint_file": "missing",
                "validation": "unknown", "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"},
   "execution_device": "cpu"

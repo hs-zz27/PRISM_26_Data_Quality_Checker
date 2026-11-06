@@ -14,6 +14,7 @@ from pathlib import Path
 import httpx
 
 from ..checks.registry import CHECK_REGISTRY
+from ..core import person_model
 from ..core.config import OllamaSettings, load_ollama_settings
 from ..core.person_detection import (
     DETECTOR_ARCHITECTURE,
@@ -28,6 +29,7 @@ from ..models.system import (
     DetectorStatus,
     EvidenceFeature,
     OllamaStatus,
+    PersonModelStatus,
     SystemStatus,
 )
 
@@ -126,6 +128,7 @@ class SystemStatusService:
         checkpoint_location: Callable[[], Path | None] = load_checkpoint_location,
         packages_available: Callable[[], bool] = detector_packages_available,
         validation_status: Callable[[], str] = validation_not_recorded,
+        person_model_checkpoint: Callable[[], Path | None] = person_model.checkpoint_path,
     ) -> None:
         self._ollama_settings = ollama_settings
         self._ollama_probe = ollama_probe
@@ -133,9 +136,18 @@ class SystemStatusService:
         self._checkpoint_location = checkpoint_location
         self._packages_available = packages_available
         self._validation_status = validation_status
+        self._person_model_checkpoint = person_model_checkpoint
 
     def status(self) -> SystemStatus:
-        return SystemStatus(ollama=self._ollama(), detector=self._detector(), execution_device="cpu")
+        return SystemStatus(ollama=self._ollama(), person_model=self._person_model(), detector=self._detector(),
+                            execution_device="cpu")
+
+    def _person_model(self) -> PersonModelStatus:
+        try:
+            checkpoint = "present" if self._person_model_checkpoint() is not None else "missing"
+        except OSError:
+            checkpoint = "unreadable"
+        return PersonModelStatus(model=person_model.MODEL_NAME, checkpoint_file=checkpoint)
 
     def _ollama(self) -> OllamaStatus:
         try:

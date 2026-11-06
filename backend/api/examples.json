@@ -137,7 +137,7 @@
       "tag": "System",
       "summary": "Inspect local model readiness",
       "implementation": "implemented",
-      "backing_service": "SystemStatusService: bounded Ollama model-list probe, detection settings and a checkpoint file-existence check; FastAPI route.",
+      "backing_service": "SystemStatusService: bounded Ollama model-list probe, person model and detection settings with checkpoint file-existence checks; FastAPI route.",
       "request": {
         "path_parameters": {},
         "query": {},
@@ -153,6 +153,10 @@
             "reachable": true,
             "model": "example-local-model:latest",
             "model_available": true
+          },
+          "person_model": {
+            "model": "maskrcnn_resnet50_fpn_v2_coco",
+            "checkpoint_file": "present"
           },
           "detector": {
             "integration_supported": true,

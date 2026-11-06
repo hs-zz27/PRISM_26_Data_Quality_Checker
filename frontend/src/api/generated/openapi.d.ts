@@ -53,7 +53,7 @@ export interface paths {
         };
         /**
          * Inspect local model readiness
-         * @description Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.
+         * @description Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. person_model says whether the Mask R-CNN weights file used by the person check is installed (not hashed or loaded). Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.
          */
         get: operations["getSystemStatus"];
         put?: never;
@@ -3545,6 +3545,7 @@ export interface components {
          */
         SystemStatus: {
             ollama: components["schemas"]["OllamaStatus"];
+            person_model: components["schemas"]["PersonModelStatus"];
             detector: components["schemas"]["DetectorStatus"];
             /**
              * Execution Device
@@ -3603,6 +3604,20 @@ export interface components {
              * @description Whether the configured model is installed; null when that is unknown.
              */
             model_available: boolean | null;
+        };
+        /** PersonModelStatus */
+        PersonModelStatus: {
+            /**
+             * Model
+             * @description The segmentation model the person check uses.
+             */
+            model: string;
+            /**
+             * Checkpoint File
+             * @description Whether the model's weights file is installed. A present file is not hashed, loaded or run by this read; the person check reports could not check for a sample when it cannot use it.
+             * @enum {string}
+             */
+            checkpoint_file: "present" | "missing" | "unreadable";
         };
     };
     responses: never;
@@ -3807,6 +3822,10 @@ export interface operations {
                      *         "reachable": true,
                      *         "model": "example-local-model:latest",
                      *         "model_available": true
+                     *       },
+                     *       "person_model": {
+                     *         "model": "maskrcnn_resnet50_fpn_v2_coco",
+                     *         "checkpoint_file": "present"
                      *       },
                      *       "detector": {
                      *         "integration_supported": true,

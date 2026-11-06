@@ -53,6 +53,7 @@ def service(**options):
         detection_settings=lambda: DetectionSettings(enabled=False),
         checkpoint_location=lambda: None,
         packages_available=lambda: True,
+        person_model_checkpoint=lambda: None,
     )
     return SystemStatusService(**(values | options))
 
@@ -205,6 +206,33 @@ def test_validation_is_unknown_unless_a_record_says_otherwise():
         )
 
 
+# --- person model status ------------------------------------------------------------------------------
+
+def test_the_person_model_is_present_only_when_its_weights_file_is_installed(tmp_path):
+    weights = tmp_path / "weights.pth"
+    weights.write_bytes(b"x")
+    status = service(person_model_checkpoint=lambda: weights).status().person_model
+    assert (status.model, status.checkpoint_file) == ("maskrcnn_resnet50_fpn_v2_coco", "present")
+    assert service().status().person_model.checkpoint_file == "missing"
+
+
+def test_an_unreadable_person_model_location_is_reported_without_raising():
+    def unreadable():
+        raise PermissionError("denied")
+
+    assert service(person_model_checkpoint=unreadable).status().person_model.checkpoint_file == "unreadable"
+
+
+def test_the_person_model_file_comes_from_the_setting_when_one_is_given(tmp_path, monkeypatch):
+    from backend.app.core import person_model
+
+    weights = tmp_path / "custom.pth"
+    monkeypatch.setenv(person_model.CHECKPOINT_ENV, str(weights))
+    assert person_model.checkpoint_path() is None  # configured, not installed
+    weights.write_bytes(b"x")
+    assert person_model.checkpoint_path() == weights
+
+
 # --- what a status read must never do --------------------------------------------------------------------
 
 def test_a_status_read_never_hashes_a_checkpoint(tmp_path, monkeypatch):
@@ -231,7 +259,7 @@ def test_status_output_contains_no_private_paths_or_raw_errors(tmp_path):
         raise ValueError("secret credential /private/path")
 
     text = json.dumps(service(
-        ollama_settings=broken, checkpoint_location=lambda: weights,
+        ollama_settings=broken, checkpoint_location=lambda: weights, person_model_checkpoint=lambda: weights,
     ).status().model_dump(mode="json"), allow_nan=False)
     assert "private-user-folder" not in text and "secret" not in text and "weights.pth" not in text
 
