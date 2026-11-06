@@ -1,8 +1,0 @@
-Image size (X x Y x C) : 505 x 351 x 3
-Objects with ground truth : 5 {1 2 3 4 5}
-Top left pixel co-ordinates : (1, 1)
-Bounding box for object 1 "PASpersonWalking" (Xmin, Ymin) - (Xmax, Ymax) : (1, 1) - (80, 55)
-Bounding box for object 2 "PASpersonWalking" (Xmin, Ymin) - (Xmax, Ymax) : (189, 21) - (283, 230)
-Bounding box for object 3 "PASpersonWalking" (Xmin, Ymin) - (Xmax, Ymax) : (117, 28) - (191, 226)
-Bounding box for object 4 "PASpersonStanding" (Xmin, Ymin) - (Xmax, Ymax) : (273, 81) - (389, 327)
-Bounding box for object 5 "PASpersonStanding" (Xmin, Ymin) - (Xmax, Ymax) : (378, 31) - (476, 330)

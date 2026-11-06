@@ -1,6 +1,0 @@
-# Minimal experiment/test environment; no detector, database or model weights.
-numpy==2.5.4
-pillow==12.3.0
-pydantic==2.14.1
-httpx==0.28.1
-pytest==9.1.1
