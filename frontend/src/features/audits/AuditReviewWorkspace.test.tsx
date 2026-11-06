@@ -228,17 +228,49 @@ describe('rechecks inside the original workspace', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     renderWorkspace();
-    const history = await screen.findByLabelText('Attempt history');
-    expect(await within(history).findByRole('option', { name: /^Audit 014 · / })).toHaveValue('audit-1');
-    expect(within(history).getByRole('option', { name: 'Latest attempt · Audit 014 R01' })).toHaveValue('');
-    fireEvent.change(history, { target: { value: 'audit-1' } });
+    const history = await screen.findByRole('list', { name: 'Attempt history' });
+    const latest = await within(history).findByRole('button', { name: /^Audit 014 R01/ });
+    expect(latest).toHaveAttribute('aria-pressed', 'true');
+    const original = within(history).getByRole('button', { name: /^Audit 014(?! R01)/ });
+    expect(original).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(original);
     expect(await screen.findByText(/Previous attempt \(Audit 014\) — read only/)).toBeInTheDocument();
+    expect(original).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /^Accept$/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Re-check this image' })).toBeDisabled();
     fireEvent.keyDown(window, { key: 'A', shiftKey: true });
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false);
-    fireEvent.change(screen.getByLabelText('Attempt history'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
     await waitFor(() => expect(screen.getByRole('button', { name: /^Accept$/ })).toBeEnabled());
+  });
+
+  it('shows the feedback trail that led to each attempt, who gave it, and each verdict', async () => {
+    const child = childDetail();
+    const feedbackChild = { ...child, measurements: { reviewer_feedback: { reviewer_id: 'rev_test', source_audit_id: 'audit-1', comment: 'The box misses the feet', propose_correction: false } } };
+    const decidedOriginal = { ...sample, review: { ...sample.review, revision: 1, decision: 'needs_correction' as const, reviewer_id: 'rev_lead', comment: 'Feet are outside the box', updated_at: '2026-10-24T11:00:00Z' } };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const parsed = new URL(url, 'http://localhost');
+      if (parsed.pathname === '/api/v1/audits/audit-1/samples/sample-1') {
+        return json(parsed.searchParams.get('include_rechecks') === 'true' ? feedbackChild : decidedOriginal);
+      }
+      if (parsed.pathname === '/api/v1/display-names') {
+        return json({ audits: [makeAuditName(), makeAuditName({ audit_id: 'child-1', recheck_number: 1, label: 'Audit 014 R01', title: 'Feedback recheck' })], rulebooks: [] });
+      }
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderWorkspace();
+    const history = await screen.findByRole('list', { name: 'Attempt history' });
+    const latest = await within(history).findByRole('button', { name: /^Audit 014 R01/ });
+    expect(within(latest).getByText('Re-checked with feedback by rev_test')).toBeInTheDocument();
+    expect(within(latest).getByText('“The box misses the feet”')).toBeInTheDocument();
+    expect(within(latest).getByText(/— rev_test/)).toBeInTheDocument();
+
+    const original = within(history).getByRole('button', { name: /^Audit 014(?! R01)/ });
+    expect(within(original).getByText('Original audit')).toBeInTheDocument();
+    expect(await within(original).findByText('Needs correction')).toBeInTheDocument();
+    expect(within(original).getByText('rev_lead')).toBeInTheDocument();
+    expect(within(original).getByText(/Feet are outside the box/)).toBeInTheDocument();
   });
 
   it('distinguishes referenced mask file missing from optional mask never supplied in diagnostics', async () => {
@@ -315,7 +347,8 @@ describe('rechecks inside the original workspace', () => {
     expect(screen.getByText(/Proposed correction \(preview, not saved\)/i)).toBeInTheDocument();
 
     // Switch to older attempt
-    fireEvent.change(screen.getByLabelText('Attempt history'), { target: { value: 'audit-1' } });
+    const history = screen.getByRole('list', { name: 'Attempt history' });
+    fireEvent.click(within(history).getByRole('button', { pressed: false }));
 
     // Preview state should reset and proposal should not be shown on the older attempt
     await waitFor(() => {

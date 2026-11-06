@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -26,10 +26,12 @@ import { auditLabel, rulebookLabel } from '../../lib/names';
 import { AuditNameText, TechnicalId } from '../../components/ui/RecordName';
 import { TitleEditor } from '../names/TitleEditor';
 import { useCanvasStore } from '../../store/canvasStore';
-import { Badge, type BadgeVariant } from '../../components/ui/Badge';
+import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { ReviewCanvas, type CanvasObject } from './ReviewCanvas';
-import { correctionPreview, reviewFeedbackComment } from './reviewFeedback';
+import { correctionPreview } from './reviewFeedback';
+import { AttemptTrail } from './AttemptTrail';
+import { attemptTrail } from './attemptHistory';
 import { FindingCard, type FindingDecision } from './FindingCard';
 import { KeyboardHelpModal } from '../../components/ui/KeyboardHelpModal';
 import { isTypingTarget } from '../../lib/keyboard';
@@ -38,6 +40,8 @@ import { formatTimestamp } from '../../lib/format';
 import { RECHECK_IN_PROGRESS_MESSAGE, useImageRecheckStatus } from '../../hooks/useImageRecheckStatus';
 import { useDatasetName } from '../../hooks/useDatasetName';
 import {
+  DECISION_VARIANT,
+  TOOL_VARIANT,
   colorFor,
   groupFindings,
   isReasonRequired,
@@ -59,8 +63,6 @@ type AuditQueueQuery = NonNullable<operations['listAuditSamples']['parameters'][
 type AuditToolStatus = NonNullable<AuditQueueQuery['tool_status']>;
 type AuditReviewStatus = NonNullable<AuditQueueQuery['review_status']>;
 
-const TOOL_VARIANT: Record<string, BadgeVariant> = { no_issue: 'pass', flagged: 'fail', unsure: 'unsure', unavailable: 'unavailable', pending: 'pending' };
-const DECISION_VARIANT: Record<string, BadgeVariant> = { accepted: 'accepted', rejected: 'rejected', needs_correction: 'needs-fix', pending_review: 'pending' };
 const ALL_FILTERS = { toolStatusFilter: 'all', reviewStatusFilter: 'all' } as const;
 
 export const AuditReviewWorkspace: React.FC = () => {
@@ -162,6 +164,34 @@ export const AuditReviewWorkspace: React.FC = () => {
   });
   // Each attempt is its own audit or recheck; label them "Audit 014", "Audit 014 R01", ...
   const attemptNames = useDisplayNames({ auditIds: latestDetail.data?.attempts?.map((attempt) => attempt.audit_id) ?? [] });
+  // Each earlier attempt's own result (shares the cache with historicalDetail) feeds the attempt trail.
+  const attempts = latestDetail.data?.attempts ?? [];
+  const olderAttemptDetails = useQueries({
+    queries: attempts.slice(1).map((attempt) => ({
+      queryKey: queryKeys.auditSample(attempt.audit_id, activeSampleId ?? ''),
+      queryFn: () => apiGet('/audits/{audit_id}/samples/{sample_id}', {
+        path: { audit_id: attempt.audit_id, sample_id: activeSampleId! },
+      }),
+      enabled: Boolean(activeSampleId),
+    })),
+  });
+  // Corrections saved between attempts; only needed when the image's revision changed.
+  const revisionChanged = new Set(attempts.map((attempt) => attempt.sample_revision)).size > 1;
+  const revisionsQuery = useQuery({
+    queryKey: ['revisions', latestDetail.data?.dataset_id ?? '', activeSampleId ?? ''],
+    queryFn: () => apiGetAllPages('/datasets/{dataset_id}/samples/{sample_id}/revisions', {
+      path: { dataset_id: latestDetail.data!.dataset_id, sample_id: activeSampleId! }, query: { limit: 100, offset: 0 },
+    }),
+    enabled: Boolean(revisionChanged && latestDetail.data?.dataset_id && activeSampleId),
+  });
+  const trail = attemptTrail(
+    attempts,
+    Object.fromEntries([
+      ...attempts.slice(1).map((attempt, index) => [attempt.audit_id, olderAttemptDetails[index]?.data] as const),
+      ...(latestDetail.data ? [[latestDetail.data.audit_id, latestDetail.data] as const] : []),
+    ]),
+    revisionsQuery.data?.items ?? [],
+  );
   const displayedDetail = historicalAttemptId ? historicalDetail : latestDetail;
   const sampleDetail = displayedDetail.data;
   const detailError = displayedDetail.error;
@@ -768,22 +798,29 @@ export const AuditReviewWorkspace: React.FC = () => {
                   <button type="button" className="underline" onClick={recheckStatus.refresh}>Retry</button>
                 </div>
               )}
-              {(latestDetail.data?.attempts?.length ?? 0) > 1 && (
-                <label className="block text-2xs mt-2">Attempt history
-                  <select aria-label="Attempt history" className="w-full mt-1" value={historicalAttemptId ?? ''}
-                    disabled={sampleReviewMutation.isPending || findingReviewMutation.isPending || submittingImageChange}
-                    onChange={(event) => setHistoricalAttemptId(event.target.value || null)}>
-                    <option value="">Latest attempt · {auditLabel(attemptNames.audit(latestDetail.data!.attempts![0]?.audit_id))}</option>
-                    {latestDetail.data!.attempts!.slice(1).map((attempt) => (
-                      <option key={attempt.audit_id} value={attempt.audit_id}>
-                        {auditLabel(attemptNames.audit(attempt.audit_id))} · {formatTimestamp(attempt.created_at)} · r{attempt.sample_revision} · {attempt.processing_status}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {historicalAttemptId && <p className="text-2xs text-status-unsure mt-2">Previous attempt ({auditLabel(attemptNames.audit(historicalAttemptId))}) — read only. Select Latest attempt to review.</p>}
             </section>
+            {(trail.length > 1 || trail.some((step) => step.feedback)) && (
+              <details className="checklist-section" open>
+                <summary><h3>Attempt history <span>{trail.length}</span></h3></summary>
+                <p className="checklist-empty">Each check of this image, oldest first: what led to it, the tool's result and the reviewer's decision. Select one to see its full result.</p>
+                <AttemptTrail
+                  steps={trail}
+                  label={(id) => auditLabel(attemptNames.audit(id))}
+                  selectedAuditId={historicalAttemptId}
+                  onSelect={setHistoricalAttemptId}
+                  disabled={sampleReviewMutation.isPending || findingReviewMutation.isPending || submittingImageChange}
+                />
+                {trail.some((step) => step.feedback) && (
+                  <p className="checklist-empty mt-2">Feedback never changes the confirmed guidelines. Structural checks use the annotation data; available visual checks also consider the feedback.</p>
+                )}
+              </details>
+            )}
+            {historicalAttemptId && (
+              <div role="status" className="attempt-viewing">
+                <span>Previous attempt ({auditLabel(attemptNames.audit(historicalAttemptId))}) — read only. Its findings and decision are shown below.</span>
+                <button type="button" onClick={() => setHistoricalAttemptId(null)}>Back to latest</button>
+              </div>
+            )}
             {isDetailLoading && <p className="text-xs text-text-muted"><Loader2 className="inline w-3 h-3 animate-spin" /> Loading findings…</p>}
 
             {sampleDetail?.failures && sampleDetail.failures.length > 0 && (
@@ -811,11 +848,6 @@ export const AuditReviewWorkspace: React.FC = () => {
                   isLoading={applyProposal.isPending} onClick={() => applyProposal.mutate()}>Apply correction and recheck</Button>
               </div>}
               <p className="text-2xs text-text-muted mt-2">Preview first, then apply. Applying creates a new revision and checks this image again. Your final review is still required.</p>
-            </section>}
-            {!proposal && reviewFeedbackComment(sampleDetail?.measurements?.reviewer_feedback) && <section className="checklist-section" aria-label="Feedback used for this recheck">
-              <h3>Feedback used for this recheck</h3>
-              <p className="text-xs">{reviewFeedbackComment(sampleDetail?.measurements?.reviewer_feedback)}</p>
-              <p className="text-2xs text-text-muted mt-2">The confirmed guidelines remain unchanged. Structural checks use the annotation data; available visual checks also consider this feedback.</p>
             </section>}
             <details className="object-visibility" open>
               <summary>Objects on image · {canvasObjects.length}</summary>

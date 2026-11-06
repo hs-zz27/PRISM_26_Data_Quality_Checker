@@ -1,5 +1,10 @@
 import type { components } from '../../api/generated/openapi';
+import type { BadgeVariant } from '../../components/ui/Badge';
 import { bboxToCss, type BBox1Based } from '../../lib/coords';
+
+/** Badge colour for a tool result and for a reviewer's image decision. */
+export const TOOL_VARIANT: Record<string, BadgeVariant> = { no_issue: 'pass', flagged: 'fail', unsure: 'unsure', unavailable: 'unavailable', pending: 'pending' };
+export const DECISION_VARIANT: Record<string, BadgeVariant> = { accepted: 'accepted', rejected: 'rejected', needs_correction: 'needs-fix', pending_review: 'pending' };
 
 type Finding = components['schemas']['Finding'];
 type Rule = components['schemas']['Rule'];
