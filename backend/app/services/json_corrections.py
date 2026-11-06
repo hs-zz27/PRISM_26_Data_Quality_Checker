@@ -4,7 +4,6 @@ import json
 
 from ..core.config import AssetStorageSettings
 from ..core.correction import CorrectionError
-from ..datasets.annotation_reader import parse_document_bytes
 from ..datasets.annotation_validation import _decode_metadata, _geometry_issues
 from ..datasets.json_sample import read_annotation, display_objects, publication
 from ..datasets.coco import parse_coco

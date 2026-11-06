@@ -36,7 +36,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..checks.registry import (
-    CHECK_REGISTRY, RuleParameterError, extraction_check_catalog, get_check_definition,
+    RuleParameterError, extraction_check_catalog, get_check_definition,
     validate_check_parameters,
 )
 from ..models.json_value import FiniteJsonValue
@@ -159,17 +159,6 @@ def compact_response_schema(source_count: int) -> dict[str, Any]:
 
 def _mentions(text: str, term: str) -> bool:
     return re.search(r'(?<![a-z])' + re.escape(term.lower()), text.lower()) is not None
-
-
-def _stated_numbers(text: str) -> set[float]:
-    """Numbers written in the text; percentages also count as their fraction."""
-    values = set()
-    for number, percent in _NUMBER.findall(text):
-        value = float(number)
-        values.add(value)
-        if percent:
-            values.add(round(value / 100, 12))
-    return values
 
 
 def guard_mapping(check_name: str | None, parameters: dict[str, Any], requirement: str,
@@ -302,7 +291,3 @@ def expand_response(content: str, sources: list[str]) -> list[RuleProposal]:
             applicability=applicability,
         ))
     return _RuleResponse(rules=proposals).rules
-
-
-def model_assisted_checks() -> list[str]:
-    return sorted(name for name, definition in CHECK_REGISTRY.items() if definition.model_assisted)

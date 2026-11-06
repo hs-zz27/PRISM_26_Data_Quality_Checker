@@ -168,13 +168,6 @@ def resolve_reference_base(document: AnnotationDocument, image_root: str | Path,
     return root, root
 
 
-def image_path_for(document: AnnotationDocument, file_name: str, image_root: str | Path, *,
-                   reference_base: str | Path | None = None) -> Path:
-    """Resolve one image reference with the same safety rules as inspect_document."""
-    root, base = resolve_reference_base(document, image_root, reference_base)
-    return _image_path(file_name, root, base)
-
-
 def inspect_document(document: AnnotationDocument, image_root: str | Path, *,
                      reference_base: str | Path | None = None,
                      limits: ValidationLimits | None = None) -> DocumentInspection:

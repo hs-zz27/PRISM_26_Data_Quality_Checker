@@ -16,10 +16,10 @@ from ..models.dataset import Dataset, DatasetImportStarted, source_issue
 from ..models.dataset_import import ImportClaim, ImportRequest
 from ..models.job import ApiError, Job, JobKind, JobStatus, Progress, ResultReference
 from .dataset_repository import (
-    DatasetImportDeadlineError, DatasetRepository, DatasetStorageError, _identifier,
+    DatasetRepository, DatasetStorageError, _identifier,
 )
 from .workflow_repository import (
-    JobAlreadyFinishedError, JobCancellationError, JobClaimLostError, JobNotFoundError,
+    JobAlreadyFinishedError, JobClaimLostError, JobNotFoundError,
     _decode_job, _job_row_values,
 )
 

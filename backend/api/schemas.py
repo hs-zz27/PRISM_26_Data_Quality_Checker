@@ -27,8 +27,7 @@ from backend.app.models.rulebook_creation import RulebookCreate, RulebookCreateR
 from backend.app.models.rule_extraction import RuleExtractionRequest
 
 from .common import (
-    BOOLEAN, COUNT, FRACTION, INTEGER, JOB_STATUS, SAMPLE_REVIEW_STATUS,
-    TEXT, TIME, VERSION, JsonObject, array, choice, nullable,
+    INTEGER, TEXT, VERSION, JsonObject, array, choice, nullable,
     obj, ref, replace_model_refs,
 )
 

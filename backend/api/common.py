@@ -52,7 +52,3 @@ def replace_model_refs(value: Any) -> Any:
     if isinstance(value, str) and value.startswith("#/$defs/"):
         return value.replace("#/$defs/", "#/components/schemas/", 1)
     return value
-
-
-def page_schema(item: JsonObject) -> JsonObject:
-    return obj({"items": array(item), "limit": VERSION, "offset": COUNT, "total": COUNT, "next_offset": nullable(COUNT)})
