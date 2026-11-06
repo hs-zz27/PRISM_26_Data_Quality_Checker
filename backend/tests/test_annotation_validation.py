@@ -11,7 +11,6 @@ import pytest
 from backend.app.datasets.annotation_validation import inspect_document
 from backend.app.datasets.coco import parse_coco
 from backend.app.datasets.labelme import parse_labelme, read_labelme
-from backend.app.datasets.inspect_annotations import main
 from backend.app.models.annotation_validation import ValidationLimits
 
 
@@ -232,21 +231,6 @@ def test_multiframe_png_is_not_assumed_to_be_a_single_image(tmp_path):
         first.save(tmp_path / "image.png", save_all=True, append_images=[second], duration=100)
     report = inspect_document(parse_labelme(annotation()), tmp_path)
     assert "unsupported_multiframe_image" in codes(report)
-
-
-def test_cli_reports_diagnostics_and_unreadable_input_distinctly(tmp_path, capsys):
-    path = tmp_path / "label.json"
-    path.write_text(json.dumps(annotation()))
-    args = ["labelme", str(path), "--image-root", str(tmp_path)]
-    assert main(args) == 1
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["inspection_only"] and payload["diagnostic_count"] == 1
-    save_image(tmp_path)
-    assert main(args) == 0
-    assert json.loads(capsys.readouterr().out)["diagnostic_count"] == 0
-    path.write_text("broken json")
-    assert main(args) == 2
-    assert "error" in json.loads(capsys.readouterr().err)
 
 
 @pytest.mark.parametrize("value", [0, -1, True, 2.5])

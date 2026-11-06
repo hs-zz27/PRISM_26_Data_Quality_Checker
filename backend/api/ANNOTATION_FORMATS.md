@@ -61,10 +61,6 @@ Feedback navigation section.
   JSON visual checks use the general confirmed `annotation_guideline` path; there is
   no silent coordinate conversion into the specialized renderer.
 - Actual Samsung data has not been supplied or verified.
-- Standalone, read-only diagnostics and annotation previews are available with
-  `python -m backend.app.datasets.preview_annotations` (see
-  `backend/app/datasets/README.md`). They read source files directly, change nothing, and are
-  not part of the managed upload, audit or correction workflow.
 
 ## Verification and deployment
 
@@ -83,7 +79,6 @@ Code/test completion does not mean an already running Docker stack has been rebu
 Status: pending user execution after PR #15. Run separately for a small COCO ZIP
 and a small LabelMe ZIP, each with at least two images and its referenced external
 image files. Use a new test dataset so the original review history remains intact.
-The standalone preview command does not exercise these steps.
 
 1. Upload the ZIP with the matching format. Record the dataset and import IDs.
    Check that both images, object labels and supplied geometries appear. Confirm
