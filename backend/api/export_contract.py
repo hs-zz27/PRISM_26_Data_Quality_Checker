@@ -1,7 +1,7 @@
 """Promote existing export declarations in place using lossless live HTTP shapes."""
 from copy import deepcopy
 
-from .common import BASE_PATH
+from .common import BASE_PATH, copy_live_schemas
 from .export_examples import export_examples
 
 EXPECTED = {
@@ -96,26 +96,6 @@ def align_export_contract(contract, live, operations):
             entry['request']['path_parameters']['export_id'] = examples['states'][0]['export']['export_id']
     # Use the live lossless definitions only for the export graph; never replace
     # unrelated planned or implemented schemas by broad dictionary overwrite.
-    schemas = live['components']['schemas']
-    needed = set()
-    def collect(value):
-        if isinstance(value, dict):
-            reference = value.get('$ref', '')
-            if reference.startswith('#/components/schemas/'):
-                needed.add(reference.rsplit('/', 1)[-1])
-            for child in value.values():
-                collect(child)
-        elif isinstance(value, list):
-            for child in value:
-                collect(child)
-    for path, method in EXPECTED:
-        collect(contract['paths'][path][method])
-    copied = set()
-    while needed - copied:
-        name = sorted(needed - copied)[0]
-        definition = deepcopy(schemas[name])
-        collect(definition)
-        contract['components']['schemas'][name] = definition
-        copied.add(name)
+    copy_live_schemas(contract, live, EXPECTED)
     # Kept in examples.json by the bounded build_contract patch.
     contract['x-export-scenarios'] = examples

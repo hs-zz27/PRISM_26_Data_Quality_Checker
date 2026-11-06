@@ -1,5 +1,6 @@
 """Shared OpenAPI vocabulary and small schema constructors."""
 
+from copy import deepcopy
 from typing import Any
 
 
@@ -52,3 +53,31 @@ def replace_model_refs(value: Any) -> Any:
     if isinstance(value, str) and value.startswith("#/$defs/"):
         return value.replace("#/$defs/", "#/components/schemas/", 1)
     return value
+
+
+def copy_live_schemas(contract, live, operations, *, keep=()):
+    """Copy the live definition of every schema the operations reference, following references, into the contract.
+
+    Schemas named in ``keep`` keep the contract's own definition.
+    """
+    needed, copied = set(), set()
+
+    def collect(value):
+        if isinstance(value, dict):
+            reference = value.get('$ref', '')
+            if reference.startswith('#/components/schemas/'):
+                needed.add(reference.rsplit('/', 1)[-1])
+            for child in value.values():
+                collect(child)
+        elif isinstance(value, list):
+            for child in value:
+                collect(child)
+
+    for path, method in operations:
+        collect(contract['paths'][path][method])
+    while needed - copied:
+        name = sorted(needed - copied)[0]
+        definition = deepcopy((contract if name in keep else live)['components']['schemas'][name])
+        collect(definition)
+        contract['components']['schemas'][name] = definition
+        copied.add(name)

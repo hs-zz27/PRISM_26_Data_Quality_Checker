@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from backend.app.core.feedback import FeedbackError
 from backend.app.models.job import Job, JobKind, JobStatus, ApiError, Progress, ResultReference
-from .common import BASE_PATH
+from .common import BASE_PATH, copy_live_schemas
 from .feedback_examples import feedback_examples
 OPERATIONS = {('/feedback/examples', 'get'): 'listFeedbackExamples', ('/feedback/policies', 'post'): 'createFeedbackPolicy', ('/feedback/policies', 'get'): 'listFeedbackPolicies', ('/feedback/policies/{policy_id}', 'get'): 'getFeedbackPolicy', ('/feedback/ground-truth', 'post'): 'createGroundTruth', ('/feedback/ground-truth/{ground_truth_id}', 'get'): 'getGroundTruth', ('/feedback/evaluations', 'post'): 'evaluateFeedbackPolicy', ('/feedback/evaluations/{evaluation_id}', 'get'): 'getFeedbackEvaluation', ('/feedback/evaluations', 'get'): 'listFeedbackEvaluations', ('/feedback/policies/{policy_id}/activate', 'post'): 'activateFeedbackPolicy'}
 
@@ -42,27 +42,7 @@ def align_feedback_contract(contract, live, operations):
         contract['paths'][path][method] = operation
         entry.update(implementation='implemented', summary=operation['summary'], backing_service=operation['x-backing-service-status'])
         entry['response']['body'] = deepcopy(values['responses'][identifier])
-    needed = set()
-
-    def collect(value):
-        if isinstance(value, dict):
-            reference = value.get('$ref', '')
-            if reference.startswith('#/components/schemas/'):
-                needed.add(reference.rsplit('/', 1)[-1])
-            for child in value.values():
-                collect(child)
-        elif isinstance(value, list):
-            for child in value:
-                collect(child)
-    for path, method in OPERATIONS:
-        collect(contract['paths'][path][method])
-    copied = set()
-    while needed - copied:
-        name = sorted(needed - copied)[0]
-        definition = deepcopy(live['components']['schemas'][name])
-        collect(definition)
-        contract['components']['schemas'][name] = definition
-        copied.add(name)
+    copy_live_schemas(contract, live, OPERATIONS)
     audit = contract['paths']['/audits']['post']
     audit['description'] += ' Explicit feedback_policy_id selects an active compatible immutable policy; null is baseline. Model identity is worker-verified, never probed during submission.'
     for code, (status, message) in FeedbackError.messages.items():

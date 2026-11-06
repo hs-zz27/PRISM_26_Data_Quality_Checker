@@ -5,7 +5,7 @@ from backend.app.core.person_model import MODEL_NAME as PERSON_MODEL
 from backend.app.models.system import Health, OllamaStatus, PersonModelStatus, SystemStatus
 from backend.app.services.system_status import build_capabilities
 
-from .common import BASE_PATH
+from .common import BASE_PATH, copy_live_schemas
 from .fixtures import EXAMPLE_MODEL
 
 EXPECTED = {
@@ -93,26 +93,4 @@ def align_system_contract(contract, live, operations):
         entry['response']['body'] = deepcopy(examples[operation_id])
     # Use the live lossless definitions for the system graph only; never replace unrelated
     # schemas by a broad overwrite, and never let a handwritten version win over the models.
-    schemas = live['components']['schemas']
-    needed = set()
-
-    def collect(value):
-        if isinstance(value, dict):
-            reference = value.get('$ref', '')
-            if reference.startswith('#/components/schemas/'):
-                needed.add(reference.rsplit('/', 1)[-1])
-            for child in value.values():
-                collect(child)
-        elif isinstance(value, list):
-            for child in value:
-                collect(child)
-
-    for path, method in EXPECTED:
-        collect(contract['paths'][path][method])
-    copied = set()
-    while needed - copied:
-        name = sorted(needed - copied)[0]
-        definition = deepcopy(schemas[name])
-        collect(definition)
-        contract['components']['schemas'][name] = definition
-        copied.add(name)
+    copy_live_schemas(contract, live, EXPECTED)

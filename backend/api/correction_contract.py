@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 import json
 
-from .common import BASE_PATH
+from .common import BASE_PATH, copy_live_schemas
 from backend.app.models.correction import AnnotationRevision, CorrectionRequest, MaskUpload, RevisionPage, RecheckRequest
 from backend.app.models.audit_submission import AuditStarted
 from backend.app.models.job import Job, JobStatus
@@ -102,21 +102,7 @@ def align_correction_contract(contract,live,operations):
         entry['response']['body']=deepcopy(examples[identifier])
     # All four models and dependent definitions are already Pydantic-derived in
     # build_schemas(). Keep live lossless definitions for the full response graph.
-    needed=set()
-    def collect(value):
-        if isinstance(value,dict):
-            ref=value.get('$ref','')
-            if ref.startswith('#/components/schemas/'):
-                needed.add(ref.rsplit('/',1)[-1])
-            for child in value.values():collect(child)
-        elif isinstance(value,list):
-            for child in value:collect(child)
-    for path,method in OPERATIONS:collect(contract['paths'][path][method])
-    copied=set()
-    while needed-copied:
-        name=sorted(needed-copied)[0]
-        definition=deepcopy(contract['components']['schemas'][name] if name=='MaskUploadRequest' else live['components']['schemas'][name]);collect(definition)
-        contract['components']['schemas'][name]=definition;copied.add(name)
+    copy_live_schemas(contract, live, OPERATIONS, keep={'MaskUploadRequest'})
 
 
 def recheck_job_scenarios():
