@@ -101,9 +101,11 @@ def test_older_versions_reject_the_focused_preprocessing_and_v6_requires_it(vers
     assert pin('annotation-guideline-v6', 'target-focus-overlay-v1').prompt_version == 'annotation-guideline-v6'
 
 
-def test_new_audits_keep_defaulting_to_v5_and_v6_is_opt_in_with_its_own_preprocessing(monkeypatch):
+def test_new_audits_keep_defaulting_to_v5_and_v6_is_opt_in_with_its_own_preprocessing(monkeypatch, tmp_path):
     monkeypatch.setenv('FEEDBACK_MODEL_DIGEST', 'sha256:' + 'b' * 64)
     monkeypatch.delenv('FEEDBACK_PROMPT_VERSION', raising=False)
+    # The code default, not whatever the developer's own .env selects.
+    monkeypatch.setattr('backend.app.core.feedback.DEFAULT_ENV_PATH', tmp_path / 'no.env')
     assert load_execution_pin().prompt_version == 'annotation-guideline-v5'
     monkeypatch.setenv('FEEDBACK_PROMPT_VERSION', 'annotation-guideline-v6')
     selected = load_execution_pin()
