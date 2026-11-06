@@ -9,7 +9,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.app.core.config import OllamaSettings
-from backend.app.core.person_detection import DetectionSettings
 from backend.app.routers.system import get_system_status_service, router
 from backend.app.services.system_status import (
     OllamaProbe,
@@ -31,9 +30,6 @@ def fake_service(probe=None, **options):
     values = dict(
         ollama_settings=settings,
         ollama_probe=lambda s: probe or OllamaProbe(reachable=True, model_names=(MODEL,)),
-        detection_settings=lambda: DetectionSettings(enabled=False),
-        checkpoint_location=lambda: None,
-        packages_available=lambda: True,
         person_model_checkpoint=lambda: None,
     )
     return SystemStatusService(**(values | options))
@@ -73,19 +69,6 @@ def test_status_reports_each_ollama_state_with_http_200(probe, expected):
     ollama = response.json()["ollama"]
     assert (ollama["reachable"], ollama["model_available"]) == expected
     assert response.json()["execution_device"] == "cpu"
-
-
-def test_status_distinguishes_the_detector_states(tmp_path):
-    weights = tmp_path / "weights.pth"
-    weights.write_bytes(b"x")
-    service = fake_service(
-        detection_settings=lambda: DetectionSettings(enabled=True), checkpoint_location=lambda: weights,
-    )
-    detector = client_for(service).get("/api/v1/system/status").json()["detector"]
-    assert detector == {
-        "integration_supported": True, "configuration": "enabled", "checkpoint_file": "present",
-        "validation": "unknown", "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn",
-    }
 
 
 def test_status_reports_whether_the_person_model_is_installed(tmp_path):

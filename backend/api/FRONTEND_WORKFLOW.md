@@ -32,9 +32,9 @@ decisions; it is not authentication or a permission mechanism.
 **Implemented:** `GET /health`, `GET /capabilities`, `GET /system/status` (see [SYSTEM.md](SYSTEM.md)).
 
 Design separate HTTP liveness and model-readiness indicators. A reachable API
-does not imply that Ollama or detector weights are available. These reads
+does not imply that Ollama or the person model weights are available. These reads
 report readiness rather than start services or download models. Capabilities
-lists executable checks and, separately, detection evidence features.
+lists the executable checks.
 For mocks, use `examples.check_catalog` for check meanings and parameter schemas;
 do not infer runtime model readiness from synthetic fixtures.
 
@@ -96,7 +96,7 @@ Omitted/null `sample_ids` selects all samples; a nonempty unique list selects th
 samples in request order. Omit/null `feedback_policy_id` for baseline context, or explicitly choose an active
 compatible immutable policy. The server pins its execution configuration at acceptance. Start the explicit
 audit worker documented in AUDITS.md. `GET /audits` lists persisted runs, newest first.
-Do not add a CPU batch-size field or assume the standalone detector is integrated.
+Do not add a CPU batch-size field.
 
 **Implemented:** poll `GET /jobs/{job_id}` and read `GET /audits/{audit_id}` using
 IDs from the creation response. Startup creates no demo records.

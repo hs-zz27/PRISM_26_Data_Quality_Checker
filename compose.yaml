@@ -18,7 +18,6 @@ x-backend: &backend
     ASSET_STORAGE_ROOT: ${ASSET_STORAGE_ROOT:-${PWD}/backend/data/assets}
     DATASET_IMPORT_ROOT: ${DATASET_IMPORT_ROOT:-${PWD}/backend/data/imports}
     EXPORT_ROOT: ${EXPORT_ROOT:-${PWD}/backend/data/exports}
-    DETECTION_CHECKPOINT_PATH: ${COMPOSE_DETECTION_CHECKPOINT_PATH:-}
   volumes:
     - type: bind
       source: ${ASSET_STORAGE_ROOT:-${PWD}/backend/data/assets}
@@ -29,8 +28,9 @@ x-backend: &backend
     - type: bind
       source: ${EXPORT_ROOT:-${PWD}/backend/data/exports}
       target: ${EXPORT_ROOT:-${PWD}/backend/data/exports}
+    # Mask R-CNN weights for the person check.
     - type: bind
-      source: ${DETECTION_MODEL_ROOT:-./backend/data/models}
+      source: ${PERSON_MODEL_ROOT:-./backend/data/models}
       target: /models
       read_only: true
   depends_on:

@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Health(BaseModel):
-    """HTTP liveness only. It says nothing about Ollama, the detector or storage."""
+    """HTTP liveness only. It says nothing about Ollama, the person model or storage."""
 
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
@@ -23,16 +23,6 @@ class CheckCapability(BaseModel):
     implementation: Literal["implemented"]
 
 
-class EvidenceFeature(BaseModel):
-    """Evidence stored with audited samples. It is not an executable guideline check."""
-
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
-
-    name: str = Field(min_length=1)
-    implementation: Literal["implemented"]
-    description: str = Field(min_length=1)
-
-
 class Capabilities(BaseModel):
     """What this backend build can do. It never reflects which files are installed."""
 
@@ -43,17 +33,16 @@ class Capabilities(BaseModel):
     coordinate_convention: Literal["format_specific"] = Field(
         description=(
             "Penn-Fudan uses one-based inclusive boxes. COCO and LabelMe use zero-based continuous "
-            "coordinates. Detection evidence documents its own convention."
+            "coordinates."
         ),
     )
     checks: list[CheckCapability] = Field(
         description=(
-            "Executable guideline checks. Detection evidence is listed separately. A listed check can "
+            "Executable guideline checks. A listed check can "
             "still report unavailable results for a sample when its inputs are missing; model-assisted "
             "checks, for example, need the configured local model (see system status)."
         ),
     )
-    evidence_features: list[EvidenceFeature]
     execution_device: Literal["cpu"]
 
 
@@ -80,30 +69,6 @@ class OllamaStatus(BaseModel):
         return self
 
 
-class DetectorStatus(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
-
-    integration_supported: bool = Field(
-        description="Whether this environment has the packages the CPU detector needs."
-    )
-    configuration: Literal["disabled", "enabled", "invalid"] = Field(
-        description="Detection settings for new audits; invalid means enabled but unusable."
-    )
-    checkpoint_file: Literal["not_configured", "present", "missing", "unreadable"] = Field(
-        description=(
-            "Whether a file exists at the configured location. A present file is not verified: "
-            "it is not hashed, loaded or run."
-        ),
-    )
-    validation: Literal["unknown", "validated", "failed"] = Field(
-        description=(
-            "Whether the checkpoint was actually loaded and checked. 'unknown' means no validation "
-            "has been recorded; it never means the model works."
-        ),
-    )
-    architecture: str = Field(min_length=1)
-
-
 class PersonModelStatus(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
@@ -123,5 +88,4 @@ class SystemStatus(BaseModel):
 
     ollama: OllamaStatus
     person_model: PersonModelStatus
-    detector: DetectorStatus
     execution_device: Literal["cpu"]

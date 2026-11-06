@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Check HTTP server liveness
-         * @description Liveness only. Returns ok while the HTTP server is running. It never touches PostgreSQL, Ollama, the detector checkpoint or inference, so an offline optional service cannot make it fail.
+         * @description Liveness only. Returns ok while the HTTP server is running. It never touches PostgreSQL, Ollama, the person model or inference, so an offline optional service cannot make it fail.
          */
         get: operations["getHealth"];
         put?: never;
@@ -33,7 +33,7 @@ export interface paths {
         };
         /**
          * List supported checks and evidence features
-         * @description Describes what this backend build supports: dataset and guideline input formats, the annotation coordinate convention, executable guideline checks taken from the real registry, and detection and matching evidence features, which are listed separately because they are not guideline checks. Installed files do not change it. It starts no service and runs no inference. Planned posture, mask or person-count checks and detection-mask coverage are not listed because they do not exist.
+         * @description Describes what this backend build supports: dataset and guideline input formats, the annotation coordinate convention and the executable guideline checks taken from the real registry. Installed files do not change it. It starts no service and runs no inference.
          */
         get: operations["getCapabilities"];
         put?: never;
@@ -53,7 +53,7 @@ export interface paths {
         };
         /**
          * Inspect local model readiness
-         * @description Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. person_model says whether the Mask R-CNN weights file used by the person check is installed (not hashed or loaded). Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.
+         * @description Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. person_model says whether the Mask R-CNN weights file used by the person check is installed (not hashed or loaded). Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.
          */
         get: operations["getSystemStatus"];
         put?: never;
@@ -3478,17 +3478,15 @@ export interface components {
             guideline_input_formats: string[];
             /**
              * Coordinate Convention
-             * @description Penn-Fudan uses one-based inclusive boxes. COCO and LabelMe use zero-based continuous coordinates. Detection evidence documents its own convention.
+             * @description Penn-Fudan uses one-based inclusive boxes. COCO and LabelMe use zero-based continuous coordinates.
              * @constant
              */
             coordinate_convention: "format_specific";
             /**
              * Checks
-             * @description Executable guideline checks. Detection evidence is listed separately. A listed check can still report unavailable results for a sample when its inputs are missing; model-assisted checks, for example, need the configured local model (see system status).
+             * @description Executable guideline checks. A listed check can still report unavailable results for a sample when its inputs are missing; model-assisted checks, for example, need the configured local model (see system status).
              */
             checks: components["schemas"]["CheckCapability"][];
-            /** Evidence Features */
-            evidence_features: components["schemas"]["EvidenceFeature"][];
             /**
              * Execution Device
              * @constant
@@ -3509,23 +3507,8 @@ export interface components {
             implementation: "implemented";
         };
         /**
-         * EvidenceFeature
-         * @description Evidence stored with audited samples. It is not an executable guideline check.
-         */
-        EvidenceFeature: {
-            /** Name */
-            name: string;
-            /**
-             * Implementation
-             * @constant
-             */
-            implementation: "implemented";
-            /** Description */
-            description: string;
-        };
-        /**
          * Health
-         * @description HTTP liveness only. It says nothing about Ollama, the detector or storage.
+         * @description HTTP liveness only. It says nothing about Ollama, the person model or storage.
          */
         Health: {
             /**
@@ -3546,40 +3529,11 @@ export interface components {
         SystemStatus: {
             ollama: components["schemas"]["OllamaStatus"];
             person_model: components["schemas"]["PersonModelStatus"];
-            detector: components["schemas"]["DetectorStatus"];
             /**
              * Execution Device
              * @constant
              */
             execution_device: "cpu";
-        };
-        /** DetectorStatus */
-        DetectorStatus: {
-            /**
-             * Integration Supported
-             * @description Whether this environment has the packages the CPU detector needs.
-             */
-            integration_supported: boolean;
-            /**
-             * Configuration
-             * @description Detection settings for new audits; invalid means enabled but unusable.
-             * @enum {string}
-             */
-            configuration: "disabled" | "enabled" | "invalid";
-            /**
-             * Checkpoint File
-             * @description Whether a file exists at the configured location. A present file is not verified: it is not hashed, loaded or run.
-             * @enum {string}
-             */
-            checkpoint_file: "not_configured" | "present" | "missing" | "unreadable";
-            /**
-             * Validation
-             * @description Whether the checkpoint was actually loaded and checked. 'unknown' means no validation has been recorded; it never means the model works.
-             * @enum {string}
-             */
-            validation: "unknown" | "validated" | "failed";
-            /** Architecture */
-            architecture: string;
         };
         /** OllamaStatus */
         OllamaStatus: {
@@ -3761,18 +3715,6 @@ export interface operations {
                      *           "implementation": "implemented"
                      *         }
                      *       ],
-                     *       "evidence_features": [
-                     *         {
-                     *           "name": "person_detection",
-                     *           "implementation": "implemented",
-                     *           "description": "CPU person detector run inside audit sample processing when enabled for an audit. Stored as the detection_evidence measurement; not a guideline check and creates no findings."
-                     *         },
-                     *         {
-                     *           "name": "detection_annotation_matching",
-                     *           "implementation": "implemented",
-                     *           "description": "Conservative matching of detections to person annotations, stored inside detection_evidence. Ambiguity is reported for review, never resolved automatically."
-                     *         }
-                     *       ],
                      *       "execution_device": "cpu"
                      *     }
                      */
@@ -3826,13 +3768,6 @@ export interface operations {
                      *       "person_model": {
                      *         "model": "maskrcnn_resnet50_fpn_v2_coco",
                      *         "checkpoint_file": "present"
-                     *       },
-                     *       "detector": {
-                     *         "integration_supported": true,
-                     *         "configuration": "enabled",
-                     *         "checkpoint_file": "present",
-                     *         "validation": "unknown",
-                     *         "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"
                      *       },
                      *       "execution_device": "cpu"
                      *     }

@@ -6,7 +6,6 @@ short model-list request. Every probe is injectable, so tests need no Ollama and
 no weights. Results carry no private paths, credentials or raw error text.
 """
 
-import importlib.util
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,41 +15,15 @@ import httpx
 from ..checks.registry import CHECK_REGISTRY
 from ..core import person_model
 from ..core.config import OllamaSettings, load_ollama_settings
-from ..core.person_detection import (
-    DETECTOR_ARCHITECTURE,
-    DetectionConfigurationError,
-    DetectionSettings,
-    load_checkpoint_location,
-    load_detection_settings,
-)
 from ..models.system import (
     Capabilities,
     CheckCapability,
-    DetectorStatus,
-    EvidenceFeature,
     OllamaStatus,
     PersonModelStatus,
     SystemStatus,
 )
 
 OLLAMA_PROBE_SECONDS = 2.0
-
-_EVIDENCE_FEATURES = (
-    EvidenceFeature(
-        name="person_detection", implementation="implemented",
-        description=(
-            "CPU person detector run inside audit sample processing when enabled for an audit. "
-            "Stored as the detection_evidence measurement; not a guideline check and creates no findings."
-        ),
-    ),
-    EvidenceFeature(
-        name="detection_annotation_matching", implementation="implemented",
-        description=(
-            "Conservative matching of detections to person annotations, stored inside "
-            "detection_evidence. Ambiguity is reported for review, never resolved automatically."
-        ),
-    ),
-)
 
 
 def build_capabilities() -> Capabilities:
@@ -60,7 +33,6 @@ def build_capabilities() -> Capabilities:
         guideline_input_formats=["plain_text"],
         coordinate_convention="format_specific",
         checks=[CheckCapability(name=name, implementation="implemented") for name in sorted(CHECK_REGISTRY)],
-        evidence_features=list(_EVIDENCE_FEATURES),
         execution_device="cpu",
     )
 
@@ -108,39 +80,20 @@ def model_is_installed(configured: str, installed: Iterable[str]) -> bool:
     return any(name in wanted for name in installed)
 
 
-def detector_packages_available() -> bool:
-    """Whether Torch and torchvision are installed, found without importing either."""
-    return all(importlib.util.find_spec(name) is not None for name in ("torch", "torchvision"))
-
-
-def validation_not_recorded() -> str:
-    """No validation record exists yet, so the honest answer is always 'unknown'."""
-    return "unknown"
-
-
 class SystemStatusService:
     def __init__(
         self,
         *,
         ollama_settings: Callable[[], OllamaSettings] = load_ollama_settings,
         ollama_probe: Callable[[OllamaSettings], OllamaProbe] = probe_ollama,
-        detection_settings: Callable[[], DetectionSettings] = load_detection_settings,
-        checkpoint_location: Callable[[], Path | None] = load_checkpoint_location,
-        packages_available: Callable[[], bool] = detector_packages_available,
-        validation_status: Callable[[], str] = validation_not_recorded,
         person_model_checkpoint: Callable[[], Path | None] = person_model.checkpoint_path,
     ) -> None:
         self._ollama_settings = ollama_settings
         self._ollama_probe = ollama_probe
-        self._detection_settings = detection_settings
-        self._checkpoint_location = checkpoint_location
-        self._packages_available = packages_available
-        self._validation_status = validation_status
         self._person_model_checkpoint = person_model_checkpoint
 
     def status(self) -> SystemStatus:
-        return SystemStatus(ollama=self._ollama(), person_model=self._person_model(), detector=self._detector(),
-                            execution_device="cpu")
+        return SystemStatus(ollama=self._ollama(), person_model=self._person_model(), execution_device="cpu")
 
     def _person_model(self) -> PersonModelStatus:
         try:
@@ -158,25 +111,4 @@ class SystemStatusService:
         available = None if probe.model_names is None else model_is_installed(settings.model, probe.model_names)
         return OllamaStatus(
             configuration="valid", reachable=probe.reachable, model=settings.model, model_available=available,
-        )
-
-    def _detector(self) -> DetectorStatus:
-        try:
-            configuration = "enabled" if self._detection_settings().enabled else "disabled"
-        except DetectionConfigurationError:
-            configuration = "invalid"
-        try:
-            location = self._checkpoint_location()
-        except DetectionConfigurationError:
-            location = None
-        if location is None:
-            checkpoint = "not_configured"
-        else:
-            try:
-                checkpoint = "present" if location.is_file() else "missing"
-            except OSError:
-                checkpoint = "unreadable"
-        return DetectorStatus(
-            integration_supported=self._packages_available(), configuration=configuration,
-            checkpoint_file=checkpoint, validation=self._validation_status(), architecture=DETECTOR_ARCHITECTURE,
         )

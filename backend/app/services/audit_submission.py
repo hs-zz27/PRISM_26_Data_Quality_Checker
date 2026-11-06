@@ -1,12 +1,8 @@
 """Connect imported catalogue revisions to the existing batch audit engine."""
 
-from collections.abc import Callable
-
 from ..checks.registry import RuleParameterError
-from ..core.person_detection import current_detector_configuration
 from ..models.audit import AuditSourceMode, BatchAuditRequest
 from ..models.audit_submission import AuditRequest, AuditStarted
-from ..models.detection_evidence import DetectorConfiguration
 from ..storage.dataset_repository import DatasetRepository
 from .batch_audit import BatchAuditService
 
@@ -16,14 +12,9 @@ class AuditRuleParametersError(ValueError):
 
 
 class AuditSubmissionService:
-    def __init__(
-        self, *, catalogue: DatasetRepository, batch: BatchAuditService,
-        detector_configuration: Callable[[], DetectorConfiguration] = current_detector_configuration,
-    ) -> None:
+    def __init__(self, *, catalogue: DatasetRepository, batch: BatchAuditService) -> None:
         self.catalogue = catalogue
         self.batch = batch
-        # Read when an audit is accepted, so later environment changes never alter it.
-        self.detector_configuration = detector_configuration
 
     def start(self, request: AuditRequest) -> AuditStarted:
         """Pin a ready catalogue and exact confirmed book before durable acceptance."""
@@ -40,7 +31,6 @@ class AuditSubmissionService:
             sample_revisions={sample_id: pin.revision for sample_id, pin in pins.items()},
             source_mode=AuditSourceMode.SNAPSHOT,
             feedback_policy_id=request.feedback_policy_id,
-            detector=self.detector_configuration(),
         )
         try:
             audit, job = self.batch.start(

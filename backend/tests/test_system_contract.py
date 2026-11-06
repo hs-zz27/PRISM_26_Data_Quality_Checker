@@ -43,7 +43,7 @@ def test_the_inventory_is_53_implemented_and_nothing_planned():
 
 def test_system_schemas_come_from_the_live_models_not_handwritten_copies():
     generated, live = build_contract(), create_app().openapi()
-    for name in ("Health", "Capabilities", "SystemStatus", "OllamaStatus", "DetectorStatus"):
+    for name in ("Health", "Capabilities", "SystemStatus", "OllamaStatus", "PersonModelStatus"):
         assert_same_schema(
             generated["components"]["schemas"][name], live["components"]["schemas"][name],
             generated["components"]["schemas"], live["components"]["schemas"],

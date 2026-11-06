@@ -91,20 +91,21 @@ Host access still uses `POSTGRES_PORT` (55432 by default). No credentials or pri
 assets are copied into build images. Run from the same repository/project name to
 reuse the same database volume; a different Compose project uses a different one.
 
-## Optional CPU detector
+## Person check model (Mask R-CNN)
 
-No checkpoint is downloaded or enabled automatically. To use an existing model:
+The person check (`person_coverage`) uses torchvision's `maskrcnn_resnet50_fpn_v2` with COCO
+weights. Nothing is downloaded by the application. Place the weights file once:
 
-```dotenv
-DETECTION_MODEL_ROOT=/absolute/path/to/weights
-COMPOSE_DETECTION_CHECKPOINT_PATH=/models/fasterrcnn_mobilenet_v3_large_320_fpn-907ea3f9.pth
+```bash
+mkdir -p backend/data/models
+curl -L -o backend/data/models/maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth \
+  https://download.pytorch.org/models/maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth
 ```
 
-The directory is mounted read-only at `/models`. Also configure the existing
-`DETECTION_ENABLED`, digest, person labels, confidence and IoU fields as documented
-in `backend/CPU_DETECTION.md`. Native checkpoint paths are deliberately overridden
-inside containers. Model settings for enclosure/feedback still require their
-explicit enablement and digests; starting Compose does not enable these features.
+The folder is mounted read-only at `/models` (set `PERSON_MODEL_ROOT` to mount another one).
+The top bar's Mask R-CNN light shows whether the file is found. Without it, the person check
+reports "could not check" for each image, never a pass. Model settings for enclosure/feedback
+still require their explicit enablement and digests; starting Compose does not enable them.
 
 ## Stop and troubleshoot
 

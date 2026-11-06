@@ -47,7 +47,7 @@
           "System"
         ],
         "summary": "Check HTTP server liveness",
-        "description": "Liveness only. Returns ok while the HTTP server is running. It never touches PostgreSQL, Ollama, the detector checkpoint or inference, so an offline optional service cannot make it fail.",
+        "description": "Liveness only. Returns ok while the HTTP server is running. It never touches PostgreSQL, Ollama, the person model or inference, so an offline optional service cannot make it fail.",
         "operationId": "getHealth",
         "responses": {
           "200": {
@@ -93,7 +93,7 @@
           "System"
         ],
         "summary": "List supported checks and evidence features",
-        "description": "Describes what this backend build supports: dataset and guideline input formats, the annotation coordinate convention, executable guideline checks taken from the real registry, and detection and matching evidence features, which are listed separately because they are not guideline checks. Installed files do not change it. It starts no service and runs no inference. Planned posture, mask or person-count checks and detection-mask coverage are not listed because they do not exist.",
+        "description": "Describes what this backend build supports: dataset and guideline input formats, the annotation coordinate convention and the executable guideline checks taken from the real registry. Installed files do not change it. It starts no service and runs no inference.",
         "operationId": "getCapabilities",
         "responses": {
           "200": {
@@ -175,18 +175,6 @@
                       "implementation": "implemented"
                     }
                   ],
-                  "evidence_features": [
-                    {
-                      "name": "person_detection",
-                      "implementation": "implemented",
-                      "description": "CPU person detector run inside audit sample processing when enabled for an audit. Stored as the detection_evidence measurement; not a guideline check and creates no findings."
-                    },
-                    {
-                      "name": "detection_annotation_matching",
-                      "implementation": "implemented",
-                      "description": "Conservative matching of detections to person annotations, stored inside detection_evidence. Ambiguity is reported for review, never resolved automatically."
-                    }
-                  ],
                   "execution_device": "cpu"
                 }
               }
@@ -212,7 +200,7 @@
           }
         },
         "x-implementation-status": "implemented",
-        "x-backing-service-status": "CHECK_REGISTRY and a static evidence feature list; FastAPI route."
+        "x-backing-service-status": "CHECK_REGISTRY; FastAPI route."
       }
     },
     "/system/status": {
@@ -221,7 +209,7 @@
           "System"
         ],
         "summary": "Inspect local model readiness",
-        "description": "Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. person_model says whether the Mask R-CNN weights file used by the person check is installed (not hashed or loaded). Detector status keeps four things apart: whether the packages are installed, whether detection is disabled, enabled or invalid for new audits, whether a file exists at the configured checkpoint location (it is not hashed or loaded), and validation, which is unknown unless a real validation has been recorded. Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.",
+        "description": "Read-only readiness. Ollama is probed with one short model-list request, never text generation; an unreachable server or a missing model is a normal state, not an error. person_model says whether the Mask R-CNN weights file used by the person check is installed (not hashed or loaded). Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and raw errors are never returned.",
         "operationId": "getSystemStatus",
         "responses": {
           "200": {
@@ -242,13 +230,6 @@
                     "model": "maskrcnn_resnet50_fpn_v2_coco",
                     "checkpoint_file": "present"
                   },
-                  "detector": {
-                    "integration_supported": true,
-                    "configuration": "enabled",
-                    "checkpoint_file": "present",
-                    "validation": "unknown",
-                    "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"
-                  },
                   "execution_device": "cpu"
                 }
               }
@@ -274,7 +255,7 @@
           }
         },
         "x-implementation-status": "implemented",
-        "x-backing-service-status": "SystemStatusService: bounded Ollama model-list probe, person model and detection settings with checkpoint file-existence checks; FastAPI route."
+        "x-backing-service-status": "SystemStatusService: bounded Ollama model-list probe and a person model checkpoint file-existence check; FastAPI route."
       }
     },
     "/rulebooks": {
@@ -20184,23 +20165,16 @@
           },
           "coordinate_convention": {
             "const": "format_specific",
-            "description": "Penn-Fudan uses one-based inclusive boxes. COCO and LabelMe use zero-based continuous coordinates. Detection evidence documents its own convention.",
+            "description": "Penn-Fudan uses one-based inclusive boxes. COCO and LabelMe use zero-based continuous coordinates.",
             "title": "Coordinate Convention",
             "type": "string"
           },
           "checks": {
-            "description": "Executable guideline checks. Detection evidence is listed separately. A listed check can still report unavailable results for a sample when its inputs are missing; model-assisted checks, for example, need the configured local model (see system status).",
+            "description": "Executable guideline checks. A listed check can still report unavailable results for a sample when its inputs are missing; model-assisted checks, for example, need the configured local model (see system status).",
             "items": {
               "$ref": "#/components/schemas/CheckCapability"
             },
             "title": "Checks",
-            "type": "array"
-          },
-          "evidence_features": {
-            "items": {
-              "$ref": "#/components/schemas/EvidenceFeature"
-            },
-            "title": "Evidence Features",
             "type": "array"
           },
           "execution_device": {
@@ -20214,7 +20188,6 @@
           "guideline_input_formats",
           "coordinate_convention",
           "checks",
-          "evidence_features",
           "execution_device"
         ],
         "title": "Capabilities",
@@ -20242,37 +20215,9 @@
         "title": "CheckCapability",
         "type": "object"
       },
-      "EvidenceFeature": {
-        "additionalProperties": false,
-        "description": "Evidence stored with audited samples. It is not an executable guideline check.",
-        "properties": {
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "implementation": {
-            "const": "implemented",
-            "title": "Implementation",
-            "type": "string"
-          },
-          "description": {
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "implementation",
-          "description"
-        ],
-        "title": "EvidenceFeature",
-        "type": "object"
-      },
       "Health": {
         "additionalProperties": false,
-        "description": "HTTP liveness only. It says nothing about Ollama, the detector or storage.",
+        "description": "HTTP liveness only. It says nothing about Ollama, the person model or storage.",
         "properties": {
           "status": {
             "const": "ok",
@@ -20302,9 +20247,6 @@
           "person_model": {
             "$ref": "#/components/schemas/PersonModelStatus"
           },
-          "detector": {
-            "$ref": "#/components/schemas/DetectorStatus"
-          },
           "execution_device": {
             "const": "cpu",
             "title": "Execution Device",
@@ -20314,65 +20256,9 @@
         "required": [
           "ollama",
           "person_model",
-          "detector",
           "execution_device"
         ],
         "title": "SystemStatus",
-        "type": "object"
-      },
-      "DetectorStatus": {
-        "additionalProperties": false,
-        "properties": {
-          "integration_supported": {
-            "description": "Whether this environment has the packages the CPU detector needs.",
-            "title": "Integration Supported",
-            "type": "boolean"
-          },
-          "configuration": {
-            "description": "Detection settings for new audits; invalid means enabled but unusable.",
-            "enum": [
-              "disabled",
-              "enabled",
-              "invalid"
-            ],
-            "title": "Configuration",
-            "type": "string"
-          },
-          "checkpoint_file": {
-            "description": "Whether a file exists at the configured location. A present file is not verified: it is not hashed, loaded or run.",
-            "enum": [
-              "not_configured",
-              "present",
-              "missing",
-              "unreadable"
-            ],
-            "title": "Checkpoint File",
-            "type": "string"
-          },
-          "validation": {
-            "description": "Whether the checkpoint was actually loaded and checked. 'unknown' means no validation has been recorded; it never means the model works.",
-            "enum": [
-              "unknown",
-              "validated",
-              "failed"
-            ],
-            "title": "Validation",
-            "type": "string"
-          },
-          "architecture": {
-            "minLength": 1,
-            "title": "Architecture",
-            "type": "string"
-          }
-        },
-        "required": [
-          "integration_supported",
-          "configuration",
-          "checkpoint_file",
-          "validation",
-          "architecture"
-        ],
-        "title": "DetectorStatus",
         "type": "object"
       },
       "OllamaStatus": {

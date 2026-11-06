@@ -12,21 +12,14 @@ from pydantic import ValidationError
 
 from backend.app.checks.registry import CHECK_REGISTRY
 from backend.app.core.config import OllamaSettings
-from backend.app.core.person_detection import (
-    DETECTOR_ARCHITECTURE,
-    DetectionConfigurationError,
-    DetectionSettings,
-)
-from backend.app.models.system import DetectorStatus, OllamaStatus
+from backend.app.models.system import OllamaStatus
 from backend.app.services.system_status import (
     OLLAMA_PROBE_SECONDS,
     OllamaProbe,
     SystemStatusService,
     build_capabilities,
-    detector_packages_available,
     model_is_installed,
     probe_ollama,
-    validation_not_recorded,
 )
 
 MODEL = "qwen3-vl:4b-instruct"
@@ -50,9 +43,6 @@ def service(**options):
     values = dict(
         ollama_settings=ollama_settings,
         ollama_probe=lambda settings: OllamaProbe(reachable=True, model_names=(MODEL,)),
-        detection_settings=lambda: DetectionSettings(enabled=False),
-        checkpoint_location=lambda: None,
-        packages_available=lambda: True,
         person_model_checkpoint=lambda: None,
     )
     return SystemStatusService(**(values | options))
@@ -150,62 +140,6 @@ def test_ollama_status_rejects_contradictory_states():
         OllamaStatus(configuration="invalid", reachable=True, model=None, model_available=None)
 
 
-# --- detector status ----------------------------------------------------------------------------------
-
-def test_a_disabled_detector_with_no_checkpoint_configured():
-    detector = service().status().detector
-    assert (detector.integration_supported, detector.configuration, detector.checkpoint_file) == (
-        True, "disabled", "not_configured",
-    )
-    assert detector.validation == "unknown" and detector.architecture == DETECTOR_ARCHITECTURE
-
-
-def test_an_enabled_detector_with_a_present_checkpoint_is_still_unvalidated(tmp_path):
-    weights = tmp_path / "weights.pth"
-    weights.write_bytes(b"not a real model")
-    detector = service(
-        detection_settings=lambda: DetectionSettings(enabled=True), checkpoint_location=lambda: weights,
-    ).status().detector
-    assert (detector.configuration, detector.checkpoint_file, detector.validation) == ("enabled", "present", "unknown")
-
-
-def test_a_missing_checkpoint_file_is_reported_as_missing(tmp_path):
-    detector = service(checkpoint_location=lambda: tmp_path / "absent.pth").status().detector
-    assert detector.checkpoint_file == "missing"
-    assert service(checkpoint_location=lambda: tmp_path).status().detector.checkpoint_file == "missing"  # a folder
-
-
-def test_an_unreadable_checkpoint_location_is_reported_without_raising():
-    class Unreadable:
-        def is_file(self):
-            raise PermissionError("denied")
-
-    assert service(checkpoint_location=Unreadable).status().detector.checkpoint_file == "unreadable"
-
-
-def test_invalid_detection_settings_are_a_state_not_an_error():
-    def invalid():
-        raise DetectionConfigurationError("bad")
-
-    detector = service(detection_settings=invalid).status().detector
-    assert detector.configuration == "invalid"
-    assert service(checkpoint_location=invalid).status().detector.checkpoint_file == "not_configured"
-
-
-def test_missing_detector_packages_are_reported():
-    assert service(packages_available=lambda: False).status().detector.integration_supported is False
-
-
-def test_validation_is_unknown_unless_a_record_says_otherwise():
-    assert validation_not_recorded() == "unknown"
-    assert service(validation_status=lambda: "failed").status().detector.validation == "failed"
-    with pytest.raises(ValidationError):
-        DetectorStatus(
-            integration_supported=True, configuration="enabled", checkpoint_file="present",
-            validation="works", architecture=DETECTOR_ARCHITECTURE,
-        )
-
-
 # --- person model status ------------------------------------------------------------------------------
 
 def test_the_person_model_is_present_only_when_its_weights_file_is_installed(tmp_path):
@@ -243,10 +177,7 @@ def test_a_status_read_never_hashes_a_checkpoint(tmp_path, monkeypatch):
         raise AssertionError("a status read must not hash anything")
 
     monkeypatch.setattr(hashlib, "sha256", refuse)
-    detector = service(
-        detection_settings=lambda: DetectionSettings(enabled=True), checkpoint_location=lambda: weights,
-    ).status().detector
-    assert detector.checkpoint_file == "present"
+    assert service(person_model_checkpoint=lambda: weights).status().person_model.checkpoint_file == "present"
 
 
 def test_status_output_contains_no_private_paths_or_raw_errors(tmp_path):
@@ -259,26 +190,22 @@ def test_status_output_contains_no_private_paths_or_raw_errors(tmp_path):
         raise ValueError("secret credential /private/path")
 
     text = json.dumps(service(
-        ollama_settings=broken, checkpoint_location=lambda: weights, person_model_checkpoint=lambda: weights,
+        ollama_settings=broken, person_model_checkpoint=lambda: weights,
     ).status().model_dump(mode="json"), allow_nan=False)
     assert "private-user-folder" not in text and "secret" not in text and "weights.pth" not in text
 
 
-def test_importing_and_checking_packages_never_imports_torch():
+def test_reading_status_and_capabilities_never_imports_torch():
     code = (
         "import sys\n"
-        "from backend.app.services.system_status import detector_packages_available, build_capabilities\n"
-        "assert isinstance(detector_packages_available(), bool)\n"
+        "from backend.app.services.system_status import SystemStatusService, build_capabilities\n"
         "build_capabilities()\n"
+        "SystemStatusService(ollama_settings=lambda: int('not configured')).status()\n"
         "assert 'torch' not in sys.modules and 'torchvision' not in sys.modules\n"
     )
     root = Path(__file__).resolve().parents[2]
     done = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True)
     assert done.returncode == 0, done.stderr
-
-
-def test_the_package_check_returns_a_boolean():
-    assert detector_packages_available() in (True, False)
 
 
 # --- capabilities -------------------------------------------------------------------------------------------
@@ -289,27 +216,3 @@ def test_capabilities_list_exactly_the_registry_checks():
     assert {check.implementation for check in capabilities.checks} == {"implemented"}
     assert capabilities.dataset_formats == ["penn_fudan", "coco", "labelme"] and capabilities.guideline_input_formats == ["plain_text"]
     assert capabilities.coordinate_convention == "format_specific" and capabilities.execution_device == "cpu"
-
-
-def test_detection_is_an_evidence_feature_not_a_guideline_check():
-    capabilities = build_capabilities()
-    assert {feature.name for feature in capabilities.evidence_features} == {
-        "person_detection", "detection_annotation_matching",
-    }
-    assert not {"person_detection", "detection_annotation_matching"} & {c.name for c in capabilities.checks}
-
-
-def test_capabilities_do_not_claim_features_that_do_not_exist():
-    text = json.dumps(build_capabilities().model_dump(mode="json")).lower()
-    for planned in ("posture", "person_count", "mask_person", "detection_mask"):
-        assert planned not in text
-
-
-def test_an_installed_checkpoint_does_not_change_capabilities(tmp_path, monkeypatch):
-    before = build_capabilities()
-    weights = tmp_path / "weights.pth"
-    weights.write_bytes(b"x")
-    monkeypatch.setenv("DETECTION_ENABLED", "true")
-    monkeypatch.setenv("DETECTION_CHECKPOINT_PATH", str(weights))
-    assert build_capabilities() == before
-    json.dumps(before.model_dump(mode="json"), allow_nan=False)

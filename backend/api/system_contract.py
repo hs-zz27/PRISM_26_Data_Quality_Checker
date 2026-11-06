@@ -2,7 +2,7 @@
 from copy import deepcopy
 
 from backend.app.core.person_model import MODEL_NAME as PERSON_MODEL
-from backend.app.models.system import DetectorStatus, Health, OllamaStatus, PersonModelStatus, SystemStatus
+from backend.app.models.system import Health, OllamaStatus, PersonModelStatus, SystemStatus
 from backend.app.services.system_status import build_capabilities
 
 from .common import BASE_PATH
@@ -21,33 +21,27 @@ SUMMARIES = {
 DESCRIPTIONS = {
     'getHealth': (
         'Liveness only. Returns ok while the HTTP server is running. It never touches PostgreSQL, '
-        'Ollama, the detector checkpoint or inference, so an offline optional service cannot make it fail.'
+        'Ollama, the person model or inference, so an offline optional service cannot make it fail.'
     ),
     'getCapabilities': (
         'Describes what this backend build supports: dataset and guideline input formats, the annotation '
-        'coordinate convention, executable guideline checks taken from the real registry, and detection '
-        'and matching evidence features, which are listed separately because they are not guideline '
-        'checks. Installed files do not change it. It starts no service and runs no inference. Planned '
-        'posture, mask or person-count checks and detection-mask coverage are not listed because they do '
-        'not exist.'
+        'coordinate convention and the executable guideline checks taken from the real registry. Installed '
+        'files do not change it. It starts no service and runs no inference.'
     ),
     'getSystemStatus': (
         'Read-only readiness. Ollama is probed with one short model-list request, never text generation; '
         'an unreachable server or a missing model is a normal state, not an error. person_model says whether '
-        'the Mask R-CNN weights file used by the person check is installed (not hashed or loaded). Detector status keeps '
-        'four things apart: whether the packages are installed, whether detection is disabled, enabled or '
-        'invalid for new audits, whether a file exists at the configured checkpoint location (it is not '
-        'hashed or loaded), and validation, which is unknown unless a real validation has been recorded. '
+        'the Mask R-CNN weights file used by the person check is installed (not hashed or loaded). '
         'Reading it loads no model, runs no inference, downloads nothing and uses no database. Paths and '
         'raw errors are never returned.'
     ),
 }
 BACKING = {
     'getHealth': 'FastAPI route; no dependencies.',
-    'getCapabilities': 'CHECK_REGISTRY and a static evidence feature list; FastAPI route.',
+    'getCapabilities': 'CHECK_REGISTRY; FastAPI route.',
     'getSystemStatus': (
-        'SystemStatusService: bounded Ollama model-list probe, person model and detection settings with '
-        'checkpoint file-existence checks; FastAPI route.'
+        'SystemStatusService: bounded Ollama model-list probe and a person model checkpoint '
+        'file-existence check; FastAPI route.'
     ),
 }
 
@@ -60,10 +54,6 @@ def system_examples():
         'getSystemStatus': SystemStatus(
             ollama=OllamaStatus(configuration='valid', reachable=True, model=EXAMPLE_MODEL, model_available=True),
             person_model=PersonModelStatus(model=PERSON_MODEL, checkpoint_file='present'),
-            detector=DetectorStatus(
-                integration_supported=True, configuration='enabled', checkpoint_file='present',
-                validation='unknown', architecture='fasterrcnn_mobilenet_v3_large_320_fpn',
-            ),
             execution_device='cpu',
         ).model_dump(mode='json'),
     }

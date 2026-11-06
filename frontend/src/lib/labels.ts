@@ -68,11 +68,6 @@ const CHECK_NAMES: Record<string, string> = {
   mask_dimensions: 'Mask size matches image',
   mask_ids: 'Mask IDs match objects',
   person_coverage: 'Whole person covered (measured)',
-  person_detection: 'Person detection',
-  detection_annotation_matches: 'Detections match annotations',
-  detection_mask_coverage: 'Detection mask coverage',
-  mask_person_count: 'Person count in mask',
-  person_posture: 'Person posture',
 };
 
 /** Reason codes emitted by checks and the audit worker. */

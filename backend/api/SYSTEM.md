@@ -7,34 +7,28 @@ and run no inference. Generated schemas are in `openapi.json`.
 ## `GET /api/v1/health` (`getHealth`)
 
 Liveness only: `{"status": "ok", "api_version": "v1"}`. It never touches PostgreSQL,
-Ollama, the detector checkpoint or inference. An offline optional service cannot make it
+Ollama, the person model or inference. An offline optional service cannot make it
 fail. A reachable API says nothing about model readiness.
 
 ## `GET /api/v1/capabilities` (`getCapabilities`)
 
 What this build supports. It does not depend on which files are installed.
 
-- `dataset_formats`, `guideline_input_formats`: currently `penn_fudan` and `plain_text`.
-- `coordinate_convention`: `one_based_inclusive`, for annotation boxes. Detection evidence
-  records its own zero-based pixel-edge convention inside each evidence record.
+- `dataset_formats`, `guideline_input_formats`: `penn_fudan`, `coco` and `labelme`; `plain_text`.
+- `coordinate_convention`: `format_specific`. Penn-Fudan boxes are one-based inclusive; COCO and
+  LabelMe use zero-based continuous coordinates.
 - `checks`: the executable guideline checks a rule may name, taken from the real registry.
   Only these can appear in a rulebook. A listed check can still report unavailable results
 for a sample when its inputs are missing: the model-assisted `annotation_guideline` check,
 for example, needs the configured local model, so read `GET /system/status` alongside this list.
-- `evidence_features`: detection and matching evidence stored with audited samples. These
-  are **not** guideline checks: they create no findings and cannot be named by a rule. See
-  [AUDITS.md](AUDITS.md) for how the evidence appears in a sample.
 - `execution_device`: `cpu`.
-
-Posture, mask or person-count checks and detection-mask coverage are not listed because they
-do not exist. Do not assume them from earlier planning documents.
 
 ## `GET /api/v1/system/status` (`getSystemStatus`)
 
 Bounded, read-only readiness. Always HTTP 200 unless the server itself fails; an offline
 service is a normal state, not an error. The server probes Ollama with one short model-list
-request (never text generation) and checks the person model's and the detector's checkpoint
-files without loading, hashing or running anything.
+request (never text generation) and checks that the person model's weights file is installed,
+without loading, hashing or running it.
 
 `ollama`:
 
@@ -55,20 +49,6 @@ files without loading, hashing or running anything.
 The top bar shows this as the Mask R-CNN light. Without the file, the person check reports
 "could not check" for each sample, never a pass.
 
-`detector` (the older Faster R-CNN detection evidence, off unless configured):
-
-| Field | Meaning |
-| --- | --- |
-| `integration_supported` | Whether this environment has the packages the CPU detector needs. |
-| `configuration` | `disabled`, `enabled`, or `invalid` (enabled but unusable settings) for **new** audits. |
-| `checkpoint_file` | `not_configured`, `present`, `missing` or `unreadable`. A present file is not verified. |
-| `validation` | `unknown`, `validated` or `failed`. Currently always `unknown`: no validation record exists. |
-| `architecture` | The detector architecture name. |
-
-Show `validation: unknown` as unknown, never as ready. Seeing `checkpoint_file: present`
-means a file exists at the configured location, not that it loads or detects well. Whether an
-audit actually ran detection is recorded per sample in its `detection_evidence`.
-
 Paths, credentials and raw error text are never returned. Unexpected server failures use the
 normal error envelope with HTTP 500.
 
@@ -80,8 +60,6 @@ Illustrative and hand-written. The generated contract carries one typical exampl
 {
   "ollama": {"configuration": "valid", "reachable": false, "model": "example-local-model:latest", "model_available": null},
   "person_model": {"model": "maskrcnn_resnet50_fpn_v2_coco", "checkpoint_file": "present"},
-  "detector": {"integration_supported": true, "configuration": "disabled", "checkpoint_file": "not_configured",
-               "validation": "unknown", "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"},
   "execution_device": "cpu"
 }
 ```
@@ -90,8 +68,6 @@ Illustrative and hand-written. The generated contract carries one typical exampl
 {
   "ollama": {"configuration": "valid", "reachable": true, "model": "example-local-model:latest", "model_available": false},
   "person_model": {"model": "maskrcnn_resnet50_fpn_v2_coco", "checkpoint_file": "missing"},
-  "detector": {"integration_supported": true, "configuration": "invalid", "checkpoint_file": "missing",
-               "validation": "unknown", "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"},
   "execution_device": "cpu"
 }
 ```
@@ -100,4 +76,4 @@ Illustrative and hand-written. The generated contract carries one typical exampl
 
 The committed generated contracts include all three system operations. Regenerate them
 when their source models or routes change. The system tests use mocked dependencies;
-they do not establish that a locally installed checkpoint produces good detections.
+they do not establish that the installed weights produce good person outlines.

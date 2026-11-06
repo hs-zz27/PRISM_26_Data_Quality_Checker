@@ -122,7 +122,7 @@ export const AuditsPage: React.FC = () => {
             Quality Audits & Workstation
           </h1>
           <p className="text-xs text-text-muted mt-1">
-            Run batch detector and rule evaluation against dataset revisions. Human reviewers inspect machine findings and record final data decisions.
+            Run rule checks against dataset revisions. Human reviewers inspect machine findings and record final data decisions.
           </p>
         </div>
         <Button

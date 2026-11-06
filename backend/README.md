@@ -71,7 +71,7 @@ backend/
     models/                  Structured records for data, rules and review
     datasets/                Dataset and annotation readers
     checks/                  Measurements and rule evaluation
-    inference/               Local Ollama and CPU detector integration
+    inference/               Local Ollama client and the Mask R-CNN person segmenter
     services/                Workflow coordination
     storage/                 Persistence of rules, evidence and corrections
     routers/                 Implemented and future HTTP API endpoints
@@ -142,14 +142,13 @@ Dependencies are recorded in the root-level `requirements.txt`. The dataset rema
 
 Follow `../SRS.md`: plain text guidelines first, CPU inference, reviewer-controlled final decisions, actual annotation corrections and evaluated use of feedback.
 
-## CPU person-detector weights
+## Person check weights (Mask R-CNN)
 
-The person detector uses pretrained Torchvision `COCO_V1` weights for
-`fasterrcnn_mobilenet_v3_large_320_fpn`, downloaded separately from Ollama.
-See [CPU detector setup](CPU_DETECTION.md#download-the-pretrained-weights) for the
-download command, checksum verification, local cache path and real-model
-validation steps. The checkpoint is approximately 74.24 MiB and stays in the
-Git-ignored `.cache/torch` folder; no training is required to use it.
+The person check (`person_coverage`) uses pretrained Torchvision COCO weights for
+`maskrcnn_resnet50_fpn_v2`, downloaded separately from Ollama and never by the app.
+Put `maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth` (about 186 MB) in the Git-ignored
+`backend/data/models/` folder; see [docker/README.md](../docker/README.md) for the
+command. No training is required to use it.
 
 ## Ollama configuration
 
@@ -1109,7 +1108,7 @@ The `pedestrian_box_enclosure` check runs the marked-context method as a pending
 human-review proposal on immutable snapshot assets. It is disabled by default and
 requires an explicitly pinned local vision model. See [ENCLOSURE_CHECK.md](ENCLOSURE_CHECK.md)
 for configuration, budget behavior, evidence and validation limits. It does not replace
-the CPU detector or annotation-completeness checks. Existing feedback endpoints can
+the person check or annotation-completeness checks. Existing feedback endpoints can
 freeze single-box reviewed enclosure examples (including reasoned binary overrides),
 compare them on separate single- or multi-box targets, and explicitly activate a
 compatible policy for future enclosure audits and rechecks. See the feedback section

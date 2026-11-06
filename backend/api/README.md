@@ -215,8 +215,7 @@ they preserve immutable
 audited revisions and frozen human sample decisions without requiring corrections
 or rechecks. The five contract artifacts are regenerated; tests have not been rerun
 after integration corrections. Migration application and real worker/database/download
-verification remain pending. Evaluated feedback services are supplied in source; detector status follows the
-merged source rather than older placeholder notes.
+verification remain pending. Evaluated feedback services are supplied in source.
 
 ## Requests, responses and jobs
 

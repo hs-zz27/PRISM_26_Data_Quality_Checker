@@ -32,7 +32,7 @@
       "tag": "System",
       "summary": "List supported checks and evidence features",
       "implementation": "implemented",
-      "backing_service": "CHECK_REGISTRY and a static evidence feature list; FastAPI route.",
+      "backing_service": "CHECK_REGISTRY; FastAPI route.",
       "request": {
         "path_parameters": {},
         "query": {},
@@ -114,18 +114,6 @@
               "implementation": "implemented"
             }
           ],
-          "evidence_features": [
-            {
-              "name": "person_detection",
-              "implementation": "implemented",
-              "description": "CPU person detector run inside audit sample processing when enabled for an audit. Stored as the detection_evidence measurement; not a guideline check and creates no findings."
-            },
-            {
-              "name": "detection_annotation_matching",
-              "implementation": "implemented",
-              "description": "Conservative matching of detections to person annotations, stored inside detection_evidence. Ambiguity is reported for review, never resolved automatically."
-            }
-          ],
           "execution_device": "cpu"
         }
       }
@@ -137,7 +125,7 @@
       "tag": "System",
       "summary": "Inspect local model readiness",
       "implementation": "implemented",
-      "backing_service": "SystemStatusService: bounded Ollama model-list probe, person model and detection settings with checkpoint file-existence checks; FastAPI route.",
+      "backing_service": "SystemStatusService: bounded Ollama model-list probe and a person model checkpoint file-existence check; FastAPI route.",
       "request": {
         "path_parameters": {},
         "query": {},
@@ -157,13 +145,6 @@
           "person_model": {
             "model": "maskrcnn_resnet50_fpn_v2_coco",
             "checkpoint_file": "present"
-          },
-          "detector": {
-            "integration_supported": true,
-            "configuration": "enabled",
-            "checkpoint_file": "present",
-            "validation": "unknown",
-            "architecture": "fasterrcnn_mobilenet_v3_large_320_fpn"
           },
           "execution_device": "cpu"
         }

@@ -13,8 +13,6 @@ function renderWithStatus(personModel: unknown) {
     return json({
       ollama: { configuration: 'valid', reachable: true, model: 'qwen3-vl:4b-instruct', model_available: true },
       person_model: personModel,
-      // The older detector is off; it must not decide the light.
-      detector: { integration_supported: true, configuration: 'disabled', checkpoint_file: 'not_configured', validation: 'unknown', architecture: 'fasterrcnn_mobilenet_v3_large_320_fpn' },
       execution_device: 'cpu',
     });
   }));

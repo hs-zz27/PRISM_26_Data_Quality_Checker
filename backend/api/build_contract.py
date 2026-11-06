@@ -162,14 +162,11 @@ def build_contract() -> JsonObject:
     checks = sorted(CHECK_REGISTRY)
     add("GET", "/capabilities", "getCapabilities", "System", "List supported and planned checks", "Capabilities",
         {"dataset_formats": ["penn_fudan"], "guideline_input_formats": ["plain_text"], "coordinate_convention": "one_based_inclusive",
-         "checks": [{"name": name, "implementation": "implemented"} for name in checks] +
-                   [{"name": name, "implementation": "planned"} for name in
-                    ("person_detection", "detection_annotation_matches", "detection_mask_coverage", "mask_person_count", "person_posture")],
+         "checks": [{"name": name, "implementation": "implemented"} for name in checks],
          "execution_device": "cpu"},
         backing="CHECK_REGISTRY and measurement/evaluation services exist; the HTTP route is planned.")
     add("GET", "/system/status", "getSystemStatus", "System", "Inspect local model readiness", "SystemStatus",
-        {"ollama": {"reachable": False, "model": EXAMPLE_MODEL, "model_available": None},
-         "detector": {"weights_cached": True, "integration_ready": False}, "execution_device": "cpu"},
+        {"ollama": {"reachable": False, "model": EXAMPLE_MODEL, "model_available": None}, "execution_device": "cpu"},
         description="Read-only readiness. Does not start services, download models or change configuration.")
     add("POST", "/rulebooks", "createRulebook", "Rulebooks", "Create a manually assembled draft", "RulebookRecord", named_book(examples["manual_draft"], title="Use person labels.", edited=False), status=201,
         body_schema="RulebookCreate", body_example=examples["manual_create"],

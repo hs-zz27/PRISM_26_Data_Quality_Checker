@@ -78,6 +78,17 @@ def test_submission_uses_manifest_only_pins_without_running_or_recapturing(submi
     audits.claim_audit.assert_not_called()
 
 
+def test_saved_requests_from_before_the_detector_was_removed_still_load():
+    import json
+    saved = {"dataset_id": "dataset_a", "dataset_root": "", "rulebook_id": "book", "rulebook_version": 1,
+             "sample_ids": ["sample_a"], "sample_revisions": {"sample_a": 1}, "source_mode": "snapshot",
+             "detector": {"enabled": False, "architecture": None, "checkpoint_sha256": None}}
+    request = BatchAuditRequest.model_validate_json(json.dumps(saved))
+    assert request.sample_ids == ["sample_a"] and "detector" not in request.model_dump()
+    with pytest.raises(ValidationError):  # other unknown fields are still refused
+        BatchAuditRequest.model_validate_json(json.dumps(saved | {"surprise": 1}))
+
+
 @pytest.mark.parametrize("changes", [
     {"sample_ids": []}, {"sample_ids": ["a", "a"]}, {"sample_ids": [" "]},
     {"rulebook_version": True}, {"rulebook_version": "1"}, {"rulebook_version": 0},

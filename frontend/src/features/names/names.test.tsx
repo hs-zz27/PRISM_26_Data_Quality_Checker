@@ -174,7 +174,7 @@ describe('screens use labels while requests keep internal IDs', () => {
 
   it('shows the label instead of the internal ID in breadcrumbs', async () => {
     const fetchMock = routes((url) => (url.pathname.startsWith('/api/v1/health') ? json({ status: 'ok', api_version: 'v1' })
-      : url.pathname.startsWith('/api/v1/system/status') ? json({ ollama: { reachable: false }, detector: {}, execution_device: 'cpu' }) : undefined));
+      : url.pathname.startsWith('/api/v1/system/status') ? json({ ollama: { reachable: false }, person_model: {}, execution_device: 'cpu' }) : undefined));
     vi.stubGlobal('fetch', fetchMock);
     wrap(<Routes><Route path="*" element={<Navbar />} /></Routes>, `/audits/${audit.audit_id}/review`);
     const breadcrumb = screen.getByLabelText('Breadcrumb');

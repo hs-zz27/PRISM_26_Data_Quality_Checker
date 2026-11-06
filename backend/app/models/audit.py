@@ -1,7 +1,7 @@
 """Pinned batch-audit requests and durable audit summaries."""
 
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import (
     AwareDatetime,
@@ -13,7 +13,6 @@ from pydantic import (
     model_validator,
 )
 
-from .detection_evidence import DetectorConfiguration
 from .display_names import AuditName, RulebookName
 from .job import JobStatus
 from .enclosure import EnclosureRuntime
@@ -41,10 +40,6 @@ class BatchAuditRequest(BaseModel):
     ``dataset_root`` remains the legacy source for old audits. Snapshot-mode
     audits persist their source mode and resolve managed manifests before work
     is created; the path is retained for request compatibility and provenance.
-
-    ``detector`` is the person-detection configuration frozen when the audit was
-    accepted. It holds no file paths. Requests saved before it existed have None and
-    keep their historical behavior: no detection runs and no evidence is stored.
     """
 
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -59,8 +54,10 @@ class BatchAuditRequest(BaseModel):
     connectivity: int = Field(default=8)
     feedback_policy_id: NonBlank | None = None
     feedback_runtime: FeedbackRuntime | None = None
-    detector: DetectorConfiguration | None = None
     enclosure_runtime: EnclosureRuntime | None = None
+    # Retired: requests saved before the old Faster R-CNN detector was removed still carry its settings.
+    # They are read and ignored (it only added evidence, never findings) and never saved again.
+    detector: Any = Field(default=None, exclude=True)
     source_mode: AuditSourceMode = Field(default=AuditSourceMode.LEGACY, strict=False)
     reviewer_feedback: dict[str, ImageReviewFeedback] = Field(default_factory=dict)
 

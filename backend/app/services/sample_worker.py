@@ -104,34 +104,6 @@ def run_rule_checks(
     return measurements, evaluation
 
 
-def run_collector_child(
-    result_connection: Any,
-    collector: Callable[..., Any],
-    dataset_root: str,
-    sample_id: str,
-    allowed_labels: list[str] | None,
-    connectivity: int,
-) -> None:
-    """Run only the injected collector; this process never opens PostgreSQL."""
-    _clear_database_environment()
-    try:
-        try:
-            result = collector(dataset_root, sample_id, allowed_labels, connectivity)
-        except (OSError, UnicodeError) as error:
-            message = ("source_data", type(error).__name__, str(error))
-        except SampleDataError as error:
-            message = ("source_data", type(error).__name__, str(error))
-        except TransientSampleError as error:
-            message = ("transient", type(error).__name__, str(error))
-        except BaseException as error:  # noqa: BLE001 - child reports all failures
-            message = ("fatal", type(error).__name__, str(error))
-        else:
-            message = ("success", result)
-        _send_message(result_connection, message)
-    finally:
-        result_connection.close()
-
-
 def run_sample_child(
     result_connection: Any,
     collector: Callable[..., Any],
