@@ -101,13 +101,6 @@ Python 3.12 and the repository's Python dependencies (Pillow, pytest). The build
 clear error if a source file, identifier or expected value differs, and refuses to write into or
 above `datasets/` or `PennFudanPed/`.
 
-To inspect the cases with the standalone preview tool, extract an archive and run, for example:
-
-```sh
-python -B -m backend.app.datasets.preview_annotations coco <extracted>/annotations/instances.json --image-root <extracted>/images --out <new folder> --max-images 0
-python -B -m backend.app.datasets.preview_annotations labelme <extracted> --out <new folder> --max-images 0
-```
-
 ## Using the pack
 
 1. Import `coco_baseline_5.zip` and `coco_errors_5.zip` as two COCO datasets, and the LabelMe ZIPs

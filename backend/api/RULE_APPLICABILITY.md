@@ -286,8 +286,8 @@ path changes.
 
 ## Verification status
 
-**Real-model results (owner, 2 November 2026; one image pair, not a benchmark).** Recorded in
-`PR19_VERIFICATION.md`. qwen3-vl:4b-instruct with v4: five of six executions unusable, the one usable polygon-fit
+**Real-model results (owner, 2 November 2026; one image pair, not a benchmark).**
+qwen3-vl:4b-instruct with v4: five of six executions unusable, the one usable polygon-fit
 result failed the baseline. 4B with v5: the box rules were correctly skipped without inference; the baseline passed; the
 shifted man's polygon failed; the unchanged woman's assessment was omitted (recorded `unsure` / `no_assessment`, which is
 a coverage gap and not an accusation); the occlusion rule's explanation called the shifted polygon correct, which is
@@ -296,8 +296,7 @@ people. A larger model did not fix the example, and `model_verified` only means 
 
 **Subsequent owner-run v6 checks (3 November 2026)** correctly distinguished the baseline and shifted L01
 polygons, including the unchanged person. C01 exposed a missed shortened box, and a feedback control
-incorrectly failed the correct box. These are case results, not a benchmark. See `PR19_VERIFICATION.md`
-for the retained reports and implementation changes between runs. New request-mechanics tests do not
+incorrectly failed the correct box. These are case results, not a benchmark. New request-mechanics tests do not
 establish visual accuracy; correct and erroneous examples must both be evaluated.
 
 ## Known limitations
@@ -342,4 +341,3 @@ and failures. Do not retry until the desired answer appears or claim general lea
 - The frozen-builder checksum test (`backend/tests/golden/feedback_prompt_before_pr19.py`) hashes raw bytes, so a checkout
   with CRLF line endings fails it although the content is identical; run it on LF checkouts (Linux or macOS).
 
-Local verification commands and reporting instructions: `backend/api/PR19_VERIFICATION.md`.

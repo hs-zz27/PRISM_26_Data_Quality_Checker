@@ -100,8 +100,6 @@ annotations must be preserved when making deliberate error examples or correctio
 
 No model inference was run. Validation exit code 1 means diagnostics or incomplete
 checks, not automatic dataset rejection. No LabelMe-to-COCO or COCO-to-LabelMe
-conversion was performed. COCO and LabelMe work through the standalone readers, the
-inspector and the preview demo (`backend.app.datasets.preview_annotations`). Upload,
-audit, correction and export for these formats exist in the application but are not
-verified end to end here, and mask-based and model-based audit checks remain Penn-Fudan
-only. See `backend/app/datasets/INTEGRATION_CHECKLIST.md`.
+conversion was performed. Upload, audit, correction and export for COCO and LabelMe
+run in the application; see `backend/api/ANNOTATION_FORMATS.md`. Checks that need a
+mask file report unavailable for them, because these formats supply none.

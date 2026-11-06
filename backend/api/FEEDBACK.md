@@ -25,9 +25,6 @@ submit a fresh audit without an older feedback policy to select v4. The existing
 shared with audits, and correction proposals continue using their v2 protocol
 for compact executions, with preview and explicit application still required.
 
-See [overlay verification](OVERLAY_AUDIT_VERIFICATION.md) for the reviewed pair's
-results, source-fidelity checks and remaining accuracy limitations.
-
 V4 adds an inventory of available evidence for every object and requires one
 observation per source key. Supplied boxes, polygon-derived bounds and polygons
 are distinguished by the readers, not guessed from labels. A model cannot publish
@@ -42,8 +39,7 @@ These guards validate reference consistency, not visual correctness. The model
 still interprets rule applicability, conditions and visible boundaries. A wrong
 but structurally valid observation can still occur. V4 does not scan for entirely
 unannotated objects, show mask pixels, activate feedback policies, redraw annotations
-or train the model. See [the step 1 verification instructions](VISUAL_ASSESSMENT_VERIFICATION.md)
-before reporting any accuracy improvement.
+or train the model.
 
 ## Compact prompt transport
 
@@ -74,9 +70,6 @@ and bounds. A new audit selects the current version; an old audit's recheck deli
 original execution pin. The correction proposal protocol for v2 pins is `review-correction-v2`.
 Proposals still require explicit application as a new annotation revision and never approve
 findings, samples or changes to future auditing policy.
-
-See [the verification record](COMPACT_PROMPTS_VERIFICATION.md) for source sizes,
-automated checks, the live rejection test and the remaining model accuracy/CPU limits.
 
 ## Availability and evidence
 

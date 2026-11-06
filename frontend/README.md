@@ -2,28 +2,6 @@
 
 Scientific workstation interface for AI-assisted human-in-the-loop review of computer vision dataset annotations (Penn-Fudan pedestrians, 1-based inclusive coordinates, segmentation masks, and classification rules).
 
-## Optical-bench redesign captures
-
-Captured from the local Vite app at 1440×900 and 1920×1080. Review workspace also
-has a 1280×900 layout capture. The local database used for this pass had two
-invalid datasets and no rulebooks or audits, so data-dependent screens show their
-real empty, unavailable, or not-found states. These captures document layout and
-do not imply successful review mutations.
-
-| Screen | 1440×900 | 1920×1080 |
-|---|---|---|
-| Audits | [capture](docs/screenshots/audits-1440x900.png) | [capture](docs/screenshots/audits-1920x1080.png) |
-| Audit review | [capture](docs/screenshots/review-1440x900.png) | [capture](docs/screenshots/review-1920x1080.png) |
-| Rulebooks | [capture](docs/screenshots/rulebooks-1440x900.png) | [capture](docs/screenshots/rulebooks-1920x1080.png) |
-| Rulebook editor | [capture](docs/screenshots/editor-1440x900.png) | [capture](docs/screenshots/editor-1920x1080.png) |
-| Dataset catalogue | [capture](docs/screenshots/datasets-1440x900.png) | [capture](docs/screenshots/datasets-1920x1080.png) |
-| Sample explorer | [capture](docs/screenshots/samples-1440x900.png) | [capture](docs/screenshots/samples-1920x1080.png) |
-| Corrections | [capture](docs/screenshots/corrections-1440x900.png) | [capture](docs/screenshots/corrections-1920x1080.png) |
-| Exports | [capture](docs/screenshots/exports-1440x900.png) | [capture](docs/screenshots/exports-1920x1080.png) |
-| Feedback | [capture](docs/screenshots/feedback-1440x900.png) | [capture](docs/screenshots/feedback-1920x1080.png) |
-
-Review 1280px capture: [review-1280x900.png](docs/screenshots/review-1280x900.png).
-
 ---
 
 ## 1. Quick Start
@@ -73,10 +51,7 @@ npm run check:api
 ### Design preview
 
 The optical-bench visual system is documented in [DESIGN_SPEC.md](DESIGN_SPEC.md).
-The development-only component reference is available at `/dev/styleguide`; its
-captures are [1440 × 900](docs/screenshots/styleguide-1440x900.png) and
-[1920 × 1080](docs/screenshots/styleguide-1920x1080.png).
-The command palette shell is captured [here](docs/screenshots/shell-palette-1440x900.png).
+The development-only component reference is available at `/dev/styleguide`.
 IBM Plex Sans and IBM Plex Mono are bundled locally with `@fontsource` packages.
 
 ---

@@ -114,5 +114,4 @@ This verifies the production adapter and durable result path on two previously r
 samples. It is not a new held-out accuracy evaluation or evidence of feedback-learning
 improvement. The runner read stored results through the repository; public HTTP reads
 were covered by the automated regression suite, not this live-model run.
-No migration is needed. Request differences from the experiment are recorded in
-ENCLOSURE_INTEGRATION_TRACE.md; tiny pedestrians remain insufficiently validated.
+No migration is needed. Tiny pedestrians remain insufficiently validated.

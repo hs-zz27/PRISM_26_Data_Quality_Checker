@@ -141,9 +141,7 @@ Windows allows only with extra privileges) and skip themselves where those are u
 ## Integration status
 
 The managed workflow (ZIP import, audit, correction, feedback, native export) is described in
-[ANNOTATION_FORMATS.md](../../api/ANNOTATION_FORMATS.md). What still assumes Penn-Fudan, which
-earlier concerns are now resolved on `main`, and the decisions that remain open are in
-[INTEGRATION_CHECKLIST.md](INTEGRATION_CHECKLIST.md).
+[ANNOTATION_FORMATS.md](../../api/ANNOTATION_FORMATS.md).
 
 ## Format references
 
