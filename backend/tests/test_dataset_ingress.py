@@ -9,7 +9,7 @@ from starlette.responses import Response
 from starlette import formparsers
 
 from backend.app.routers.dataset_ingress import DatasetUploadIngress, _upload_path
-from backend.app.routers.dataset_multipart import parsed_dataset_upload
+from backend.app.routers.multipart import parsed_dataset_upload
 from backend.app.core.dataset_http import DatasetRequestError
 from backend.app.core.dataset_import import ImportConfigurationError, UploadTooLargeError
 from backend.tests.dataset_http_fakes import http_settings

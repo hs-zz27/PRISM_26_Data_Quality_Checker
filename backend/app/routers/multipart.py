@@ -1,8 +1,8 @@
-"""Small isolated adapter around Starlette's incremental multipart parser.
+"""Bounded multipart parsing for the dataset ZIP upload and the correction mask upload.
 
-Tracks raw spooled handles so disconnect, cancellation and byte-limit exceptions
-also close files; Starlette's normal MultiPartException-only cleanup is not enough.
-Framework parser internals are localized here and require local compatibility tests.
+A small adapter around Starlette's incremental parser. It tracks raw spooled handles so disconnect,
+cancellation and byte-limit exceptions also close files; Starlette's normal MultiPartException-only
+cleanup is not enough. Framework parser internals are localized here and require local compatibility tests.
 """
 from contextlib import asynccontextmanager
 import logging
@@ -26,11 +26,14 @@ _ZIP_TYPES = {None, "application/zip", "application/x-zip-compressed", "applicat
 
 
 class _Parser(MultiPartParser):
-    def __init__(self, headers, stream, settings):
-        super().__init__(headers, stream, max_files=1, max_fields=2,
-                         max_part_size=settings.multipart.scalar_bytes)
-        self.settings = settings
-        self.spool_max_size = settings.multipart.spool_bytes
+    """Accepts exactly ``fields``; ``file_field`` is the only file and may hold up to ``file_limit`` bytes."""
+
+    def __init__(self, headers, stream, multipart, *, fields, file_field, file_limit):
+        super().__init__(headers, stream, max_files=1, max_fields=len(fields) - 1,
+                         max_part_size=multipart.scalar_bytes)
+        self.multipart = multipart
+        self.fields, self.file_field, self.file_limit = fields, file_field, file_limit
+        self.spool_max_size = multipart.spool_bytes
         self.ended = False
         self._header_bytes, self._header_name, self._header_names = 0, bytearray(), set()
         self._part_bytes = 0
@@ -42,7 +45,7 @@ class _Parser(MultiPartParser):
 
     def _header_budget(self, length):
         self._header_bytes += length
-        if self._header_bytes > self.settings.multipart.part_header_bytes:
+        if self._header_bytes > self.multipart.part_header_bytes:
             raise DatasetRequestError("multipart")
 
     def on_header_field(self, data, start, end):
@@ -76,15 +79,14 @@ class _Parser(MultiPartParser):
         except (ValueError, UnicodeError) as error:
             raise DatasetRequestError("multipart") from error
         name = options.get(b"name")
-        if (disposition.lower() != b"form-data" or name not in {b"archive", b"name", b"format"}
-                or (b"filename" in options) != (name == b"archive")):
+        if (disposition.lower() != b"form-data" or name not in self.fields
+                or (b"filename" in options) != (name == self.file_field)):
             raise DatasetRequestError("multipart")
         super().on_headers_finished()
 
     def on_part_data(self, data, start, end):
         self._part_bytes += end-start
-        limit = (self.settings.imports.policy.max_archive_bytes if self._current_part.file is not None
-                 else self.settings.multipart.scalar_bytes)
+        limit = self.file_limit if self._current_part.file is not None else self.multipart.scalar_bytes
         if self._part_bytes > limit:
             if self._current_part.file is not None:
                 raise UploadTooLargeError()
@@ -141,11 +143,23 @@ async def _stream(request):
             yield data[offset:offset+65536]
 
 
+async def _close_spools(parser, upload):
+    # Private framework attribute deliberately isolated. It contains every raw
+    # SpooledTemporaryFile, including a partially written unfinished file.
+    with anyio.CancelScope(shield=True):
+        for handle in parser._files_to_close_on_error:
+            try:
+                await run_in_threadpool(handle.close)
+            except OSError:
+                logger.warning("%s request temporary-file close failed", upload)
+
+
 @asynccontextmanager
 async def parsed_dataset_upload(request: Request, settings):
     _media(request)
     from python_multipart.exceptions import MultipartParseError
-    parser = _Parser(request.headers, _stream(request), settings)
+    parser = _Parser(request.headers, _stream(request), settings.multipart, fields={b"archive", b"name", b"format"},
+                     file_field=b"archive", file_limit=settings.imports.policy.max_archive_bytes)
     try:
         try:
             form = await parser.parse()
@@ -173,11 +187,41 @@ async def parsed_dataset_upload(request: Request, settings):
             raise DatasetUnsupportedMediaError()
         yield fields
     finally:
-        # Private framework attribute deliberately isolated. It contains every raw
-        # SpooledTemporaryFile, including a partially written unfinished file.
-        with anyio.CancelScope(shield=True):
-            for handle in parser._files_to_close_on_error:
-                try:
-                    await run_in_threadpool(handle.close)
-                except OSError:
-                    logger.warning("Dataset request temporary-file close failed")
+        await _close_spools(parser, "Dataset")
+
+
+@asynccontextmanager
+async def parsed_mask_upload(request: Request, settings):
+    from ..core.correction import CorrectionError
+    from .correction_ingress import CorrectionBodyLimit
+    try:
+        _media(request)
+    except DatasetUnsupportedMediaError as error:
+        raise CorrectionError('UNSUPPORTED_MEDIA_TYPE') from error
+    from python_multipart.exceptions import MultipartParseError
+    parser = _Parser(request.headers, _stream(request), settings.multipart, fields={b"mask", b"expected_revision"},
+                     file_field=b"mask", file_limit=settings.policy.max_mask_bytes)
+    try:
+        try:
+            form = await parser.parse()
+            if not parser.ended:
+                raise CorrectionError('VALIDATION_ERROR')
+            values = list(form.multi_items())
+            if len(values)!=2 or {key for key,_ in values}!={'mask','expected_revision'}:
+                raise CorrectionError('VALIDATION_ERROR')
+            mask, revision = form['mask'], form['expected_revision']
+            if (not isinstance(mask, UploadFile) or type(revision) is not str
+                    or not re.fullmatch(r'[0-9]{1,10}', revision)):
+                raise CorrectionError('VALIDATION_ERROR')
+            revision = int(revision)
+            if not 1<=revision<=2147483646:
+                raise CorrectionError('VALIDATION_ERROR')
+            yield mask, revision
+        except (MultiPartException, MultipartParseError, DatasetRequestError) as error:
+            raise CorrectionError('VALIDATION_ERROR') from error
+        except (UploadTooLargeError, CorrectionBodyLimit) as error:
+            raise CorrectionError('UPLOAD_TOO_LARGE') from error
+        except OSError as error:
+            raise CorrectionError('DEPENDENCY_UNAVAILABLE') from error
+    finally:
+        await _close_spools(parser, "Correction")

@@ -10,7 +10,7 @@ from ..models.audit_read import ErrorResponse
 from ..services.corrections import CorrectionService
 from ..storage.correction_repository import CorrectionRepository
 from .correction_ingress import SCOPE_KEY, CorrectionBodyLimit
-from .correction_multipart import parsed_mask_upload
+from .multipart import parsed_mask_upload
 from .datasets import Identifier, _query
 
 router=APIRouter(prefix='/datasets/{dataset_id}/samples/{sample_id}',tags=['Corrections'],responses={

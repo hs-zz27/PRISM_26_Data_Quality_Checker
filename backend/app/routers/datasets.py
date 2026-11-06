@@ -13,7 +13,7 @@ from ..services.dataset_http import DatasetUploadService
 from ..storage.dataset_import_repository import DatasetImportRepository
 from ..storage.dataset_repository import DatasetRepository
 from .dataset_ingress import SETTINGS_SCOPE_KEY
-from .dataset_multipart import parsed_dataset_upload
+from .multipart import parsed_dataset_upload
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"], responses={
     422: {"model": ErrorResponse, "description": "Invalid dataset request fields."},
