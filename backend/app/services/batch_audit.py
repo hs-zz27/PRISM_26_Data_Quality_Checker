@@ -10,6 +10,8 @@ from hashlib import sha256
 from datetime import UTC, datetime, timedelta
 import logging
 import multiprocessing as multiprocessing
+import os
+from multiprocessing import forkserver
 import pickle
 import random
 import sys
@@ -57,6 +59,10 @@ class RulebookNotConfirmedError(BatchAuditError):
 
 logger = logging.getLogger(__name__)
 StorageResult = TypeVar("StorageResult")
+# Every sample still runs in its own process, but processes start from a fork server that has already
+# imported these, instead of importing Torch and the person check again for each sample (about 1.4 s).
+_SAMPLE_PRELOAD = ["torch", "torchvision", "backend.app.services.sample_worker",
+                   "backend.app.services.person_coverage", "backend.app.inference.person_segmenter"]
 
 
 @dataclass(frozen=True)
@@ -460,7 +466,8 @@ class BatchAuditService:
                 "The sample computation cannot be serialized for isolated execution."
             ) from error
 
-        context = multiprocessing.get_context("spawn")
+        context = multiprocessing.get_context("forkserver")
+        forkserver.set_forkserver_preload(_SAMPLE_PRELOAD)
         receive_connection, send_connection = context.Pipe(duplex=False)
         process = None
         resources = ExitStack()
@@ -507,7 +514,8 @@ class BatchAuditService:
                         "feedback_runtime":request.feedback_runtime,
                         "enclosure_runtime": request.enclosure_runtime,
                         "reviewer_feedback": request.reviewer_feedback.get(sample_claim.sample_id),
-                        "processing_deadline": sample_claim.processing_deadline},
+                        "processing_deadline": sample_claim.processing_deadline,
+                        "environment": dict(os.environ)},
                 daemon=True,
             )
             try:

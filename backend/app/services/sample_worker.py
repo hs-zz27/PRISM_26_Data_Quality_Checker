@@ -122,8 +122,16 @@ def run_sample_child(
     enclosure_runtime: Any = None,
     processing_deadline: datetime | None = None,
     reviewer_feedback: Any = None,
+    environment: dict[str, str] | None = None,
 ) -> None:
-    """Collect and evaluate one sample without opening the workflow database."""
+    """Collect and evaluate one sample without opening the workflow database.
+
+    ``environment`` is the parent's environment when the sample started. A child started from the fork
+    server would otherwise see the server's older copy.
+    """
+    if environment is not None:
+        os.environ.clear()
+        os.environ.update(environment)
     _clear_database_environment()
     try:
         # Preparation belongs inside the supervised child. Storage failures are
