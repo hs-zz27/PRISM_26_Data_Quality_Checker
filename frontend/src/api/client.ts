@@ -265,8 +265,4 @@ export function isVersionConflict(err: unknown): err is ApiError {
   return err instanceof ApiError && err.status === 409 && err.code === 'VERSION_CONFLICT';
 }
 
-export function isNotFound(err: unknown): err is ApiError {
-  return err instanceof ApiError && err.status === 404;
-}
-
 const OPERATION_INDEX = typeof __PRISM_OPERATION_INDEX__ === 'undefined' ? [] : __PRISM_OPERATION_INDEX__;

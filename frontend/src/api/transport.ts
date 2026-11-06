@@ -23,14 +23,6 @@ export function matchOperation(
   });
 }
 
-export function isMockOperation(
-  method: string,
-  pathname: string,
-  operations: OperationMetadata[] = operationIndex,
-): boolean {
-  return matchOperation(method, pathname, operations)?.implementation === 'planned';
-}
-
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

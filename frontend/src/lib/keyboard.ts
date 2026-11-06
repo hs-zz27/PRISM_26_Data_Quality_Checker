@@ -58,23 +58,3 @@ export function isTypingTarget(event: KeyboardEvent): boolean {
   return false;
 }
 
-/**
- * Build a keyboard handler that ignores keypresses while typing.
- *
- * @param key - The key to listen for (e.g. 'a', 'ArrowLeft')
- * @param handler - Callback to invoke
- * @param options.allowInTextFields - If true, fires even in text fields
- * @returns A keyboard event handler suitable for addEventListener
- */
-export function buildKeyHandler(
-  key: string,
-  handler: () => void,
-  options: { allowInTextFields?: boolean } = {},
-): (e: KeyboardEvent) => void {
-  return (e: KeyboardEvent) => {
-    if (e.key !== key) return;
-    if (!options.allowInTextFields && isTypingTarget(e)) return;
-    e.preventDefault();
-    handler();
-  };
-}

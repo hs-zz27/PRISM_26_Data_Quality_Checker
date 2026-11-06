@@ -12,14 +12,12 @@ import {
   defaultNewBbox,
   bboxToCss,
   cssToBbox,
-  scaleCssBox,
   isBboxValid,
   formatBbox,
   formatCursorPos,
   cssToImageCoord,
   translateBboxOnCanvas,
   type BBox1Based,
-  type CSSBox,
 } from './coords';
 
 describe('bboxToCss — 1-based inclusive → CSS zero-based', () => {
@@ -77,23 +75,6 @@ describe('round-trip bboxToCss → cssToBbox', () => {
       expect(back).toEqual(bbox);
     });
   }
-});
-
-describe('scaleCssBox', () => {
-  it('scales by 2x', () => {
-    const box: CSSBox = { left: 10, top: 20, width: 100, height: 200 };
-    expect(scaleCssBox(box, 2)).toEqual({ left: 20, top: 40, width: 200, height: 400 });
-  });
-
-  it('scales by 0.5x', () => {
-    const box: CSSBox = { left: 10, top: 20, width: 100, height: 200 };
-    expect(scaleCssBox(box, 0.5)).toEqual({ left: 5, top: 10, width: 50, height: 100 });
-  });
-
-  it('1.0x scale returns same values', () => {
-    const box: CSSBox = { left: 4, top: 2, width: 10, height: 20 };
-    expect(scaleCssBox(box, 1)).toEqual(box);
-  });
 });
 
 describe('isBboxValid', () => {

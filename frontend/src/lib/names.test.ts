@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  UNNAMED_AUDIT, UNNAMED_RULEBOOK, auditHeading, auditLabel, auditTitle, isRecheck, labelSlug,
+  UNNAMED_AUDIT, UNNAMED_RULEBOOK, auditHeading, auditLabel, auditTitle, labelSlug,
   rulebookHeading, rulebookLabel, rulebookTitle,
 } from './names';
 import { makeAuditName, makeRulebookName } from '../test/fixtures';
@@ -11,13 +11,11 @@ describe('audit names', () => {
     expect(auditLabel(name)).toBe('Audit 014');
     expect(auditTitle(name)).toBe('LabelMe demo');
     expect(auditHeading(name)).toBe('Audit 014 | LabelMe demo');
-    expect(isRecheck(name)).toBe(false);
   });
 
   it('keeps the root number visible for rechecks, including past 99', () => {
     const recheck = makeAuditName({ audit_id: 'child', recheck_number: 1, label: 'Audit 014 R01', title: 'Feedback recheck' });
     expect(auditHeading(recheck)).toBe('Audit 014 R01 | Feedback recheck');
-    expect(isRecheck(recheck)).toBe(true);
     expect(auditLabel(makeAuditName({ number: 1000, recheck_number: 100, label: 'Audit 1000 R100' }))).toBe('Audit 1000 R100');
   });
 

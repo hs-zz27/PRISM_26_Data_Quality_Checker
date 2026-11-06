@@ -37,10 +37,6 @@ export function auditHeading(name: Maybe<AuditName>): string {
   return title ? `${auditLabel(name)} | ${title}` : auditLabel(name);
 }
 
-export function isRecheck(name: Maybe<AuditName>): boolean {
-  return name?.recheck_number != null;
-}
-
 /** "Rules 003 v3". Show the version whenever it is known: audits pin an exact version. */
 export function rulebookLabel(name: Maybe<RulebookName>, version?: number | null): string {
   const base = name?.label ?? UNNAMED_RULEBOOK;

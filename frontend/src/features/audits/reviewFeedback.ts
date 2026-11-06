@@ -2,9 +2,6 @@ import type { components } from '../../api/generated/openapi';
 import { parseJsonGeometry } from '../corrections/jsonGeometry';
 
 type Objects = components['schemas']['CorrectionRequest']['objects'];
-export function reviewFeedbackComment(value: unknown): string | null {
-  return value && typeof value === 'object' && 'comment' in value && typeof value.comment === 'string' ? value.comment : null;
-}
 export interface CorrectionPreview {
   dataset_id: string; sample_id: string; sample_revision: number;
   status: string; reason: string; feedback: { comment: string }; objects: Objects | null;

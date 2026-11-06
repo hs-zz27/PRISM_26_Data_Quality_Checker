@@ -127,22 +127,6 @@ export function defaultNewBbox(imageSize: ImageSize | null | undefined): BBox1Ba
 }
 
 /**
- * Scale a CSS box by a zoom factor (for canvas viewport rendering).
- *
- * @param box - CSS box
- * @param scale - zoom factor (1.0 = 100%)
- * @returns Scaled CSS box
- */
-export function scaleCssBox(box: CSSBox, scale: number): CSSBox {
-  return {
-    left: box.left * scale,
-    top: box.top * scale,
-    width: box.width * scale,
-    height: box.height * scale,
-  };
-}
-
-/**
  * Check whether a 1-based inclusive bbox is valid for a given image size.
  * Validates:
  *   - All coordinates are positive integers

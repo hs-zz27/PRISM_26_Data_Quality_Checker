@@ -75,9 +75,9 @@
 
 /* ─── Utility layer additions ──────────────────────────────────────────── */
 @layer utilities {
-  .rounded-lg,.rounded-xl,.rounded-2xl { border-radius:2px; }
-  .shadow-md,.shadow-lg,.shadow-xl,.shadow-2xl { box-shadow:none; }
-  .backdrop-blur,.backdrop-blur-sm,.backdrop-blur-md,.backdrop-blur-lg { backdrop-filter:none; }
+  .rounded-lg { border-radius:2px; }
+  .shadow-md,.shadow-lg,.shadow-xl { box-shadow:none; }
+  .backdrop-blur-sm { backdrop-filter:none; }
   /* Reduced-motion: respect system preference */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -88,26 +88,6 @@
       transition-duration: 0.01ms !important;
     }
   }
-
-  /* Tabular numerics for all metric displays */
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Hairline border — 1px solid border token */
-  .hairline {
-    border-width: 1px;
-    border-style: solid;
-    border-color: var(--color-border);
-  }
-
-  /* Hairline bottom only */
-  .hairline-b {
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  /* Panel shadow */
-  .shadow-panel { box-shadow: none; }
 
   /* Visually hidden but accessible */
   .sr-only {
@@ -120,19 +100,6 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
-  }
-
-  /* Canvas fill */
-  .canvas-fill {
-    background-color: var(--color-base-canvas);
-  }
-
-  /* Status dot — used with color icon + text, never alone */
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
   }
 }
 
@@ -159,8 +126,7 @@
   .sample-explorer .grid > * { border-radius:0; box-shadow:none; }
   .rulebook-editor > div:first-child { height:42px; padding-left:14px; padding-right:14px; }
   .rulebook-editor > div:last-child > div { padding:12px; }
-  .rulebook-editor .rounded-lg,.rulebook-editor .rounded-xl { border-radius:2px; box-shadow:none; }
-  .rulebook-editor .backdrop-blur,.rulebook-editor .backdrop-blur-md { backdrop-filter:none; }
+  .rulebook-editor .rounded-lg { border-radius:2px; box-shadow:none; }
   .corrections-page > section { border-top:1px solid var(--color-border); padding-top:12px; }
   .corrections-page img { width:min(100%,900px); max-height:60vh; object-fit:contain; background:var(--color-base-canvas); border:1px solid var(--color-border); }
   .correction-empty { display:grid; min-height:220px; place-items:center; border:1px dashed var(--color-border-strong); color:var(--color-text-muted); font-size:12px; }
@@ -199,7 +165,6 @@
   .canvas-overlay .is-selected rect { stroke-width:3; }.canvas-overlay g:focus-visible rect { stroke:var(--color-accent) !important; }
   .canvas-empty { position:absolute; inset:0; display:grid; place-items:center; color:var(--color-text-muted); font:12px var(--font-mono); }
   .canvas-readout { position:absolute; bottom:7px; left:8px; right:8px; display:flex; justify-content:space-between; gap:12px; padding:5px 7px; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text-muted); font-size:10px; pointer-events:none; }
-  .canvas-readout-correction { color:var(--color-unsure); font-weight:bold; }
   .canvas-badge { cursor:pointer; }
   .canvas-badge text, .canvas-badge-text { stroke:none !important; font:bold 10px var(--font-mono); pointer-events:none; }
   .canvas-badge.is-selected rect { stroke:var(--color-accent) !important; stroke-width:2px; }
@@ -210,7 +175,6 @@
   .canvas-undisplayable { position:absolute; bottom:36px; left:8px; right:8px; z-index:3; display:flex; flex-wrap:wrap; gap:4px; pointer-events:none; }
   .canvas-undisplayable-item { display:inline-flex; align-items:center; gap:5px; padding:2px 6px; background:var(--color-surface); border:1px solid var(--color-unsure); border-radius:2px; font-size:10px; color:var(--color-text-secondary); }
   .canvas-undisplayable-marker { display:inline-flex; align-items:center; justify-content:center; min-width:14px; height:14px; padding:0 2px; border-radius:2px; color:#fff; font:bold 9px var(--font-mono); }
-  .canvas-mask-notice { position:absolute; top:44px; left:8px; z-index:3; padding:3px 8px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:2px; font-size:10px; color:var(--color-text-muted); }
   .review-rail { min-width:0; }
   .object-visibility { border-bottom:1px solid var(--color-border); padding-bottom:8px; }
   .object-visibility summary { color:var(--color-text-muted); font:10px var(--font-mono); cursor:pointer; }
@@ -323,27 +287,6 @@
 
 /* ─── Component layer ──────────────────────────────────────────────────── */
 @layer components {
-  /* ── Badge: tool finding outcome or review decision ── */
-  .badge {
-    @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded;
-  }
-  .badge-pass         { @apply badge bg-pass-bg text-pass; }
-  .badge-fail         { @apply badge bg-fail-bg text-fail; }
-  .badge-unsure       { @apply badge bg-unsure-bg text-unsure; }
-  .badge-unavailable  { @apply badge bg-unavailable-bg text-unavailable; }
-  .badge-accepted     { @apply badge bg-pass-bg text-decision-accepted; }
-  .badge-rejected     { @apply badge bg-fail-bg text-decision-rejected; }
-  .badge-pending      { @apply badge bg-[color-mix(in_srgb,var(--color-pending)_12%,transparent)] text-decision-pending; }
-  .badge-needs-fix    { @apply badge bg-unsure-bg text-decision-needs-fix; }
-
-  /* ── Job status badge ── */
-  .badge-job-queued     { @apply badge bg-unavailable-bg text-job-queued; }
-  .badge-job-running    { @apply badge bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-job-running; }
-  .badge-job-completed  { @apply badge bg-pass-bg text-job-completed; }
-  .badge-job-failed     { @apply badge bg-fail-bg text-job-failed; }
-  .badge-job-cancelled  { @apply badge bg-unavailable-bg text-job-cancelled; }
-  .badge-job-cancelling { @apply badge bg-unsure-bg text-job-cancelling; }
-
   /* ── Button variants ── */
   .btn {
     @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded
@@ -356,22 +299,11 @@
   .btn-ghost {
     @apply btn text-text-muted hover:text-text hover:bg-surface-raised;
   }
-  .btn-danger {
-    @apply btn bg-fail-bg text-fail border border-fail/30 hover:bg-fail/20;
-  }
   .btn-outline {
     @apply btn border border-border-strong text-text-muted hover:text-text hover:bg-surface-raised;
   }
 
-  /* ── Panel — elevated card ── */
-  .panel {
-    @apply bg-surface border border-border rounded;
-  }
-
   /* ── Form elements ── */
-  .field-label {
-    @apply block text-xs font-medium text-text-muted mb-1;
-  }
   .field-input {
     @apply w-full bg-base border border-border rounded px-3 py-1.5 text-sm text-text
            placeholder:text-text-faint
@@ -379,15 +311,6 @@
            disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .field-input:focus { box-shadow: 0 0 0 1px var(--color-accent-border); }
-  .field-textarea {
-    @apply field-input resize-y min-h-[120px] font-mono text-xs leading-relaxed;
-  }
-
-  /* ── Mock badge — unobtrusive indicator that data is mocked ── */
-  .mock-badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-mono font-medium
-           rounded bg-unsure-bg text-unsure border border-unsure/20;
-  }
 
   /* ── Skeleton loading placeholders ── */
   .skeleton {
