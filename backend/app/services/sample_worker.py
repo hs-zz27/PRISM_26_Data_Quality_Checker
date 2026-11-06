@@ -138,6 +138,10 @@ def run_sample_child(
                     sample_id=sample_id,
                     sample_revision=sample_revision,
                 )
+                if any(rule.check_name == "person_coverage" for rule in rulebook.rules):
+                    from .person_coverage import augment_person_coverage
+                    evaluation = augment_person_coverage(evaluation, rulebook, measurements, snapshot_manifest,
+                        asset_settings, audit_id=audit_id, sample_id=sample_id, sample_revision=sample_revision)
                 if feedback_runtime is not None:
                     if snapshot_manifest is None or asset_settings is None:
                         raise SampleComputationError("Model checks require immutable snapshot evidence.")

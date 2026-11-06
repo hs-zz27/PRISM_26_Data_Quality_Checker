@@ -106,6 +106,10 @@
               "implementation": "implemented"
             },
             {
+              "name": "person_coverage",
+              "implementation": "implemented"
+            },
+            {
               "name": "polygon_validity",
               "implementation": "implemented"
             }
@@ -8663,6 +8667,32 @@
         "description": "Checks whose semantics do not require a threshold or label list.",
         "properties": {},
         "title": "EmptyParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "person_coverage",
+      "meaning": "Each person annotation (box, mask or polygon) must cover the whole person, including head and feet, without large extra background. Measured against a person outline detected in the image, with a pixel tolerance; reports where the annotation differs.",
+      "scope": "object",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Tolerance for comparing an annotation with the detected person: max(px, fraction x person height).",
+        "properties": {
+          "min_tolerance_px": {
+            "default": 8,
+            "minimum": 0,
+            "title": "Min Tolerance Px",
+            "type": "integer"
+          },
+          "tolerance_fraction": {
+            "default": 0.04,
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Tolerance Fraction",
+            "type": "number"
+          }
+        },
+        "title": "PersonCoverageParameters",
         "type": "object"
       }
     },

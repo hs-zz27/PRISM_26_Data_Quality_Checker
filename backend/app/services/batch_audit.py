@@ -743,6 +743,12 @@ class BatchAuditService:
                         sample_id=sample_claim.sample_id,
                         sample_revision=sample_claim.sample_revision,
                     )
+                    if any(rule.check_name == "person_coverage" for rule in rulebook.rules):
+                        from .person_coverage import augment_person_coverage
+                        evaluation = augment_person_coverage(evaluation, rulebook, measurements,
+                            self._snapshot_for_claim(request, sample_claim), self.manifest_repository.asset_settings,
+                            audit_id=sample_claim.audit_id, sample_id=sample_claim.sample_id,
+                            sample_revision=sample_claim.sample_revision)
                     if request.feedback_runtime is not None:
                         from .feedback import augment_evaluation
                         evaluation=augment_evaluation(evaluation,rulebook,self._snapshot_for_claim(request,sample_claim),

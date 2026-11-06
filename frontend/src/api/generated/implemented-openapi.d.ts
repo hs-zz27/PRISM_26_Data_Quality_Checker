@@ -9843,6 +9843,10 @@ export interface operations {
                      *           "implementation": "implemented"
                      *         },
                      *         {
+                     *           "name": "person_coverage",
+                     *           "implementation": "implemented"
+                     *         },
+                     *         {
                      *           "name": "polygon_validity",
                      *           "implementation": "implemented"
                      *         }

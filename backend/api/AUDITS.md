@@ -238,6 +238,30 @@ Illustrative, hand-written and abbreviated; not program output:
 }
 ```
 
+## Person coverage (`person_coverage`)
+
+A measured rule for "the annotation must cover the whole person, including head and feet, without large extra
+background". It needs no vision chat model: a local Mask R-CNN (`maskrcnn_resnet50_fpn_v2`, COCO weights) finds
+each person's outline in the **photo only**, and plain code compares every supplied box, Penn-Fudan mask or
+polygon with it.
+
+- Parameters: `min_tolerance_px` (default 8) and `tolerance_fraction` (default 0.04). Tolerance
+  T = max(`min_tolerance_px`, `tolerance_fraction` x the detected person's height).
+- Box: **fail** when the person extends past a side by more than T (`missing`, for example the head) or the box
+  extends past the person by more than T (`extra` background).
+- Mask or polygon: **fail** when a missing or extra region thicker than about T and at least 2 x T^2 pixels
+  remains. A detected backpack, umbrella, handbag or suitcase touching the person may be included.
+- One finding per annotated object. `reason` and `evidence.measurements.result.problems` say where, for example
+  `box: head/top of the person is outside the annotation (45 px)`; `result.geometries[].regions[].box` gives the
+  region in the annotation's own coordinates.
+- No matching person: **unsure** (`no_matching_person`, `no_person_detected`). Model file missing or failing:
+  **unavailable** (`person_segmenter_unavailable`). Neither can produce a pass.
+- Runs inside the sample worker only when the rulebook contains the rule (about 1-3 s per image on CPU).
+- Setup: put `maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth` in `backend/data/models/` (mounted read-only at
+  `/models`), or set `PERSON_SEGMENTER_CHECKPOINT`. Nothing is downloaded at audit time.
+- Offline benchmark (synthetic errors on human outlines; Penn-Fudan for tuning, COCO val2017 held out):
+  93.1% accuracy and 98.5% of errors caught on COCO. See `.cache/validation/rcnn-benchmark-20261106/REPORT.md`.
+
 ## Verification status
 
 Coverage is authored for request validation, safe HTTP errors, catalogue-head

@@ -64,6 +64,7 @@ export const CHECK_PARAMETER_TEMPLATES: Record<string, Record<string, unknown>> 
   mask_outside_box: { max_outside_fraction: 0.05 },
   mask_box_fill: { min_fill_fraction: 0.3, max_fill_fraction: 1 },
   mask_components: { max_component_count: 1 },
+  person_coverage: { min_tolerance_px: 8, tolerance_fraction: 0.04 },
   annotation_guideline: {},
   annotation_ids: {},
   annotation_metadata: {},
