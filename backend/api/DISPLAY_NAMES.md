@@ -70,6 +70,7 @@ or leaves the database untouched, and it can be rerun after a failure.
   ordered by rulebook ID. No timestamp is invented: `first_recorded_at` stays
   null for those books.
 - New records continue after the highest backfilled number.
+- `GET /rulebooks` lists books by number, newest first.
 
 ## API
 

@@ -198,7 +198,7 @@ class RulebookRepository:
             return self._decode(row)
 
     def list_rulebooks(self, *, limit: int = 20, offset: int = 0) -> RulebookPage:
-        """Page latest versions, ordered by rulebook ID for stable navigation."""
+        """Page latest versions by rulebook number, newest first ("Rules 027" before "Rules 026")."""
         _validate_pagination(limit, offset)
         with self._connection() as connection:
             total = connection.execute(
@@ -211,7 +211,9 @@ class RulebookRepository:
                        FROM rulebook_versions GROUP BY rulebook_id
                    ) AS latest
                    ON saved.rulebook_id = latest.rulebook_id AND saved.version = latest.version
-                   ORDER BY saved.rulebook_id ASC LIMIT %s OFFSET %s""",
+                   LEFT JOIN rulebook_names AS names ON names.rulebook_id = saved.rulebook_id
+                   ORDER BY names.display_number DESC NULLS LAST, saved.rulebook_id ASC
+                   LIMIT %s OFFSET %s""",
                 (limit, offset),
             ).fetchall()
             items = [self._decode(row) for row in rows]

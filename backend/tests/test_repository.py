@@ -287,18 +287,18 @@ def test_mutated_nonfinite_parameters_are_rejected_before_connecting(unconnected
     with pytest.raises(ValidationError, match="must be finite"):
         unconnected_store.save_rulebook(book)
 
-def test_latest_version_listing_is_paginated_and_stable(store):
-    for rulebook_id in ("c", "a", "b"):
+def test_latest_version_listing_is_paginated_newest_number_first(store):
+    for rulebook_id in ("c", "a", "b"):  # numbered 1, 2, 3 in the order they are first saved
         store.save_rulebook(make_book(rulebook_id))
     store.save_rulebook(make_book("a", version=2), expected_version=1)
     first = store.list_rulebooks(limit=2)
-    assert [(book.rulebook_id, book.version) for book in first.items] == [("a", 2), ("b", 1)]
+    assert [(book.rulebook_id, book.version) for book in first.items] == [("b", 1), ("a", 2)]
     assert first.total == 3 and first.offset == 0 and first.next_offset == 2
     last = store.list_rulebooks(limit=2, offset=first.next_offset)
     assert [book.rulebook_id for book in last.items] == ["c"] and last.next_offset is None
     empty = store.list_rulebooks(offset=99)
     assert empty.items == [] and empty.total == 3 and empty.next_offset is None
-    assert first.model_dump(mode="json")["items"][0]["version"] == 2
+    assert first.model_dump(mode="json")["items"][1]["version"] == 2
 
 def test_empty_listing_has_no_next_page(store):
     page = store.list_rulebooks()
