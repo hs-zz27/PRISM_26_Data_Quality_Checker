@@ -4,7 +4,7 @@ import { useCanvasStore } from '../../store/canvasStore';
 import { bboxToCss, cssToImageCoord, formatBbox, formatCursorPos, type BBox1Based } from '../../lib/coords';
 import type { components } from '../../api/generated/openapi';
 import { isTypingTarget } from '../../lib/keyboard';
-import { colorFor, coverageRegions, getObjectBounds, textColorFor } from './reviewWorkspace';
+import { colorFor, getObjectBounds, textColorFor } from './reviewWorkspace';
 
 type Finding = components['schemas']['Finding'];
 export interface CanvasObject {
@@ -359,7 +359,6 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
       <div className="canvas-legend-row"><span className="canvas-legend-swatch" style={{ borderStyle: 'solid' }}/> Solid line: supplied geometry (from source file)</div>
       <div className="canvas-legend-row"><span className="canvas-legend-swatch" style={{ borderStyle: 'dashed' }}/> Dashed line: derived box (computed from polygon vertices, not in source file)</div>
       <div className="canvas-legend-row"><span className="mono">#N</span> Display number matching object list entry</div>
-      <div className="canvas-legend-row"><span className="canvas-legend-swatch canvas-legend-coverage"/> Red dashed area: where the annotation leaves out part of the person or adds background (measured)</div>
       <div className="canvas-legend-row"><span className="mono">*</span> Bounding box is derived from polygon vertices</div>
       <div className="canvas-legend-row"><span className="mono">!</span> Diagnostic finding flagged or unsure for this object</div>
       <div className="canvas-legend-row">Colors match between geometry, marker and list entry.</div>
@@ -386,13 +385,6 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
           </>}
         </g>;
       })}
-      {/* Where a measured person-coverage check says the annotation differs from the person */}
-      {coverageRegions(findings, hiddenObjectIds).map((region) => <g key={region.key} className="canvas-coverage">
-        <rect className="canvas-coverage-region" x={region.left} y={region.top} width={region.width} height={region.height}>
-          <title>{region.label}</title>
-        </rect>
-        <text className="canvas-coverage-label" x={region.left + 2} y={Math.max(10, region.top - 3)}>{region.label}</text>
-      </g>)}
       {/* Numbered badges */}
       {showLabels && badgePlacements.map((badge) => {
         const objColor = colorFor(badge.displayNumber);

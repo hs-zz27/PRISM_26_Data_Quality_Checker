@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ReviewCanvas, type CanvasObject } from './ReviewCanvas';
-import { makeFinding } from '../../test/fixtures';
-import { colorFor, coverageRegions, textColorFor } from './reviewWorkspace';
+import { colorFor, textColorFor } from './reviewWorkspace';
 import { useCanvasStore } from '../../store/canvasStore';
 
 describe('ReviewCanvas', () => {
@@ -336,36 +335,5 @@ describe('ReviewCanvas', () => {
     const boxes = container.querySelectorAll<SVGRectElement>('g[role="button"] rect');
     expect(boxes[0]?.style.stroke).toBe(colorFor(1));
     expect(boxes[1]?.style.stroke).toBe(colorFor(2));
-  });
-});
-
-
-describe('person coverage regions', () => {
-  const coverage = (coordinate_system: string, box: number[]) => makeFinding({
-    finding_id: 'cov-1', check_name: 'person_coverage', outcome: 'fail', object_id: 1, rule_id: 'RULE-1',
-    reason: 'box: head/top of the person is outside the annotation (45 px)', parameters: {},
-    evidence: { image_url: null, mask_preview_url: null, crop_url: null, measurements: { result: { geometries: [
-      { geometry: 'box', coordinate_system, regions: [{ kind: 'missing', side: 'top', pixels: 45, box }] }] } } },
-  });
-
-  it('draws where a failed coverage check says the annotation differs, in the right coordinates', () => {
-    expect(coverageRegions([coverage('one_based_inclusive', [11, 21, 50, 60])])).toMatchObject([
-      { objectId: 1, label: 'missing top (box)', left: 10, top: 20, width: 40, height: 40 }]);
-    expect(coverageRegions([coverage('zero_based_continuous', [10, 20, 50, 60])])[0]).toMatchObject(
-      { left: 10, top: 20, width: 40, height: 40 });
-  });
-
-  it('ignores passing findings, other checks and hidden objects', () => {
-    expect(coverageRegions([{ ...coverage('zero_based_continuous', [1, 1, 5, 5]), outcome: 'pass' }])).toEqual([]);
-    expect(coverageRegions([{ ...coverage('zero_based_continuous', [1, 1, 5, 5]), check_name: 'box_validity' }])).toEqual([]);
-    expect(coverageRegions([coverage('zero_based_continuous', [1, 1, 5, 5])], [1])).toEqual([]);
-  });
-
-  it('renders the region on the canvas with a readable label', () => {
-    const { container } = render(<ReviewCanvas imageSize={[200, 200]}
-      objects={[{ object_id: 1, label: 'person', bbox: [10, 60, 90, 190], coordinate_system: 'zero_based_continuous' }]}
-      findings={[coverage('zero_based_continuous', [10, 20, 90, 60])]} />);
-    expect(container.querySelector('.canvas-coverage-region')).toHaveAttribute('width', '80');
-    expect(screen.getByText('missing top (box)', { selector: '.canvas-coverage-label' })).toBeInTheDocument();
   });
 });

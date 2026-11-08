@@ -152,28 +152,3 @@ export function getObjectBounds(obj: BoundedObject): { x0: number; y0: number; x
   }
   return null;
 }
-
-export interface CoverageRegion { key: string; objectId: number; label: string; left: number; top: number; width: number; height: number }
-
-/** Where a failed person_coverage finding says the annotation differs from the detected person. */
-export function coverageRegions(findings: Finding[], hiddenObjectIds: number[] = []): CoverageRegion[] {
-  const regions: CoverageRegion[] = [];
-  for (const finding of findings) {
-    if (finding.check_name !== 'person_coverage' || finding.outcome !== 'fail' || finding.object_id == null) continue;
-    if (hiddenObjectIds.includes(finding.object_id)) continue;
-    const result = (finding.evidence?.measurements as Record<string, unknown> | undefined)?.result as Record<string, unknown> | undefined;
-    const geometries = Array.isArray(result?.geometries) ? result.geometries : [];
-    geometries.forEach((geometry: Record<string, unknown>, g: number) => {
-      const oneBased = geometry.coordinate_system === 'one_based_inclusive';
-      (Array.isArray(geometry.regions) ? geometry.regions : []).forEach((region: Record<string, unknown>, r: number) => {
-        const box = region.box;
-        if (!Array.isArray(box) || box.length !== 4 || !box.every((v) => typeof v === 'number')) return;
-        const [x0, y0, x1, y1] = box as [number, number, number, number];
-        const css = oneBased ? bboxToCss([x0, y0, x1, y1]) : { left: x0, top: y0, width: x1 - x0, height: y1 - y0 };
-        regions.push({ key: `${finding.finding_id}-${g}-${r}`, objectId: finding.object_id as number,
-          label: `${String(region.kind)} ${String(region.side)} (${String(geometry.geometry)})`, ...css });
-      });
-    });
-  }
-  return regions;
-}
