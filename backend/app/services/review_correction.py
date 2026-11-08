@@ -235,6 +235,7 @@ def propose_correction(measurements, feedback, manifest, rulebook, settings, exe
 PROPOSAL_ERRORS = (ValueError, TypeError, KeyError, IndexError, RecursionError, InferenceUnavailable,
                    AssetIntegrityError, AssetReadLimitError, AssetUnavailableError)
 NO_VALID_CORRECTION = 'A valid, bounded correction could not be established. Review the annotation manually.'
+OUTLINE_NO_SUGGESTION = 'No automatic suggestion for outline problems yet. Use Correct to fix the outline.'
 
 
 def _check_source_editable(objects, updated, manifest, annotation):
@@ -297,14 +298,34 @@ def measured_box_proposal(measurements, feedback, manifest, settings, evaluation
     return {**base, 'status': 'proposed', 'reason': reason, 'objects': updated}
 
 
+def _outline_flagged(feedback, evaluation):
+    """Did the person check flag the outline (polygon or mask) of a reviewed object?"""
+    from .person_coverage import CHECK
+    targets = set(feedback.object_keys or [])
+    for finding in getattr(evaluation, 'findings', None) or []:
+        evidence = finding.evidence.measurements
+        annotation = evidence.get('annotation')
+        if finding.check_name != CHECK or finding.outcome != FindingOutcome.FAIL or not isinstance(annotation, dict):
+            continue
+        if targets and object_key(annotation) not in targets:
+            continue
+        if any(g.get('geometry') != 'box' and g.get('regions') for g in (evidence.get('result') or {}).get('geometries', [])):
+            return True
+    return False
+
+
 def attach_review_context(measurements, feedback, manifest, rulebook, settings, feedback_runtime, enclosure_runtime,
                           *, evaluation=None):
     result = deepcopy(dict(measurements))
     result['reviewer_feedback'] = feedback.model_dump(mode='json')
     if feedback.propose_correction:
-        result['correction_proposal'] = (
-            measured_box_proposal(result, feedback, manifest, settings, evaluation)
-            or propose_correction(result, feedback, manifest, rulebook, settings,
-                                  transport_pin(feedback_runtime, enclosure_runtime),
-                                  editable_keys=flagged_object_keys(getattr(evaluation, 'findings', None))))
+        proposal = measured_box_proposal(result, feedback, manifest, settings, evaluation)
+        if proposal is None:
+            pin = transport_pin(feedback_runtime, enclosure_runtime)
+            proposal = propose_correction(result, feedback, manifest, rulebook, settings, pin,
+                                          editable_keys=flagged_object_keys(getattr(evaluation, 'findings', None)))
+            # Without a chat model nothing can redraw an outline; say so instead of naming the missing model.
+            if pin is None and _outline_flagged(feedback, evaluation):
+                proposal = {**proposal, 'reason': OUTLINE_NO_SUGGESTION}
+        result['correction_proposal'] = proposal
     return result

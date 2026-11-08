@@ -223,3 +223,25 @@ def test_suggested_correction_uses_the_measured_box_for_reviewed_people(monkeypa
     assert proposal["reason"] == ("Measured by the person check (Mask R-CNN). Top edge moved up 45 px to include "
                                   "the head/top. Other sides are unchanged.")
     assert rows[0]["annotation"]["bbox"] == [X0 + 1, Y0 + 46, X1 + 1, Y1 + 1]  # the draft never edits the source
+
+
+@pytest.mark.parametrize("object_keys, outline_message", [(None, True), (["/annotations/0"], True),
+                                                          (["/annotations/1"], False)])
+def test_outline_problem_without_a_chat_model_says_to_use_correct(monkeypatch, object_keys, outline_message):
+    from backend.app.services.review_correction import OUTLINE_NO_SUGGESTION, attach_review_context, object_key
+    monkeypatch.setattr("backend.app.storage.workflow_repository.read_manifest_asset_file", fake_reader)
+    contour = cv2.findContours(PERSON.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0].reshape(-1, 2)
+    good = [[float(x), float(y)] for x, y in contour]
+    box = [X0, Y0, X1 + 1, Y1 + 1]  # the box is right; only the first outline leaves out the head
+    rows = [{"annotation": {"object_id": 1, "source_key": "/annotations/0", "polygons": [[[x, max(y, Y0 + 45.0)] for x, y in good]],
+                            "bbox": box, "bbox_origin": "supplied"}},
+            {"annotation": {"object_id": 2, "source_key": "/annotations/1", "polygons": [good], "bbox": box,
+                            "bbox_origin": "supplied"}}]
+    assert [object_key(row["annotation"]) for row in rows] == ["/annotations/0", "/annotations/1"]
+    manifest = SimpleNamespace(**{**vars(penn_fudan_manifest()), "annotation_format": "coco", "image_key": "/images/0"})
+    evaluation = run(manifest, rows, lambda: SimpleNamespace(segment=lambda image: SEG))
+    assert {f.object_id: f.outcome for f in evaluation.findings} == {1: FindingOutcome.FAIL, 2: FindingOutcome.PASS}
+    proposal = attach_review_context({"objects": rows}, feedback(object_keys), manifest, rulebook(), SimpleNamespace(),
+                                     None, None, evaluation=evaluation)["correction_proposal"]
+    assert proposal["status"] == "unavailable" and proposal["objects"] is None and "method" not in proposal
+    assert (proposal["reason"] == OUTLINE_NO_SUGGESTION) is outline_message
