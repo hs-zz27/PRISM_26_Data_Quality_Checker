@@ -71,6 +71,7 @@ or leaves the database untouched, and it can be rerun after a failure.
   null for those books.
 - New records continue after the highest backfilled number.
 - `GET /rulebooks` lists books by number, newest first.
+- `GET /datasets` lists datasets by the time they were added, newest first.
 
 ## API
 

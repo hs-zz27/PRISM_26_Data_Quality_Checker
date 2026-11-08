@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from datetime import timedelta
 from threading import Event
 
 from psycopg.types.json import Jsonb
@@ -82,16 +83,18 @@ def test_null_counts_damaged_objects_and_revision_pinned_links(repository, monke
     assert claim.claim_token not in public and claim.request.archive_key not in public
 
 
-def test_stable_order_pagination_totals_and_offset_beyond_end(repository):
+def test_newest_first_order_pagination_totals_and_offset_beyond_end(repository):
     _, _, first = seed_import(repository.settings, "dataset_b")
     timestamp = repository.get_dataset("dataset_b").created_at
     _, _, second = seed_import(repository.settings, "dataset_a", now=timestamp)
+    seed_import(repository.settings, "dataset_c", now=timestamp - timedelta(minutes=1))
     for index, name in enumerate(["z", "a", "m"]):
         repository._publish_import_sample(second, prepared_sample(sample_id=name, ordinal=index))
-    page = repository.list_datasets(limit=1)
-    assert [item.dataset_id for item in page.items] == ["dataset_a"]
-    assert page.total == 2 and page.next_offset == 1
-    assert repository.list_datasets(limit=1, offset=1).items[0].dataset_id == "dataset_b"
+    page = repository.list_datasets(limit=2)
+    # Newest first; datasets added at the same moment keep ID order.
+    assert [item.dataset_id for item in page.items] == ["dataset_a", "dataset_b"]
+    assert page.total == 3 and page.next_offset == 2
+    assert repository.list_datasets(limit=2, offset=2).items[0].dataset_id == "dataset_c"
     samples = repository.list_samples("dataset_a", limit=2)
     assert [item.sample_id for item in samples.items] == ["z", "a"]
     assert samples.total == 3 and samples.next_offset == 2

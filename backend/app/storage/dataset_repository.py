@@ -189,7 +189,7 @@ class DatasetRepository:
         with self._connection() as connection:
             total = connection.execute("SELECT count(*) AS total FROM datasets").fetchone()["total"]
             rows = connection.execute(
-                'SELECT * FROM datasets ORDER BY created_at, dataset_id COLLATE "C" LIMIT %s OFFSET %s',
+                'SELECT * FROM datasets ORDER BY created_at DESC, dataset_id COLLATE "C" LIMIT %s OFFSET %s',
                 (limit, offset),
             ).fetchall()
             items = [self._decode_dataset(row) for row in rows]
