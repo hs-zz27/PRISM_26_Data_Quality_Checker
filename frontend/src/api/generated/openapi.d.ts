@@ -3713,6 +3713,10 @@ export interface operations {
                      *         {
                      *           "name": "polygon_validity",
                      *           "implementation": "implemented"
+                     *         },
+                     *         {
+                     *           "name": "unannotated_people",
+                     *           "implementation": "implemented"
                      *         }
                      *       ],
                      *       "execution_device": "cpu"

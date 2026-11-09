@@ -68,6 +68,8 @@ const CHECK_NAMES: Record<string, string> = {
   mask_dimensions: 'Mask size matches image',
   mask_ids: 'Mask IDs match objects',
   person_coverage: 'Whole person covered (measured)',
+  unannotated_people: 'Every person annotated (measured)',
+  polygon_validity: 'Polygon validity',
 };
 
 /** Reason codes emitted by checks and the audit worker. */
@@ -179,6 +181,8 @@ export function describeRequirement(checkName: string | null | undefined, parame
       return num('max_component_count') ? `At most ${num('max_component_count')} connected mask piece(s)` : null;
     case 'person_coverage':
       return `Whole person covered, within ${formatValue(p.min_tolerance_px ?? 8)} px or ${percent(p.tolerance_fraction ?? 0.04)} of the person's height`;
+    case 'unannotated_people':
+      return `Every person found in the image has an annotation (people at least ${formatValue(p.min_person_height_px ?? 40)} px tall, found with at least ${percent(p.min_score ?? 0.9)} certainty)`;
     default: {
       const entries = Object.entries(p);
       return entries.length ? entries.map(([k, v]) => `${humanizeCode(k)}: ${formatValue(v)}`).join(' · ') : null;

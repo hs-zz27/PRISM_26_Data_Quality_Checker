@@ -169,6 +169,26 @@ polygon with it.
 - Offline benchmark (synthetic errors on human outlines; Penn-Fudan for tuning, COCO val2017 held out):
   93.1% accuracy and 98.5% of errors caught on COCO. See `.cache/validation/rcnn-benchmark-20261106/REPORT.md`.
 
+## Every person annotated (`unannotated_people`)
+
+A measured rule for "every clearly visible person must have an annotation". The visual chat model cannot judge
+this at all: it is asked about one annotation at a time, so a person with no annotation is never in front of it.
+This check uses the same Mask R-CNN run as `person_coverage` (one run per image when a rulebook has both).
+
+- Each annotation claims the detected person it matches best (its mask or polygon by mask overlap, otherwise its
+  box; IoU at least 0.3). A detected person that no annotation claims is **missing an annotation** when it lies
+  mostly outside every annotation's outline (or box, when there is no outline), is at least
+  `min_person_height_px` tall (default 40) and was found with at least `min_score` certainty (default 0.9).
+- One finding per image (`object_id` null). **fail** names each person and where they are, for example
+  `1 person has no annotation: at [110, 84, 213, 337] (253 px tall, 100% sure)`; `result.unannotated[].box` is in
+  the annotation's own coordinates. People not counted (inside another annotation, too small, low score) are
+  counted in `result.not_counted`, not reported.
+- Model file missing or failing: **unavailable** (`person_segmenter_unavailable`), never a pass.
+- Measured on 282 COCO val2017 photos with every COCO person annotation supplied: 10 photos (4%) were flagged,
+  either for a person COCO left out or for a person the model invented. With one annotation removed at a time,
+  91% of people at least 100 px tall and 53% of people 40-100 px tall were reported. See
+  `.cache/validation/missing-person-20261109/`.
+
 ## Verification status
 
 Coverage is authored for request validation, safe HTTP errors, catalogue-head

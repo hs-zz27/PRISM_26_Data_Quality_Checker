@@ -99,6 +99,13 @@ class PersonCoverageParameters(_RuleParameters):
     tolerance_fraction: FiniteNumber = Field(default=0.04, ge=0, le=1)
 
 
+class UnannotatedPeopleParameters(_RuleParameters):
+    """Which detected people must have an annotation: at least this tall, found with at least this score."""
+
+    min_person_height_px: NonnegativeInteger = Field(default=40, ge=0)
+    min_score: FiniteNumber = Field(default=0.9, ge=0.5, le=1)
+
+
 @dataclass(frozen=True)
 class CheckDefinition:
     """Execution metadata for one supported measurement check.
@@ -143,6 +150,20 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
         "tolerance; reports where the annotation differs.",
         evidence_terms=("whole", "entire", "complete", "head", "feet", "foot", "cover", "contain", "include",
                         "background", "outline"),
+    ),
+    "unannotated_people": CheckDefinition(
+        "unannotated_people", "sample", UnannotatedPeopleParameters,
+        "Every clearly visible person in the image must have an annotation. Measured: people found in the image "
+        "by a local person model are matched to the annotations, and each person with no annotation is reported "
+        "with where it is. Use for missing annotations, not for how well an annotation fits.",
+        # Phrases that require an annotation to exist. Not "every person" (coverage rules start that way), not
+        # "may be annotated" ("Only real people may be annotated" restricts annotations, it does not demand them)
+        # and not "must be labelled" ("must be labelled person, never car" is about which label).
+        evidence_terms=("unannotated", "missing annotation", "missing person", "missing people", "left without",
+                        "without an annotation", "without annotation", "must have an annotation",
+                        "should have an annotation", "must each have an annotation", "needs an annotation",
+                        "need an annotation", "must be annotated", "should be annotated", "shall be annotated",
+                        "not annotated"),
     ),
     "allowed_labels": CheckDefinition(
         "allowed_labels", "object", AllowedLabelsParameters,

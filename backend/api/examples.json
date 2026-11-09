@@ -112,6 +112,10 @@
             {
               "name": "polygon_validity",
               "implementation": "implemented"
+            },
+            {
+              "name": "unannotated_people",
+              "implementation": "implemented"
             }
           ],
           "execution_device": "cpu"
@@ -8690,6 +8694,32 @@
         "description": "Checks whose semantics do not require a threshold or label list.",
         "properties": {},
         "title": "EmptyParameters",
+        "type": "object"
+      }
+    },
+    {
+      "check_name": "unannotated_people",
+      "meaning": "Every clearly visible person in the image must have an annotation. Measured: people found in the image by a local person model are matched to the annotations, and each person with no annotation is reported with where it is. Use for missing annotations, not for how well an annotation fits.",
+      "scope": "sample",
+      "parameters_schema": {
+        "additionalProperties": false,
+        "description": "Which detected people must have an annotation: at least this tall, found with at least this score.",
+        "properties": {
+          "min_person_height_px": {
+            "default": 40,
+            "minimum": 0,
+            "title": "Min Person Height Px",
+            "type": "integer"
+          },
+          "min_score": {
+            "default": 0.9,
+            "maximum": 1,
+            "minimum": 0.5,
+            "title": "Min Score",
+            "type": "number"
+          }
+        },
+        "title": "UnannotatedPeopleParameters",
         "type": "object"
       }
     }

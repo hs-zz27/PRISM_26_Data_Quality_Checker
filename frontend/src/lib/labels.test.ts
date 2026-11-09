@@ -15,6 +15,9 @@ describe('plain-language labels', () => {
     expect(describeRequirement('box_overlaps', { max_iou: 0.3 })).toBe('Box overlap (IoU) ≤ 0.300');
     expect(describeRequirement('mask_box_fill', { min_fill_fraction: 0.3, max_fill_fraction: 1 })).toBe('Mask fills 30%–100% of box');
     expect(describeRequirement('allowed_labels', { allowed_labels: ['person', 'bag'] })).toBe('Label must be one of: person, bag');
+    expect(describeRequirement('unannotated_people', { min_person_height_px: 40, min_score: 0.9 })).toBe(
+      'Every person found in the image has an annotation (people at least 40 px tall, found with at least 90% certainty)');
+    expect(checkLabel('unannotated_people')).toBe('Every person annotated (measured)');
     expect(describeRequirement('box_validity', {})).toBeNull();
     expect(describeRequirement('unknown_check', { limit: 4 })).toBe('Limit: 4');
   });
