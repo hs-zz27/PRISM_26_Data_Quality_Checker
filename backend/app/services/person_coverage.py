@@ -105,27 +105,47 @@ def judge_box(box, segmentation, params):
     return (FindingOutcome.FAIL if regions else FindingOutcome.PASS), result
 
 
-def judge_region(mask, segmentation, params, geometry):
-    """mask: HxW bool annotation (mask or filled polygon). Returns (outcome, result)."""
+def _matched_person(mask, segmentation):
+    """(person, match IoU) for a region annotation, or (None, why it cannot be judged)."""
     if not segmentation.people:
-        return FindingOutcome.UNSURE, {"reason": "no_person_detected"}
+        return None, {"reason": "no_person_detected"}
     person = max(segmentation.people, key=lambda p: _mask_iou(mask, p.mask))
     match = _mask_iou(mask, person.mask)
     if match < MIN_MATCH_IOU:
-        return FindingOutcome.UNSURE, {"reason": "no_matching_person", "best_match_iou": round(match, 3)}
+        return None, {"reason": "no_matching_person", "best_match_iou": round(match, 3)}
+    return person, match
+
+
+def _region_differences(mask, person, carried, params):
+    """(tolerance, kernel, patches) where a region annotation differs from the person beyond the tolerance.
+
+    Each patch is (kind, raw difference, the patch's pixels, its region record); slivers thinner than about
+    the tolerance and patches under MIN_BLOB x T^2 pixels are not patches.
+    """
     t = _tolerance(person.box, params)
     radius = max(1, int(round(t / 2)))
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1))
-    allowed = _with_carried(person, segmentation.carried, t)
-    regions = []
-    for kind, region in (("missing", person.mask & ~mask), ("extra", mask & ~allowed)):
-        cleaned = cv2.morphologyEx(region.astype(np.uint8), cv2.MORPH_OPEN, kernel)
-        count, _, stats, _ = cv2.connectedComponentsWithStats(cleaned, connectivity=8)
+    allowed = _with_carried(person, carried, t)
+    patches = []
+    for kind, raw in (("missing", person.mask & ~mask), ("extra", mask & ~allowed)):
+        cleaned = cv2.morphologyEx(raw.astype(np.uint8), cv2.MORPH_OPEN, kernel)
+        count, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned, connectivity=8)
         for i in range(1, count):
             x, y, w, h, area = (int(v) for v in stats[i])
             if area >= MIN_BLOB * t * t:
                 box = [x, y, x + w - 1, y + h - 1]
-                regions.append({"kind": kind, "side": _side(box, person.box), "area_px": area, "box": box})
+                patches.append((kind, raw, labels == i,
+                                {"kind": kind, "side": _side(box, person.box), "area_px": area, "box": box}))
+    return t, kernel, patches
+
+
+def judge_region(mask, segmentation, params, geometry):
+    """mask: HxW bool annotation (mask or filled polygon). Returns (outcome, result)."""
+    person, match = _matched_person(mask, segmentation)
+    if person is None:
+        return FindingOutcome.UNSURE, match
+    t, _, patches = _region_differences(mask, person, segmentation.carried, params)
+    regions = [record for *_, record in patches]
     result = {"geometry": geometry, "tolerance_px": round(t, 1), "person_box": list(person.box),
               "person_score": person.score, "match_iou": round(match, 3), "regions": regions}
     return (FindingOutcome.FAIL if regions else FindingOutcome.PASS), result
@@ -158,12 +178,17 @@ def _object_geometries(annotation, annotation_format, size, instance_mask):
                                    min(height - 1, ceil(y1) - 1))))
     polygons = [p for p in annotation.get("polygons") or [] if len(p) >= 3]
     if polygons:
-        canvas = Image.new("L", (width, height), 0)
-        draw = ImageDraw.Draw(canvas)
-        for polygon in polygons:
-            draw.polygon([(float(x), float(y)) for x, y in polygon], fill=1, outline=1)
-        out.append(("polygon", "region", np.array(canvas, bool)))
+        out.append(("polygon", "region", _raster(polygons, size)))
     return out
+
+
+def _raster(polygons, size):
+    """Filled polygons as an HxW bool mask, boundary pixels included (how every outline is judged)."""
+    canvas = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(canvas)
+    for polygon in polygons:
+        draw.polygon([(float(x), float(y)) for x, y in polygon], fill=1, outline=1)
+    return np.array(canvas, bool)
 
 
 def _box_in_annotation_coordinates(box, annotation_format):
@@ -212,6 +237,66 @@ def measured_box_fix(annotation, result):
                    else "to remove extra background")
         moves.append(f"{region['side'].capitalize()} edge moved {direction} {round(abs(shift))} px {purpose}.")
     return new, " ".join(moves)
+
+
+MAX_OUTLINE_POINTS = 128  # the correction editor's limit per polygon
+MAX_OUTLINE_PARTS = 8
+
+
+def _trace(mask):
+    """Polygons (lists of [x, y]) tracing a bool mask, each valid and within the editor's limits; or None."""
+    from ..datasets.annotation_validation import _polygon_issues
+    from ..models.annotation_validation import ValidationLimits
+    contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contours = sorted((c for c in contours if cv2.contourArea(c) >= 20), key=cv2.contourArea, reverse=True)
+    polygons = []
+    for contour in contours[:MAX_OUTLINE_PARTS]:
+        for epsilon in (1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0):
+            points = [(float(x), float(y)) for x, y in cv2.approxPolyDP(contour, epsilon, True).reshape(-1, 2)]
+            if (3 <= len(points) <= MAX_OUTLINE_POINTS and len(set(points)) >= 3
+                    and not _polygon_issues(points, "proposal", ValidationLimits())):
+                polygons.append([list(point) for point in points])
+                break
+        else:
+            return None
+    return polygons or None
+
+
+def measured_outline_fix(annotation, annotation_format, size, segmentation, params):
+    """The annotation's polygons redrawn with only the flagged parts fixed, and a plain description; or None.
+
+    A flagged missing part of the person is added and a flagged patch of extra background is removed; the
+    rest keeps the annotator's outline. None for Penn-Fudan masks (a new mask image is needed), when nothing
+    is flagged, or when the redrawn outline would still fail the check.
+    """
+    if annotation_format == "penn_fudan":
+        return None
+    region = next((value for geometry, _, value in _object_geometries(annotation, annotation_format, size, None)
+                   if geometry == "polygon"), None)
+    if region is None:
+        return None
+    person, _ = _matched_person(region, segmentation)
+    if person is None:
+        return None
+    _, kernel, patches = _region_differences(region, person, segmentation.carried, params)
+    if not patches:
+        return None
+    fixed = region.copy()
+    changes = []
+    for kind, raw, patch, record in patches:
+        near = cv2.dilate(patch.astype(np.uint8), kernel) > 0  # reach the outline the cleaned patch stops short of
+        if kind == "missing":
+            fixed |= raw & near
+            changes.append(f"added the person's {_PART[record['side']]} ({record['area_px']} px)")
+        else:
+            fixed &= ~(raw & near)
+            changes.append(f"removed extra background at the {record['side']} ({record['area_px']} px)")
+    polygons = _trace(fixed)
+    if polygons is None or (annotation_format == "labelme" and len(polygons) != 1):  # LabelMe: one polygon per shape
+        return None
+    if judge_region(_raster(polygons, size), segmentation, params, "polygon")[0] is not FindingOutcome.PASS:
+        return None
+    return polygons, "Outline: " + "; ".join(changes) + "."
 
 
 def object_coverage(annotation, annotation_format, size, instance_mask, segmentation, params):

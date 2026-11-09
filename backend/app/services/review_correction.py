@@ -236,6 +236,9 @@ PROPOSAL_ERRORS = (ValueError, TypeError, KeyError, IndexError, RecursionError, 
                    AssetIntegrityError, AssetReadLimitError, AssetUnavailableError)
 NO_VALID_CORRECTION = 'A valid, bounded correction could not be established. Review the annotation manually.'
 OUTLINE_NO_SUGGESTION = 'No automatic suggestion for outline problems yet. Use Correct to fix the outline.'
+MASK_NO_SUGGESTION = 'No automatic suggestion for mask problems yet. Use Correct and upload a corrected mask.'
+MISSING_NO_SUGGESTION = ('No automatic suggestion for a person without an annotation yet. '
+                         'Use Correct to add an annotation for them.')
 
 
 def _check_source_editable(objects, updated, manifest, annotation):
@@ -255,25 +258,33 @@ def _check_source_editable(objects, updated, manifest, annotation):
             raise ValueError('Select an existing unambiguous source category.')
 
 
-def measured_box_proposal(measurements, feedback, manifest, settings, evaluation):
-    """A box correction measured by the person coverage check (Mask R-CNN), without the chat model.
+def measured_box_proposal(measurements, feedback, manifest, settings, evaluation, *, segmenter_factory=None):
+    """A correction measured by the person coverage check (Mask R-CNN), without the chat model.
 
-    Each box the check failed moves only its failing sides to the detected person's edges. Returns None when the
-    check measured no box fix for the reviewed objects, so the caller can use the chat-model draft instead.
+    Each box the check failed moves only its failing sides to the detected person's edges. Each COCO or LabelMe
+    outline it failed is redrawn with only the flagged parts fixed, which runs the person model once more.
+    Returns None when nothing measured can be fixed for the reviewed objects, so the caller can use the
+    chat-model draft (or a plain message) instead.
     """
-    from .person_coverage import CHECK, measured_box_fix
+    from ..checks.registry import validate_check_parameters
+    from .person_coverage import CHECK, measured_box_fix, measured_outline_fix
     targets = set(feedback.object_keys or [])
-    fixes = {}
+    boxes, outlines = {}, {}
     for finding in getattr(evaluation, 'findings', None) or []:
         evidence = finding.evidence.measurements
         annotation = evidence.get('annotation')
         if finding.check_name != CHECK or finding.outcome != FindingOutcome.FAIL or not isinstance(annotation, dict):
             continue
         key = object_key(annotation)
+        if targets and key not in targets:
+            continue
         fix = measured_box_fix(annotation, evidence.get('result'))
-        if fix is not None and key not in fixes and (not targets or key in targets):
-            fixes[key] = fix
-    if not fixes:
+        if fix is not None and key not in boxes:
+            boxes[key] = fix
+        if (manifest.annotation_format != 'penn_fudan' and key not in outlines and any(
+                g.get('geometry') == 'polygon' and g.get('regions') for g in (evidence.get('result') or {}).get('geometries', []))):
+            outlines[key] = (annotation, finding.parameters)
+    if not boxes and not outlines:
         return None
     base = dict(protocol=PROTOCOL, method='person_coverage', dataset_id=manifest.dataset_id,
                 sample_id=manifest.sample_id, sample_revision=manifest.sample_revision, image_key=manifest.image_key,
@@ -284,8 +295,28 @@ def measured_box_proposal(measurements, feedback, manifest, settings, evaluation
         objects = [row['annotation'] for row in measurements['objects']]
         _, image = read_manifest_asset_file(manifest, 'original_image', settings)
         with Image.open(BytesIO(image)) as picture:
-            size = picture.size
-        edits = [Edit(object_key=key, label=None, bbox=tuple(box), polygons=None) for key, (box, _) in fixes.items()]
+            picture.load()
+            size, photo = picture.size, picture.convert('RGB')
+        polygons = {}
+        if outlines:
+            if segmenter_factory is None:
+                from ..inference.person_segmenter import get_segmenter as segmenter_factory
+            try:
+                segmentation = segmenter_factory().segment(photo)
+            except RuntimeError:  # the person model is unavailable: no outline fix, box fixes still stand
+                segmentation = None
+            for key, (annotation, parameters) in outlines.items():
+                fix = None if segmentation is None else measured_outline_fix(
+                    annotation, manifest.annotation_format, size, segmentation,
+                    validate_check_parameters(CHECK, parameters or {}))
+                if fix is not None:
+                    polygons[key] = fix
+        if not boxes and not polygons:
+            return None
+        keys = list(dict.fromkeys([*boxes, *polygons]))
+        edits = [Edit(object_key=key, label=None, bbox=tuple(boxes[key][0]) if key in boxes else None,
+                      polygons=[[tuple(point) for point in part] for part in polygons[key][0]] if key in polygons else None)
+                 for key in keys]
         updated = apply_draft_edits(objects, edits, size, manifest.annotation_format)
         if manifest.annotation_format != 'penn_fudan':
             _check_source_editable(objects, updated, manifest,
@@ -293,39 +324,50 @@ def measured_box_proposal(measurements, feedback, manifest, settings, evaluation
     except (*PROPOSAL_ERRORS, OSError):
         return base
     labels = {object_key(obj): f"{obj.get('label') or 'Object'} {obj['object_id']}" for obj in objects}
-    moves = ' '.join(f'{labels[key]}: {words}' if len(fixes) > 1 else words for key, (_, words) in fixes.items())
-    reason = f'Measured by the person check (Mask R-CNN). {moves} Other sides are unchanged.'
+    words = {key: ' '.join(part[1] for part in (boxes.get(key), polygons.get(key)) if part) for key in keys}
+    moves = ' '.join(f'{labels[key]}: {words[key]}' if len(keys) > 1 else words[key] for key in keys)
+    unchanged = ' Other box sides are unchanged.' if polygons and boxes else (' Other sides are unchanged.' if boxes else '')
+    reason = f'Measured by the person check (Mask R-CNN). {moves}{unchanged}'
     return {**base, 'status': 'proposed', 'reason': reason, 'objects': updated}
 
 
-def _outline_flagged(feedback, evaluation):
-    """Did the person check flag the outline (polygon or mask) of a reviewed object?"""
-    from .person_coverage import CHECK
+def _no_suggestion_reason(feedback, evaluation):
+    """What the measured checks flagged that nothing can draft without a chat model, as a plain message."""
+    from .person_coverage import CHECK, MISSING_CHECK
     targets = set(feedback.object_keys or [])
+    missing = False
     for finding in getattr(evaluation, 'findings', None) or []:
+        if finding.outcome != FindingOutcome.FAIL:
+            continue
+        if finding.check_name == MISSING_CHECK and not targets:
+            missing = True
         evidence = finding.evidence.measurements
         annotation = evidence.get('annotation')
-        if finding.check_name != CHECK or finding.outcome != FindingOutcome.FAIL or not isinstance(annotation, dict):
+        if finding.check_name != CHECK or not isinstance(annotation, dict):
             continue
         if targets and object_key(annotation) not in targets:
             continue
-        if any(g.get('geometry') != 'box' and g.get('regions') for g in (evidence.get('result') or {}).get('geometries', [])):
-            return True
-    return False
+        flagged = {g.get('geometry') for g in (evidence.get('result') or {}).get('geometries', []) if g.get('regions')}
+        if 'mask' in flagged:
+            return MASK_NO_SUGGESTION
+        if 'polygon' in flagged:
+            return OUTLINE_NO_SUGGESTION
+    return MISSING_NO_SUGGESTION if missing else None
 
 
 def attach_review_context(measurements, feedback, manifest, rulebook, settings, feedback_runtime, enclosure_runtime,
-                          *, evaluation=None):
+                          *, evaluation=None, segmenter_factory=None):
     result = deepcopy(dict(measurements))
     result['reviewer_feedback'] = feedback.model_dump(mode='json')
     if feedback.propose_correction:
-        proposal = measured_box_proposal(result, feedback, manifest, settings, evaluation)
+        proposal = measured_box_proposal(result, feedback, manifest, settings, evaluation,
+                                         segmenter_factory=segmenter_factory)
         if proposal is None:
             pin = transport_pin(feedback_runtime, enclosure_runtime)
             proposal = propose_correction(result, feedback, manifest, rulebook, settings, pin,
                                           editable_keys=flagged_object_keys(getattr(evaluation, 'findings', None)))
-            # Without a chat model nothing can redraw an outline; say so instead of naming the missing model.
-            if pin is None and _outline_flagged(feedback, evaluation):
-                proposal = {**proposal, 'reason': OUTLINE_NO_SUGGESTION}
+            # Without a chat model nothing else can draft a fix; say what the problem is instead of naming the model.
+            if pin is None and (message := _no_suggestion_reason(feedback, evaluation)):
+                proposal = {**proposal, 'reason': message}
         result['correction_proposal'] = proposal
     return result

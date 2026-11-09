@@ -168,6 +168,11 @@ polygon with it.
   `/models`), or set `PERSON_SEGMENTER_CHECKPOINT`. Nothing is downloaded at audit time.
 - Offline benchmark (synthetic errors on human outlines; Penn-Fudan for tuning, COCO val2017 held out):
   93.1% accuracy and 98.5% of errors caught on COCO. See `.cache/validation/rcnn-benchmark-20261106/REPORT.md`.
+- **Suggest a correction** (no chat model needed): a failing box side moves to the measured person edge. A failing
+  COCO or LabelMe polygon is redrawn with only the flagged parts fixed (a missing part added, an extra patch
+  removed) and is proposed only if the redrawn outline passes the check; on the 100-photo COCO pack, 29 of 31
+  flagged outline errors got such a fix. A Penn-Fudan mask needs a new mask image, so the proposal says to use
+  Correct.
 
 ## Every person annotated (`unannotated_people`)
 
