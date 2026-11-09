@@ -317,11 +317,14 @@ def test_an_unclear_condition_is_uncertain_whatever_compliance_says(tmp_path, co
     assert recorded.prediction.outcome == 'unsure'
 
 
-def test_the_outcome_follows_the_structured_fields_never_the_explanation_text(tmp_path):
+def test_the_explanation_text_never_decides_the_outcome_and_can_only_withdraw_trust(tmp_path):
+    # A yes whose reason states a violation is not trusted as a pass; it is never turned into a fail either.
+    # Ordinary praise ("correct") is not read as compliance: only explicit compliance wording withdraws a fail.
     recorded = condition_run(tmp_path, focused('yes', reason='This outline is a clear violation and fails the rule.'),
                              focused('no', reason='This outline is perfectly correct and passes.'))
     results = by_key(recorded)
-    assert (results['/shapes/0'].outcome, results['/shapes/1'].outcome) == ('pass', 'fail')
+    assert (results['/shapes/0'].outcome, results['/shapes/1'].outcome) == ('unsure', 'fail')
+    assert 'reason_contradicts_answer' in results['/shapes/0'].flags
 
 
 def test_a_failure_under_one_rule_is_not_carried_to_another_rule(tmp_path):
@@ -391,3 +394,26 @@ def test_the_audit_records_per_target_results_and_flags_only_the_failing_annotat
     assert scope['image']['image_sha256'] == manifest.original_image.sha256
     assert flagged_object_keys([findings['RULE-7']]) == ['/shapes/0']
     assert findings['RULE-7'].review.resolution.value == 'pending'
+
+
+# ----------------------------------------------------- answers whose own reason cannot be trusted
+
+def test_a_reason_that_contradicts_its_answer_is_unsure_not_a_fail(tmp_path):
+    reason = 'The annotation marks only this person, so compliance is yes.'
+    recorded = predict(tmp_path, lambda d: focused('no', reason=reason), FIT)[0]
+    assert {r.outcome for r in recorded.scope.results} == {'unsure'}
+    assert all('reason_contradicts_answer' in r.flags for r in recorded.scope.results)
+    assert recorded.prediction.outcome == 'unsure'
+
+
+def test_a_fail_blamed_on_the_label_under_a_rule_not_about_labels_is_unsure(tmp_path):
+    reason = "The polygon follows the person, but the label 'man' is incorrect for a child."
+    recorded = predict(tmp_path, lambda d: focused('no', reason=reason), FIT)[0]
+    assert all(r.outcome == 'unsure' and 'reason_judges_label' in r.flags for r in recorded.scope.results)
+
+
+def test_a_consistent_fail_stays_a_fail(tmp_path):
+    reason = 'The polygon cuts off the raised hand, so it does not satisfy the requirement.'
+    recorded = predict(tmp_path, lambda d: focused('no', reason=reason), FIT)[0]
+    assert {r.outcome for r in recorded.scope.results} == {'fail'}
+

@@ -114,7 +114,7 @@ class GuidelineClient:
     def _predict_scoped(self, manifest, target, examples, asset_settings, reviewer_feedback):
         """v5: decide eligibility first, judge only eligible annotations, record per-target results."""
         from ..services.feedback_evidence import compute_scope
-        from ..services.rule_applicability import combine_results
+        from ..services.rule_applicability import combine_results, requirement_text
         case_id = unit_id(manifest, target)
         start = time.monotonic()
         verified = False
@@ -145,7 +145,7 @@ class GuidelineClient:
                 raise InferenceUnavailable('identity_mismatch')
             self.verify()
             verified = True
-            outcome, reason, scope = combine_results(scope, proposal)
+            outcome, reason, scope = combine_results(scope, proposal, requirement_text(target.rule))
             prediction = Prediction(case_id=case_id, rule_id=target.rule.rule_id, outcome=outcome, reason=reason,
                                     evidence_references=proposal.evidence_references)
         except InferenceUnavailable as error:
@@ -194,7 +194,7 @@ class GuidelineClient:
         Reviewer feedback is untrusted context for a fresh visual assessment of unchanged evidence.
         """
         from ..services.feedback_evidence import compute_scope
-        from ..services.rule_applicability import combine_focused
+        from ..services.rule_applicability import combine_focused, requirement_text
         if examples:
             raise FeedbackError('POLICY_INCOMPATIBLE')
         case_id = unit_id(manifest, target)
@@ -232,7 +232,7 @@ class GuidelineClient:
                                       'duration_ms': round(call.duration_ms, 1), **self._last_exchange_counts()})
             self.verify()
             verified = any(call.failure is None for call in calls)
-            outcome, reason, scope = combine_focused(scope, calls)
+            outcome, reason, scope = combine_focused(scope, calls, requirement_text(target.rule))
             references = list(dict.fromkeys(ref for call in calls if call.assessment for ref in call.assessment.evidence_references))
             prediction = Prediction(case_id=case_id, rule_id=target.rule.rule_id, outcome=outcome, reason=reason,
                                     evidence_references=references[:3] if verified else [])

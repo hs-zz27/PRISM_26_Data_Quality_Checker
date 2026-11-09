@@ -194,6 +194,13 @@ This check uses the same Mask R-CNN run as `person_coverage` (one run per image 
   91% of people at least 100 px tall and 53% of people 40-100 px tall were reported. See
   `.cache/validation/missing-person-20261109/`.
 
+## Visual guideline answers their own reasons contradict
+
+The chat model's verdict comes from its structured answer, never from its explanation. The explanation can only
+withdraw trust: a `pass` or `fail` becomes **unsure** (flag `reason_contradicts_answer`) when the explanation states
+the opposite (for example "compliance is yes" on a fail), and a `fail` becomes **unsure** (flag
+`reason_judges_label`) when it blames the label under a rule that is not about labels.
+
 ## Verification status
 
 Coverage is authored for request validation, safe HTTP errors, catalogue-head
