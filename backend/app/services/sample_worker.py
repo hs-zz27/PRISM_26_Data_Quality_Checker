@@ -88,7 +88,7 @@ def run_rule_checks(
     if feedback_runtime is not None:
         from .feedback import augment_evaluation
         evaluation = augment_evaluation(evaluation, rulebook, manifest, feedback_runtime, asset_settings,
-                                        **ids, **feedback)
+                                        processing_deadline=processing_deadline, **ids, **feedback)
     if enclosure_runtime is not None:
         from .enclosure import augment_enclosure
         policy = ({"feedback_policy": feedback_runtime.policy}

@@ -417,3 +417,57 @@ def test_a_consistent_fail_stays_a_fail(tmp_path):
     recorded = predict(tmp_path, lambda d: focused('no', reason=reason), FIT)[0]
     assert {r.outcome for r in recorded.scope.results} == {'fail'}
 
+
+# ------------------------------------------------------------------ the sample's time budget
+
+def test_no_call_is_made_once_the_samples_budget_is_spent(tmp_path):
+    import time
+    manifest, assets = sample(tmp_path)
+    server = ScriptedOllama(lambda d: focused('yes'))
+    client = GuidelineClient(v6_pin(), transport=server.transport(), deadline=time.monotonic() - 1)
+    try:
+        recorded = client.predict(manifest, RulePin(rulebook_id='b', rulebook_version=1, rule=FIT), [], assets)
+    finally:
+        client.close()
+    assert server.chat_count == 0
+    assert {r.flags[1] for r in recorded.scope.results} == {'call:sample_budget_exhausted'}
+    assert recorded.prediction.outcome == 'unavailable'
+
+
+def test_a_spent_budget_skips_only_the_remaining_calls_and_keeps_a_finished_failure(tmp_path):
+    import time
+    manifest, assets = sample(tmp_path)
+    holder = {}
+
+    def responder(document):
+        holder['client'].deadline = time.monotonic() - 1   # this answer used up the rest of the budget
+        return focused('no', reason='The polygon cuts off the head.')
+    server = ScriptedOllama(responder)
+    holder['client'] = client = GuidelineClient(v6_pin(), transport=server.transport(), deadline=time.monotonic() + 600)
+    try:
+        recorded = client.predict(manifest, RulePin(rulebook_id='b', rulebook_version=1, rule=FIT), [], assets)
+    finally:
+        client.close()
+    assert server.chat_count == 1
+    assert [(r.outcome, r.flags[1:]) for r in recorded.scope.results] == [
+        ('fail', []), ('unavailable', ['call:sample_budget_exhausted'])]
+    assert recorded.prediction.outcome == 'fail'
+
+
+def test_the_audit_passes_the_samples_deadline_to_the_model_calls(tmp_path, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+    manifest, assets = sample(tmp_path)
+    server = ScriptedOllama(lambda d: focused('yes'))
+    made = []
+
+    def client(execution, **options):
+        made.append(options)
+        return GuidelineClient(execution, transport=server.transport(), **options)
+    monkeypatch.setattr('backend.app.services.feedback.GuidelineClient', client)
+    result = augment_evaluation(RuleEvaluationResult(findings=[], internal_check_failures=0), rulebook(FIT), manifest,
+                                FeedbackRuntime(execution=v6_pin()), assets, audit_id='audit_t',
+                                sample_id=manifest.sample_id, sample_revision=1,
+                                processing_deadline=datetime.now(UTC) + timedelta(seconds=10))  # inside the 30 s margin
+    [finding] = result.findings
+    assert 'deadline' in made[0] and server.chat_count == 0
+    assert finding.outcome.value == 'unavailable' and 'sample_budget_exhausted' in finding.reason

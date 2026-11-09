@@ -201,6 +201,10 @@ withdraw trust: a `pass` or `fail` becomes **unsure** (flag `reason_contradicts_
 the opposite (for example "compliance is yes" on a fail), and a `fail` becomes **unsure** (flag
 `reason_judges_label`) when it blames the label under a rule that is not about labels.
 
+Each chat call gets at most the time left before the sample's deadline (minus a 30 s margin). Once that time is
+used up the remaining calls are not made (`sample_budget_exhausted`): those annotations are unavailable, while the
+measured findings and every finished answer are kept instead of the whole sample timing out.
+
 ## Verification status
 
 Coverage is authored for request validation, safe HTTP errors, catalogue-head
