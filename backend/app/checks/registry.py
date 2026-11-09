@@ -132,6 +132,7 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
     "polygon_validity": CheckDefinition(
         "polygon_validity", "object", EmptyParameters,
         "Supplied polygons must have at least three distinct vertices, nonzero area, no non-adjacent edge intersections or repeated vertices, and remain within image bounds. Only apply when the guidelines require these structural properties; this does not judge visual fit.",
+        evidence_terms=("polygon", "vertex", "vertices", "intersect", "contour", "outline", "segmentation"),
     ),
     "annotation_guideline": CheckDefinition(
         "annotation_guideline", "sample", EmptyParameters,
@@ -173,6 +174,7 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
     "annotation_ids": CheckDefinition(
         "annotation_ids", "sample", EmptyParameters,
         "Annotation object IDs must be positive and unique.",
+        evidence_terms=("id", "identifier", "unique", "duplicate"),
     ),
     "mask_ids": CheckDefinition(
         "mask_ids", "sample", EmptyParameters,
@@ -187,10 +189,15 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
     "annotation_metadata": CheckDefinition(
         "annotation_metadata", "sample", EmptyParameters,
         "Declared annotation metadata must match the available image and annotation measurements.",
+        evidence_terms=("width", "height", "dimension", "size", "metadata", "declared", "resolution",
+                        "file name", "filename", "count", "number of"),
     ),
     "box_validity": CheckDefinition(
         "box_validity", "object", EmptyParameters,
         "Each annotation box must be valid and lie within the image bounds.",
+        # "bounds", not "bound": "bounding box" appears in almost every box guideline.
+        evidence_terms=("valid", "inside", "within", "bounds", "boundary", "boundaries", "outside", "border",
+                        "beyond", "edge", "positive", "zero", "degenerate", "negative"),
     ),
     "box_overlaps": CheckDefinition(
         "box_overlaps", "pair", MaximumIoUParameters,
