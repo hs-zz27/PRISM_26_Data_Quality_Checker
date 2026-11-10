@@ -87,11 +87,13 @@ def propose_rules(
     sources = source_units(guideline_text)
     schema = compact_response_schema(len(sources))
     catalog = extraction_catalog()
+    # The catalog is keyed by check_name and the model answers with that name: with numeric IDs a small model
+    # often picked the neighbouring number (box_overlaps instead of box_validity).
     check_catalog = json.dumps(
-        catalog, ensure_ascii=False, sort_keys=True,
+        [{key: value for key, value in entry.items() if key != 'check_id'} for entry in catalog],
+        ensure_ascii=False, sort_keys=True,
     )
-    visual_id = next(entry['check_id'] for entry in catalog if entry['check_name'] == 'annotation_guideline')
-    vocabulary_id = next(entry['check_id'] for entry in catalog if entry['check_name'] == 'allowed_labels')
+    visual_id, vocabulary_id = 'annotation_guideline', 'allowed_labels'
     instructions = (
         "Convert the annotation requirements in the user's text into draft checking rules.\n"
         "Your task is to extract WHAT must be checked, not to inspect an image or decide "
@@ -118,14 +120,14 @@ def propose_rules(
         "The backend copies the referenced plain language text verbatim and assigns unique rule IDs. "
         "Do not generate descriptions, citations, rule IDs or copied guideline text.\n"
         "Extract every stated annotation requirement, including requirements without a supported "
-        "check. For an unsupported or ambiguous requirement use check_id 0 and parameters {}. "
+        "check. For an unsupported or ambiguous requirement use check_id \"none\" and parameters {}. "
         "Do not omit a requirement merely because it cannot currently be executed.\n"
-        "Use the catalog's numeric check_id values. Use annotation_guideline for explicit "
+        "For check_id, write the catalog's check_name exactly. Use annotation_guideline for explicit "
         "visual requirements that can be judged from a still image and annotations, including "
         "whether a box or polygon includes, excludes or follows visible parts of an object (for "
         "example that a box includes a visible head or tail, that a polygon follows the visible "
         "outline, or that only visible parts are annotated). These need visual judgement, not exact "
-        "measurement, so they are supported. Use check_id 0 only when no catalog check can judge "
+        "measurement, so they are supported. Use check_id \"none\" only when no catalog check can judge "
         "the requirement. "
         "allowed_labels checks only whether a written label belongs to an explicitly permitted "
         "vocabulary. It cannot check whether that label matches the pictured object. "
@@ -134,7 +136,7 @@ def propose_rules(
         "When the text separately states a permitted vocabulary, that is a different allowed_labels rule.\n"
         "Temporal, external or unstated criteria stay unsupported. An exact numeric value with a "
         "unit (pixels, percent, degrees, lengths, durations) can only map to a deterministic check "
-        "that measures that same quantity on the same evidence; otherwise use check_id 0. A visual "
+        "that measures that same quantity on the same evidence; otherwise use check_id \"none\". A visual "
         "judgement cannot measure exact values, and a check on a different quantity (for example "
         "box-versus-mask instead of box-versus-visible-object) is not a substitute. "
         "Do not invent thresholds. Keep approval conditions and units in the original text.\n"
@@ -163,7 +165,7 @@ def propose_rules(
         "Another independent example: line 1 'Boxes may extend at most 2 pixels beyond the visible "
         "animal; a reviewer must approve this tolerance.' Its response is "
         + json.dumps({'lines': [{'source_id': 1, 'role': 'requirement'}],
-                      'rules': [{'source_id': 1, 'context_ids': [], 'check_id': 0, 'parameters': {}}]}) + '.\n'
+                      'rules': [{'source_id': 1, 'context_ids': [], 'check_id': 'none', 'parameters': {}}]}) + '.\n'
         "Authoritative check catalog (scope is informational; parameters_schema describes "
         "the allowed parameter values):\n" + check_catalog
     )

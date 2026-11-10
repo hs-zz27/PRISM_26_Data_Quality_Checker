@@ -69,7 +69,8 @@ class _CompactRule(BaseModel):
 
     source_id: SourceID
     context_ids: list[SourceID]
-    check_id: int = Field(ge=0)
+    # The model answers with a check name ("none" for no check). Numbers are still read for older callers.
+    check_id: int | str
     parameters: dict[str, FiniteJsonValue]
 
 
@@ -116,6 +117,28 @@ def extraction_catalog() -> list[dict[str, Any]]:
             for index, entry in enumerate(extraction_check_catalog(), start=1)]
 
 
+NO_CHECK = 'none'
+
+
+def check_choices() -> list[str]:
+    """What the model may answer as check_id: a catalog check name, or "none"."""
+    return [NO_CHECK, *(entry['check_name'] for entry in extraction_catalog())]
+
+
+def _resolve_check(check_id: int | str, catalog: list[dict[str, Any]]) -> str | None:
+    """The check name for an answered check_id. Names are what the model is asked for: with catalog numbers a
+    small model often answered the neighbouring number (box_overlaps for box_validity)."""
+    if isinstance(check_id, str):
+        if check_id == NO_CHECK:
+            return None
+        if any(entry['check_name'] == check_id for entry in catalog):
+            return check_id
+        raise ValueError('Unknown check reference.')
+    if not 0 <= check_id <= len(catalog):
+        raise ValueError('Unknown check reference.')
+    return None if check_id == 0 else catalog[check_id - 1]['check_name']
+
+
 def compact_response_schema(source_count: int) -> dict[str, Any]:
     """Use one small object shape, without duplicating it for every check.
 
@@ -146,7 +169,7 @@ def compact_response_schema(source_count: int) -> dict[str, Any]:
                 'properties': {
                     'source_id': reference,
                     'context_ids': {'type': 'array', 'items': dict(reference)},
-                    'check_id': {'type': 'integer', 'minimum': 0, 'maximum': len(catalog)},
+                    'check_id': {'type': 'string', 'enum': check_choices()},
                     'parameters': {
                         'type': 'object', 'additionalProperties': False,
                         'properties': parameters,
@@ -184,6 +207,12 @@ def guard_mapping(check_name: str | None, parameters: dict[str, Any], requiremen
             "allowed_labels was not accepted: a complete explicit permitted vocabulary with "
             "these exact names is not stated in the requirement itself. Examples and partial "
             "name matches do not define an allowed-label list. Kept unsupported for review."]
+    # A value equal to the check's own default is not an invented threshold: the check uses it anyway. Drop it
+    # (small models copy defaults from the schema) and still require any other number to be stated in the text.
+    defaults = {name: field.default for name, field in definition.parameter_model.model_fields.items()
+                if not field.is_required()}
+    parameters = {name: value for name, value in parameters.items()
+                  if not (name in defaults and value == defaults[name])}
     if not grounded_numeric_parameters(check_name, parameters, requirement, context):
         return None, {}, [
             f"{check_name} was not accepted: the parameter value with its matching quantity, "
@@ -211,16 +240,14 @@ def expand_response(content: str, sources: list[str]) -> list[RuleProposal]:
         references = [item.source_id, *item.context_ids]
         if any(reference > count for reference in references) or len(set(references)) != len(references):
             raise ValueError('Invalid or repeated source reference.')
-        if item.check_id > len(catalog):
-            raise ValueError('Unknown check reference.')
+        check_name = _resolve_check(item.check_id, catalog)
         role = roles.get(item.source_id)
         if role is not None and role not in REQUIREMENT_ROLES:
             raise ValueError('A rule cites a line classified as context or other text.')
-        identity = (item.source_id, item.check_id, json.dumps(item.parameters, sort_keys=True))
+        identity = (item.source_id, check_name, json.dumps(item.parameters, sort_keys=True))
         if identity in seen:
             raise ValueError('Duplicate rule mapping.')
         seen.add(identity)
-        check_name = None if item.check_id == 0 else catalog[item.check_id - 1]['check_name']
         # Malformed output is rejected before any guard can soften it to "unsupported".
         if check_name is None and item.parameters:
             raise ValueError('An unmapped requirement must have empty parameters.')

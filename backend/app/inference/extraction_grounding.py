@@ -86,10 +86,11 @@ def measured_value(text):
 
 def explicit_vocabulary(requirement, labels):
     """Require an explicit complete list, rather than example names or prefixes."""
-    noun = r"(?:annotation\s+)?(?:labels?|classes|categories|label set|label vocabulary)"
+    noun = r"(?:annotation\s+)?(?:labels?|class(?:es)?|categor(?:y|ies)|label set|label vocabulary)"
+    lead = r"(?:the\s+)?(?:only\s+)?"  # "The only allowed annotation category is person."
     patterns = (
-        rf"(?:allowed|permitted|valid|accepted|supported)\s+{noun}\s*(?:are|is|:|=)\s*(.+)",
-        rf"{noun}\s*(?:are|is|:|=)\s*(.+)",
+        rf"{lead}(?:allowed|permitted|valid|accepted|supported)\s+{noun}\s*(?:are|is|:|=)\s*(.+)",
+        rf"{lead}{noun}\s*(?:are|is|:|=)\s*(.+)",
         rf"{noun}\s+(?:must|shall)\s+be\s+(?:(?:one of|either|only)\s+)?(.+)",
         rf"only\s+(.+?)\s+(?:are|is)\s+(?:allowed|permitted|valid|accepted)\s+{noun}",
         rf"use\s+only\s+(.+?)\s+as\s+{noun}",

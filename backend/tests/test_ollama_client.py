@@ -441,6 +441,7 @@ def test_dotenv_model_and_port_reach_requests_with_per_call_precedence(fake_serv
 def test_generation_schema_rejects_schema_keywords_in_place_of_label_values():
     from jsonschema import Draft202012Validator
     validator = Draft202012Validator(compact_response_schema(1))
+    WIRE_PROPOSAL = {**globals()["WIRE_PROPOSAL"], "check_id": "allowed_labels"}   # the model answers with names
     assert not list(validator.iter_errors({"lines": LINE_1, "rules": [WIRE_PROPOSAL]}))
     assert list(validator.iter_errors({"rules": [WIRE_PROPOSAL]}))          # lines are required
     assert list(validator.iter_errors({"lines": [{"source_id": 1, "role": "definition"}], "rules": []}))
@@ -449,7 +450,8 @@ def test_generation_schema_rejects_schema_keywords_in_place_of_label_values():
     }}}
     assert list(validator.iter_errors({"lines": LINE_1, "rules": [malformed]}))
     assert list(validator.iter_errors({"lines": LINE_1, 'rules': [{**WIRE_PROPOSAL, 'source_id': 2}]}))
-    assert not list(validator.iter_errors({"lines": LINE_1, 'rules': [{**WIRE_PROPOSAL, 'check_id': 0, 'parameters': {}}]}))
+    assert not list(validator.iter_errors({"lines": LINE_1, 'rules': [{**WIRE_PROPOSAL, 'check_id': 'none', 'parameters': {}}]}))
+    assert list(validator.iter_errors({"lines": LINE_1, 'rules': [{**WIRE_PROPOSAL, 'check_id': 7}]}))   # numbers are not offered
     assert list(validator.iter_errors({"lines": LINE_1, 'rules': [{key: value for key, value in WIRE_PROPOSAL.items() if key != 'parameters'}]}))
 
 
@@ -461,3 +463,19 @@ def test_runtime_still_rejects_schema_keywords_instead_of_a_label_list(fake_serv
     with pytest.raises(OllamaClientError) as caught:
         propose_rules(GUIDELINES, transport=transport)
     assert caught.value.reason == "invalid_rule_proposals"
+
+
+def test_the_model_answers_with_check_names_and_numbers_still_parse():
+    """Names, not catalog numbers: with numbers the 4b model answered the neighbouring check (6 for 7)."""
+    from backend.app.inference.rule_proposals import expand_response
+    text = "Every bounding box must be valid and lie entirely within the image bounds."
+    for answer in ("box_validity", check_id("box_validity")):
+        [rule] = expand_response(json.dumps({"lines": LINE_1, "rules": [
+            {"source_id": 1, "context_ids": [], "check_id": answer, "parameters": {}}]}), [text])
+        assert rule.check_name == "box_validity"
+    [rule] = expand_response(json.dumps({"lines": LINE_1, "rules": [
+        {"source_id": 1, "context_ids": [], "check_id": "none", "parameters": {}}]}), [text])
+    assert rule.check_name is None
+    with pytest.raises(ValueError):
+        expand_response(json.dumps({"lines": LINE_1, "rules": [
+            {"source_id": 1, "context_ids": [], "check_id": "box_valid", "parameters": {}}]}), [text])

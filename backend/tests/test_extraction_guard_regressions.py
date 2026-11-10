@@ -107,3 +107,25 @@ def test_number_normalization_preserves_source_input():
     original = "5. Each mask may have at most twenty-three connected components."
     assert normalized_numbers(original) == "Each mask may have at most 23 connected components."
     assert original.startswith("5.")
+
+# The 10-rule COCO guideline of 8 Nov 2026 (re-run with the local model on 10 Nov).
+@pytest.mark.parametrize("text", [
+    "The only allowed annotation category is person.",
+    "1. The only allowed annotation category is person.",
+    "Allowed annotation category is person.",
+    "The allowed classes are person.",
+])
+def test_a_singular_or_the_only_label_list_is_explicit(text):
+    [rule] = extract(text, "allowed_labels", {"allowed_labels": ["person"]})
+    assert rule.check_name == "allowed_labels"
+
+WHOLE = ("Each person's polygon and bounding box must cover the whole person, including the head and the feet, "
+         "without large areas of extra background.")
+
+def test_a_check_s_own_default_settings_are_not_invented_thresholds():
+    [rule] = extract(WHOLE, "person_coverage", {"min_tolerance_px": 8, "tolerance_fraction": 0.04})
+    assert rule.check_name == "person_coverage" and rule.parameters == {} and not rule.extraction_notes
+
+def test_a_setting_that_is_not_the_default_must_still_be_stated():
+    [rule] = extract(WHOLE, "person_coverage", {"min_tolerance_px": 3, "tolerance_fraction": 0.04})
+    assert rule.check_name is None and "not stated" in rule.extraction_notes[0]
