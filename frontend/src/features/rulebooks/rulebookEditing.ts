@@ -65,6 +65,8 @@ export const CHECK_PARAMETER_TEMPLATES: Record<string, Record<string, unknown>> 
   mask_box_fill: { min_fill_fraction: 0.3, max_fill_fraction: 1 },
   mask_components: { max_component_count: 1 },
   person_coverage: { min_tolerance_px: 8, tolerance_fraction: 0.04 },
+  unannotated_people: { min_person_height_px: 40, min_score: 0.9 },
+  polygon_validity: {},
   annotation_guideline: {},
   annotation_ids: {},
   annotation_metadata: {},

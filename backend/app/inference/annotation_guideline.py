@@ -35,11 +35,16 @@ class InferenceUnavailable(RuntimeError):
     pass
 
 class GuidelineClient:
-    """Clients are constructed inside the child; no sockets in spawn arguments."""
+    """Clients are constructed inside the child; no sockets in spawn arguments.
 
-    def __init__(self, execution: ExecutionPin, *, transport=None, capture_diagnostics=False):
+    ``deadline`` (a ``time.monotonic()`` value) bounds every chat call: a call gets at most the time left,
+    and once none is left it is not made (``sample_budget_exhausted``), so only that call's result is lost.
+    """
+
+    def __init__(self, execution: ExecutionPin, *, transport=None, capture_diagnostics=False, deadline=None):
         self.execution = checked(ExecutionPin, execution)
         self.capture_diagnostics = capture_diagnostics
+        self.deadline = deadline
         self.call_log = []        # one record per request of the last v6 predict(); in memory only
         self.diagnostics = []     # opt-in excerpts of replies that failed validation; in memory only
         self._last_exchange = {}
@@ -51,13 +56,14 @@ class GuidelineClient:
     def close(self):
         self.client.close()
 
-    def request(self, method, path, payload=None, *, response_limit=None):
+    def request(self, method, path, payload=None, *, response_limit=None, timeout=None):
         limit = self.execution.max_response_bytes if response_limit is None else response_limit
         data = None if payload is None else json.dumps(payload, ensure_ascii=False, allow_nan=False).encode()
         if data is not None and len(data) > self.execution.max_request_bytes:
             raise InferenceUnavailable('context_limit')
         try:
-            with self.client.stream(method, path, content=data, headers={'Content-Type': 'application/json'}) as response:
+            with self.client.stream(method, path, content=data, headers={'Content-Type': 'application/json'},
+                                    **({} if timeout is None else {'timeout': timeout})) as response:
                 response.raise_for_status()
                 parts = []
                 total = 0
@@ -93,9 +99,18 @@ class GuidelineClient:
         if metadata.get('remote_host') or metadata.get('remote_model') or (not isinstance(metadata.get('capabilities'), list)) or ('vision' not in metadata['capabilities']):
             raise InferenceUnavailable('local_vision_unverified')
 
+    def _call_timeout(self):
+        """Seconds this chat call may take: the configured timeout, cut to what is left of the sample's budget."""
+        if self.deadline is None:
+            return None
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise InferenceUnavailable('sample_budget_exhausted')
+        return min(float(self.execution.timeout_seconds), remaining)
+
     def _chat_content(self, payload):
         """One verified chat call; returns the model's JSON text. Same checks as the v1-v3 path."""
-        response = self.request('POST', '/api/chat', payload)
+        response = self.request('POST', '/api/chat', payload, timeout=self._call_timeout())
         message = response.get('message')
         self._last_exchange = {key: response.get(key) for key in ('done_reason', 'prompt_eval_count', 'eval_count')
                                if type(response.get(key)) in (int, str)}
@@ -114,7 +129,7 @@ class GuidelineClient:
     def _predict_scoped(self, manifest, target, examples, asset_settings, reviewer_feedback):
         """v5: decide eligibility first, judge only eligible annotations, record per-target results."""
         from ..services.feedback_evidence import compute_scope
-        from ..services.rule_applicability import combine_results
+        from ..services.rule_applicability import combine_results, requirement_text
         case_id = unit_id(manifest, target)
         start = time.monotonic()
         verified = False
@@ -145,7 +160,7 @@ class GuidelineClient:
                 raise InferenceUnavailable('identity_mismatch')
             self.verify()
             verified = True
-            outcome, reason, scope = combine_results(scope, proposal)
+            outcome, reason, scope = combine_results(scope, proposal, requirement_text(target.rule))
             prediction = Prediction(case_id=case_id, rule_id=target.rule.rule_id, outcome=outcome, reason=reason,
                                     evidence_references=proposal.evidence_references)
         except InferenceUnavailable as error:
@@ -194,7 +209,7 @@ class GuidelineClient:
         Reviewer feedback is untrusted context for a fresh visual assessment of unchanged evidence.
         """
         from ..services.feedback_evidence import compute_scope
-        from ..services.rule_applicability import combine_focused
+        from ..services.rule_applicability import combine_focused, requirement_text
         if examples:
             raise FeedbackError('POLICY_INCOMPATIBLE')
         case_id = unit_id(manifest, target)
@@ -232,7 +247,7 @@ class GuidelineClient:
                                       'duration_ms': round(call.duration_ms, 1), **self._last_exchange_counts()})
             self.verify()
             verified = any(call.failure is None for call in calls)
-            outcome, reason, scope = combine_focused(scope, calls)
+            outcome, reason, scope = combine_focused(scope, calls, requirement_text(target.rule))
             references = list(dict.fromkeys(ref for call in calls if call.assessment for ref in call.assessment.evidence_references))
             prediction = Prediction(case_id=case_id, rule_id=target.rule.rule_id, outcome=outcome, reason=reason,
                                     evidence_references=references[:3] if verified else [])
@@ -274,7 +289,7 @@ class GuidelineClient:
                 source = json.loads(payload['messages'][-1]['content'])['target']['inputs']
                 if not source['object_inventory']:
                     raise InferenceUnavailable('no_annotation_objects_to_assess')
-            response = self.request('POST', '/api/chat', payload)
+            response = self.request('POST', '/api/chat', payload, timeout=self._call_timeout())
             if response.get('model') not in {self.execution.model, self.execution.model + ':latest'}:
                 raise InferenceUnavailable('model_identity_changed')
             if type(response.get('prompt_eval_count')) is not int or not 0 < response['prompt_eval_count'] < self.execution.num_ctx - self.execution.num_predict:

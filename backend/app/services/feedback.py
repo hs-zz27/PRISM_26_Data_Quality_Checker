@@ -62,7 +62,7 @@ def prepare_runtime(connection,request,book,*,settings,preserve_enclosure_runtim
     return request.model_copy(update={'feedback_runtime':runtime})
 
 
-def augment_evaluation(evaluation,rulebook,manifest,runtime,asset_settings,*,audit_id,sample_id,sample_revision,reviewer_feedback=None):
+def augment_evaluation(evaluation,rulebook,manifest,runtime,asset_settings,*,audit_id,sample_id,sample_revision,reviewer_feedback=None,processing_deadline=None):
     if runtime is None: return evaluation
     runtime=checked(FeedbackRuntime,runtime)
     if runtime.execution.enclosure is not None:
@@ -70,7 +70,15 @@ def augment_evaluation(evaluation,rulebook,manifest,runtime,asset_settings,*,aud
     targets=[r for r in rulebook.rules if r.check_name=='annotation_guideline']
     if not targets: return evaluation
     findings=[f for f in evaluation.findings if f.check_name!='annotation_guideline']
-    client=GuidelineClient(runtime.execution)
+    # Model calls stop before the sample's own deadline, so a slow model loses only the calls it cannot make:
+    # the measured findings and every finished answer are kept instead of the whole sample timing out.
+    deadline=None
+    if processing_deadline is not None:
+        import time
+        from datetime import UTC,datetime
+        from ..core.enclosure import SAMPLE_DEADLINE_MARGIN_SECONDS
+        deadline=time.monotonic()+max(0.0,(processing_deadline-datetime.now(UTC)).total_seconds()-SAMPLE_DEADLINE_MARGIN_SECONDS)
+    client=GuidelineClient(runtime.execution,**({} if deadline is None else {'deadline':deadline}))
     try:
         for rule in targets:
             target=RulePin(rulebook_id=rulebook.rulebook_id,rulebook_version=rulebook.version,rule=rule)

@@ -99,6 +99,13 @@ class PersonCoverageParameters(_RuleParameters):
     tolerance_fraction: FiniteNumber = Field(default=0.04, ge=0, le=1)
 
 
+class UnannotatedPeopleParameters(_RuleParameters):
+    """Which detected people must have an annotation: at least this tall, found with at least this score."""
+
+    min_person_height_px: NonnegativeInteger = Field(default=40, ge=0)
+    min_score: FiniteNumber = Field(default=0.9, ge=0.5, le=1)
+
+
 @dataclass(frozen=True)
 class CheckDefinition:
     """Execution metadata for one supported measurement check.
@@ -125,6 +132,7 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
     "polygon_validity": CheckDefinition(
         "polygon_validity", "object", EmptyParameters,
         "Supplied polygons must have at least three distinct vertices, nonzero area, no non-adjacent edge intersections or repeated vertices, and remain within image bounds. Only apply when the guidelines require these structural properties; this does not judge visual fit.",
+        evidence_terms=("polygon", "vertex", "vertices", "intersect", "contour", "outline", "segmentation"),
     ),
     "annotation_guideline": CheckDefinition(
         "annotation_guideline", "sample", EmptyParameters,
@@ -144,6 +152,20 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
         evidence_terms=("whole", "entire", "complete", "head", "feet", "foot", "cover", "contain", "include",
                         "background", "outline"),
     ),
+    "unannotated_people": CheckDefinition(
+        "unannotated_people", "sample", UnannotatedPeopleParameters,
+        "Every clearly visible person in the image must have an annotation. Measured: people found in the image "
+        "by a local person model are matched to the annotations, and each person with no annotation is reported "
+        "with where it is. Use for missing annotations, not for how well an annotation fits.",
+        # Phrases that require an annotation to exist. Not "every person" (coverage rules start that way), not
+        # "may be annotated" ("Only real people may be annotated" restricts annotations, it does not demand them)
+        # and not "must be labelled" ("must be labelled person, never car" is about which label).
+        evidence_terms=("unannotated", "missing annotation", "missing person", "missing people", "left without",
+                        "without an annotation", "without annotation", "must have an annotation",
+                        "should have an annotation", "must each have an annotation", "needs an annotation",
+                        "need an annotation", "must be annotated", "should be annotated", "shall be annotated",
+                        "not annotated"),
+    ),
     "allowed_labels": CheckDefinition(
         "allowed_labels", "object", AllowedLabelsParameters,
         "Each annotation label must be one of the explicitly configured allowed labels.",
@@ -152,6 +174,7 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
     "annotation_ids": CheckDefinition(
         "annotation_ids", "sample", EmptyParameters,
         "Annotation object IDs must be positive and unique.",
+        evidence_terms=("id", "identifier", "unique", "duplicate"),
     ),
     "mask_ids": CheckDefinition(
         "mask_ids", "sample", EmptyParameters,
@@ -166,10 +189,15 @@ CHECK_REGISTRY: dict[str, CheckDefinition] = {
     "annotation_metadata": CheckDefinition(
         "annotation_metadata", "sample", EmptyParameters,
         "Declared annotation metadata must match the available image and annotation measurements.",
+        evidence_terms=("width", "height", "dimension", "size", "metadata", "declared", "resolution",
+                        "file name", "filename", "count", "number of"),
     ),
     "box_validity": CheckDefinition(
         "box_validity", "object", EmptyParameters,
         "Each annotation box must be valid and lie within the image bounds.",
+        # "bounds", not "bound": "bounding box" appears in almost every box guideline.
+        evidence_terms=("valid", "inside", "within", "bounds", "boundary", "boundaries", "outside", "border",
+                        "beyond", "edge", "positive", "zero", "degenerate", "negative"),
     ),
     "box_overlaps": CheckDefinition(
         "box_overlaps", "pair", MaximumIoUParameters,

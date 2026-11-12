@@ -184,6 +184,34 @@ def _mentions(text: str, term: str) -> bool:
     return re.search(r'(?<![a-z])' + re.escape(term.lower()), text.lower()) is not None
 
 
+_PEOPLE = re.compile(r"\b(?:person|people|persons|pedestrians?|humans?)\b", re.IGNORECASE)
+# The whole person, not one part: person_coverage also judges every side and extra background, so a rule about
+# the head alone ("include the whole head") stays a visual judgement.
+_WHOLE_PERSON = re.compile(r"\b(?:whole|entire|complete|full)\s+(?:person|body|figure)\b"
+                           r"|\bhead\s+(?:and|to)\s+(?:the\s+)?(?:feet|foot|toes?)\b", re.IGNORECASE)
+_ENCLOSES = re.compile(r"\b(?:cover\w*|includ\w*|contain\w*|enclos\w*|encompass\w*)\b", re.IGNORECASE)
+
+
+def measured_alternative(requirement: str) -> tuple[str, str] | None:
+    """A measured check that does what a visual judgement was proposed for, read from the requirement alone.
+
+    A missing annotation cannot be judged by the visual model at all: it is asked about one annotation at a
+    time, so a person with no annotation is never in front of it. Whether an annotation covers the whole
+    person is measured exactly against the person found in the photo.
+    """
+    if not _PEOPLE.search(requirement):
+        return None
+    if any(_mentions(requirement, term) for term in get_check_definition('unannotated_people').evidence_terms):
+        return 'unannotated_people', (
+            "the visual model judges one annotation at a time and can never see a person who has no annotation; "
+            "the measured check finds every person in the photo and reports those without one")
+    if _WHOLE_PERSON.search(requirement) and _ENCLOSES.search(requirement):
+        return 'person_coverage', (
+            "whether an annotation covers the whole person is measured against the person found in the photo, "
+            "which is exact and repeatable")
+    return None
+
+
 def guard_mapping(check_name: str | None, parameters: dict[str, Any], requirement: str,
                   context: list[str]) -> tuple[str | None, dict[str, Any], list[str]]:
     """Retain only mappings grounded in the corresponding source requirement."""
@@ -197,6 +225,10 @@ def guard_mapping(check_name: str | None, parameters: dict[str, Any], requiremen
             f"The requirement or its context states an exact measured value ('{measured}'). "
             f"{check_name} is a visual model judgement and cannot measure it, so the requirement "
             "is kept unsupported for review. No existing check was substituted."]
+    if check_name == 'annotation_guideline' and (alternative := measured_alternative(requirement)):
+        name, why = alternative
+        return name, {}, [f"Proposed as {check_name}; mapped to the measured check {name} instead, because {why}. "
+                          "Review the mapping before confirming."]
     if (check_name != 'allowed_labels' and definition.evidence_terms
             and not any(_mentions(stated, term) for term in definition.evidence_terms)):
         return None, {}, [

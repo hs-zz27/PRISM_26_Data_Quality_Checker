@@ -79,7 +79,7 @@ def run_rule_checks(
     """
     ids = {"audit_id": audit_id, "sample_id": sample_id, "sample_revision": sample_revision}
     evaluation = evaluator(rulebook, measurements, **ids)
-    if any(rule.check_name == "person_coverage" for rule in rulebook.rules):
+    if any(rule.check_name in ("person_coverage", "unannotated_people") for rule in rulebook.rules):
         from .person_coverage import augment_person_coverage
         evaluation = augment_person_coverage(evaluation, rulebook, measurements, manifest, asset_settings, **ids)
     if (feedback_runtime is not None or enclosure_runtime is not None) and (manifest is None or asset_settings is None):
@@ -88,7 +88,7 @@ def run_rule_checks(
     if feedback_runtime is not None:
         from .feedback import augment_evaluation
         evaluation = augment_evaluation(evaluation, rulebook, manifest, feedback_runtime, asset_settings,
-                                        **ids, **feedback)
+                                        processing_deadline=processing_deadline, **ids, **feedback)
     if enclosure_runtime is not None:
         from .enclosure import augment_enclosure
         policy = ({"feedback_policy": feedback_runtime.policy}

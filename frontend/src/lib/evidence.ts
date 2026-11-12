@@ -83,6 +83,20 @@ function knownRows(checkName: string, result: Json, measurements: Json): Evidenc
       if (isRecord(first)) rows.push({ label: 'Detected person', value: box(first.person_box) });
       return rows;
     }
+    case 'unannotated_people': {
+      const missing = (Array.isArray(result.unannotated) ? result.unannotated : []).filter(isRecord);
+      const skipped = isRecord(result.not_counted) ? result.not_counted : {};
+      const rows: EvidenceRow[] = [
+        { label: 'People found in the image', value: formatValue(result.people_found) },
+        { label: 'With an annotation', value: formatValue(result.people_annotated) },
+        { label: 'Without an annotation', value: missing.length
+          ? missing.map((m) => `${box(m.box)} (${px(m.height_px)} tall, ${percent(m.score)} sure)`).join('; ')
+          : 'none' },
+      ];
+      const notCounted = Object.entries(skipped).filter(([, n]) => typeof n === 'number' && n > 0);
+      if (notCounted.length) rows.push({ label: 'Not counted', value: notCounted.map(([k, n]) => `${formatValue(n)} ${humanizeCode(k).toLowerCase()}`).join(', ') });
+      return rows;
+    }
     case 'allowed_labels':
       return [
         { label: 'Label', value: formatValue(measurements.actual_label) },

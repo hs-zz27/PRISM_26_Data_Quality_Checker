@@ -168,6 +168,42 @@ polygon with it.
   `/models`), or set `PERSON_SEGMENTER_CHECKPOINT`. Nothing is downloaded at audit time.
 - Offline benchmark (synthetic errors on human outlines; Penn-Fudan for tuning, COCO val2017 held out):
   93.1% accuracy and 98.5% of errors caught on COCO. See `.cache/validation/rcnn-benchmark-20261106/REPORT.md`.
+- **Suggest a correction** (no chat model needed): a failing box side moves to the measured person edge. A failing
+  COCO or LabelMe polygon is redrawn with only the flagged parts fixed (a missing part added, an extra patch
+  removed) and is proposed only if the redrawn outline passes the check; on the 100-photo COCO pack, 29 of 31
+  flagged outline errors got such a fix. A Penn-Fudan mask needs a new mask image, so the proposal says to use
+  Correct.
+
+## Every person annotated (`unannotated_people`)
+
+A measured rule for "every clearly visible person must have an annotation". The visual chat model cannot judge
+this at all: it is asked about one annotation at a time, so a person with no annotation is never in front of it.
+This check uses the same Mask R-CNN run as `person_coverage` (one run per image when a rulebook has both).
+
+- Each annotation claims the detected person it matches best (its mask or polygon by mask overlap, otherwise its
+  box; IoU at least 0.3). A detected person that no annotation claims is **missing an annotation** when it lies
+  mostly outside every annotation's outline (or box, when there is no outline), is at least
+  `min_person_height_px` tall (default 40) and was found with at least `min_score` certainty (default 0.9).
+- One finding per image (`object_id` null). **fail** names each person and where they are, for example
+  `1 person has no annotation: at [110, 84, 213, 337] (253 px tall, 100% sure)`; `result.unannotated[].box` is in
+  the annotation's own coordinates. People not counted (inside another annotation, too small, low score) are
+  counted in `result.not_counted`, not reported.
+- Model file missing or failing: **unavailable** (`person_segmenter_unavailable`), never a pass.
+- Measured on 282 COCO val2017 photos with every COCO person annotation supplied: 10 photos (4%) were flagged,
+  either for a person COCO left out or for a person the model invented. With one annotation removed at a time,
+  91% of people at least 100 px tall and 53% of people 40-100 px tall were reported. See
+  `.cache/validation/missing-person-20261109/`.
+
+## Visual guideline answers their own reasons contradict
+
+The chat model's verdict comes from its structured answer, never from its explanation. The explanation can only
+withdraw trust: a `pass` or `fail` becomes **unsure** (flag `reason_contradicts_answer`) when the explanation states
+the opposite (for example "compliance is yes" on a fail), and a `fail` becomes **unsure** (flag
+`reason_judges_label`) when it blames the label under a rule that is not about labels.
+
+Each chat call gets at most the time left before the sample's deadline (minus a 30 s margin). Once that time is
+used up the remaining calls are not made (`sample_budget_exhausted`): those annotations are unavailable, while the
+measured findings and every finished answer are kept instead of the whole sample timing out.
 
 ## Verification status
 

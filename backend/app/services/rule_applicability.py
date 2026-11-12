@@ -246,11 +246,33 @@ _DERIVED = re.compile(r"\bderived\b", re.IGNORECASE)
 _BLUR = re.compile(r"\b(?:blur\w*|out[\s-]of[\s-]focus)\b", re.IGNORECASE)
 _HIDDEN = re.compile(r"\b(?:hidden|occlud\w*|obscur\w*|not\s+visible|invisible|cut\s+off|truncat\w*)\b", re.IGNORECASE)
 _OBLIGATION = re.compile(r"\b(?:should|must|needs?|missing|fails?\s+to|does\s+not\s+include|omits?)\b", re.IGNORECASE)
+# The reason explains the answer and never decides it, but a reason that states the opposite of the answer,
+# or blames the label under a rule that is not about labels, means the answer cannot be trusted either way.
+_SAYS_COMPLIANT = re.compile(
+    r"\bcompliance\s+(?:is|=|:)\s*(?:yes|met|satisfied)\b|\b(?:is|are)\s+(?:fully\s+)?compliant\b"
+    r"|\b(?:satisf(?:y|ies|ied|ying)|meets|complies\s+with|fulfil+s)\s+(?:the|this|that)\s+(?:requirement|rule|guideline)",
+    re.IGNORECASE)
+_SAYS_VIOLATION = re.compile(
+    r"\bcompliance\s+(?:is|=|:)\s*no\b|\bviolat\w*|\bnon-?compliant\b|\bnot\s+compliant\b"
+    r"|\b(?:does\s+not|doesn't|fails?\s+to)\s+(?:satisfy|meet|comply|fulfil)",
+    re.IGNORECASE)
+_NEGATED = re.compile(r"\b(?:not|never|no|cannot|fails?\s+to)\s+(?:\w+\s+){0,2}$|n't\s+(?:\w+\s+){0,2}$", re.IGNORECASE)
+_LABEL_BLAME = re.compile(
+    r"\blabel(?:l?ed|s)?\b[^.;]{0,60}?\b(?:incorrect|wrong|mismatch\w*|inaccurate|invalid|should\s+be|instead\s+of)\b"
+    r"|\b(?:incorrect|wrong|inaccurate|invalid|mismatched)\s+(?:label|class|category)\b",
+    re.IGNORECASE)
+_LABEL_RULE = re.compile(r"\b(?:label\w*|categor(?:y|ies)|class(?:es)?|names?|named)\b", re.IGNORECASE)
 DOWNGRADING_FLAGS = {"geometry_not_supplied", "geometry_not_in_requirement", "reason_cites_unsupplied_box",
-                     "blur_offered_as_evidence"}
+                     "blur_offered_as_evidence", "reason_contradicts_answer", "reason_judges_label"}
 
 
-def _grounding_flags(assessment, target: ScopeObject, applicability: RuleApplicability) -> list[str]:
+def _states(pattern: re.Pattern, text: str) -> bool:
+    """True when ``pattern`` occurs in ``text`` without a negation just before it ("does not satisfy…")."""
+    return any(not _NEGATED.search(text[:match.start()]) for match in pattern.finditer(text))
+
+
+def _grounding_flags(assessment, target: ScopeObject, applicability: RuleApplicability,
+                     requirement: str = "") -> list[str]:
     flags = []
     judged = assessment.geometry
     if (judged == "box" and target.geometry.box != "supplied") or (
@@ -264,10 +286,21 @@ def _grounding_flags(assessment, target: ScopeObject, applicability: RuleApplica
         flags.append("reason_cites_unsupplied_box")
     if assessment.outcome == "fail" and _BLUR.search(text) and _HIDDEN.search(text) and _OBLIGATION.search(text):
         flags.append("blur_offered_as_evidence")
+    compliant, violation = _states(_SAYS_COMPLIANT, text), _states(_SAYS_VIOLATION, text)
+    if (assessment.outcome == "fail" and compliant and not violation) or (
+            assessment.outcome == "pass" and violation and not compliant):
+        flags.append("reason_contradicts_answer")
+    if assessment.outcome == "fail" and _LABEL_BLAME.search(text) and not _LABEL_RULE.search(requirement):
+        flags.append("reason_judges_label")
     return flags
 
 
-def combine_results(scope: TargetScope, response) -> tuple[str, str, TargetScope]:
+def requirement_text(rule) -> str:
+    """Everything the rule itself says: its description, cited sentence and context lines."""
+    return " ".join([rule.description, rule.source_sentence or "", *(getattr(rule, "context_sentences", None) or [])])
+
+
+def combine_results(scope: TargetScope, response, requirement: str = "") -> tuple[str, str, TargetScope]:
     """Sample-level (outcome, reason, scope) from the model's per-target assessments.
 
     Only assessments of eligible targets count. A target the model did not assess, an assessment
@@ -297,7 +330,7 @@ def combine_results(scope: TargetScope, response) -> tuple[str, str, TargetScope
         if assessment is None:
             results.append(TargetResult(object_key=target.object_key, outcome="unsure", flags=["no_assessment"]))
             continue
-        flags = _grounding_flags(assessment, target, scope.applicability)
+        flags = _grounding_flags(assessment, target, scope.applicability, requirement)
         outcome = assessment.outcome
         if assessment.condition == "not_present":
             flags.append("condition_not_present")
@@ -383,12 +416,15 @@ class FocusedCall:
 _COMPLIANCE_OUTCOME = {"yes": "pass", "no": "fail", "unclear": "unsure"}
 
 
-def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall]) -> tuple[str, str, TargetScope]:
+def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall],
+                    requirement: str = "") -> tuple[str, str, TargetScope]:
     """Sample-level (outcome, reason, scope) from per-target requests; every eligible target gets a result.
 
     The outcome of a target is derived from the model's structured fields, never from its prose:
     condition not_present excludes the target; an unclear condition or unclear compliance is ``unsure``;
-    otherwise compliance yes/no is pass/fail. A target whose request failed is ``unavailable`` (so an
+    otherwise compliance yes/no is pass/fail. The prose can only withdraw trust: a reason that contradicts
+    the answer, or blames the label under a rule that is not about labels, makes a pass or fail ``unsure``.
+    A target whose request failed is ``unavailable`` (so an
     applicable target without a trusted answer can never allow an overall pass) and carries the failure code;
     a target answered under a different key is ``unsure`` with ``no_assessment`` and the reference is rejected.
     A failure on one target never discards a valid failure on another.
@@ -427,7 +463,7 @@ def combine_focused(scope: TargetScope, calls: Sequence[FocusedCall]) -> tuple[s
         else:
             outcome = model_outcome = _COMPLIANCE_OUTCOME[a.compliance]
         flags += _grounding_flags(SimpleNamespace(geometry=a.geometry, reason=a.reason, outcome=outcome), target,
-                                  scope.applicability)
+                                  scope.applicability, requirement)
         if outcome in ("pass", "fail") and DOWNGRADING_FLAGS & set(flags):
             outcome = "unsure"
         results.append(TargetResult(object_key=target.object_key, outcome=outcome, model_outcome=model_outcome,

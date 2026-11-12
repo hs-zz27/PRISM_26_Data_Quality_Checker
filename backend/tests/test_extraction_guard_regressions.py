@@ -129,3 +129,44 @@ def test_a_check_s_own_default_settings_are_not_invented_thresholds():
 def test_a_setting_that_is_not_the_default_must_still_be_stated():
     [rule] = extract(WHOLE, "person_coverage", {"min_tolerance_px": 3, "tolerance_fraction": 0.04})
     assert rule.check_name is None and "not stated" in rule.extraction_notes[0]
+
+@pytest.mark.parametrize("text,check,parameters", [
+    ("Two annotation boxes must have an IoU of at most 0.6; a higher IoU means the same person was annotated twice.", "box_validity", {}),
+    ("The declared width and height of each image must match the actual image.", "box_overlaps", {"max_iou": 0.6}),
+    ("Every annotation ID must be a positive integer and unique.", "polygon_validity", {}),
+    ("Every polygon must have at least three distinct vertices and no self-intersections.", "annotation_metadata", {}),
+])
+def test_a_neighbouring_rules_check_is_not_accepted(text, check, parameters):
+    [rule] = extract(text, check, parameters)
+    assert rule.check_name is None and "does not mention what that check measures" in rule.extraction_notes[0]
+
+@pytest.mark.parametrize("text,check", [
+    ("Every bounding box must be valid and lie entirely within the image bounds.", "box_validity"),
+    ("The declared width and height of each image must match the actual image.", "annotation_metadata"),
+    ("Every annotation ID must be a positive integer and unique.", "annotation_ids"),
+    ("Every polygon must have at least three distinct vertices and no self-intersections.", "polygon_validity"),
+])
+def test_the_right_check_is_still_accepted(text, check):
+    [rule] = extract(text, check)
+    assert rule.check_name == check and not rule.extraction_notes
+
+@pytest.mark.parametrize("text,check", [
+    ("Each person's polygon and bounding box must cover the whole person, including the head and the feet, "
+     "without large areas of extra background.", "person_coverage"),
+    ("Every clearly visible person in the image must have an annotation; no visible person may be left without one.",
+     "unannotated_people"),
+])
+def test_a_measurable_person_rule_proposed_as_visual_gets_the_measured_check(text, check):
+    [rule] = extract(text, "annotation_guideline")
+    assert rule.check_name == check and rule.parameters == {}
+    assert "mapped to the measured check" in rule.extraction_notes[0]
+
+@pytest.mark.parametrize("text", [
+    "Only real people may be annotated; statues, posters, pictures, mannequins and reflections of people must not be annotated.",
+    "Each annotation must mark exactly one person.",
+    "The bounding box of a fully visible person must include the whole head, including hair and any headwear.",
+    "Every annotation drawn around a visible person must be labelled person, never car.",
+])
+def test_other_person_rules_stay_visual(text):
+    [rule] = extract(text, "annotation_guideline")
+    assert rule.check_name == "annotation_guideline"

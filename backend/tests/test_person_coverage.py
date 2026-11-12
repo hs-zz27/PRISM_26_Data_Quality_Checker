@@ -225,23 +225,87 @@ def test_suggested_correction_uses_the_measured_box_for_reviewed_people(monkeypa
     assert rows[0]["annotation"]["bbox"] == [X0 + 1, Y0 + 46, X1 + 1, Y1 + 1]  # the draft never edits the source
 
 
-@pytest.mark.parametrize("object_keys, outline_message", [(None, True), (["/annotations/0"], True),
-                                                          (["/annotations/1"], False)])
-def test_outline_problem_without_a_chat_model_says_to_use_correct(monkeypatch, object_keys, outline_message):
-    from backend.app.services.review_correction import OUTLINE_NO_SUGGESTION, attach_review_context, object_key
-    monkeypatch.setattr("backend.app.storage.workflow_repository.read_manifest_asset_file", fake_reader)
+# ── measured outline suggestions (COCO) ──────────────────────────────────────
+def coco_head_cut_case():
+    """A COCO document with two people: the first outline leaves out the head, the second is right.
+
+    The rows are what the app's own COCO reader makes of it, so the proposal can be written back to the source.
+    """
+    import json
+    from backend.app.datasets.coco import parse_coco
+    from backend.app.datasets.json_sample import display_objects
     contour = cv2.findContours(PERSON.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0].reshape(-1, 2)
     good = [[float(x), float(y)] for x, y in contour]
-    box = [X0, Y0, X1 + 1, Y1 + 1]  # the box is right; only the first outline leaves out the head
-    rows = [{"annotation": {"object_id": 1, "source_key": "/annotations/0", "polygons": [[[x, max(y, Y0 + 45.0)] for x, y in good]],
-                            "bbox": box, "bbox_origin": "supplied"}},
-            {"annotation": {"object_id": 2, "source_key": "/annotations/1", "polygons": [good], "bbox": box,
-                            "bbox_origin": "supplied"}}]
-    assert [object_key(row["annotation"]) for row in rows] == ["/annotations/0", "/annotations/1"]
+    head_cut = [[x, max(y, Y0 + 45.0)] for x, y in good]
+    annotations = [{"id": i + 1, "image_id": 1, "category_id": 1, "iscrowd": 0, "area": 1.0,
+                    "segmentation": [[v for point in points for v in point]],
+                    "bbox": [X0, Y0, X1 + 1 - X0, Y1 + 1 - Y0]}  # the boxes are right
+                   for i, points in enumerate((head_cut, good))]
+    document = {"images": [{"id": 1, "file_name": "p.png", "width": W, "height": H}], "annotations": annotations,
+                "categories": [{"id": 1, "name": "person"}]}
+    rows = [{"annotation": o.model_dump(mode="json")} for o in display_objects(parse_coco(document).images[0])]
+
+    def reader(manifest, kind, settings, **_):
+        return (None, json.dumps(document).encode()) if kind == "annotation_text" else fake_reader(manifest, kind, settings)
     manifest = SimpleNamespace(**{**vars(penn_fudan_manifest()), "annotation_format": "coco", "image_key": "/images/0"})
+    return rows, reader, manifest
+
+
+def test_outline_problem_gets_a_measured_outline_fix(monkeypatch):
+    from backend.app.services.review_correction import attach_review_context
+    rows, reader, manifest = coco_head_cut_case()
+    monkeypatch.setattr("backend.app.storage.workflow_repository.read_manifest_asset_file", fake_reader)
+    monkeypatch.setattr("backend.app.services.review_correction.read_manifest_asset_file", reader)
     evaluation = run(manifest, rows, lambda: SimpleNamespace(segment=lambda image: SEG))
     assert {f.object_id: f.outcome for f in evaluation.findings} == {1: FindingOutcome.FAIL, 2: FindingOutcome.PASS}
+    proposal = attach_review_context({"objects": rows}, feedback(), manifest, rulebook(), SimpleNamespace(), None, None,
+                                     evaluation=evaluation,
+                                     segmenter_factory=lambda: SimpleNamespace(segment=lambda image: SEG))["correction_proposal"]
+    assert proposal["method"] == "person_coverage" and proposal["status"] == "proposed"
+    assert proposal["reason"].startswith("Measured by the person check (Mask R-CNN). Outline: added the person's head/top")
+    fixed, untouched = proposal["objects"]
+    assert untouched == rows[1]["annotation"] and fixed["bbox"] == rows[0]["annotation"]["bbox"]
+    assert fixed["polygons"] != rows[0]["annotation"]["polygons"]
+    assert all(3 <= len(part) <= pc.MAX_OUTLINE_POINTS for part in fixed["polygons"])
+    assert pc.object_coverage(fixed, "coco", (W, H), None, SEG, PARAMS)[0] is FindingOutcome.PASS
+
+
+@pytest.mark.parametrize("object_keys, outline_message", [(None, True), (["/annotations/0"], True),
+                                                          (["/annotations/1"], False)])
+def test_outline_problem_without_a_fix_says_to_use_correct(monkeypatch, object_keys, outline_message):
+    from backend.app.services.review_correction import OUTLINE_NO_SUGGESTION, attach_review_context, object_key
+    rows, reader, manifest = coco_head_cut_case()
+    assert [object_key(row["annotation"]) for row in rows] == ["/annotations/0", "/annotations/1"]
+    monkeypatch.setattr("backend.app.storage.workflow_repository.read_manifest_asset_file", fake_reader)
+    monkeypatch.setattr("backend.app.services.review_correction.read_manifest_asset_file", reader)
+    evaluation = run(manifest, rows, lambda: SimpleNamespace(segment=lambda image: SEG))
+
+    def unavailable_model():
+        raise RuntimeError("person model unavailable")
     proposal = attach_review_context({"objects": rows}, feedback(object_keys), manifest, rulebook(), SimpleNamespace(),
-                                     None, None, evaluation=evaluation)["correction_proposal"]
+                                     None, None, evaluation=evaluation,
+                                     segmenter_factory=unavailable_model)["correction_proposal"]
     assert proposal["status"] == "unavailable" and proposal["objects"] is None and "method" not in proposal
     assert (proposal["reason"] == OUTLINE_NO_SUGGESTION) is outline_message
+
+
+def test_measured_outline_fix_is_none_when_nothing_is_flagged_or_for_masks():
+    rows, _, _ = coco_head_cut_case()
+    assert pc.measured_outline_fix(rows[1]["annotation"], "coco", (W, H), SEG, PARAMS) is None   # already right
+    assert pc.measured_outline_fix({"object_id": 1, "bbox": [1, 1, 5, 5]}, "penn_fudan", (W, H), SEG, PARAMS) is None
+
+
+@pytest.mark.parametrize("geometries, check, object_keys, message", [
+    ([{"geometry": "mask", "regions": [{}]}], "person_coverage", None, "MASK_NO_SUGGESTION"),
+    ([{"geometry": "polygon", "regions": [{}]}], "person_coverage", None, "OUTLINE_NO_SUGGESTION"),
+    ([{"geometry": "box", "regions": [{}]}], "person_coverage", None, None),
+    ([], "unannotated_people", None, "MISSING_NO_SUGGESTION"),
+    ([], "unannotated_people", ["penn_fudan:1"], None),    # a person with no annotation is not one object
+])
+def test_plain_message_names_what_has_no_automatic_suggestion(geometries, check, object_keys, message):
+    from backend.app.services import review_correction as rc
+    annotation = {"object_id": 1, "label": "person", "bbox": [1, 1, 5, 5]} if check == "person_coverage" else None
+    finding = SimpleNamespace(check_name=check, outcome=FindingOutcome.FAIL, evidence=SimpleNamespace(
+        measurements={"annotation": annotation, "result": {"geometries": geometries}}))
+    expected = getattr(rc, message) if message else None
+    assert rc._no_suggestion_reason(feedback(object_keys), SimpleNamespace(findings=[finding])) == expected

@@ -93,3 +93,21 @@ it('shows why a coverage result needs a human look', () => {
     result: { problems: [], geometries: [{ geometry: 'polygon', reason: 'no_matching_person', best_match_iou: 0.1 }] } }));
   expect(rows['Polygon']).toBe('No detected person matches this annotation — check it by eye');
 });
+
+it('lists the people found without an annotation and what was not counted', () => {
+  const rows = asMap(summarizeEvidence('unannotated_people', { status: 'completed', reason: null, detail: null,
+    result: { people_found: 3, annotations: 1, people_annotated: 1,
+      unannotated: [{ box: [109, 83, 218, 339], height_px: 255, score: 0.99, inside_annotations: 0 }],
+      not_counted: { inside_an_annotation: 0, too_small: 1, low_score: 0 } } }));
+  expect(rows['People found in the image']).toBe('3');
+  expect(rows['With an annotation']).toBe('1');
+  expect(rows['Without an annotation']).toBe('[109, 83, 218, 339] (255 px tall, 99% sure)');
+  expect(rows['Not counted']).toBe('1 too small');
+});
+
+it('says none when everyone found has an annotation', () => {
+  const rows = asMap(summarizeEvidence('unannotated_people', { status: 'completed',
+    result: { people_found: 2, people_annotated: 2, unannotated: [], not_counted: {} } }));
+  expect(rows['Without an annotation']).toBe('none');
+  expect(rows['Not counted']).toBeUndefined();
+});
