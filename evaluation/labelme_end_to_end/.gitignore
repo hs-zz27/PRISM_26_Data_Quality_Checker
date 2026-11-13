@@ -1,0 +1,7 @@
+# Generated files contain third-party photos (COCO: CC BY 2.0; LabelMe examples: PASCAL VOC images).
+# build_dataset.py rebuilds them byte for byte. The answer key stays local so it is never uploaded by mistake.
+archives/
+answer_key.json
+verification.json
+results.json
+run_state.json

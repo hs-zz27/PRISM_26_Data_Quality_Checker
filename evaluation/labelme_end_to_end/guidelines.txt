@@ -1,0 +1,3 @@
+Only people are annotated in these images, so the only allowed label is person.
+Each person annotation must cover the whole person, including head and feet, without large extra background.
+Every clearly visible person must have an annotation.

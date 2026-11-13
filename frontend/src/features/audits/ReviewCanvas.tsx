@@ -5,6 +5,7 @@ import { bboxToCss, cssToImageCoord, formatBbox, formatCursorPos, type BBox1Base
 import type { components } from '../../api/generated/openapi';
 import { isTypingTarget } from '../../lib/keyboard';
 import { colorFor, getObjectBounds, textColorFor } from './reviewWorkspace';
+import { badgeWidth, boundarySegments, drawsBox, isBoxCheck, placeBadges, type CssBox, type OverlayShape } from './overlayLayout';
 
 type Finding = components['schemas']['Finding'];
 export interface CanvasObject {
@@ -30,125 +31,6 @@ interface ReviewCanvasProps {
   isCorrection?: boolean;
 }
 
-interface BadgePlacement {
-  displayNumber: number;
-  text: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  leaderTarget: { x: number; y: number } | null;
-}
-
-const BADGE_W = 26;
-const BADGE_H = 18;
-
-
-
-/** Check if two rects overlap. */
-function rectsOverlap(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }): boolean {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-/** Place numbered badges near objects, avoiding overlap (like the backend _place_badge). */
-function placeBadges(
-  objects: Array<{ displayNumber: number; text: string; bounds: { x0: number; y0: number; x1: number; y1: number } }>,
-  panelW: number,
-  panelH: number,
-): BadgePlacement[] {
-  const occupied: Array<{ x: number; y: number; w: number; h: number }> = [];
-  const placements: BadgePlacement[] = [];
-
-  // Sort by area ascending — smaller objects first so they get priority for nearby placement
-  const ordered = [...objects].sort((a, b) => {
-    const areaA = (a.bounds.x1 - a.bounds.x0) * (a.bounds.y1 - a.bounds.y0);
-    const areaB = (b.bounds.x1 - b.bounds.x0) * (b.bounds.y1 - b.bounds.y0);
-    return areaA - areaB;
-  });
-
-  for (const obj of ordered) {
-    const { bounds, displayNumber, text } = obj;
-    const w = BADGE_W + text.length * 3; // slightly wider for symbols
-    const h = BADGE_H;
-    const cx = (bounds.x0 + bounds.x1) / 2;
-    const cy = (bounds.y0 + bounds.y1) / 2;
-
-    // Candidate positions near the object
-    const candidates: Array<[number, number]> = [
-      [bounds.x0, bounds.y0 - h - 1],
-      [bounds.x0 + 1, bounds.y0 + 1],
-      [bounds.x1 - w, bounds.y0 - h - 1],
-      [bounds.x1 - w - 1, bounds.y0 + 1],
-      [bounds.x0, bounds.y1 + 1],
-      [cx - w / 2, cy - h / 2],
-    ];
-    // Expand search outward
-    const steps: Array<[number, number]> = [
-      [-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0],
-      [-2, -1], [2, -1], [-2, 1], [2, 1], [-1, -2], [1, -2], [-1, 2], [1, 2],
-    ];
-    for (let ring = 1; ring <= 10; ring++) {
-      for (const [dx, dy] of steps) {
-        candidates.push([bounds.x0 + dx * ring * (w * 0.55 + 2), bounds.y0 + dy * ring * (h + 3) * 0.75]);
-      }
-    }
-
-    let bestCost = Infinity;
-    let bestRect = { x: bounds.x0, y: Math.max(0, bounds.y0 - h - 1), w, h };
-
-    for (const [left, top] of candidates) {
-      const clampedLeft = Math.min(Math.max(left, 0), Math.max(panelW - w, 0));
-      const clampedTop = Math.min(Math.max(top, 0), Math.max(panelH - h, 0));
-      const rect = { x: clampedLeft, y: clampedTop, w, h };
-      let cost = 0;
-      for (const other of occupied) {
-        if (rectsOverlap(rect, other)) {
-          const overlapW = Math.min(rect.x + rect.w, other.x + other.w) - Math.max(rect.x, other.x);
-          const overlapH = Math.min(rect.y + rect.h, other.y + other.h) - Math.max(rect.y, other.y);
-          cost += overlapW * overlapH;
-        }
-      }
-      if (cost === 0) {
-        bestRect = rect;
-        bestCost = 0;
-        break;
-      }
-      if (cost < bestCost) {
-        bestCost = cost;
-        bestRect = rect;
-      }
-    }
-
-    occupied.push(bestRect);
-
-    // Check if badge is touching the object bounds
-    const touching = (
-      bestRect.x <= bounds.x1 + 2 && bestRect.x + bestRect.w >= bounds.x0 - 2 &&
-      bestRect.y <= bounds.y1 + 2 && bestRect.y + bestRect.h >= bounds.y0 - 2
-    );
-
-    let leaderTarget: { x: number; y: number } | null = null;
-    if (!touching) {
-      leaderTarget = {
-        x: Math.min(Math.max((bestRect.x + bestRect.w / 2), bounds.x0), bounds.x1),
-        y: Math.min(Math.max((bestRect.y + bestRect.h / 2), bounds.y0), bounds.y1),
-      };
-    }
-
-    placements.push({
-      displayNumber,
-      text,
-      x: bestRect.x,
-      y: bestRect.y,
-      width: bestRect.w,
-      height: bestRect.h,
-      leaderTarget,
-    });
-  }
-
-  return placements;
-}
-
 export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
   sampleId,
   imageSize,
@@ -167,9 +49,9 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
   const panModeRef = useRef(false);
   const [imageError, setImageError] = useState(false);
   const {
-    showMask, showBoxes, showPolygons, showLabels, showLegend,
+    showMask, showBoxes, showPolygons, showLabels, showLegend, originalOnly,
     maskOpacity, selectedInstanceId, zoom, pan,
-    toggleMask, toggleBoxes, togglePolygons, toggleLabels, toggleLegend,
+    toggleMask, toggleBoxes, togglePolygons, toggleLabels, toggleLegend, toggleOriginalOnly,
     setMaskOpacity, setSelectedInstanceId, setZoom, setPan,
   } = useCanvasStore();
   const continuous = annotationFormat === 'coco' || annotationFormat === 'labelme' || objects.some((obj) => obj.coordinate_system === 'zero_based_continuous');
@@ -239,11 +121,15 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
         e.preventDefault();
         zoomToSelected();
       }
+      if ((e.key === 'o' || e.key === 'O') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        toggleOriginalOnly();
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => { if (e.code === 'Space') panModeRef.current = false; };
     window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp);
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };
-  }, [selectedInstanceId, zoomToSelected]);
+  }, [selectedInstanceId, zoomToSelected, toggleOriginalOnly]);
 
   // Hit-testing and overlap cycling when clicking geometry on the canvas
   const handleStageClick = useCallback((e: React.MouseEvent) => {
@@ -313,21 +199,62 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
     }
   };
 
-  // Compute badge placements for numbered markers
-  const badgePlacements = useMemo(() => {
-    const badgeInputs: Array<{ displayNumber: number; text: string; bounds: { x0: number; y0: number; x1: number; y1: number } }> = [];
+  // What is drawn for each object. An object with a polygon is drawn as that polygon only; its box appears
+  // only when a saved box-check finding is about it, so older audits still show their evidence.
+  const polygonData = annotationFormat === 'coco' || annotationFormat === 'labelme';
+  const boxFindingIds = useMemo(
+    () => new Set(findings.filter((f) => f.object_id != null && isBoxCheck(f.check_name)).map((f) => f.object_id as number)),
+    [findings],
+  );
+  const shapes = useMemo(() => {
+    const map = new Map<number, OverlayShape>();
+    for (const obj of objects) {
+      const box: CssBox | null = obj.bbox && drawsBox(obj, boxFindingIds.has(obj.object_id))
+        ? (obj.coordinate_system === 'zero_based_continuous'
+          ? { left: obj.bbox[0], top: obj.bbox[1], width: obj.bbox[2] - obj.bbox[0], height: obj.bbox[3] - obj.bbox[1] }
+          : bboxToCss(obj.bbox))
+        : null;
+      map.set(obj.object_id, { polygons: obj.polygons ?? [], box });
+    }
+    return map;
+  }, [objects, boxFindingIds]);
+  const anyBoxDrawn = useMemo(() => [...shapes.values()].some((shape) => shape.box != null), [shapes]);
+
+  // Labels: the display number, "!" when a finding needs a look, then the annotation's stable key.
+  const badgeParts = useMemo(() => {
+    const map = new Map<number, { number: string; key: string | null }>();
     for (const obj of visibleObjects) {
       const dn = displayNumberMap.get(obj.object_id) ?? 0;
       if (dn === 0) continue;
-      const b = getObjectBounds(obj);
-      if (!b) continue;
-      const isDerived = obj.bbox_origin === 'derived_from_polygon' && obj.bbox != null;
-      const hasDiag = findings.some((f) => f.object_id === obj.object_id && (f.outcome === 'fail' || f.outcome === 'unsure'));
-      const suffix = (isDerived ? '*' : '') + (hasDiag ? '!' : '');
-      badgeInputs.push({ displayNumber: dn, text: `#${dn}${suffix}`, bounds: b });
+      const flagged = findings.some((f) => f.object_id === obj.object_id && (f.outcome === 'fail' || f.outcome === 'unsure'));
+      map.set(dn, { number: `#${dn}${flagged ? '!' : ''}`, key: obj.source_key?.trim() ? obj.source_key : null });
     }
-    return placeBadges(badgeInputs, width, height);
-  }, [visibleObjects, displayNumberMap, width, height, findings]);
+    return map;
+  }, [visibleObjects, displayNumberMap, findings]);
+
+  // Labels are placed off every drawn outline and off each other.
+  const badgePlacements = useMemo(() => {
+    const inputs = [];
+    const drawn: OverlayShape[] = [];
+    for (const obj of visibleObjects) {
+      const dn = displayNumberMap.get(obj.object_id) ?? 0;
+      const parts = badgeParts.get(dn);
+      const b = getObjectBounds(obj);
+      const shape = shapes.get(obj.object_id);
+      if (!parts || !b || !shape) continue;
+      inputs.push({ displayNumber: dn, text: parts.key ? `${parts.number} ${parts.key}` : parts.number, bounds: b });
+      drawn.push({ polygons: showPolygons ? shape.polygons : [], box: showBoxes ? shape.box : null });
+    }
+    return placeBadges(inputs, width, height, boundarySegments(drawn));
+  }, [visibleObjects, displayNumberMap, badgeParts, shapes, showPolygons, showBoxes, width, height]);
+
+  // The selected object is drawn last, so no other outline can hide it.
+  const drawOrder = useMemo(
+    () => [...visibleObjects].sort((a, b) => Number(a.object_id === selectedInstanceId) - Number(b.object_id === selectedInstanceId)),
+    [visibleObjects, selectedInstanceId],
+  );
+  const selectedObject = objects.find((obj) => obj.object_id === selectedInstanceId) ?? null;
+  const someSelected = selectedObject != null && visibleObjects.includes(selectedObject);
 
   // Objects with no box and no polygon have no location, so they are never
   // drawn on the image; they are listed in a fixed strip instead.
@@ -344,7 +271,9 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
       <button title="Fit image (F)" aria-label="Fit image" onClick={handleFit}><Maximize2 size={14}/></button>
       <button className={selectedInstanceId != null ? 'is-on' : ''} disabled={selectedInstanceId == null} title="Zoom to selected object (Z)" aria-label="Zoom to selected object" onClick={zoomToSelected}><Crosshair size={14}/></button>
       <i/>
-      <button className={showBoxes ? 'is-on' : ''} title="Toggle boxes (B)" aria-label="Toggle boxes" onClick={toggleBoxes}>B</button>
+      <button className={originalOnly ? 'is-on' : ''} aria-pressed={originalOnly} title="Show the original photo only, with nothing drawn on it (O)" aria-label="Show the original photo only" onClick={toggleOriginalOnly}>Original</button>
+      <i/>
+      {anyBoxDrawn && <button className={showBoxes ? 'is-on' : ''} title="Toggle boxes (B)" aria-label="Toggle boxes" onClick={toggleBoxes}>B</button>}
       <button className={showPolygons ? 'is-on' : ''} title="Toggle polygons (P)" aria-label="Toggle polygons" onClick={togglePolygons}>P</button>
       <button className={showLabels ? 'is-on' : ''} title="Toggle labels (L)" aria-label="Toggle labels" onClick={toggleLabels}><Tag size={14}/></button>
       <button className={showMask ? 'is-on' : ''} title="Toggle mask (M)" aria-label="Toggle mask" onClick={toggleMask}>{showMask ? <Eye size={14}/> : <EyeOff size={14}/>}</button>
@@ -356,49 +285,61 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
     {/* Legend overlay */}
     {showLegend && <div className="canvas-legend" role="note" aria-label="Overlay legend">
       <div className="canvas-legend-title">How to read this overlay</div>
-      <div className="canvas-legend-row"><span className="canvas-legend-swatch" style={{ borderStyle: 'solid' }}/> Solid line: supplied geometry (from source file)</div>
-      <div className="canvas-legend-row"><span className="canvas-legend-swatch" style={{ borderStyle: 'dashed' }}/> Dashed line: derived box (computed from polygon vertices, not in source file)</div>
-      <div className="canvas-legend-row"><span className="mono">#N</span> Display number matching object list entry</div>
-      <div className="canvas-legend-row"><span className="mono">*</span> Bounding box is derived from polygon vertices</div>
-      <div className="canvas-legend-row"><span className="mono">!</span> Diagnostic finding flagged or unsure for this object</div>
-      <div className="canvas-legend-row">Colors match between geometry, marker and list entry.</div>
+      <div className="canvas-legend-row"><span className="canvas-legend-swatch" style={{ borderTopWidth: 1 }}/> Thin line: an annotation, drawn exactly as the file has it</div>
+      <div className="canvas-legend-row"><span className="canvas-legend-swatch is-selected-swatch"/> Thick line with a tinted fill: the selected annotation. The others fade.</div>
+      {anyBoxDrawn && <div className="canvas-legend-row"><span className="canvas-legend-swatch is-box-swatch"/> Rectangle: a box from the annotation file</div>}
+      <div className="canvas-legend-row"><span className="mono">#N</span>: the number in the object list, followed by the annotation’s key in the file</div>
+      <div className="canvas-legend-row"><span className="mono">!</span>: a finding for this annotation needs a look</div>
+      <div className="canvas-legend-row"><span className="mono">Original</span>: hides everything drawn over the photo. The photo itself is never changed.</div>
+      <div className="canvas-legend-row">Each annotation keeps one colour on the image and in the list.</div>
       {isCorrection && <div className="canvas-legend-row"><em>Showing proposed correction (preview, not saved).</em></div>}
     </div>}
 
     <div className="canvas-stage" ref={stageRef} style={{ width, height, transform: `translate3d(${pan.x}px,${pan.y}px,0) scale(${zoom})` }}>
       {assets?.image?.url && !imageError ? <img src={assets.image.url} alt={sampleId ?? 'Sample'} draggable={false} onError={() => setImageError(true)}/> : <div className="canvas-empty" role="status">{imageError ? 'Image could not be loaded' : 'No image asset for this revision'}</div>}
-      {showMask && (assets?.mask_preview?.url ?? assets?.mask?.url) && <img className="canvas-mask" src={assets.mask_preview?.url ?? assets.mask?.url} alt="Mask preview" style={{ opacity: maskOpacity }} draggable={false} onError={() => setImageError(true)}/>}
-      {(showBoxes || showPolygons) && <svg className="canvas-overlay" viewBox={`0 0 ${width} ${height}`} aria-label="Object annotations" onClick={handleStageClick}>{visibleObjects.map((obj) => {
-        const b = obj.bbox ? (obj.coordinate_system === 'zero_based_continuous' ? { left: obj.bbox[0], top: obj.bbox[1], width: obj.bbox[2] - obj.bbox[0], height: obj.bbox[3] - obj.bbox[1] } : bboxToCss(obj.bbox)) : null;
+      {!originalOnly && showMask && (assets?.mask_preview?.url ?? assets?.mask?.url) && <img className="canvas-mask" src={assets.mask_preview?.url ?? assets.mask?.url} alt="Mask preview" style={{ opacity: maskOpacity }} draggable={false} onError={() => setImageError(true)}/>}
+      {!originalOnly && (showBoxes || showPolygons) && <svg className="canvas-overlay" viewBox={`0 0 ${width} ${height}`} aria-label="Object annotations" onClick={handleStageClick}>{drawOrder.map((obj) => {
+        const shape = shapes.get(obj.object_id);
+        const b = shape?.box ?? null;
         const state = outcome(obj.object_id);
         const selected = selectedInstanceId === obj.object_id;
         const dn = displayNumberMap.get(obj.object_id) ?? 0;
         const objColor = colorFor(dn);
-        const isDerived = obj.bbox_origin === 'derived_from_polygon';
-        if (!b && !obj.polygons?.length) return null;
-        return <g key={obj.object_id} role="button" tabIndex={0} aria-label={`Object ${dn}, ${obj.label}, ${obj.bbox ? formatBbox(obj.bbox) : "no box"}`} onClick={(e) => { e.stopPropagation(); handleStageClick(e); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); } }} className={`box-${state}${selected ? ' is-selected' : ''}`}>
-          {/* Polygons */}
-          {showPolygons && obj.polygons?.map((part, index) => <polygon key={index} points={part.map((point) => point.join(',')).join(' ')} fill="none" stroke={objColor} strokeWidth={selected ? 2.5 : 1.5} vectorEffect="non-scaling-stroke" />)}
-          {/* Boxes: solid for supplied, dashed for derived */}
-          {showBoxes && b && <>
-            <rect x={b.left} y={b.top} width={b.width} height={b.height} stroke={objColor} style={{ stroke: objColor }} strokeDasharray={isDerived ? '6 4' : 'none'} vectorEffect="non-scaling-stroke" />
-          </>}
+        const parts = obj.polygons ?? [];
+        if (!b && !parts.length) return null;
+        const points = parts.reduce((total, part) => total + part.length, 0);
+        const geometry = parts.length ? `polygon with ${points} points` : (obj.bbox ? formatBbox(obj.bbox) : 'no geometry');
+        const key = obj.source_key?.trim() ? `${obj.source_key}, ` : '';
+        return <g key={obj.object_id} role="button" tabIndex={0} aria-pressed={selected} aria-label={`Object ${dn}, ${obj.label}, ${key}${geometry}`} onClick={(e) => { e.stopPropagation(); handleStageClick(e); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); } }} className={`box-${state}${selected ? ' is-selected' : ''}${someSelected && !selected ? ' is-dimmed' : ''}`}>
+          {/* Polygons, with the file's own points. Selected: dark halo, thick outline and a tinted fill. */}
+          {showPolygons && parts.map((part, index) => {
+            const drawnPoints = part.map((point) => point.join(',')).join(' ');
+            return <React.Fragment key={index}>
+              {selected && <polygon className="overlay-halo" points={drawnPoints} fill="none" stroke="rgba(10,10,10,0.85)" strokeWidth={7} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+              <polygon className="overlay-outline" points={drawnPoints} fill={selected ? objColor : 'none'} fillOpacity={selected ? 0.22 : undefined} stroke={objColor} strokeWidth={selected ? 4 : 1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            </React.Fragment>;
+          })}
+          {/* A box is drawn only for an object with no polygon, or for a saved box-check finding. */}
+          {showBoxes && b && <rect x={b.left} y={b.top} width={b.width} height={b.height} stroke={objColor} style={{ stroke: objColor, ...(selected ? { fill: objColor, fillOpacity: 0.18, strokeWidth: 4 } : {}) }} strokeDasharray="none" vectorEffect="non-scaling-stroke" />}
         </g>;
       })}
-      {/* Numbered badges */}
+      {/* Labels: number and stable key, placed off every outline */}
       {showLabels && badgePlacements.map((badge) => {
         const objColor = colorFor(badge.displayNumber);
         const txtColor = textColorFor(badge.displayNumber);
         const obj = objects.find((o) => displayNumberMap.get(o.object_id) === badge.displayNumber);
         const selected = obj ? selectedInstanceId === obj.object_id : false;
-        return <g key={`badge-${badge.displayNumber}`} className={selected ? 'canvas-badge is-selected' : 'canvas-badge'} onClick={(e) => { e.stopPropagation(); if (!obj) return; const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); }} style={{ cursor: 'pointer' }}>
-          {/* Leader line if badge is displaced */}
+        const parts = badgeParts.get(badge.displayNumber) ?? { number: badge.text, key: null };
+        const numberWidth = badgeWidth(parts.number);
+        return <g key={`badge-${badge.displayNumber}`} className={`canvas-badge${selected ? ' is-selected' : ''}${someSelected && !selected ? ' is-dimmed' : ''}`} onClick={(e) => { e.stopPropagation(); if (!obj) return; const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); }} style={{ cursor: 'pointer' }}>
+          {/* Leader line if the label sits away from its object */}
           {badge.leaderTarget && <>
             <line x1={badge.x + badge.width / 2} y1={badge.y + badge.height / 2} x2={badge.leaderTarget.x} y2={badge.leaderTarget.y} stroke="rgba(20,20,20,0.6)" strokeWidth={3} vectorEffect="non-scaling-stroke" />
             <line x1={badge.x + badge.width / 2} y1={badge.y + badge.height / 2} x2={badge.leaderTarget.x} y2={badge.leaderTarget.y} stroke={objColor} strokeWidth={1} vectorEffect="non-scaling-stroke" />
           </>}
           <rect x={badge.x} y={badge.y} width={badge.width} height={badge.height} rx={3} fill={objColor} style={{ fill: objColor }} stroke="rgba(20,20,20,0.7)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-          <text x={badge.x + badge.width / 2} y={badge.y + badge.height / 2 + 1} textAnchor="middle" dominantBaseline="central" fill={txtColor} style={{ fill: txtColor, stroke: 'none' }} className="canvas-badge-text">{badge.text}</text>
+          <text x={badge.x + (parts.key ? numberWidth / 2 : badge.width / 2)} y={badge.y + badge.height / 2 + 1} textAnchor="middle" dominantBaseline="central" fill={txtColor} style={{ fill: txtColor, stroke: 'none' }} className="canvas-badge-text">{parts.number}</text>
+          {parts.key && <text x={badge.x + numberWidth - 2} y={badge.y + badge.height / 2 + 1} textAnchor="start" dominantBaseline="central" fill={txtColor} style={{ fill: txtColor, stroke: 'none' }} className="canvas-badge-text canvas-badge-key">{parts.key}</text>}
         </g>;
       })}
       </svg>}
@@ -409,7 +350,7 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
         const dn = displayNumberMap.get(obj.object_id) ?? 0;
         return <span key={obj.object_id} className="canvas-undisplayable-item">
           <span className="canvas-undisplayable-marker" style={{ background: colorFor(dn), color: textColorFor(dn) }}>#{dn}</span>
-          {obj.label}: not drawn, the annotation has no box or polygon
+          {obj.label}: not drawn, the annotation has no {polygonData ? 'polygon' : 'box or polygon'}
         </span>;
       })}
     </div>}
@@ -418,6 +359,10 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
       <span ref={cursorRef} className="mono">[X: —, Y: —]</span>
       <span className="mono">{width} × {height} px</span>
       <span className="mono">{continuous ? '0-based continuous' : '1-based inclusive'}</span>
+      {someSelected && selectedObject && <span className="mono" role="status" aria-label="Selected annotation">
+        Selected: #{displayNumberMap.get(selectedObject.object_id)} {selectedObject.label}{selectedObject.source_key ? ` ${selectedObject.source_key}` : ''}
+      </span>}
+      {originalOnly && <span className="canvas-mode-tag mono is-original" role="status">Original photo, nothing drawn on it</span>}
       <span className={`canvas-mode-tag mono ${isCorrection ? 'is-correction' : 'is-original'}`} role="status">
         {isCorrection ? 'Proposed correction (preview, not saved)' : 'Original'}
       </span>

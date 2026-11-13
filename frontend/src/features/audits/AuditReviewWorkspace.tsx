@@ -37,6 +37,7 @@ import { KeyboardHelpModal } from '../../components/ui/KeyboardHelpModal';
 import { isTypingTarget } from '../../lib/keyboard';
 import { checkLabel, reasonLabel, reviewStatusLabel, toolStatusLabel } from '../../lib/labels';
 import { formatTimestamp } from '../../lib/format';
+import { sourceDiagnostics } from '../../lib/sourceDiagnostics';
 import { RECHECK_IN_PROGRESS_MESSAGE, useImageRecheckStatus } from '../../hooks/useImageRecheckStatus';
 import { useDatasetName } from '../../hooks/useDatasetName';
 import {
@@ -309,6 +310,8 @@ export const AuditReviewWorkspace: React.FC = () => {
     ?? (sampleDetail as unknown as { annotation_format?: string })?.annotation_format
     ?? (sampleDetail?.measurements?.correction_proposal as unknown as { annotation_format?: string })?.annotation_format) as 'penn_fudan' | 'coco' | 'labelme' | undefined;
   const isPennFudan = annotationFormat === 'penn_fudan';
+  // COCO and LabelMe are reviewed as polygons: no box is drawn and the wording does not mention boxes.
+  const isPolygonData = annotationFormat === 'coco' || annotationFormat === 'labelme';
   const isMaskMissing = !hasMaskAsset && (isPennFudan || Boolean(maskFailure));
   const undisplayableObjects = useMemo(() => {
     return canvasObjects
@@ -319,6 +322,10 @@ export const AuditReviewWorkspace: React.FC = () => {
         label: obj.label,
       }));
   }, [canvasObjects]);
+  const fileProblems = useMemo(
+    () => sourceDiagnostics(sampleDetail?.measurements?.source_diagnostics, canvasObjects),
+    [sampleDetail, canvasObjects],
+  );
   const diagnosticsCount = (isMaskMissing ? 1 : 0) + undisplayableObjects.length + (rawSample?.issues?.length ?? 0);
   const applyProposal = useMutation({
     mutationFn: async () => {
@@ -832,10 +839,20 @@ export const AuditReviewWorkspace: React.FC = () => {
               </section>
             )}
 
-            {sampleDetail?.measurements?.source_diagnostics != null && <details className="checklist-section">
-              <summary>Source structure diagnostics</summary>
-              <p className="text-2xs text-text-muted">Format and geometry observations. Final decisions follow the confirmed guidelines.</p>
-              <pre className="text-2xs whitespace-pre-wrap break-all">{JSON.stringify(sampleDetail.measurements.source_diagnostics, null, 2)}</pre>
+            {fileProblems.length > 0 && <details className="checklist-section" open>
+              <summary>Problems found in the annotation file · {fileProblems.length}</summary>
+              <p className="text-2xs text-text-muted">Shown exactly as the file has it. Nothing was repaired or left out; you decide what to do.</p>
+              <ul className="diagnostic-list" aria-label="Problems found in the annotation file">
+                {fileProblems.map((problem, index) => (
+                  <li key={index} className="diagnostic-item">
+                    {problem.displayNumber != null
+                      ? <><span className="object-list-swatch" style={{ background: colorFor(problem.displayNumber), color: textColorFor(problem.displayNumber) }}>#{problem.displayNumber}</span>
+                          <span>{problem.label} <span className="font-mono text-2xs text-text-muted">{problem.key}</span>: {problem.message}</span></>
+                      : <span>{problem.location ? <span className="font-mono text-2xs text-text-muted">{problem.location}</span> : 'Whole file'}: {problem.message}</span>}
+                    {problem.unsupported && <span className="text-2xs text-text-muted"> Kept but not checked.</span>}
+                  </li>
+                ))}
+              </ul>
             </details>}
 
             {proposalMatches && proposal && <section className="checklist-section" aria-label="Proposed correction">
@@ -856,7 +873,6 @@ export const AuditReviewWorkspace: React.FC = () => {
                 const displayNum = idx + 1;
                 const objColor = colorFor(displayNum);
                 const txtColor = textColorFor(displayNum);
-                const isDerived = object.bbox_origin === 'derived_from_polygon';
                 const hasBox = object.bbox != null;
                 const hasPolygons = !!(object.polygons && object.polygons.length > 0);
                 const noGeom = !hasBox && !hasPolygons;
@@ -872,12 +888,12 @@ export const AuditReviewWorkspace: React.FC = () => {
                       setSelectedInstanceId(nextId);
                       selectObject(nextId);
                     }}
-                    title={`Click to select object on canvas. Display #${displayNum}, object_id=${object.object_id}${sourceIdText ? `, source=${sourceIdText}` : ''}${isDerived ? ' (box derived from polygon)' : ''}${noGeom ? ' (no displayable geometry)' : ''}`}
+                    title={`Click to select object on canvas. Display #${displayNum}, object_id=${object.object_id}${sourceIdText ? `, source=${sourceIdText}` : ''}${noGeom ? ' (no displayable geometry)' : ''}`}
                     className={`${isSelected ? 'is-selected ' : ''}${hidden ? 'is-hidden' : ''}`.trim()}
                   >
                     <span className="object-list-swatch" style={{ background: objColor, color: txtColor }}>#{displayNum}</span>
                     <span className="object-list-details">
-                      <span className="object-list-label">{object.label}{isDerived && <abbr title="Box derived from polygon vertices, not in source file">*</abbr>}{noGeom && <abbr title="No displayable geometry" className="object-list-warn">⚠</abbr>}</span>
+                      <span className="object-list-label">{object.label}{noGeom && <abbr title="No displayable geometry" className="object-list-warn">⚠</abbr>}</span>
                       <span className="object-list-meta">
                         {sourceIdText ? `id ${sourceIdText}` : `obj ${object.object_id}`}
                         {sourceKeyText && <> · {sourceKeyText}</>}
@@ -931,7 +947,7 @@ export const AuditReviewWorkspace: React.FC = () => {
                       {undisplayableObjects.map((item) => (
                         <div key={item.objectId} className="diagnostic-item">
                           <span className="object-list-swatch" style={{ background: colorFor(item.displayNumber), color: textColorFor(item.displayNumber) }}>#{item.displayNumber}</span>
-                          <span>{item.label}: No bounding box or polygon coordinates supplied in annotation data.</span>
+                          <span>{item.label}: {isPolygonData ? 'No polygon coordinates supplied in annotation data.' : 'No bounding box or polygon coordinates supplied in annotation data.'}</span>
                         </div>
                       ))}
                     </div>
@@ -1027,7 +1043,7 @@ export const AuditReviewWorkspace: React.FC = () => {
               maxLength={4096}
               value={reviewComment}
               onChange={(e) => { setReviewComment(e.target.value); if (reviewError?.startsWith('Type a reason')) setReviewError(null); }}
-              placeholder="Why? e.g. “Box misses the left arm” — required for overrides, rejects and corrections"
+              placeholder={`Why? e.g. “${isPolygonData ? 'Outline' : 'Box'} misses the left arm” — required for overrides, rejects and corrections`}
               className="review-comment"
               aria-describedby="review-comment-hint"
             />

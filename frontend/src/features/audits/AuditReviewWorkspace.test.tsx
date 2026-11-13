@@ -303,6 +303,56 @@ describe('rechecks inside the original workspace', () => {
     expect(screen.getAllByText(/1-based inclusive/i).length).toBeGreaterThanOrEqual(1);
   });
 
+  it('lists LabelMe file problems in words beside the annotation they belong to, not as raw data', async () => {
+    const points = [[10, 10], [40, 40], [40, 10], [10, 40]];
+    const labelmeDetail = {
+      ...sample,
+      annotation_format: 'labelme' as const,
+      assets: { image: { url: '/image.png' }, mask: null, mask_preview: null },
+      failures: [],
+      measurements: { source_diagnostics: [
+        { code: 'self_intersecting_polygon', message: 'Non-adjacent polygon edges intersect or touch.', location: '/shapes/1/points', severity: 'error' },
+      ] },
+    };
+    const labelmeRaw = {
+      sample_id: 'sample-1', dataset_id: 'dataset-1', revision: 1, image_size: [100, 80], integrity_status: 'invalid',
+      annotation_format: 'labelme',
+      objects: [
+        { coordinate_system: 'zero_based_continuous', object_id: 1, source_key: '/shapes/0', source_id: null, group_id: null, label: 'person', bbox: [5, 5, 30, 60], bbox_origin: 'derived_from_polygon', polygons: [[[5, 5], [30, 5], [30, 60], [5, 60]]] },
+        { coordinate_system: 'zero_based_continuous', object_id: 2, source_key: '/shapes/1', source_id: null, group_id: null, label: 'person', bbox: [10, 10, 40, 40], bbox_origin: 'derived_from_polygon', polygons: [points] },
+      ],
+      issues: [{ field: 'annotation', message: 'The source annotation could not be parsed completely.' }],
+    };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url, 'http://localhost').pathname;
+      if (path === '/api/v1/audits/audit-1/samples/sample-1') return json(labelmeDetail);
+      if (path === '/api/v1/datasets/dataset-1/samples/sample-1') return json(labelmeRaw);
+      return routeFetch(url, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { container } = renderWorkspace();
+
+    const list = await screen.findByRole('list', { name: 'Problems found in the annotation file' });
+    const rows = within(list).getAllByRole('listitem');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('#2');
+    expect(rows[0]).toHaveTextContent('/shapes/1');
+    expect(rows[0]).toHaveTextContent('Non-adjacent polygon edges intersect or touch.');
+    expect(screen.getByText(/Nothing was repaired or left out/i)).toBeInTheDocument();
+    expect(container.textContent).not.toContain('"severity"');
+    // Polygon data is reviewed without boxes: none is drawn and the wording does not mention them.
+    expect(container.querySelectorAll('svg.canvas-overlay g[role="button"] rect')).toHaveLength(0);
+    expect(screen.getByPlaceholderText(/Outline misses the left arm/)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Box misses/)).toBeNull();
+    expect(container.textContent).not.toMatch(/derived/i);
+    for (const key of ['/shapes/0', '/shapes/1']) {
+      expect(screen.getByText(key, { selector: '.canvas-badge-key' })).toBeInTheDocument();
+    }
+    // The crossing outline is drawn with the file's own points, in the file's order.
+    const drawn = [...container.querySelectorAll('svg.canvas-overlay polygon')].map((node) => node.getAttribute('points'));
+    expect(drawn).toContain('10,10 40,40 40,10 10,40');
+  });
+
   it('reports optional mask never supplied for datasets without masks', async () => {
     const cocoDetail = {
       ...sample,

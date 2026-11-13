@@ -19,6 +19,8 @@ interface CanvasState {
   showPolygons: boolean;
   showLabels: boolean;
   showLegend: boolean;
+  /** Show the photo alone: every overlay layer is hidden until this is switched off again. */
+  originalOnly: boolean;
   maskOpacity: number;
   selectedInstanceId: number | null;
   zoom: number;
@@ -28,6 +30,7 @@ interface CanvasState {
   togglePolygons: () => void;
   toggleLabels: () => void;
   toggleLegend: () => void;
+  toggleOriginalOnly: () => void;
   setMaskOpacity: (opacity: number) => void;
   setSelectedInstanceId: (id: number | null) => void;
   setZoom: (zoom: number) => void;
@@ -41,6 +44,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   showPolygons: true,
   showLabels: true,
   showLegend: false,
+  originalOnly: false,
   maskOpacity: 0.45,
   selectedInstanceId: null,
   zoom: 1.0,
@@ -50,6 +54,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   togglePolygons: () => set((s) => ({ showPolygons: !s.showPolygons })),
   toggleLabels: () => set((s) => ({ showLabels: !s.showLabels })),
   toggleLegend: () => set((s) => ({ showLegend: !s.showLegend })),
+  toggleOriginalOnly: () => set((s) => ({ originalOnly: !s.originalOnly })),
   setMaskOpacity: (maskOpacity) => set({ maskOpacity }),
   setSelectedInstanceId: (selectedInstanceId) => set({ selectedInstanceId }),
   setZoom: (zoom) => set({ zoom: Math.max(0.2, Math.min(zoom, 10.0)) }),

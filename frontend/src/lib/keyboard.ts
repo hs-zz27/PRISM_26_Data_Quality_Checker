@@ -34,7 +34,11 @@ export const SHORTCUTS: Shortcut[] = [
   { key: 'k',          display: 'K',   description: 'Previous sample', category: 'navigation' },
   // Canvas
   { key: 'm', display: 'M', description: 'Toggle mask overlay',   category: 'canvas' },
-  { key: 'b', display: 'B', description: 'Toggle box overlays',   category: 'canvas' },
+  { key: 'b', display: 'B', description: 'Toggle box overlays (when the image has boxes)', category: 'canvas' },
+  { key: 'p', display: 'P', description: 'Toggle polygon outlines', category: 'canvas' },
+  { key: 'l', display: 'L', description: 'Toggle labels',         category: 'canvas' },
+  { key: 'o', display: 'O', description: 'Show the original photo only', category: 'canvas' },
+  { key: 'z', display: 'Z', description: 'Zoom to the selected annotation', category: 'canvas' },
   { key: 'f', display: 'F', description: 'Fit image to view',     category: 'canvas' },
   { key: 'Space', display: 'Space + drag', description: 'Pan image', category: 'canvas' },
   { key: '+', display: '+', description: 'Zoom in',               category: 'canvas' },
