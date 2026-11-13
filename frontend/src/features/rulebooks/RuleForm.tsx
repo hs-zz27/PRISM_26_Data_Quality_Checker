@@ -65,7 +65,7 @@ export const RuleForm: React.FC<RuleFormProps> = ({ initial, suggestedId, guidel
           </select>
         </label>
       </div>
-      <label>What the rule requires<textarea rows={2} value={input.description} onChange={(e) => update('description', e.target.value)} placeholder="e.g. Every person must have exactly one box." /></label>
+      <label>What the rule requires<textarea rows={2} value={input.description} onChange={(e) => update('description', e.target.value)} placeholder="e.g. Every person must have exactly one annotation." /></label>
       <label>Parameters (JSON)<textarea rows={3} className="font-mono" value={input.parameters} onChange={(e) => update('parameters', e.target.value)} /></label>
       <label>Guideline citation (exact text)
         <textarea rows={2} value={input.source_sentence} onChange={(e) => update('source_sentence', e.target.value)} placeholder="Highlight a sentence in the guideline on the left, or leave empty for a reviewer-only rule." />

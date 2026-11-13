@@ -142,6 +142,38 @@ Detail can have `measurements: null`, technical failures and null asset links.
 The collector's stored `pending_review` field is historical; display the separate
 current review record for the actual decision.
 
+**The overlay view.** The review image is the stored original, shown through its pinned asset link. Everything
+else is a separate layer drawn over it in the browser; nothing is drawn into the photo, sent back or saved.
+
+- Polygons are drawn with the file's own points, in the file's order.
+- **Polygon data has no box.** An object that has a polygon is drawn as that polygon only, in every format; a
+  box worked out from polygon points (`bbox_origin: derived_from_polygon`) is never drawn. An object whose only
+  geometry is a box (Penn-Fudan, a LabelMe rectangle) keeps its box. For COCO and LabelMe the screen wording
+  does not mention boxes, and the box switch appears only when the image has a box to switch.
+- **Saved audits with box checks still display.** When a stored finding from a box check (`box_validity`,
+  `box_overlaps`, `box_mask_alignment`, `mask_outside_box`, `mask_box_fill`, `pedestrian_box_enclosure`) is about
+  an object that also has a polygon, that object's supplied box is drawn so the evidence can be seen. The
+  finding card is unchanged.
+- **Selected annotation.** It gets a dark halo, a thick outline and a tinted fill, is drawn on top, and the
+  others fade. The readout names it by display number, label and key. Colour is not the only signal.
+- **Labels.** Each drawn object has one label: its display number, `!` when a finding for it is `fail` or
+  `unsure`, and its stable key (`source_key`, for example `/shapes/3`). A label is placed where it crosses no
+  drawn outline and no other label, with a leader line when it sits away from its object. The key identifies
+  the annotation; the number is display only.
+- **Original only.** The `Original` switch (key `O`) hides every layer (outlines, boxes, labels and mask) and
+  shows the photo alone, at any time, without losing the selection. The other switches are `P` polygons,
+  `L` labels, `M` mask and `B` boxes.
+
+**Problems found in the annotation file.** For COCO and LabelMe samples the review screen reads
+`measurements.source_diagnostics` from the audit sample detail (a list of `code`, `message`, `location`,
+`severity`) and lists each entry in words under "Problems found in the annotation file". An entry whose
+`location` is an annotation's `source_key` or lies below it (`/shapes/3/points` belongs to `/shapes/3`, not to
+`/shapes/30`) is shown beside that annotation's display number, label and key. An entry with an empty location
+is shown as a problem with the whole file, and severity `unsupported` is shown as kept but not checked. The
+screen never repairs, hides or reorders source geometry: a polygon that crosses itself or leaves the image is
+drawn with the file's own points. The reader is `sourceDiagnostics()` in
+`frontend/src/lib/sourceDiagnostics.ts`; the list is display only and sends nothing.
+
 **Implemented:** finding review PUT/history GET and sample review PUT/history GET.
 Accepting a finding agrees with the tool's conclusion; accepting a sample is a
 separate decision. `needs_correction` records a decision without editing data.

@@ -19,6 +19,24 @@ zero-based continuous coordinates. Polygon-derived bounds are marked as derived,
 not treated as supplied boxes. Annotation identity includes the pinned source
 document/image and the source JSON pointer, not only a positional display number.
 
+## LabelMe polygons end to end
+
+A LabelMe file with 1 to 10 person polygons imports with every vertex exactly as written (whole numbers stay
+whole, fractions keep every digit) and each shape keeps its stable key `/shapes/N`. A polygon has no box of its
+own: its bounds are marked `derived_from_polygon`, never `supplied`. A polygon that crosses itself, repeats a
+vertex, leaves the image or has too few points is imported unchanged, the sample is marked `invalid`, and the
+review screen lists the problem beside the annotation. Nothing is clipped, closed, de-duplicated or dropped.
+Tests: `backend/tests/test_labelme_person_polygons.py`.
+
+In review, COCO and LabelMe objects are drawn as polygons only: a box worked out from polygon points is never
+drawn, and each polygon shows its stable key on the image. A review never changes stored files: the photo and
+the annotation file have the same hashes before and after finding decisions, image decisions and a recheck
+(`backend/tests/test_review_leaves_originals_untouched.py`). See "The overlay view" in `FRONTEND_WORKFLOW.md`.
+
+The whole flow (import, audit, review, suggested correction, recheck, export, re-import) was run on LabelMe
+polygon data with seeded errors. The datasets, the script and the measured results, including the gaps found,
+are in `evaluation/labelme_end_to_end/`.
+
 ## Feedback inside the audit workspace
 
 1. Select an image and enter **Feedback for this image** beside its findings.

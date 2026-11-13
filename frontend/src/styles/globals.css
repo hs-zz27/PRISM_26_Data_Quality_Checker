@@ -165,7 +165,12 @@
   .canvas-overlay .is-selected rect { stroke-width:3; }.canvas-overlay g:focus-visible rect { stroke:var(--color-accent) !important; }
   .canvas-empty { position:absolute; inset:0; display:grid; place-items:center; color:var(--color-text-muted); font:12px var(--font-mono); }
   .canvas-readout { position:absolute; bottom:7px; left:8px; right:8px; display:flex; justify-content:space-between; gap:12px; padding:5px 7px; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text-muted); font-size:10px; pointer-events:none; }
+  .canvas-overlay g.is-dimmed { opacity:.45; }
+  .canvas-overlay g.is-selected.is-dimmed { opacity:1; }
   .canvas-badge { cursor:pointer; }
+  .canvas-badge-key { font-weight:normal !important; }
+  .canvas-legend-swatch.is-selected-swatch { border-top-width:4px; }
+  .canvas-legend-swatch.is-box-swatch { height:8px; border-width:2px; border-style:solid; }
   .canvas-badge text, .canvas-badge-text { stroke:none !important; font:bold 10px var(--font-mono); pointer-events:none; }
   .canvas-badge.is-selected rect { stroke:var(--color-accent) !important; stroke-width:2px; }
   .canvas-legend { position:absolute; top:44px; right:8px; z-index:5; width:260px; padding:8px 10px; border:1px solid var(--color-border-strong); border-radius:2px; background:var(--color-surface); box-shadow:0 4px 12px rgba(0,0,0,0.25); font-size:11px; display:flex; flex-direction:column; gap:5px; }
