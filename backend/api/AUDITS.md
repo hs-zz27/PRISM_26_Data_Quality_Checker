@@ -194,6 +194,33 @@ This check uses the same Mask R-CNN run as `person_coverage` (one run per image 
   91% of people at least 100 px tall and 53% of people 40-100 px tall were reported. See
   `.cache/validation/missing-person-20261109/`.
 
+## Finding regions (shared format for the review screen)
+
+The measured person checks say **where** a problem is. The review screen builds its error close-ups from these
+records, never from the finding text. The frontend reads them with `findingRegions()` in
+`frontend/src/lib/findingRegions.ts`; `backend/tests/test_finding_regions_contract.py` pins what the backend
+emits. Change this section, that reader and that test together.
+
+`person_coverage`: `evidence.measurements.result.geometries[]`, one entry per supplied geometry
+(`geometry`: `box`, `polygon` or `mask`), each with `coordinate_system` and `regions[]`:
+
+| Field | Meaning |
+|---|---|
+| `kind` | `missing` (part of the person is outside the annotation) or `extra` (the annotation holds area that is not the person). Stored audits contain these two words; never rename them. `mismatch` is reserved for an outline whose shape does not follow the person. |
+| `side` | `top`, `bottom`, `left`, `right` or `middle`: where the region lies on the person. |
+| `box` | `[x0, y0, x1, y1]` around the region, in the annotation's own coordinates (see `coordinate_system`). |
+| `pixels` | Box geometry only: how far the side is off, in pixels. |
+| `area_px` | Polygon or mask geometry only: the region's area in pixels. |
+| `edge` | Box geometry only: where that box side belongs. Used by the suggested correction, not for display. |
+| `body_part` | Optional, reserved: `head`, `arm`, `leg` or `torso` when the check can name the part; absent or null otherwise. |
+
+`unannotated_people`: `evidence.measurements.result.unannotated[]`, one entry per person with no annotation, each
+with `box` (same coordinates, `result.coordinate_system`), `height_px` and `score`.
+
+`coordinate_system` is `zero_based_continuous` (COCO, LabelMe: a box ends after its last pixel) or
+`one_based_inclusive` (Penn-Fudan). New fields are added as optional fields; existing fields keep their names
+and meanings, so findings stored by earlier audits stay readable.
+
 ## Visual guideline answers their own reasons contradict
 
 The chat model's verdict comes from its structured answer, never from its explanation. The explanation can only
