@@ -3,7 +3,7 @@ import { EnclosureEvidence } from './EnclosureEvidence';
 import { readEnclosureEvidence } from './enclosureEvidenceValue';
 import { VisualObservations } from './VisualObservations';
 import { summarizeEvidence } from '../../lib/evidence';
-import { History, Quote, UserRound } from 'lucide-react';
+import { History, Quote, ScanSearch, UserRound } from 'lucide-react';
 import { Badge, type BadgeVariant } from '../../components/ui/Badge';
 import { checkLabel, describeRequirement, explainFinding, outcomeLabel, resolutionLabel } from '../../lib/labels';
 import { formatTimestamp } from '../../lib/format';
@@ -26,10 +26,16 @@ interface FindingCardProps {
   history?: FindingReviewRecord[];
   historyLoading?: boolean;
   disabled?: boolean;
+  /** How many problem regions this finding can show in a close-up; 0 or absent hides the control. */
+  closeUpCount?: number;
+  closeUpOpen?: boolean;
+  onToggleCloseUp?: () => void;
+  /** The close-up panel, rendered beside the finding while it is open. */
+  closeUp?: React.ReactNode;
 }
 
 /** One checklist row: rule, result, explanation, evidence and citation, plus the reviewer's decision. */
-export const FindingCard: React.FC<FindingCardProps> = ({ finding: f, selected, onSelect, onDecide, historyOpen, onToggleHistory, history, historyLoading, disabled }) => {
+export const FindingCard: React.FC<FindingCardProps> = ({ finding: f, selected, onSelect, onDecide, historyOpen, onToggleHistory, history, historyLoading, disabled, closeUpCount = 0, closeUpOpen = false, onToggleCloseUp, closeUp }) => {
   const resolution = f.review?.resolution ?? 'pending';
   const requirement = describeRequirement(f.check_name, f.parameters as Record<string, unknown>);
   const enclosure = f.check_name === 'pedestrian_box_enclosure'
@@ -71,6 +77,17 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding: f, selected, 
         <div><dt>Check</dt><dd>{f.check_name ? checkLabel(f.check_name) : 'None — review manually'}</dd></div>
         {requirement && <div><dt>Requires</dt><dd>{requirement}</dd></div>}
       </dl>
+
+      {closeUpCount > 0 && onToggleCloseUp && (
+        <button type="button" id={`close-up-toggle-${f.finding_id}`} className={`finding-close-up-toggle${closeUpOpen ? ' is-open' : ''}`}
+          aria-expanded={closeUpOpen} aria-controls={`close-up-${f.finding_id}`}
+          title={closeUpOpen ? 'Hide the close-up of the problem area' : 'Show a close-up of the problem area beside this finding'}
+          onClick={(event) => { event.stopPropagation(); onToggleCloseUp(); }}>
+          <ScanSearch size={12} aria-hidden="true" /> {closeUpOpen ? 'Hide error region' : 'Show error region'}
+          {closeUpCount > 1 && <span className="finding-close-up-count">{closeUpCount} regions</span>}
+        </button>
+      )}
+      {closeUpOpen && closeUp}
 
       {enclosure && <EnclosureEvidence evidence={enclosure} />}
       {f.check_name === 'annotation_guideline' && <VisualObservations proposal={measurements.model_proposal} />}
