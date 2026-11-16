@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuditReviewWorkspace } from './AuditReviewWorkspace';
 import { useReviewerStore } from '../../store/reviewerStore';
 import { useCanvasStore } from '../../store/canvasStore';
 import { makeAuditName, makeFinding, makeRule, makeSampleAudit, makeSummary } from '../../test/fixtures';
+
+// The whole workspace renders here. On a slow or busy machine its first paint can take longer than the
+// library's default 1 s wait, which made these tests fail by timing alone. Assertions are unchanged.
+configure({ asyncUtilTimeout: 5000 });
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -351,6 +355,100 @@ describe('rechecks inside the original workspace', () => {
     // The crossing outline is drawn with the file's own points, in the file's order.
     const drawn = [...container.querySelectorAll('svg.canvas-overlay polygon')].map((node) => node.getAttribute('points'));
     expect(drawn).toContain('10,10 40,40 40,10 10,40');
+  });
+
+  describe('error close-up beside a finding', () => {
+    const outline = [[40, 30], [70, 30], [70, 75], [40, 75]];
+    const coverage = makeFinding({
+      finding_id: 'finding-cov', rule_id: 'RULE-2', check_name: 'person_coverage', outcome: 'fail', object_id: 1,
+      description: 'Each person annotation must cover the whole person.',
+      reason: 'polygon: head/top of the person is outside the annotation (120 px area)', parameters: {},
+      evidence: { image_url: null, mask_preview_url: null, crop_url: null, measurements: { result: {
+        problems: ['polygon: head/top of the person is outside the annotation (120 px area)'],
+        geometries: [{ geometry: 'polygon', coordinate_system: 'zero_based_continuous', regions: [
+          { box: [45, 10, 65, 30], kind: 'missing', side: 'top', area_px: 120 },
+          { box: [70, 40, 90, 70], kind: 'extra', side: 'right', area_px: 80 }] }] } } } as never,
+    });
+    const labelOnly = makeFinding({ finding_id: 'finding-lbl', rule_id: 'RULE-1', outcome: 'fail', object_id: 1 });
+    const detail = {
+      ...makeSampleAudit([coverage, labelOnly]), annotation_format: 'labelme' as const,
+      assets: { image: { url: '/original.jpg' }, mask: null, mask_preview: null }, failures: [],
+    };
+    const raw = {
+      sample_id: 'sample-1', dataset_id: 'dataset-1', revision: 1, image_size: [100, 80], integrity_status: 'valid',
+      annotation_format: 'labelme', issues: [],
+      objects: [{ coordinate_system: 'zero_based_continuous', object_id: 1, source_key: '/shapes/0', source_id: null,
+        group_id: null, label: 'person', bbox: [40, 30, 70, 75], bbox_origin: 'derived_from_polygon', polygons: [outline] }],
+    };
+    const open = () => {
+      vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+        const path = new URL(url, 'http://localhost').pathname;
+        if (path === '/api/v1/audits/audit-1/samples/sample-1') return json(detail);
+        if (path === '/api/v1/datasets/dataset-1/samples/sample-1') return json(raw);
+        return routeFetch(url, init);
+      }));
+      return renderWorkspace();
+    };
+
+    it('opens when the finding is clicked, shows the crop there, and leaves the original image unmarked', async () => {
+      const { container } = open();
+      const card = await screen.findByRole('article', { name: 'Rule RULE-2: Fail' });
+      const toggle = await within(card).findByRole('button', { name: /Show error region/ });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).toHaveTextContent('2 regions');
+      expect(screen.queryByRole('region', { name: 'Error close-up' })).toBeNull();
+
+      fireEvent.click(card);
+
+      const panel = await within(card).findByRole('region', { name: 'Error close-up' });
+      expect(within(card).getByRole('button', { name: /Hide error region/ })).toHaveAttribute('aria-expanded', 'true');
+      expect(panel).toHaveTextContent('Polygon: head/top of the person is outside the annotation (120 px area)');
+      expect(panel).toHaveTextContent('Missing part: head or top of the person');
+      expect(panel.querySelector('svg.close-up-crop image')).toHaveAttribute('href', '/original.jpg');
+      expect(panel.querySelector('rect.close-up-region')).toHaveAttribute('data-kind', 'missing');
+      expect(panel.querySelector('polygon.close-up-outline')).toHaveAttribute('points', '40,30 70,30 70,75 40,75');
+      // Nothing about the problem is drawn on the review image itself.
+      const stage = container.querySelector('.canvas-stage')!;
+      expect(stage.querySelector('.close-up-region')).toBeNull();
+      expect(stage.querySelectorAll('img')).toHaveLength(1);
+      expect(stage.querySelector('img')).toHaveAttribute('src', '/original.jpg');
+      expect(stage.querySelectorAll('svg.canvas-overlay g[role="button"] rect')).toHaveLength(0);
+    });
+
+    it('can be closed and reopened from the button and the keyboard', async () => {
+      open();
+      const card = await screen.findByRole('article', { name: 'Rule RULE-2: Fail' });
+      const toggle = await within(card).findByRole('button', { name: /Show error region/ });
+
+      fireEvent.click(toggle);
+      const panel = await within(card).findByRole('region', { name: 'Error close-up' });
+      await waitFor(() => expect(document.activeElement).toBe(panel));
+      fireEvent.keyDown(panel, { key: 'ArrowRight' });
+      expect(panel).toHaveTextContent('Region 2 of 2');
+      expect(panel).toHaveTextContent('Extra background: on the right');
+
+      fireEvent.keyDown(panel, { key: 'Escape' });
+      await waitFor(() => expect(within(card).queryByRole('region', { name: 'Error close-up' })).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(within(card).getByRole('button', { name: /Show error region/ })));
+
+      fireEvent.click(within(card).getByRole('button', { name: /Show error region/ }));
+      expect(await within(card).findByRole('region', { name: 'Error close-up' })).toHaveTextContent('Region 1 of 2');
+      fireEvent.click(within(card).getByRole('button', { name: /Hide error region/ }));
+      expect(within(card).queryByRole('region', { name: 'Error close-up' })).toBeNull();
+    });
+
+    it('offers no close-up for a finding with no region, and closes the open one when that finding is chosen', async () => {
+      open();
+      const withRegion = await screen.findByRole('article', { name: 'Rule RULE-2: Fail' });
+      const without = screen.getByRole('article', { name: 'Rule RULE-1: Fail' });
+      await within(withRegion).findByRole('button', { name: /Show error region/ });
+      expect(within(without).queryByRole('button', { name: /error region/ })).toBeNull();
+
+      fireEvent.click(withRegion);
+      expect(await screen.findByRole('region', { name: 'Error close-up' })).toBeInTheDocument();
+      fireEvent.click(without);
+      expect(screen.queryByRole('region', { name: 'Error close-up' })).toBeNull();
+    });
   });
 
   it('reports optional mask never supplied for datasets without masks', async () => {

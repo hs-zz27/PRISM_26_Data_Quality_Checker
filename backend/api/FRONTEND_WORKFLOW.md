@@ -164,6 +164,35 @@ else is a separate layer drawn over it in the browser; nothing is drawn into the
   shows the photo alone, at any time, without losing the selection. The other switches are `P` polygons,
   `L` labels, `M` mask and `B` boxes.
 
+**The error close-up.** A finding that has region records (see "Finding regions" in [AUDITS.md](AUDITS.md))
+gets a **Show error region** button, and clicking the finding opens the close-up beside it, inside the finding.
+It is built from `findingRegions()` only, never from the finding text, so new region fields (`body_part`,
+kind `mismatch`) appear without a frontend change. Today that covers `person_coverage` and `unannotated_people`.
+
+- **What it shows.** A crop of the original photo around one problem region, the annotation outline the finding
+  is about (every outline, for a person with no annotation), the region itself and the finding sentence. The
+  outline is the annotation's polygon, or its box when it has no polygon. A region measured on a supplied box
+  (`geometry: box`, as in older audits of data with both) is shown against that box.
+- **How the crop is made.** In the browser: the original photo is displayed through a window, an SVG `viewBox`
+  over the pinned image link. No crop is requested from the server, and nothing is drawn into or saved to the
+  photo or the annotation file. The review image itself is never marked.
+- **Crop rules** (`closeUpWindow()` in `frontend/src/features/audits/closeUpRegions.ts`, following
+  `backend/app/services/target_focus.py`): padding on every side of 40% of the region's size and at least 96 px;
+  the window is clipped to the photo and always contains the whole region; the longer side is at most 420 screen
+  pixels and a small region is enlarged at most 4 times. A window side that is the photo's border is drawn as
+  an edge marker, and the caption says when the problem area touches the edge.
+- **One look per kind of problem.** Each kind has its own word, fill pattern and line style as well as a colour,
+  and a legend under the crop: `MISSING` (diagonal lines, solid border), `EXTRA` (dots, dashed border),
+  `WRONG SHAPE` (crossed lines, dotted border), `NO ANNOTATION` (horizontal lines, dash-dot border). These
+  follow the mentor's rule of 14 November 2026 for a tight annotation: it follows the person's visible boundary
+  with no missing visible part, no extra background and no gap. Small deviations are accepted and the panel
+  says so; no pixel or percentage figure is asked of the reviewer.
+- **Several regions.** "Region 1 of N" with previous and next buttons.
+- **Keyboard.** The button is a normal button (Enter or Space). The open close-up takes the focus: Left and
+  Right step through regions, Home and End jump to the first and last, Esc closes and returns the focus to the
+  button. These keys do not reach the page shortcuts while the close-up has the focus; all other keys do.
+- One close-up is open at a time. Choosing another image, another attempt or a finding with no region closes it.
+
 **Problems found in the annotation file.** For COCO and LabelMe samples the review screen reads
 `measurements.source_diagnostics` from the audit sample detail (a list of `code`, `message`, `location`,
 `severity`) and lists each entry in words under "Problems found in the annotation file". An entry whose

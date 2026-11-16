@@ -38,6 +38,8 @@ import { isTypingTarget } from '../../lib/keyboard';
 import { checkLabel, reasonLabel, reviewStatusLabel, toolStatusLabel } from '../../lib/labels';
 import { formatTimestamp } from '../../lib/format';
 import { sourceDiagnostics } from '../../lib/sourceDiagnostics';
+import { closeUpRegions } from './closeUpRegions';
+import { ErrorCloseUp } from './ErrorCloseUp';
 import { RECHECK_IN_PROGRESS_MESSAGE, useImageRecheckStatus } from '../../hooks/useImageRecheckStatus';
 import { useDatasetName } from '../../hooks/useDatasetName';
 import {
@@ -80,6 +82,8 @@ export const AuditReviewWorkspace: React.FC = () => {
   const [activeSampleId, setActiveSampleId] = useState<string | null>(() => searchParams.get('sample'));
   const [historicalAttemptId, setHistoricalAttemptId] = useState<string | null>(null);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
+  // The finding whose error close-up is open beside it; one at a time.
+  const [closeUpFindingId, setCloseUpFindingId] = useState<string | null>(null);
   const [hiddenObjectIds, setHiddenObjectIds] = useState<number[]>([]);
   const [reviewComment, setReviewComment] = useState<string>('');
   const [previewCorrection, setPreviewCorrection] = useState(false);
@@ -138,6 +142,7 @@ export const AuditReviewWorkspace: React.FC = () => {
   useEffect(() => {
     setHistoricalAttemptId(null);
     setSelectedFindingId(null);
+    setCloseUpFindingId(null);
     setSelectedInstanceId(null);
     setHistoryFindingId(null);
     setReviewComment('');
@@ -204,6 +209,7 @@ export const AuditReviewWorkspace: React.FC = () => {
   // A new attempt has new evidence and needs its own decision and reason.
   useEffect(() => {
     setSelectedFindingId(null);
+    setCloseUpFindingId(null);
     setHistoryFindingId(null);
     setReviewComment('');
     setReviewError(null);
@@ -539,11 +545,27 @@ export const AuditReviewWorkspace: React.FC = () => {
     sampleReviewMutation.mutate({ decision });
   }, [canReview, ensureReason, sampleReviewMutation, findingReviewMutation.isPending]);
 
+  // Problem regions each finding can show, read from its region records (never from its text).
+  const closeUps = useMemo(
+    () => new Map(findings.map((finding) => [finding.finding_id, closeUpRegions(finding, rawSample?.image_size)])),
+    [findings, rawSample?.image_size],
+  );
+  // Clicking a finding selects it and opens its close-up beside it, when it has a region to show.
   const selectFinding = useCallback((finding: Finding) => {
     setSelectedFindingId(finding.finding_id);
     const objectId = finding.object_id ?? null;
     setSelectedInstanceId(objectId);
-  }, [setSelectedInstanceId]);
+    setCloseUpFindingId(closeUps.get(finding.finding_id)?.length ? finding.finding_id : null);
+  }, [setSelectedInstanceId, closeUps]);
+  const toggleCloseUp = useCallback((finding: Finding) => {
+    if (closeUpFindingId === finding.finding_id) { setCloseUpFindingId(null); return; }
+    selectFinding(finding);
+  }, [closeUpFindingId, selectFinding]);
+  // Closing returns the keyboard focus to the button that opens it, so it can be reopened at once.
+  const closeCloseUp = useCallback((findingId: string) => {
+    setCloseUpFindingId(null);
+    window.setTimeout(() => document.getElementById(`close-up-toggle-${findingId}`)?.focus(), 0);
+  }, []);
 
   // Selecting a box on the canvas focuses the most relevant finding for that object.
   const selectObject = useCallback((objectId: number | null) => {
@@ -595,6 +617,21 @@ export const AuditReviewWorkspace: React.FC = () => {
       history={historyFindingId === f.finding_id ? findingHistoryQuery.data?.items : undefined}
       historyLoading={historyFindingId === f.finding_id && findingHistoryQuery.isLoading}
       disabled={!canReview || findingReviewMutation.isPending || sampleReviewMutation.isPending}
+      closeUpCount={closeUps.get(f.finding_id)?.length ?? 0}
+      closeUpOpen={closeUpFindingId === f.finding_id}
+      onToggleCloseUp={() => toggleCloseUp(f)}
+      closeUp={closeUpFindingId === f.finding_id && rawSample?.image_size ? (
+        <ErrorCloseUp
+          id={`close-up-${f.finding_id}`}
+          finding={f}
+          regions={closeUps.get(f.finding_id) ?? []}
+          imageUrl={(sampleDetail?.assets ?? rawSample?.assets)?.image?.url}
+          imageSize={rawSample.image_size as [number, number]}
+          objects={canvasObjects}
+          annotationFormat={annotationFormat}
+          onClose={() => closeCloseUp(f.finding_id)}
+        />
+      ) : null}
     />
   );
 
