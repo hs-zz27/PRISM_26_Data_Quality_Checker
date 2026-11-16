@@ -1,0 +1,10 @@
+# Generated files contain third-party photos (COCO 2017 validation set) and the answer key, which must never
+# be uploaded. build_pack.py rebuilds them byte for byte.
+archives/
+answer_key.json
+verification.json
+preview/
+results.json
+crowd_answer_key.json
+crowd_results.json
+overlap_results.json
