@@ -1,0 +1,5 @@
+# Third-party photos (COCO 2017). build_kit.py rebuilds them.
+kit/
+tight_reference_kit.zip
+returned/
+compare_results.json
