@@ -1,0 +1,11 @@
+{
+  "note": "The mentor's verdict on every person outline in the tightness example sheet (reply of 18 Nov 2026). Only the two marked tight were accepted; every other outline, including the thin context outlines, was judged not tight enough. People are keyed by COCO 2017 annotation id, which never changes.",
+  "photos": {
+    "000000258388": {"tight": [1236789], "not_tight": [474221, 495222]},
+    "000000580197": {"tight": [], "not_tight": [452432, 454974, 2198581]},
+    "000000174371": {"tight": [], "not_tight": [454230, 500211, 521435, 564197, 565962, 1245976]},
+    "000000476514": {"tight": [431398], "not_tight": [424821]},
+    "000000153229": {"tight": [], "not_tight": [495199, 517559, 524602, 563143, 1212255, 1220735, 2152975]}
+  },
+  "names": {"1236789": "fire performer", "431398": "bride", "2198581": "white-haired man, overlaps the head in front"}
+}
