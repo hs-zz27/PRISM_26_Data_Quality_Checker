@@ -18,11 +18,23 @@ a small set of outlines drawn to his standard, and uses them to set the boundary
    | a crowd of five to ten | 2 | 19 |
    | the photos of the example sheet the mentor reviewed | 5 | 21 |
 
-2. **Redraw:** whoever prepares the datasets opens the kit in LabelMe and tightens every outline, following
-   `DRAWING_GUIDE.md` (plain instructions, included in the zip). Expect two to three hours.
+2. **Redraw:** either a person tightens every outline in LabelMe, following `DRAWING_GUIDE.md` (plain
+   instructions, included in the zip; two to three hours), or `draw.py` draws them by machine into `drawn/`
+   (about two minutes). The machine version tightens COCO's outline with OpenCV's GrabCut, guided by the
+   person model, and keeps COCO's outline wherever its result strays too far from the person. Machine
+   outlines are tighter than a person would draw, so check them by eye; they are a reference only once the
+   mentor has approved them.
+   Every machine-drawn outline was checked by eye at full size; `review.json` records the verdict for each of
+   the 69 people. 47 follow the visible boundary closely with nothing missing and are kept as references. 22
+   are left out, each with its reason: 7 people seen through a chain-link fence, 7 small and dark people in a
+   dugout, 2 people in a night scene, 3 people whose boundary cannot be seen (legs behind a net's white band, a
+   small blurred person, a face squeezed between two others) and 3 drawings that lost a visible part or
+   strayed from the person.
 3. **Check with the mentor:** show him a few redrawn photos, especially the five from his example sheet next to
    their old outlines, and agree they are tight enough.
-4. **Score:** `.venv/bin/python -B evaluation/tight_reference/compare.py --returned <folder or zip>`. It
+4. **Score:** `.venv/bin/python -B evaluation/tight_reference/compare.py --returned <folder or zip>`
+   (for the machine version, `--returned evaluation/tight_reference/drawn --review
+   evaluation/tight_reference/review.json`, which scores only the 47 kept references). It
    matches every redrawn person to the original, reports how much closer the outlines now follow the
    boundary, and suggests a pass mark that 95% of the redrawn outlines meet. That number replaces
    `PROVISIONAL_MIN_SHARE` in `backend/app/services/boundary_fit.py`, or becomes the "tight" level of a

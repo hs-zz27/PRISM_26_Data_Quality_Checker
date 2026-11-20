@@ -59,3 +59,22 @@ def test_a_tightened_outline_scores_higher_and_the_missing_and_added_are_counted
     assert row["coco_annotation"] == 1 and row["after"] > 0.9 > row["before"]
     assert (result["added_people"], result["missing_people"], result["missing_files"]) == (1, 1, ["other.json"])
     assert result["suggested_mark"] is not None and result["redrawn_passing_mark"] == 1.0
+
+
+def test_a_review_leaves_out_the_people_it_did_not_keep(tmp_path):
+    kit, returned = tmp_path / "kit", tmp_path / "returned"
+    kit.mkdir(), returned.mkdir()
+    image = np.full((H, W, 3), 30, np.uint8)
+    cv2.rectangle(image, (100, 50), (180, 260), (220, 220, 220), -1)
+    cv2.rectangle(image, (250, 60), (320, 250), (220, 220, 220), -1)
+    Image.fromarray(image).save(kit / "photo.jpg")
+    both = document(shape(box(100, 50, 180, 260), 1), shape(box(250, 60, 320, 250), 2))
+    (kit / "photo.json").write_text(json.dumps(both))
+    (returned / "photo.json").write_text(json.dumps(both))
+    (kit / "kit_manifest.json").write_text(json.dumps({"photos": [
+        {"file": "photo.json", "image": "photo.jpg", "category": "single", "people": 2}]}))
+    review = tmp_path / "review.json"
+    review.write_text(json.dumps({"people": {"1": {"verdict": "reference"}, "2": {"verdict": "excluded", "reason": "x"}}}))
+    assert [r["coco_annotation"] for r in c.compare(kit, returned)["people"]] == [1, 2]
+    kept = c.compare(kit, returned, review)
+    assert [r["coco_annotation"] for r in kept["people"]] == [1] and kept["left_out_by_review"] == 1

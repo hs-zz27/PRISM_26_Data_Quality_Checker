@@ -1,0 +1,372 @@
+{
+  "note": "Each machine-drawn outline in drawn/ checked by eye against the photo at full size on 21 Nov 2026. 'reference' means it follows the person's visible boundary closely with no visible part missing. None has been approved by the mentor yet.",
+  "people": {
+    "485485": {
+      "photo": "000000427077",
+      "category": "single",
+      "verdict": "reference"
+    },
+    "428181": {
+      "photo": "000000434548",
+      "category": "single",
+      "verdict": "reference"
+    },
+    "467971": {
+      "photo": "000000443426",
+      "category": "single",
+      "verdict": "reference"
+    },
+    "430106": {
+      "photo": "000000281414",
+      "category": "single",
+      "verdict": "reference"
+    },
+    "2164049": {
+      "photo": "000000340451",
+      "category": "single",
+      "verdict": "reference"
+    },
+    "446896": {
+      "photo": "000000020333",
+      "category": "single",
+      "verdict": "reference"
+    },
+    "1238296": {
+      "photo": "000000124442",
+      "category": "single",
+      "verdict": "reference"
+    },
+    "441345": {
+      "photo": "000000388215",
+      "category": "single",
+      "verdict": "reference"
+    },
+    "473186": {
+      "photo": "000000438907",
+      "category": "close_pair",
+      "verdict": "reference"
+    },
+    "490366": {
+      "photo": "000000438907",
+      "category": "close_pair",
+      "verdict": "reference"
+    },
+    "477700": {
+      "photo": "000000248284",
+      "category": "close_pair",
+      "verdict": "excluded",
+      "reason": "night scene; the boundary with the dark person beside her is not visible"
+    },
+    "2205539": {
+      "photo": "000000248284",
+      "category": "close_pair",
+      "verdict": "excluded",
+      "reason": "night scene; the dark coat cannot be told from the dark background"
+    },
+    "495245": {
+      "photo": "000000303893",
+      "category": "close_pair",
+      "verdict": "reference"
+    },
+    "1230051": {
+      "photo": "000000303893",
+      "category": "close_pair",
+      "verdict": "reference"
+    },
+    "439688": {
+      "photo": "000000372577",
+      "category": "close_pair",
+      "verdict": "reference"
+    },
+    "1207762": {
+      "photo": "000000372577",
+      "category": "close_pair",
+      "verdict": "excluded",
+      "reason": "only the legs are in the photo, and the net's white band runs through them"
+    },
+    "463106": {
+      "photo": "000000429761",
+      "category": "close_pair",
+      "verdict": "reference"
+    },
+    "1204085": {
+      "photo": "000000429761",
+      "category": "close_pair",
+      "verdict": "reference"
+    },
+    "222432": {
+      "photo": "000000013729",
+      "category": "partly_hidden",
+      "verdict": "reference"
+    },
+    "258665": {
+      "photo": "000000013729",
+      "category": "partly_hidden",
+      "verdict": "reference"
+    },
+    "1729676": {
+      "photo": "000000013729",
+      "category": "partly_hidden",
+      "verdict": "reference"
+    },
+    "1730702": {
+      "photo": "000000013729",
+      "category": "partly_hidden",
+      "verdict": "reference"
+    },
+    "473235": {
+      "photo": "000000032887",
+      "category": "partly_hidden",
+      "verdict": "reference"
+    },
+    "473865": {
+      "photo": "000000032887",
+      "category": "partly_hidden",
+      "verdict": "excluded",
+      "reason": "too small and blurred to judge the boundary"
+    },
+    "424389": {
+      "photo": "000000482800",
+      "category": "partly_hidden",
+      "verdict": "reference"
+    },
+    "528200": {
+      "photo": "000000482800",
+      "category": "partly_hidden",
+      "verdict": "reference"
+    },
+    "538003": {
+      "photo": "000000482800",
+      "category": "partly_hidden",
+      "verdict": "reference"
+    },
+    "502460": {
+      "photo": "000000046872",
+      "category": "partly_hidden",
+      "verdict": "reference"
+    },
+    "1238999": {
+      "photo": "000000046872",
+      "category": "partly_hidden",
+      "verdict": "excluded",
+      "reason": "the drawing lost the feet that show under the trailer"
+    },
+    "463431": {
+      "photo": "000000192670",
+      "category": "crowd",
+      "verdict": "reference"
+    },
+    "512224": {
+      "photo": "000000192670",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "seen through a chain-link fence; its boundary cannot be drawn tightly"
+    },
+    "527696": {
+      "photo": "000000192670",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "seen through a chain-link fence; its boundary cannot be drawn tightly"
+    },
+    "540250": {
+      "photo": "000000192670",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "seen through a chain-link fence; its boundary cannot be drawn tightly"
+    },
+    "559879": {
+      "photo": "000000192670",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "seen through a chain-link fence; its boundary cannot be drawn tightly"
+    },
+    "1228441": {
+      "photo": "000000192670",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "seen through a chain-link fence; its boundary cannot be drawn tightly"
+    },
+    "1236247": {
+      "photo": "000000192670",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "seen through a chain-link fence; its boundary cannot be drawn tightly"
+    },
+    "1716694": {
+      "photo": "000000192670",
+      "category": "crowd",
+      "verdict": "reference"
+    },
+    "1738757": {
+      "photo": "000000192670",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "seen through a chain-link fence; its boundary cannot be drawn tightly"
+    },
+    "457653": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "reference"
+    },
+    "469408": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "reference"
+    },
+    "477492": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "small and dark, in the dugout; its boundary cannot be judged"
+    },
+    "481717": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "small and dark, in the dugout; its boundary cannot be judged"
+    },
+    "507635": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "small and dark, in the dugout; its boundary cannot be judged"
+    },
+    "534986": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "small and dark, in the dugout; its boundary cannot be judged"
+    },
+    "1243438": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "small and dark, in the dugout; its boundary cannot be judged"
+    },
+    "1753493": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "small and dark, in the dugout; its boundary cannot be judged"
+    },
+    "1754577": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "excluded",
+      "reason": "small and dark, in the dugout; its boundary cannot be judged"
+    },
+    "2155556": {
+      "photo": "000000006471",
+      "category": "crowd",
+      "verdict": "reference"
+    },
+    "474221": {
+      "photo": "000000258388",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "495222": {
+      "photo": "000000258388",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "1236789": {
+      "photo": "000000258388",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "452432": {
+      "photo": "000000580197",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "454974": {
+      "photo": "000000580197",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "2198581": {
+      "photo": "000000580197",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "454230": {
+      "photo": "000000174371",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "500211": {
+      "photo": "000000174371",
+      "category": "mentor_sheet",
+      "verdict": "excluded",
+      "reason": "mostly hidden; the boundary between the two faces is not clear"
+    },
+    "521435": {
+      "photo": "000000174371",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "564197": {
+      "photo": "000000174371",
+      "category": "mentor_sheet",
+      "verdict": "excluded",
+      "reason": "the drawing lost a visible hand"
+    },
+    "565962": {
+      "photo": "000000174371",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "1245976": {
+      "photo": "000000174371",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "424821": {
+      "photo": "000000476514",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "431398": {
+      "photo": "000000476514",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "495199": {
+      "photo": "000000153229",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "517559": {
+      "photo": "000000153229",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "524602": {
+      "photo": "000000153229",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "563143": {
+      "photo": "000000153229",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "1212255": {
+      "photo": "000000153229",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    },
+    "1220735": {
+      "photo": "000000153229",
+      "category": "mentor_sheet",
+      "verdict": "excluded",
+      "reason": "the drawing strayed from the person, so COCO's outline was kept; it is not tight"
+    },
+    "2152975": {
+      "photo": "000000153229",
+      "category": "mentor_sheet",
+      "verdict": "reference"
+    }
+  }
+}

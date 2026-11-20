@@ -2,6 +2,8 @@
 """Score the redrawn reference outlines against COCO's originals, and suggest a boundary-fit pass mark.
 
   .venv/bin/python -B evaluation/tight_reference/compare.py --returned path/to/returned_folder_or.zip
+  .venv/bin/python -B evaluation/tight_reference/compare.py --returned evaluation/tight_reference/drawn \
+      --review evaluation/tight_reference/review.json   # only the outlines checked and kept as references
 
 The returned folder is the kit after redrawing in LabelMe. People are matched to the originals by the COCO id
 in each shape's description, by their Group ID, and otherwise by overlap. Writes compare_results.json.
@@ -83,9 +85,11 @@ def match(original, redrawn, size):
     return out
 
 
-def compare(kit: Path, returned: Path) -> dict:
+def compare(kit: Path, returned: Path, review: Path | None = None) -> dict:
+    """Score every matched person, or with ``review`` only those whose verdict there is "reference"."""
     manifest = json.loads((kit / "kit_manifest.json").read_text(encoding="utf-8"))
-    rows, added, missing, missing_files = [], 0, 0, []
+    verdicts = json.loads(review.read_text(encoding="utf-8"))["people"] if review else None
+    rows, added, missing, missing_files, left_out = [], 0, 0, [], 0
     for photo in manifest["photos"]:
         if not (returned / photo["file"]).is_file():
             missing_files.append(photo["file"])
@@ -102,6 +106,9 @@ def compare(kit: Path, returned: Path) -> dict:
         for key, cid in matched.items():
             if cid is None:
                 continue
+            if verdicts is not None and verdicts.get(str(cid), {}).get("verdict") != "reference":
+                left_out += 1
+                continue
             before = fit_module.boundary_fit(distance, before_people[cid])
             after = fit_module.boundary_fit(distance, after_people[key])
             rows.append({"file": photo["file"], "category": photo["category"], "coco_annotation": cid,
@@ -113,6 +120,7 @@ def compare(kit: Path, returned: Path) -> dict:
     before = np.array([r["before"] for r in judged if r["before"] is not None])
     mark = float(np.floor(100 * np.percentile(after, 100 * (1 - KEEP_SHARE))) / 100) if len(after) else None
     return {"people": rows, "added_people": added, "missing_people": missing, "missing_files": missing_files,
+            "left_out_by_review": left_out,
             "suggested_mark": mark,
             "redrawn_passing_mark": float(np.mean(after >= mark)) if mark is not None else None,
             "originals_passing_mark": float(np.mean(before >= mark)) if mark is not None and len(before) else None,
@@ -129,7 +137,7 @@ def _report(result):
         print(f"| {kind} | {len(group)} | {100 * med('before'):.1f}% | {100 * med('after'):.1f}% | "
               f"{med('points_before'):.0f} -> {med('points_after'):.0f} |")
     print(f"\nPeople added: {result['added_people']}; people missing from the redrawn files: {result['missing_people']}; "
-          f"files not returned: {len(result['missing_files'])}")
+          f"files not returned: {len(result['missing_files'])}; left out by the review: {result['left_out_by_review']}")
     if result["suggested_mark"] is not None:
         print(f"Suggested pass mark: {100 * result['suggested_mark']:.0f}% on the boundary. It passes "
               f"{100 * result['redrawn_passing_mark']:.0f}% of the redrawn outlines and "
@@ -142,6 +150,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--returned", type=Path, required=True, help="the redrawn folder, or a zip of it")
     parser.add_argument("--kit", type=Path, default=HERE / "kit")
+    parser.add_argument("--review", type=Path, default=None, help="score only the people this review keeps")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory() as scratch:
         returned = args.returned
@@ -150,6 +159,6 @@ if __name__ == "__main__":
                 archive.extractall(scratch)
             found = [p.parent for p in Path(scratch).rglob("kit_manifest.json")] or [p.parent for p in Path(scratch).rglob("*.json")]
             returned = found[0]
-        result = compare(args.kit, returned)
+        result = compare(args.kit, returned, args.review)
     (HERE / "compare_results.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     _report(result)
