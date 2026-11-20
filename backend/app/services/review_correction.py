@@ -10,6 +10,7 @@ from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from ..core.config import OLLAMA_KEEP_ALIVE_SECONDS
+from ..core.execution_device import ollama_device_options
 from ..inference.annotation_guideline import GuidelineClient, InferenceUnavailable, unique_object
 from ..models.correction import CorrectionObject, JsonCorrectionObject
 from ..models.feedback import ExecutionPin
@@ -192,7 +193,7 @@ def propose_correction(measurements, feedback, manifest, rulebook, settings, exe
         payload = {'model': execution.model, 'stream': False, 'keep_alive': OLLAMA_KEEP_ALIVE_SECONDS,
             'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': content,
                           'images': [b64encode(item).decode('ascii') for item in (image, overlay)]}], 'format': schema,
-            'options': {'num_gpu': 0, 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
+            'options': {**ollama_device_options(), 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
         if compact:
             payload.update(truncate=False, shift=False)
         if execution.num_thread is not None:

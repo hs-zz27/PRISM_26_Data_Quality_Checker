@@ -50,7 +50,7 @@ def system_examples():
     """Build examples from the real models so they always validate against the live schemas."""
     return {
         'getHealth': Health(status='ok', api_version='v1').model_dump(mode='json'),
-        'getCapabilities': build_capabilities().model_dump(mode='json'),
+        'getCapabilities': {**build_capabilities().model_dump(mode='json'), 'execution_device': 'cpu'},
         'getSystemStatus': SystemStatus(
             ollama=OllamaStatus(configuration='valid', reachable=True, model=EXAMPLE_MODEL, model_available=True),
             person_model=PersonModelStatus(model=PERSON_MODEL, checkpoint_file='present'),

@@ -1,7 +1,7 @@
 """Local Mask R-CNN person segmenter. It sees only the photo, never the annotation, rule or feedback.
 
-Loads torchvision ``maskrcnn_resnet50_fpn_v2`` (COCO weights) from a local checkpoint on the CPU; nothing is
-downloaded. Returns person outlines plus things people carry (backpack, umbrella, handbag, suitcase), which an
+Loads torchvision ``maskrcnn_resnet50_fpn_v2`` (COCO weights) from a local checkpoint; nothing is downloaded.
+It runs on the CPU unless ``PRISM_EXECUTION_DEVICE=auto`` and a GPU is present (see ``core.execution_device``). Returns person outlines plus things people carry (backpack, umbrella, handbag, suitcase), which an
 annotation may include. Pass/fail decisions belong to ``services.person_coverage``.
 """
 from dataclasses import dataclass
@@ -14,6 +14,7 @@ from PIL import Image
 from torchvision.models.detection import maskrcnn_resnet50_fpn_v2
 from torchvision.transforms.functional import to_tensor
 
+from ..core.execution_device import execution_device
 from ..core.person_model import CHECKPOINT_NAME, MODEL_NAME, checkpoint_path
 
 PERSON = 1
@@ -44,28 +45,40 @@ def extent(mask: np.ndarray) -> tuple[int, int, int, int]:
     return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())
 
 
+def select_device() -> str:
+    """The Torch device for the configured setting: an NVIDIA GPU, else an Apple GPU, else the CPU."""
+    if execution_device() == "cpu":
+        return "cpu"
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 class PersonSegmenter:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, device: str | None = None):
         try:
+            self.device = select_device() if device is None else device
             model = maskrcnn_resnet50_fpn_v2(weights=None, weights_backbone=None)
             model.load_state_dict(torch.load(path, map_location="cpu", weights_only=True))
-        except Exception as error:  # a corrupt or wrong file fails in several ways
+            self.model = model.eval().to(self.device)
+        except Exception as error:  # a corrupt or wrong file, or an unusable device, fails in several ways
             raise SegmenterUnavailable(f"Cannot load {path.name}: {type(error).__name__}") from error
-        self.model = model.eval()
         self.identity = {"model": MODEL_NAME, "checkpoint_sha256": sha256(path.read_bytes()).hexdigest(),
-                         "min_score": MIN_SCORE, "mask_probability": MASK_PROBABILITY}
+                         "min_score": MIN_SCORE, "mask_probability": MASK_PROBABILITY, "device": self.device}
 
     def segment(self, image: Image.Image) -> Segmentation:
         try:
             with torch.no_grad():
-                prediction = self.model([to_tensor(image.convert("RGB"))])[0]
+                prediction = self.model([to_tensor(image.convert("RGB")).to(self.device)])[0]
         except Exception as error:
             raise SegmenterUnavailable(f"Inference failed: {type(error).__name__}") from error
         people, carried = [], []
         for label, score, soft in zip(prediction["labels"].tolist(), prediction["scores"].tolist(), prediction["masks"]):
             if score < MIN_SCORE:
                 continue
-            mask = soft[0].numpy() >= MASK_PROBABILITY
+            mask = soft[0].cpu().numpy() >= MASK_PROBABILITY
             if not mask.any():
                 continue
             if label == PERSON:

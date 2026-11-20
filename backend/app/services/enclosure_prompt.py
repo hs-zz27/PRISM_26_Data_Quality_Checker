@@ -14,6 +14,7 @@ from hashlib import sha256
 import json
 from typing import Any, Mapping
 
+from ..core.execution_device import ollama_device_options
 from ..models.enclosure import (
     EnclosureExecutionPin, bound_response_schema, enclosure_case_identity as case_identity,
 )
@@ -74,7 +75,7 @@ def build_request(pin: EnclosureExecutionPin, rule: Mapping[str, Any], case_id: 
     reserved = pin.num_predict + 1024
     if text_bytes > max(0, pin.num_ctx - reserved) // 2:
         raise ContextNotRepresentable("The text context does not fit the pinned window.")
-    options: dict[str, Any] = {"num_gpu": 0, "temperature": 0, "num_ctx": pin.num_ctx,
+    options: dict[str, Any] = {**ollama_device_options(), "temperature": 0, "num_ctx": pin.num_ctx,
                                "num_predict": pin.num_predict}
     if pin.num_thread is not None:
         options["num_thread"] = pin.num_thread

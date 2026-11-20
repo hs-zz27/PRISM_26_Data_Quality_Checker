@@ -3,6 +3,7 @@ from base64 import b64encode
 import json
 from ..core.feedback import FeedbackError
 from ..core.config import OLLAMA_KEEP_ALIVE_SECONDS
+from ..core.execution_device import ollama_device_options
 from ..models.feedback import ExecutionPin, Prediction, TargetedPrediction, checked, unit_id
 from ..models.visual_assessment import VisualAssessment
 from .feedback_evidence import evidence, visual_evidence
@@ -116,7 +117,7 @@ def _visual_payload(manifest, target, examples, execution, asset_settings, revie
     messages.append({'role': 'user', 'content': content})
     payload = {'model': execution.model, 'stream': False, 'keep_alive': OLLAMA_KEEP_ALIVE_SECONDS,
         'truncate': False, 'shift': False, 'messages': messages, 'format': schema,
-        'options': {'num_gpu': 0, 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
+        'options': {**ollama_device_options(), 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
     if execution.num_thread is not None:
         payload['options']['num_thread'] = execution.num_thread
     if len(json.dumps(payload, ensure_ascii=False, allow_nan=False).encode()) > execution.max_request_bytes:
@@ -182,7 +183,7 @@ def prepare_payload(manifest, target, examples, execution, asset_settings, *, re
     if (not text_fits(SYSTEM, content, schema, execution, len(images)) if compact
             else text_bytes > max(0, execution.num_ctx - reserved) // 2):
         raise FeedbackError('CONTEXT_NOT_REPRESENTABLE')
-    payload = {'model': execution.model, 'stream': False, 'keep_alive': OLLAMA_KEEP_ALIVE_SECONDS, 'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': content, 'images': images}], 'format': schema, 'options': {'num_gpu': 0, 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
+    payload = {'model': execution.model, 'stream': False, 'keep_alive': OLLAMA_KEEP_ALIVE_SECONDS, 'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': content, 'images': images}], 'format': schema, 'options': {**ollama_device_options(), 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
     if compact:
         payload.update(truncate=False, shift=False)
     if execution.num_thread is not None:

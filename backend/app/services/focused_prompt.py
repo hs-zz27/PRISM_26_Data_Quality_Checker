@@ -10,6 +10,7 @@ from base64 import b64encode
 import json
 
 from ..core.config import OLLAMA_KEEP_ALIVE_SECONDS
+from ..core.execution_device import ollama_device_options
 from ..core.feedback import FeedbackError
 from ..models.feedback import FocusedAssessment, unit_id
 from .feedback_evidence import _evidence
@@ -132,7 +133,7 @@ def focused_payload(manifest, target, execution, asset_settings, reviewer_feedba
     messages.append({'role': 'user', 'content': content})
     payload = {'model': execution.model, 'stream': False, 'keep_alive': OLLAMA_KEEP_ALIVE_SECONDS,
                'truncate': False, 'shift': False, 'messages': messages, 'format': schema,
-               'options': {'num_gpu': 0, 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
+               'options': {**ollama_device_options(), 'temperature': 0, 'num_ctx': execution.num_ctx, 'num_predict': execution.num_predict}}
     if execution.num_thread is not None:
         payload['options']['num_thread'] = execution.num_thread
     if len(json.dumps(payload, ensure_ascii=False, allow_nan=False).encode()) > execution.max_request_bytes:

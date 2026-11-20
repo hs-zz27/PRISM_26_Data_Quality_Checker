@@ -164,6 +164,8 @@ polygon with it.
 - No matching person: **unsure** (`no_matching_person`, `no_person_detected`). Model file missing or failing:
   **unavailable** (`person_segmenter_unavailable`). Neither can produce a pass.
 - Runs inside the sample worker only when the rulebook contains the rule (about 1-3 s per image on CPU).
+  With `PRISM_EXECUTION_DEVICE=auto` it uses a GPU when the machine has one (see `docker/README.md`,
+  "Using a GPU").
 - Setup: put `maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth` in `backend/data/models/` (mounted read-only at
   `/models`), or set `PERSON_SEGMENTER_CHECKPOINT`. Nothing is downloaded at audit time.
 - Offline benchmark (synthetic errors on human outlines; Penn-Fudan for tuning, COCO val2017 held out):

@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from ..core.config import OLLAMA_KEEP_ALIVE_SECONDS, OllamaSettings, load_ollama_settings
+from ..core.execution_device import ollama_device_options
 from ..models.rule import RuleProposal
 from .rule_proposals import compact_response_schema, expand_response, extraction_catalog, source_units
 
@@ -196,7 +197,7 @@ def propose_rules(
             "format": schema,
             "stream": False,
             "options": {
-                "num_gpu": 0,
+                **ollama_device_options(),
                 "temperature": 0,
                 "num_ctx": configuration.context_length,
                 "num_predict": configuration.max_output_tokens,

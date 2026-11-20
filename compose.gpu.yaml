@@ -1,0 +1,31 @@
+# Use an NVIDIA GPU when the machine has one. Not needed on a CPU-only machine.
+#
+#   docker compose -f compose.yaml -f compose.gpu.yaml up --build -d
+#
+# Needs the NVIDIA driver and the NVIDIA Container Toolkit on the host. The first build downloads
+# PyTorch with CUDA (several GB). Ollama runs on the host and uses the GPU by itself once
+# PRISM_EXECUTION_DEVICE=auto stops the application from forbidding it.
+x-gpu: &gpu
+  environment:
+    PRISM_EXECUTION_DEVICE: auto
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  api:
+    <<: *gpu
+    build:
+      args:
+        TORCH_INDEX_URL: https://pypi.org/simple
+  # The person model runs in the audit worker, and in the feedback worker for suggested corrections.
+  audit-worker: *gpu
+  feedback-worker: *gpu
+  # These only talk to Ollama; the setting lets their requests use the GPU too.
+  extraction-worker:
+    environment:
+      PRISM_EXECUTION_DEVICE: auto

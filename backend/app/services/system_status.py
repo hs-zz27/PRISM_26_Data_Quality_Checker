@@ -15,6 +15,7 @@ import httpx
 from ..checks.registry import CHECK_REGISTRY
 from ..core import person_model
 from ..core.config import OllamaSettings, load_ollama_settings
+from ..core.execution_device import execution_device
 from ..models.system import (
     Capabilities,
     CheckCapability,
@@ -33,7 +34,7 @@ def build_capabilities() -> Capabilities:
         guideline_input_formats=["plain_text"],
         coordinate_convention="format_specific",
         checks=[CheckCapability(name=name, implementation="implemented") for name in sorted(CHECK_REGISTRY)],
-        execution_device="cpu",
+        execution_device=execution_device(),
     )
 
 
@@ -93,7 +94,8 @@ class SystemStatusService:
         self._person_model_checkpoint = person_model_checkpoint
 
     def status(self) -> SystemStatus:
-        return SystemStatus(ollama=self._ollama(), person_model=self._person_model(), execution_device="cpu")
+        return SystemStatus(ollama=self._ollama(), person_model=self._person_model(),
+                            execution_device=execution_device())
 
     def _person_model(self) -> PersonModelStatus:
         try:

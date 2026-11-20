@@ -21,7 +21,10 @@ What this build supports. It does not depend on which files are installed.
   Only these can appear in a rulebook. A listed check can still report unavailable results
 for a sample when its inputs are missing: the model-assisted `annotation_guideline` check,
 for example, needs the configured local model, so read `GET /system/status` alongside this list.
-- `execution_device`: `cpu`.
+- `execution_device`: `cpu` or `auto`. The configured `PRISM_EXECUTION_DEVICE` setting, not a measurement.
+  `cpu` (the default) keeps the person model and every Ollama request on the CPU. `auto` lets the person
+  model use an NVIDIA GPU, else an Apple GPU, else the CPU, and lets Ollama place the language model itself.
+  `GET /system/status` reports the same value.
 
 ## `GET /api/v1/system/status` (`getSystemStatus`)
 

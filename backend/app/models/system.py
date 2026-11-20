@@ -43,7 +43,12 @@ class Capabilities(BaseModel):
             "checks, for example, need the configured local model (see system status)."
         ),
     )
-    execution_device: Literal["cpu"]
+    execution_device: Literal["cpu", "auto"] = Field(
+        description=(
+            "The configured setting, not a measurement: cpu keeps every local model on the CPU; auto lets "
+            "the person model and Ollama use a GPU when the machine has one."
+        ),
+    )
 
 
 class OllamaStatus(BaseModel):
@@ -88,4 +93,9 @@ class SystemStatus(BaseModel):
 
     ollama: OllamaStatus
     person_model: PersonModelStatus
-    execution_device: Literal["cpu"]
+    execution_device: Literal["cpu", "auto"] = Field(
+        description=(
+            "The configured setting, not a measurement: cpu keeps every local model on the CPU; auto lets "
+            "the person model and Ollama use a GPU when the machine has one."
+        ),
+    )

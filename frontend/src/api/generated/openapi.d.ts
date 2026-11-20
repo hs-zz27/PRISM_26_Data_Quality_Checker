@@ -3489,9 +3489,10 @@ export interface components {
             checks: components["schemas"]["CheckCapability"][];
             /**
              * Execution Device
-             * @constant
+             * @description The configured setting, not a measurement: cpu keeps every local model on the CPU; auto lets the person model and Ollama use a GPU when the machine has one.
+             * @enum {string}
              */
-            execution_device: "cpu";
+            execution_device: "cpu" | "auto";
         };
         /**
          * CheckCapability
@@ -3531,9 +3532,10 @@ export interface components {
             person_model: components["schemas"]["PersonModelStatus"];
             /**
              * Execution Device
-             * @constant
+             * @description The configured setting, not a measurement: cpu keeps every local model on the CPU; auto lets the person model and Ollama use a GPU when the machine has one.
+             * @enum {string}
              */
-            execution_device: "cpu";
+            execution_device: "cpu" | "auto";
         };
         /** OllamaStatus */
         OllamaStatus: {

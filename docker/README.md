@@ -107,6 +107,34 @@ The top bar's Mask R-CNN light shows whether the file is found. Without it, the 
 reports "could not check" for each image, never a pass. Model settings for enclosure/feedback
 still require their explicit enablement and digests; starting Compose does not enable them.
 
+## Using a GPU
+
+The application runs on the CPU by default. One setting, `PRISM_EXECUTION_DEVICE`, changes that:
+
+- `cpu` (default): the person model runs on the CPU and every Ollama request forbids GPU layers.
+- `auto`: the person model uses an NVIDIA GPU, else an Apple GPU, else the CPU. Ollama places the language
+  model itself and uses a GPU when it has one. On a machine with no GPU, `auto` behaves like `cpu`.
+
+On a Linux machine with an NVIDIA GPU (driver and NVIDIA Container Toolkit installed):
+
+```bash
+docker compose -f compose.yaml -f compose.gpu.yaml up --build -d
+```
+
+That override sets `auto`, gives the API, audit and feedback containers the GPU and rebuilds the image with
+CUDA PyTorch (several GB). Ollama runs on the host and needs nothing else. Without Docker, put
+`PRISM_EXECUTION_DEVICE=auto` in `.env`.
+
+On a Mac, containers cannot reach the Apple GPU, so in Docker `auto` only speeds up Ollama on the host. The
+person model uses the Apple GPU when the backend runs natively.
+
+`GET /api/v1/system/status` reports the setting. A GPU can give slightly different numbers from the CPU:
+on four test photos the person model found the same people with outlines at least 99.8% identical. An audit
+is therefore reproducible on the same kind of device, not bit for bit across devices.
+
+The NVIDIA path has not been run: no such machine was available when it was written (16 November 2026).
+The Apple GPU path and the CPU default are tested.
+
 ## Stop and troubleshoot
 
 ```bash
