@@ -63,6 +63,14 @@ a small set of outlines drawn to his standard, and uses them to set the boundary
    measures how far each drawing moves. It writes `agreement_results.json`. The result, in RESULTS.md: the spread
    does not reliably pick out the drawings that failed the check by eye.
 
+7. **More verdicts from the mentor:** `.venv/bin/python -B evaluation/tight_reference/verdict_sheet.py` builds
+   `review_sheet/coco_outline_verdicts.pdf` (14 pages): the 28 COCO outlines whose reference was kept, outside his
+   own example sheet, each with "tight enough / not tight enough" boxes, his two tight outlines as the yardstick,
+   and an answer table. Only COCO's outline is shown, so the machine drawing does not steer his answer.
+   `review_sheet/coco_outline_verdicts_key.json` maps each number to its COCO id; add his answers to
+   `evaluation/boundary_fit/sir_labels.json` and rerun `distances.py`. That gives 45 judged outlines instead of
+   17, enough to test the tolerance instead of only fitting it.
+
 The kit starts from COCO's outlines, which is faster than drawing from nothing. The risk is that the person
 redrawing leaves some outlines as they were; the guide asks for every outline to be checked, and the compare
 step shows how many points each outline gained.

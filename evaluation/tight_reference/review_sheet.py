@@ -4,34 +4,21 @@ Only people kept as references in review.json are shown. Writes review_sheet/red
 
   .venv/bin/python -B evaluation/tight_reference/review_sheet.py
 """
-import base64, io, json, subprocess
+import json, subprocess
 from pathlib import Path
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 TR = HERE
 OUT = HERE / "review_sheet"
 OUT.mkdir(exist_ok=True)
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"  # macOS; change for other systems
-BOLD = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+from sheet_tools import CHROME, CSS, label, outline, uri  # noqa: E402
 review = json.loads((TR / "review.json").read_text())["people"]
 kit = json.loads((TR / "kit/kit_manifest.json").read_text())
 PHOTOS = [p for p in kit["photos"] if p["category"] == "mentor_sheet"]
 LETTERS = "ABCDEFGHIJ"
 APPROVED = {1236789: "the fire performer", 431398: "the bride"}
-
-def outline(draw, pts, scale, dx, dy, colour, width):
-    q = [((x - dx) * scale, (y - dy) * scale) for x, y in pts]
-    draw.line(q + [q[0]], fill=(12, 12, 12), width=width + 4, joint="curve"); draw.line(q + [q[0]], fill=colour, width=width, joint="curve")
-
-def uri(img):
-    b = io.BytesIO(); img.save(b, "JPEG", quality=88); return "data:image/jpeg;base64," + base64.b64encode(b.getvalue()).decode()
-
-def label(draw, xy, text, size, bounds):
-    f = ImageFont.truetype(BOLD, size); l, t, r, b = draw.textbbox((0, 0), text, font=f)
-    x = min(max(xy[0], 2), bounds[0] - (r - l) - 10); y = max(xy[1] - (b - t) - 10, 2)
-    draw.rectangle([x, y, x + r - l + 8, y + b - t + 8], fill=(12, 12, 12)); draw.text((x + 4 - l, y + 4 - t), text, font=f, fill=(255, 255, 255))
 
 sections = []
 for entry in PHOTOS:
@@ -66,12 +53,6 @@ for entry in PHOTOS:
 <figure><img src="{uri(whole(new, (40, 220, 110)))}"><figcaption>After: the redrawn outlines (green)</figcaption></figure></div>
 {crops}</section>''')
 
-CSS = """@page { size: A4; margin: 14mm; } body { font-family: Helvetica, Arial, sans-serif; font-size: 10.5pt; color: #1c1c1c; margin: 0; line-height: 1.4; }
-h1 { font-size: 20pt; margin: 0 0 6pt; } h2 { font-size: 14pt; margin: 0 0 6pt; } h3 { font-size: 10.5pt; margin: 6pt 0 3pt; }
-section { break-before: page; } section.first { break-before: auto; }
-.pair { display: flex; gap: 4mm; } figure { margin: 0; flex: 1; } figure img { width: 100%; display: block; border: 1px solid #bbb; }
-figcaption { font-size: 8.8pt; color: #555; margin-top: 2pt; } .person { break-inside: avoid; display: inline-block; width: 49%; vertical-align: top; }
-.person .pair figure img { max-height: 62mm; object-fit: contain; } p { margin: 0 0 6pt; }"""
 intro = f'''<section class="first"><h1>Redrawn tight outlines for your review</h1>
 <p>You said the fire performer and the bride are drawn tightly enough and the other outlines on our example sheet are not. We redrew the outlines to follow each person's visible body closely, so we can test our tool against outlines you agree are tight. The fire performer and the bride are redrawn too and marked, so you can compare them with the originals you approved.</p>
 <p>Could you tell us which redrawn outlines are tight enough, and which are not? Your answer becomes the standard our tool is tested against.</p>
