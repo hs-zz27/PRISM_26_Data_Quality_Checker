@@ -186,6 +186,8 @@ part; COCO already keeps all of a person's parts in one annotation.
 gets a **Show error region** button, and clicking the finding opens the close-up beside it, inside the finding.
 It is built from `findingRegions()` only, never from the finding text, so new region fields (`body_part`,
 kind `mismatch`) appear without a frontend change. Today that covers `person_coverage` and `unannotated_people`.
+Two outline tightness measures (edge fit and distance from a reference) will use the same records once audits
+run them. Their fields are already fixed, see "Planned: outline tightness measures" in [AUDITS.md](AUDITS.md).
 
 - **What it shows.** A crop of the original photo around one problem region, the annotation outline the finding
   is about (every outline, for a person with no annotation), the region itself and the finding sentence. The

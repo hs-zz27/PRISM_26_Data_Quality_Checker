@@ -208,11 +208,12 @@ emits. Change this section, that reader and that test together.
 
 | Field | Meaning |
 |---|---|
-| `kind` | `missing` (part of the person is outside the annotation) or `extra` (the annotation holds area that is not the person). Stored audits contain these two words; never rename them. `mismatch` is reserved for an outline whose shape does not follow the person. |
+| `kind` | `missing` (part of the person is outside the annotation) or `extra` (the annotation holds area that is not the person). Stored audits contain these two words; never rename them. `mismatch`: a stretch of outline that does not follow the person's visible boundary (`boundary_fit`, below). |
 | `side` | `top`, `bottom`, `left`, `right` or `middle`: where the region lies on the person. |
 | `box` | `[x0, y0, x1, y1]` around the region, in the annotation's own coordinates (see `coordinate_system`). |
 | `pixels` | Box geometry only: how far the side is off, in pixels. |
 | `area_px` | Polygon or mask geometry only: the region's area in pixels. |
+| `length_px` | `mismatch` regions only: the length of the outline stretch, in pixels. |
 | `edge` | Box geometry only: where that box side belongs. Used by the suggested correction, not for display. |
 | `body_part` | Optional, reserved: `head`, `arm`, `leg` or `torso` when the check can name the part; absent or null otherwise. |
 
@@ -222,6 +223,44 @@ with `box` (same coordinates, `result.coordinate_system`), `height_px` and `scor
 `coordinate_system` is `zero_based_continuous` (COCO, LabelMe: a box ends after its last pixel) or
 `one_based_inclusive` (Penn-Fudan). New fields are added as optional fields; existing fields keep their names
 and meanings, so findings stored by earlier audits stay readable.
+
+### Planned: outline tightness measures (no audit emits these yet)
+
+Two measures exist as backend code with tests, but no check runs them, so no finding carries them today. When
+they are wired into audits, their regions use the record above, one record per region, with `geometry`
+`polygon` and `coordinate_system` as above. Until then the frontend needs no change. Once a check emits them,
+`findingRegions()` needs the new check name and, for `mismatch`, `length_px`. The check names and where the
+records sit in `evidence.measurements.result` are decided when they are wired; the record fields below are fixed
+now and pinned by `backend/tests/test_finding_regions_contract.py`.
+
+**Edge fit** (`backend/app/services/boundary_fit.py`): the outline against edges in the photo.
+
+- Regions: `kind` `mismatch`, `side`, `box`, `length_px`. Each is a stretch of outline that lies off every
+  edge in the photo, longest first.
+- Per person: `share_on_edge` (0-1, or null when nothing could be judged), `busy_share`, `tolerance_px`.
+  A busy background makes the result unsure, never a pass.
+
+**Distance from a reference** (`backend/app/services/boundary_distance.py`): the outline against a reference
+outline of the same person, boundary to boundary.
+
+- Regions: `kind` `extra` (the outline reaches beyond the person by more than the tolerance, for example
+  background or a neighbour's head) or `missing` (the person reaches beyond the outline, for example an arm left
+  out), `side`, `box`, `area_px`; largest first.
+- Per person, in pixels unless stated: `outward_px` and `inward_px` (95% of the boundary lies within this
+  distance, outward or inward), `outward_max_px`, `inward_max_px`, `outward_share` and `inward_share` (0-1,
+  the share of the boundary past the tolerance), `mask_iou`, `boundary_iou`, `tolerance_px`, and `too_small`
+  (true when the person is under 8 tolerances tall; such a person goes to a reviewer).
+- Suggested wording for a person: "95% of the outline lies within 7 px of the person; at most it is 12 px
+  outside".
+  The tolerance is provisional: on the mentor's examples it is about 0.47% of the photo's diagonal
+  (`evaluation/tight_reference/RESULTS.md`).
+
+A region from either measure, as it will appear in a geometry's `regions`:
+
+```json
+{"kind": "extra", "side": "top", "box": [212, 40, 251, 77], "area_px": 387}
+{"kind": "mismatch", "side": "left", "box": [98, 150, 104, 231], "length_px": 82}
+```
 
 ## Visual guideline answers their own reasons contradict
 

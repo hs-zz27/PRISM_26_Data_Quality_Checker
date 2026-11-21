@@ -2,13 +2,17 @@
 
 The frontend reader is frontend/src/lib/findingRegions.ts. A field may be added; these may not be renamed or dropped.
 """
+import dataclasses
 from types import SimpleNamespace
 
+import cv2
 import numpy as np
 import pytest
 
 from backend.app.checks.registry import validate_check_parameters
 from backend.app.models.finding import FindingOutcome
+from backend.app.services import boundary_distance as bd
+from backend.app.services import boundary_fit as bf
 from backend.app.services import person_coverage as pc
 
 H, W = 400, 600
@@ -74,3 +78,45 @@ def test_a_person_with_no_annotation_is_reported_with_a_box_height_and_score():
     assert outcome is FindingOutcome.FAIL and result["coordinate_system"] == "zero_based_continuous"
     [missing] = result["unannotated"]
     assert {"box", "height_px", "score"} <= set(missing) and len(missing["box"]) == 4
+
+
+# Planned tightness measures ("Planned: outline tightness measures" in AUDITS.md). No audit emits them yet, but
+# their record fields are fixed now so the review screen can be built against them.
+
+def check_record(region, kinds, size_field):
+    assert set(region) == {"kind", "side", "box", size_field}
+    assert region["kind"] in kinds and region["side"] in SIDES and isinstance(region[size_field], int)
+    assert len(region["box"]) == 4 and all(isinstance(v, int) for v in region["box"])
+    assert region["box"][0] < region["box"][2] and region["box"][1] < region["box"][3]
+
+
+def test_distance_from_a_reference_reports_extra_and_missing_regions_in_the_shared_format():
+    reference = person()
+    annotation = reference.copy()
+    annotation[50:80] = False                                        # the head left out
+    cv2.circle(annotation.view(np.uint8), (200, 200), 20, 1, -1)     # a neighbour's shoulder taken in
+    result = bd.boundary_distance(annotation, reference, 4)
+    for region in result.regions:
+        check_record(region, {"extra", "missing"}, "area_px")
+    assert [(r["kind"], r["side"]) for r in result.regions] == [("missing", "top"), ("extra", "right")]
+    assert [r["area_px"] for r in result.regions] == sorted((r["area_px"] for r in result.regions), reverse=True)
+
+
+def test_distance_from_a_reference_keeps_its_per_person_field_names():
+    names = {f.name for f in dataclasses.fields(bd.BoundaryDistance)}
+    assert {"outward_px", "inward_px", "outward_max_px", "inward_max_px", "outward_share", "inward_share",
+            "mask_iou", "boundary_iou", "tolerance_px", "regions"} <= names
+    assert isinstance(bd.BoundaryDistance.too_small, property)
+
+
+def test_edge_fit_reports_mismatch_stretches_in_the_shared_format():
+    shape = person()
+    photo = np.dstack([np.where(shape, 200, 40).astype(np.uint8)] * 3)
+    loose = cv2.dilate(shape.astype(np.uint8), np.ones((21, 21), np.uint8))
+    contours, _ = cv2.findContours(loose, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    fit = bf.boundary_fit(bf.edge_distance(photo), [contours[0].reshape(-1, 2).astype(float).tolist()])
+    assert fit.regions
+    for region in fit.regions:
+        check_record(region, {"mismatch"}, "length_px")
+    names = {f.name for f in dataclasses.fields(bf.BoundaryFit)}
+    assert {"share_on_edge", "busy_share", "tolerance_px", "regions"} <= names
