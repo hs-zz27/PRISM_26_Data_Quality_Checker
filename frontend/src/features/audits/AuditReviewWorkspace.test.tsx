@@ -451,6 +451,70 @@ describe('rechecks inside the original workspace', () => {
     });
   });
 
+  describe('a person drawn in several parts', () => {
+    const part = (object_id: number, key: string, group_id: number | null, left: number) => ({
+      coordinate_system: 'zero_based_continuous', object_id, source_key: key, source_id: null, group_id, label: 'person',
+      bbox: [left, 10, left + 10, 40], bbox_origin: 'derived_from_polygon',
+      polygons: [[[left, 10], [left + 10, 10], [left + 10, 40], [left, 40]]],
+    });
+    const raw = {
+      sample_id: 'sample-1', dataset_id: 'dataset-1', revision: 1, image_size: [100, 80], integrity_status: 'valid',
+      annotation_format: 'labelme', issues: [],
+      objects: [part(1, '/shapes/0', 3, 5), part(2, '/shapes/1', null, 30), part(3, '/shapes/2', 3, 60)],
+    };
+    const legFinding = makeFinding({ finding_id: 'finding-leg', rule_id: 'RULE-2', check_name: 'person_coverage',
+      outcome: 'unsure', reason: 'no_matching_person', object_id: 3, parameters: {} });
+    const detail = { ...makeSampleAudit([legFinding]), annotation_format: 'labelme' as const,
+      assets: { image: { url: '/original.jpg' }, mask: null, mask_preview: null }, failures: [] };
+    const open = () => {
+      vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+        const path = new URL(url, 'http://localhost').pathname;
+        if (path === '/api/v1/audits/audit-1/samples/sample-1') return json(detail);
+        if (path === '/api/v1/datasets/dataset-1/samples/sample-1') return json(raw);
+        return routeFetch(url, init);
+      }));
+      return renderWorkspace();
+    };
+
+    it('lists the parts as one person, in one colour, and counts people as well as outlines', async () => {
+      const { container } = open();
+      const list = await screen.findByRole('group', { name: 'Person drawn in 2 parts: #1, #3' });
+      const entries = within(list).getAllByRole('button', { name: /^Select / });
+      expect(entries.map((entry) => entry.textContent)).toEqual([
+        expect.stringContaining('/shapes/0'), expect.stringContaining('/shapes/2')]);
+      expect(entries[0]).toHaveTextContent('part 1 of 2');
+      expect(entries[1]).toHaveTextContent('part 2 of 2');
+      const swatches = [...list.querySelectorAll<HTMLElement>('.object-list-swatch')].map((swatch) => swatch.style.background);
+      expect(new Set(swatches).size).toBe(1);
+      expect(screen.getByText('Objects on image · 3 outlines, 2 people')).toBeInTheDocument();
+      // The person who is drawn whole is listed on their own.
+      expect(container.querySelectorAll('.object-person-group')).toHaveLength(1);
+    });
+
+    it('selects the whole person from the list and from a finding about one part', async () => {
+      const { container } = open();
+      const list = await screen.findByRole('group', { name: 'Person drawn in 2 parts: #1, #3' });
+      fireEvent.click(within(list).getAllByRole('button', { name: /^Select / })[0]!);
+      const highlighted = () => [...container.querySelectorAll('svg.canvas-overlay g[role="button"].is-selected')].map((g) => g.getAttribute('aria-label')?.split(',')[0]);
+      await waitFor(() => expect(highlighted()).toEqual(['Object 1', 'Object 3']));
+
+      fireEvent.click(screen.getByRole('article', { name: /Rule RULE-2/ }));
+      await waitFor(() => expect(highlighted()).toEqual(['Object 1', 'Object 3']));
+      expect(screen.getByRole('status', { name: 'Selected annotation' })).toHaveTextContent('Selected: #3 person /shapes/2 (part 2 of 2, with #1)');
+    });
+
+    it('hides and shows every part of the person together', async () => {
+      const { container } = open();
+      const list = await screen.findByRole('group', { name: 'Person drawn in 2 parts: #1, #3' });
+      const drawn = () => [...container.querySelectorAll('svg.canvas-overlay g[role="button"]')].map((g) => g.getAttribute('aria-label')?.split(',')[0]);
+      expect(drawn()).toEqual(['Object 1', 'Object 2', 'Object 3']);
+      fireEvent.click(within(list).getAllByTitle('Hide this person from the canvas')[0]!);
+      await waitFor(() => expect(drawn()).toEqual(['Object 2']));
+      fireEvent.click(within(list).getAllByTitle('Show this person on the canvas')[1]!);
+      await waitFor(() => expect(drawn()).toEqual(['Object 1', 'Object 2', 'Object 3']));
+    });
+  });
+
   it('reports optional mask never supplied for datasets without masks', async () => {
     const cocoDetail = {
       ...sample,

@@ -206,6 +206,19 @@ describe('ErrorCloseUp', () => {
     expect(second.querySelectorAll('polygon.close-up-outline')).toHaveLength(1);
   });
 
+  it('outlines every part of a person drawn in parts, and no one else', () => {
+    const parted: CanvasObject[] = [
+      { ...objects[0]!, group_id: 5 },
+      { ...objects[1]!, group_id: null },
+      { object_id: 3, label: 'person', coordinate_system: 'zero_based_continuous', source_key: '/shapes/2', group_id: 5,
+        polygons: [[[300, 200], [340, 200], [340, 240], [300, 240]]], bbox: [300, 200, 340, 240], bbox_origin: 'derived_from_polygon' },
+    ];
+    renderCloseUp({ objects: parted });
+    const panel = screen.getByRole('region', { name: 'Error close-up' });
+    const drawn = [...panel.querySelectorAll('polygon.close-up-outline')].map((node) => node.getAttribute('points'));
+    expect(drawn).toEqual(['280,180 380,180 380,460 280,460', '300,200 340,200 340,240 300,240']);
+  });
+
   it('says so when the photo cannot be shown, and renders nothing without regions', () => {
     const { container, unmount } = renderCloseUp({ imageUrl: null });
     expect(screen.getByRole('region', { name: 'Error close-up' })).toHaveTextContent('The photo is not available, so the close-up cannot be drawn.');

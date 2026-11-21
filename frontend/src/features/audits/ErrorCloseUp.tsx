@@ -6,6 +6,7 @@ import type { RegionKind } from '../../lib/findingRegions';
 import type { components } from '../../api/generated/openapi';
 import { edgeSentence, REGION_STYLES, type CloseUpRegion, type Side } from './closeUpRegions';
 import type { CanvasObject } from './ReviewCanvas';
+import { personParts } from '../../lib/personParts';
 
 type Finding = components['schemas']['Finding'];
 
@@ -108,7 +109,9 @@ export const ErrorCloseUp: React.FC<ErrorCloseUpProps> = ({ finding, regions, im
   const height = view.y1 - view.y0;
   const [left, top, right, bottom] = view.region;
   // An unannotated person has no outline of their own: show every annotation, so its absence is visible.
-  const outlined = finding.object_id == null ? objects : objects.filter((obj) => obj.object_id === finding.object_id);
+  // A person drawn in separate parts is outlined whole, so the reviewer sees all of that person's annotation.
+  const members = finding.object_id == null ? null : new Set(personParts(objects).get(finding.object_id)?.memberIds ?? [finding.object_id]);
+  const outlined = members == null ? objects : objects.filter((obj) => members.has(obj.object_id));
   const wordAbove = top - view.y0 > 18 * unit;
   const edgeLine: Record<Side, [number, number, number, number]> = {
     left: [view.x0, view.y0, view.x0, view.y1], right: [view.x1, view.y0, view.x1, view.y1],

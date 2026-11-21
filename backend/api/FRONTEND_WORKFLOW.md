@@ -164,6 +164,24 @@ else is a separate layer drawn over it in the browser; nothing is drawn into the
   shows the photo alone, at any time, without losing the selection. The other switches are `P` polygons,
   `L` labels, `M` mask and `B` boxes.
 
+**A person drawn in several parts.** When someone in front hides part of a person, the visible parts can be
+separate polygons that belong to one person. The review screen reads LabelMe's `group_id` from the dataset
+sample's objects: shapes with the same `group_id` and the same `label` are one person (`personParts()` in
+`frontend/src/lib/personParts.ts`). A null `group_id`, and every COCO or Penn-Fudan object, is a person of one
+part; COCO already keeps all of a person's parts in one annotation.
+
+- Each part keeps its own display number, stable key and findings; nothing is merged or re-numbered.
+- All parts are drawn in the first part's colour, and each label ends in its position, for example
+  `#3 /shapes/2 · 2/2`.
+- Selecting one part, on the image, in the object list or through a finding about it, highlights every part and
+  fades the other people. Zoom to selected fits the whole person. The readout says
+  `Selected: #3 person /shapes/2 (part 2 of 2, with #2)`.
+- The object list shows the parts together under "One person, drawn in N parts", counts outlines and people
+  separately, and its show/hide switch hides or shows the whole person.
+- The error close-up of a finding about one part outlines every part of that person.
+- This is display only: the checks are unchanged, and a check that judges each part on its own still reports
+  per part.
+
 **The error close-up.** A finding that has region records (see "Finding regions" in [AUDITS.md](AUDITS.md))
 gets a **Show error region** button, and clicking the finding opens the close-up beside it, inside the finding.
 It is built from `findingRegions()` only, never from the finding text, so new region fields (`body_part`,
