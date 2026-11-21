@@ -211,8 +211,17 @@ def _interior_points(mask: np.ndarray, count: int, spacing: int):
     return points
 
 
-def tighten_sam(predictor, photo: np.ndarray, polygons, others: np.ndarray, found_mask: np.ndarray | None):
+# Ways to prompt Segment Anything. The first draws the references; agreement.py uses the others to see how
+# much the outline depends on the prompt.
+PROMPTS = ("box, inside and neighbours", "box", "box and inside", "wider box", "points only")
+WIDER_BOX_SHARE = 0.10                     # "wider box" widens COCO's box by this share of its size on every side
+
+
+def tighten_sam(predictor, photo: np.ndarray, polygons, others: np.ndarray, found_mask: np.ndarray | None,
+                prompt: str = PROMPTS[0]):
     """(list of polygons, report) by Segment Anything; ``predictor`` already holds this photo."""
+    if prompt not in PROMPTS:
+        raise ValueError(f"Unknown prompt {prompt!r}; expected one of {PROMPTS}.")
     setup = _setup(photo, polygons, found_mask)
     if setup is None:
         return None, {"reason": "empty outline"}
@@ -220,11 +229,16 @@ def tighten_sam(predictor, photo: np.ndarray, polygons, others: np.ndarray, foun
     ys, xs = np.nonzero(original)
     spacing = max(10, int(0.15 * (ys.max() - ys.min() + 1)))
     neighbours = cv2.erode(others[y0:y1, x0:x1], disk(2)) & (1 - inside)
-    positive = _interior_points(core, 3, spacing)
-    negative = _interior_points(neighbours, 3, spacing)
+    positive = _interior_points(core, 3, spacing) if prompt != "box" else []
+    negative = _interior_points(neighbours, 3, spacing) if prompt not in ("box", "box and inside") else []
     coords = np.array([(x + x0, y + y0) for x, y in positive + negative], float).reshape(-1, 2)
     labels = np.array([1] * len(positive) + [0] * len(negative))
     box = np.array([xs.min(), ys.min(), xs.max() + 1, ys.max() + 1], float)
+    if prompt == "wider box":
+        grow = WIDER_BOX_SHARE * np.array([box[0] - box[2], box[1] - box[3], box[2] - box[0], box[3] - box[1]])
+        box = np.clip(box + grow, 0, [photo.shape[1], photo.shape[0]] * 2)
+    elif prompt == "points only" and len(coords):
+        box = None
     masks, scores, _ = predictor.predict(point_coords=coords if len(coords) else None,
                                          point_labels=labels if len(coords) else None,
                                          box=box, multimask_output=True)
@@ -237,7 +251,7 @@ def tighten_sam(predictor, photo: np.ndarray, polygons, others: np.ndarray, foun
     return parts, {**report, "sam_score": round(float(scores[best]), 3)}
 
 
-def draw_document(document, photo, found, predictor=None):
+def draw_document(document, photo, found, predictor=None, prompt: str = PROMPTS[0]):
     """(redrawn document, per-person reports). ``found`` is the person model's segmentation of the photo.
 
     With a Segment Anything ``predictor`` (already set to this photo) people are cut out by it, else by GrabCut.
@@ -264,7 +278,7 @@ def draw_document(document, photo, found, predictor=None):
                 if matched[other] is not None:
                     others |= matched[other].astype(np.uint8)
         if predictor is not None:
-            parts, report = tighten_sam(predictor, photo, polygons, others, matched[number])
+            parts, report = tighten_sam(predictor, photo, polygons, others, matched[number], prompt)
         else:
             parts, report = tighten(photo, polygons, others, matched[number])
         first = document["shapes"][indexes[0]]

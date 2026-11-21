@@ -58,6 +58,11 @@ a small set of outlines drawn to his standard, and uses them to set the boundary
    (`evaluation/boundary_fit/sir_labels.json`). It prints the tolerance his tight outlines need and writes
    `distance_results.json`.
 
+6. **Prompt agreement:** `.venv/bin/python -B evaluation/tight_reference/agreement.py` (about 3 minutes; add
+   `--saved` to reprint the last run) draws every person again with draw.py's other Segment Anything prompts and
+   measures how far each drawing moves. It writes `agreement_results.json`. The result, in RESULTS.md: the spread
+   does not reliably pick out the drawings that failed the check by eye.
+
 The kit starts from COCO's outlines, which is faster than drawing from nothing. The risk is that the person
 redrawing leaves some outlines as they were; the guide asks for every outline to be checked, and the compare
 step shows how many points each outline gained.

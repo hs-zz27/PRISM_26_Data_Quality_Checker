@@ -119,3 +119,49 @@ def test_segment_anything_draws_a_loose_outline_tight():
     predictor.set_image(image)
     parts, report = d.tighten_sam(predictor, image, loose(person), np.zeros((H, W), np.uint8), person.astype(bool))
     assert parts and iou(d.raster(parts, (W, H)), person) > 0.9 and "sam_score" in report
+
+
+class Recorder:
+    """Stands in for Segment Anything: records each prompt and answers with the true person."""
+
+    def __init__(self, person):
+        self.person, self.calls = person.astype(bool), []
+
+    def predict(self, point_coords, point_labels, box, multimask_output):
+        self.calls.append({"coords": point_coords, "labels": point_labels, "box": box})
+        return np.stack([self.person] * 3), np.array([0.9, 0.8, 0.7]), None
+
+
+@pytest.mark.parametrize("prompt,has_box,positive,negative", [
+    ("box, inside and neighbours", True, True, True),
+    ("box", True, False, False),
+    ("box and inside", True, True, False),
+    ("wider box", True, True, True),
+    ("points only", False, True, True),
+])
+def test_each_prompt_sends_what_its_name_says(prompt, has_box, positive, negative):
+    person, neighbour = figure(), figure(cx=290)  # standing just beside the loose outline
+    recorder = Recorder(person)
+    parts, _ = d.tighten_sam(recorder, photo((person, 200), (neighbour, 120)), loose(person), neighbour, person,
+                             prompt)
+    [call] = recorder.calls
+    labels = [] if call["labels"] is None else list(call["labels"])
+    assert (call["box"] is not None) == has_box
+    assert (1 in labels) == positive and (0 in labels) == negative
+    assert parts and iou(d.raster(parts, (W, H)) > 0, person > 0) > 0.95
+
+
+def test_the_wider_box_is_wider_and_stays_in_the_photo():
+    person = figure()
+    boxes = {}
+    for prompt in ("box", "wider box"):
+        recorder = Recorder(person)
+        d.tighten_sam(recorder, photo((person, 200)), loose(person), np.zeros_like(person), person, prompt)
+        boxes[prompt] = recorder.calls[0]["box"]
+    assert np.all(boxes["wider box"][:2] < boxes["box"][:2]) and np.all(boxes["wider box"][2:] > boxes["box"][2:])
+    assert boxes["wider box"].min() >= 0 and boxes["wider box"][2] <= W and boxes["wider box"][3] <= H
+
+
+def test_an_unknown_prompt_is_refused():
+    with pytest.raises(ValueError, match="Unknown prompt"):
+        d.tighten_sam(Recorder(figure()), photo(), loose(figure()), np.zeros((H, W), np.uint8), None, "guess")
