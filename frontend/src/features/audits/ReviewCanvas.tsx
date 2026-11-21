@@ -6,6 +6,7 @@ import type { components } from '../../api/generated/openapi';
 import { isTypingTarget } from '../../lib/keyboard';
 import { colorFor, getObjectBounds, textColorFor } from './reviewWorkspace';
 import { badgeWidth, boundarySegments, drawsBox, isBoxCheck, placeBadges, type CssBox, type OverlayShape } from './overlayLayout';
+import { personParts } from '../../lib/personParts';
 
 type Finding = components['schemas']['Finding'];
 export interface CanvasObject {
@@ -17,6 +18,8 @@ export interface CanvasObject {
   bbox_origin?: string | null;
   source_key?: string;
   source_id?: number | string | null;
+  /** LabelMe instance ID: shapes with the same group ID and label are parts of one person. */
+  group_id?: number | null;
 }
 export interface CanvasAssets {
   image?: { url: string; content_type?: string; revision?: number } | null;
@@ -82,6 +85,22 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
     return map;
   }, [objects]);
 
+  // Parts of one person (LabelMe group ID): one colour, selected together, zoomed together.
+  const parts = useMemo(() => personParts(objects), [objects]);
+  const colourOf = useCallback(
+    (objectId: number) => colorFor(displayNumberMap.get(parts.get(objectId)?.leaderId ?? objectId) ?? 0),
+    [displayNumberMap, parts],
+  );
+  const textColourOf = useCallback(
+    (objectId: number) => textColorFor(displayNumberMap.get(parts.get(objectId)?.leaderId ?? objectId) ?? 0),
+    [displayNumberMap, parts],
+  );
+  const selectedIds = useMemo(
+    () => new Set(selectedInstanceId == null ? [] : parts.get(selectedInstanceId)?.memberIds ?? [selectedInstanceId]),
+    [parts, selectedInstanceId],
+  );
+  const anyPersonInParts = useMemo(() => [...parts.values()].some((entry) => entry.partCount > 1), [parts]);
+
   // Visible objects (not hidden by per-object toggle)
   const visibleObjects = useMemo(() =>
     objects.filter((obj) => !hiddenObjectIds.includes(obj.object_id)),
@@ -91,10 +110,11 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
   // Zoom to fit the currently selected object in view
   const zoomToSelected = useCallback(() => {
     if (selectedInstanceId == null || !containerRef.current) return;
-    const selectedObj = objects.find((o) => o.object_id === selectedInstanceId);
-    if (!selectedObj) return;
-    const b = getObjectBounds(selectedObj);
-    if (!b) return;
+    const members = objects.filter((o) => selectedIds.has(o.object_id));
+    const all = members.map((o) => getObjectBounds(o)).filter((x): x is NonNullable<typeof x> => x != null);
+    if (!all.length) return;
+    const b = { x0: Math.min(...all.map((x) => x.x0)), y0: Math.min(...all.map((x) => x.y0)),
+      x1: Math.max(...all.map((x) => x.x1)), y1: Math.max(...all.map((x) => x.y1)) };
 
     const r = containerRef.current.getBoundingClientRect();
     const bw = Math.max(b.x1 - b.x0, 24);
@@ -110,7 +130,7 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
 
     setZoom(targetZoom);
     setPan({ x: panX, y: panY });
-  }, [selectedInstanceId, objects, setZoom, setPan, width, height]);
+  }, [selectedInstanceId, selectedIds, objects, setZoom, setPan, width, height]);
 
   // Keyboard shortcut listener
   useEffect(() => {
@@ -227,10 +247,13 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
       const dn = displayNumberMap.get(obj.object_id) ?? 0;
       if (dn === 0) continue;
       const flagged = findings.some((f) => f.object_id === obj.object_id && (f.outcome === 'fail' || f.outcome === 'unsure'));
-      map.set(dn, { number: `#${dn}${flagged ? '!' : ''}`, key: obj.source_key?.trim() ? obj.source_key : null });
+      const part = parts.get(obj.object_id);
+      const partText = part && part.partCount > 1 ? `${part.partNumber}/${part.partCount}` : null;
+      const key = obj.source_key?.trim() ? obj.source_key : null;
+      map.set(dn, { number: `#${dn}${flagged ? '!' : ''}`, key: key && partText ? `${key} · ${partText}` : key ?? partText });
     }
     return map;
-  }, [visibleObjects, displayNumberMap, findings]);
+  }, [visibleObjects, displayNumberMap, findings, parts]);
 
   // Labels are placed off every drawn outline and off each other.
   const badgePlacements = useMemo(() => {
@@ -250,11 +273,12 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
 
   // The selected object is drawn last, so no other outline can hide it.
   const drawOrder = useMemo(
-    () => [...visibleObjects].sort((a, b) => Number(a.object_id === selectedInstanceId) - Number(b.object_id === selectedInstanceId)),
-    [visibleObjects, selectedInstanceId],
+    () => [...visibleObjects].sort((a, b) => Number(selectedIds.has(a.object_id)) - Number(selectedIds.has(b.object_id))),
+    [visibleObjects, selectedIds],
   );
   const selectedObject = objects.find((obj) => obj.object_id === selectedInstanceId) ?? null;
-  const someSelected = selectedObject != null && visibleObjects.includes(selectedObject);
+  const someSelected = visibleObjects.some((obj) => selectedIds.has(obj.object_id));
+  const selectedPart = selectedObject ? parts.get(selectedObject.object_id) : undefined;
 
   // Objects with no box and no polygon have no location, so they are never
   // drawn on the image; they are listed in a fixed strip instead.
@@ -292,6 +316,7 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
       <div className="canvas-legend-row"><span className="mono">!</span>: a finding for this annotation needs a look</div>
       <div className="canvas-legend-row"><span className="mono">Original</span>: hides everything drawn over the photo. The photo itself is never changed.</div>
       <div className="canvas-legend-row">Each annotation keeps one colour on the image and in the list.</div>
+      {anyPersonInParts && <div className="canvas-legend-row"><span className="mono">1/2</span>: One person drawn in separate parts: the parts share a colour, are selected together and are labelled 1/2, 2/2</div>}
       {isCorrection && <div className="canvas-legend-row"><em>Showing proposed correction (preview, not saved).</em></div>}
     </div>}
 
@@ -302,17 +327,20 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
         const shape = shapes.get(obj.object_id);
         const b = shape?.box ?? null;
         const state = outcome(obj.object_id);
-        const selected = selectedInstanceId === obj.object_id;
+        const chosen = selectedInstanceId === obj.object_id;
+        const selected = selectedIds.has(obj.object_id);
         const dn = displayNumberMap.get(obj.object_id) ?? 0;
-        const objColor = colorFor(dn);
-        const parts = obj.polygons ?? [];
-        if (!b && !parts.length) return null;
-        const points = parts.reduce((total, part) => total + part.length, 0);
-        const geometry = parts.length ? `polygon with ${points} points` : (obj.bbox ? formatBbox(obj.bbox) : 'no geometry');
+        const objColor = colourOf(obj.object_id);
+        const outlines = obj.polygons ?? [];
+        if (!b && !outlines.length) return null;
+        const points = outlines.reduce((total, part) => total + part.length, 0);
+        const geometry = outlines.length ? `polygon with ${points} points` : (obj.bbox ? formatBbox(obj.bbox) : 'no geometry');
         const key = obj.source_key?.trim() ? `${obj.source_key}, ` : '';
-        return <g key={obj.object_id} role="button" tabIndex={0} aria-pressed={selected} aria-label={`Object ${dn}, ${obj.label}, ${key}${geometry}`} onClick={(e) => { e.stopPropagation(); handleStageClick(e); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); } }} className={`box-${state}${selected ? ' is-selected' : ''}${someSelected && !selected ? ' is-dimmed' : ''}`}>
+        const part = parts.get(obj.object_id);
+        const partText = part && part.partCount > 1 ? `part ${part.partNumber} of ${part.partCount}, ` : '';
+        return <g key={obj.object_id} role="button" tabIndex={0} aria-pressed={chosen} aria-label={`Object ${dn}, ${obj.label}, ${key}${partText}${geometry}`} onClick={(e) => { e.stopPropagation(); handleStageClick(e); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const id = chosen ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); } }} className={`box-${state}${selected ? ' is-selected' : ''}${someSelected && !selected ? ' is-dimmed' : ''}`}>
           {/* Polygons, with the file's own points. Selected: dark halo, thick outline and a tinted fill. */}
-          {showPolygons && parts.map((part, index) => {
+          {showPolygons && outlines.map((part, index) => {
             const drawnPoints = part.map((point) => point.join(',')).join(' ');
             return <React.Fragment key={index}>
               {selected && <polygon className="overlay-halo" points={drawnPoints} fill="none" stroke="rgba(10,10,10,0.85)" strokeWidth={7} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
@@ -325,21 +353,22 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
       })}
       {/* Labels: number and stable key, placed off every outline */}
       {showLabels && badgePlacements.map((badge) => {
-        const objColor = colorFor(badge.displayNumber);
-        const txtColor = textColorFor(badge.displayNumber);
         const obj = objects.find((o) => displayNumberMap.get(o.object_id) === badge.displayNumber);
-        const selected = obj ? selectedInstanceId === obj.object_id : false;
-        const parts = badgeParts.get(badge.displayNumber) ?? { number: badge.text, key: null };
-        const numberWidth = badgeWidth(parts.number);
-        return <g key={`badge-${badge.displayNumber}`} className={`canvas-badge${selected ? ' is-selected' : ''}${someSelected && !selected ? ' is-dimmed' : ''}`} onClick={(e) => { e.stopPropagation(); if (!obj) return; const id = selected ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); }} style={{ cursor: 'pointer' }}>
+        const objColor = obj ? colourOf(obj.object_id) : colorFor(badge.displayNumber);
+        const txtColor = obj ? textColourOf(obj.object_id) : textColorFor(badge.displayNumber);
+        const chosen = obj ? selectedInstanceId === obj.object_id : false;
+        const selected = obj ? selectedIds.has(obj.object_id) : false;
+        const label = badgeParts.get(badge.displayNumber) ?? { number: badge.text, key: null };
+        const numberWidth = badgeWidth(label.number);
+        return <g key={`badge-${badge.displayNumber}`} className={`canvas-badge${selected ? ' is-selected' : ''}${someSelected && !selected ? ' is-dimmed' : ''}`} onClick={(e) => { e.stopPropagation(); if (!obj) return; const id = chosen ? null : obj.object_id; setSelectedInstanceId(id); onSelectObject?.(id); }} style={{ cursor: 'pointer' }}>
           {/* Leader line if the label sits away from its object */}
           {badge.leaderTarget && <>
             <line x1={badge.x + badge.width / 2} y1={badge.y + badge.height / 2} x2={badge.leaderTarget.x} y2={badge.leaderTarget.y} stroke="rgba(20,20,20,0.6)" strokeWidth={3} vectorEffect="non-scaling-stroke" />
             <line x1={badge.x + badge.width / 2} y1={badge.y + badge.height / 2} x2={badge.leaderTarget.x} y2={badge.leaderTarget.y} stroke={objColor} strokeWidth={1} vectorEffect="non-scaling-stroke" />
           </>}
           <rect x={badge.x} y={badge.y} width={badge.width} height={badge.height} rx={3} fill={objColor} style={{ fill: objColor }} stroke="rgba(20,20,20,0.7)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-          <text x={badge.x + (parts.key ? numberWidth / 2 : badge.width / 2)} y={badge.y + badge.height / 2 + 1} textAnchor="middle" dominantBaseline="central" fill={txtColor} style={{ fill: txtColor, stroke: 'none' }} className="canvas-badge-text">{parts.number}</text>
-          {parts.key && <text x={badge.x + numberWidth - 2} y={badge.y + badge.height / 2 + 1} textAnchor="start" dominantBaseline="central" fill={txtColor} style={{ fill: txtColor, stroke: 'none' }} className="canvas-badge-text canvas-badge-key">{parts.key}</text>}
+          <text x={badge.x + (label.key ? numberWidth / 2 : badge.width / 2)} y={badge.y + badge.height / 2 + 1} textAnchor="middle" dominantBaseline="central" fill={txtColor} style={{ fill: txtColor, stroke: 'none' }} className="canvas-badge-text">{label.number}</text>
+          {label.key && <text x={badge.x + numberWidth - 2} y={badge.y + badge.height / 2 + 1} textAnchor="start" dominantBaseline="central" fill={txtColor} style={{ fill: txtColor, stroke: 'none' }} className="canvas-badge-text canvas-badge-key">{label.key}</text>}
         </g>;
       })}
       </svg>}
@@ -349,7 +378,7 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
       {undrawableObjects.map((obj) => {
         const dn = displayNumberMap.get(obj.object_id) ?? 0;
         return <span key={obj.object_id} className="canvas-undisplayable-item">
-          <span className="canvas-undisplayable-marker" style={{ background: colorFor(dn), color: textColorFor(dn) }}>#{dn}</span>
+          <span className="canvas-undisplayable-marker" style={{ background: colourOf(obj.object_id), color: textColourOf(obj.object_id) }}>#{dn}</span>
           {obj.label}: not drawn, the annotation has no {polygonData ? 'polygon' : 'box or polygon'}
         </span>;
       })}
@@ -361,6 +390,8 @@ export const ReviewCanvas: React.FC<ReviewCanvasProps> = ({
       <span className="mono">{continuous ? '0-based continuous' : '1-based inclusive'}</span>
       {someSelected && selectedObject && <span className="mono" role="status" aria-label="Selected annotation">
         Selected: #{displayNumberMap.get(selectedObject.object_id)} {selectedObject.label}{selectedObject.source_key ? ` ${selectedObject.source_key}` : ''}
+        {selectedPart && selectedPart.partCount > 1 && ` (part ${selectedPart.partNumber} of ${selectedPart.partCount}, with ${selectedPart.memberIds
+          .filter((id) => id !== selectedObject.object_id).map((id) => `#${displayNumberMap.get(id)}`).join(', ')})`}
       </span>}
       {originalOnly && <span className="canvas-mode-tag mono is-original" role="status">Original photo, nothing drawn on it</span>}
       <span className={`canvas-mode-tag mono ${isCorrection ? 'is-correction' : 'is-original'}`} role="status">

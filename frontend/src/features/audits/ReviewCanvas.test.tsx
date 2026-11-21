@@ -226,6 +226,77 @@ describe('ReviewCanvas', () => {
     }
   });
 
+  describe('a person drawn in several parts', () => {
+    // Person "/shapes/0" and "/shapes/2" are one person (group 4): someone in front splits them. "/shapes/1" is alone.
+    const split: CanvasObject[] = [
+      { object_id: 1, label: 'person', coordinate_system: 'zero_based_continuous', source_key: '/shapes/0', group_id: 4,
+        polygons: [outline(20)], bbox: [20, 20, 50, 120], bbox_origin: 'derived_from_polygon' },
+      { object_id: 2, label: 'person', coordinate_system: 'zero_based_continuous', source_key: '/shapes/1', group_id: null,
+        polygons: [outline(80)], bbox: [80, 20, 110, 120], bbox_origin: 'derived_from_polygon' },
+      { object_id: 3, label: 'person', coordinate_system: 'zero_based_continuous', source_key: '/shapes/2', group_id: 4,
+        polygons: [[[140, 130], [170, 130], [170, 180], [140, 180]]], bbox: [140, 130, 170, 180], bbox_origin: 'derived_from_polygon' },
+    ];
+    const group = (container: HTMLElement, number: number) =>
+      container.querySelector<SVGGElement>(`svg.canvas-overlay g[role="button"][aria-label^="Object ${number},"]`)!;
+
+    it('draws every part of one person in that person’s colour, with each part’s own number and key', () => {
+      const { container } = render(<ReviewCanvas imageSize={[200, 200]} objects={split} findings={[]} annotationFormat="labelme" />);
+      const stroke = (number: number) => group(container, number).querySelector('polygon.overlay-outline')!.getAttribute('stroke');
+      expect(stroke(3)).toBe(stroke(1));
+      expect(stroke(3)).toBe(colorFor(1));
+      expect(stroke(2)).toBe(colorFor(2));
+      expect(group(container, 1)).toHaveAttribute('aria-label', 'Object 1, person, /shapes/0, part 1 of 2, polygon with 4 points');
+      expect(group(container, 3)).toHaveAttribute('aria-label', 'Object 3, person, /shapes/2, part 2 of 2, polygon with 4 points');
+      expect(group(container, 2).getAttribute('aria-label')).not.toMatch(/part/);
+      expect(screen.getByText('#3', { selector: '.canvas-badge-text' })).toBeInTheDocument();
+      expect(screen.getByText('/shapes/2 · 2/2', { selector: '.canvas-badge-key' })).toBeInTheDocument();
+      expect(screen.getByText('/shapes/1', { selector: '.canvas-badge-key' })).toBeInTheDocument();
+    });
+
+    it('highlights every part when one is selected, and fades only the other people', () => {
+      useCanvasStore.setState({ selectedInstanceId: 3 });
+      const { container } = render(<ReviewCanvas imageSize={[200, 200]} objects={split} findings={[]} annotationFormat="labelme" />);
+      for (const number of [1, 3]) {
+        expect(group(container, number)).toHaveClass('is-selected');
+        expect(group(container, number)).not.toHaveClass('is-dimmed');
+        expect(group(container, number).querySelector('polygon.overlay-halo')).toBeInTheDocument();
+      }
+      // Only the part actually chosen is "pressed"; its partner is highlighted as the same person.
+      expect(group(container, 3)).toHaveAttribute('aria-pressed', 'true');
+      expect(group(container, 1)).toHaveAttribute('aria-pressed', 'false');
+      expect(group(container, 2)).toHaveClass('is-dimmed');
+      expect(group(container, 2).querySelector('polygon.overlay-halo')).toBeNull();
+      // Both parts are drawn above the other people.
+      const order = [...container.querySelectorAll('svg.canvas-overlay g[role="button"]')];
+      expect(order.indexOf(group(container, 2))).toBe(0);
+      expect(screen.getByRole('status', { name: 'Selected annotation' })).toHaveTextContent('Selected: #3 person /shapes/2 (part 2 of 2, with #1)');
+    });
+
+    it('zooms to the whole person, not only the chosen part', () => {
+      useCanvasStore.setState({ selectedInstanceId: 1, zoom: 1, pan: { x: 0, y: 0 } });
+      const { container } = render(<ReviewCanvas imageSize={[200, 200]} objects={split} findings={[]} annotationFormat="labelme" />);
+      vi.spyOn(container.querySelector('.review-canvas') as HTMLElement, 'getBoundingClientRect').mockReturnValue({
+        left: 0, top: 0, right: 460, bottom: 500, width: 460, height: 500, x: 0, y: 0, toJSON: () => {},
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Zoom to selected object' }));
+      const { zoom, pan } = useCanvasStore.getState();
+      // Parts 1 and 3 together span x 20..170 and y 20..180: centre (95, 100), 150 wide, 160 tall.
+      expect(zoom).toBeCloseTo(Math.min(400 / 150, 400 / 160));
+      expect(pan.x).toBeCloseTo(-(95 - 100) * zoom);
+      expect(pan.y).toBeCloseTo(-(100 - 100) * zoom);
+    });
+
+    it('explains the shared colour in the legend only when the image has a person in parts', () => {
+      useCanvasStore.setState({ showLegend: true });
+      const { unmount } = render(<ReviewCanvas imageSize={[200, 200]} objects={split} findings={[]} annotationFormat="labelme" />);
+      expect(screen.getByRole('note', { name: 'Overlay legend' })).toHaveTextContent(
+        'One person drawn in separate parts: the parts share a colour, are selected together and are labelled 1/2, 2/2');
+      unmount();
+      render(<ReviewCanvas imageSize={[200, 200]} objects={people} findings={[]} annotationFormat="labelme" />);
+      expect(screen.getByRole('note', { name: 'Overlay legend' })).not.toHaveTextContent(/separate parts/);
+    });
+  });
+
   it('shows the original photo with no overlay at any time, and brings the overlay back unchanged', () => {
     useCanvasStore.setState({ selectedInstanceId: 1 });
     const assets = { image: { url: '/original.jpg' }, mask_preview: { url: '/mask.png' } };

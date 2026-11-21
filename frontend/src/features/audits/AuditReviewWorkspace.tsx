@@ -38,6 +38,7 @@ import { isTypingTarget } from '../../lib/keyboard';
 import { checkLabel, reasonLabel, reviewStatusLabel, toolStatusLabel } from '../../lib/labels';
 import { formatTimestamp } from '../../lib/format';
 import { sourceDiagnostics } from '../../lib/sourceDiagnostics';
+import { personParts } from '../../lib/personParts';
 import { closeUpRegions } from './closeUpRegions';
 import { ErrorCloseUp } from './ErrorCloseUp';
 import { RECHECK_IN_PROGRESS_MESSAGE, useImageRecheckStatus } from '../../hooks/useImageRecheckStatus';
@@ -287,9 +288,25 @@ export const AuditReviewWorkspace: React.FC = () => {
         bbox_origin: obj.bbox_origin,
         source_key: obj.source_key,
         source_id: obj.source_id,
+        group_id: obj.group_id,
       } : {}),
     }));
   }, [rawSample]);
+
+  // Parts of one person (LabelMe group ID) are listed, selected and hidden together; each keeps its own number.
+  const objectParts = useMemo(() => personParts(canvasObjects), [canvasObjects]);
+  const objectListEntries = useMemo(() => {
+    const entries: CanvasObject[][] = [];
+    for (const object of canvasObjects) {
+      const part = objectParts.get(object.object_id);
+      if (part && part.leaderId !== object.object_id) continue;
+      entries.push(canvasObjects.filter((o) => (part?.memberIds ?? [object.object_id]).includes(o.object_id)));
+    }
+    return entries;
+  }, [canvasObjects, objectParts]);
+  const objectListSummary = objectListEntries.length === canvasObjects.length
+    ? String(canvasObjects.length)
+    : `${canvasObjects.length} outlines, ${objectListEntries.length} ${objectListEntries.length === 1 ? 'person' : 'people'}`;
 
   const proposal = useMemo(() => correctionPreview(sampleDetail?.measurements?.correction_proposal), [sampleDetail]);
   const proposalMatches = Boolean(
@@ -570,9 +587,11 @@ export const AuditReviewWorkspace: React.FC = () => {
   // Selecting a box on the canvas focuses the most relevant finding for that object.
   const selectObject = useCallback((objectId: number | null) => {
     if (objectId === null) return;
-    const match = [...attention, ...passed].find((finding) => finding.object_id === objectId);
+    const members = objectParts.get(objectId)?.memberIds ?? [objectId];
+    const match = [...attention, ...passed].find((finding) => finding.object_id === objectId)
+      ?? [...attention, ...passed].find((finding) => finding.object_id != null && members.includes(finding.object_id));
     if (match) setSelectedFindingId(match.finding_id);
-  }, [attention, passed]);
+  }, [attention, passed, objectParts]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -904,58 +923,77 @@ export const AuditReviewWorkspace: React.FC = () => {
               <p className="text-2xs text-text-muted mt-2">Preview first, then apply. Applying creates a new revision and checks this image again. Your final review is still required.</p>
             </section>}
             <details className="object-visibility" open>
-              <summary>Objects on image · {canvasObjects.length}</summary>
-              <div className="object-list-grid">{canvasObjects.map((object, idx) => {
-                const hidden = hiddenObjectIds.includes(object.object_id);
-                const displayNum = idx + 1;
-                const objColor = colorFor(displayNum);
-                const txtColor = textColorFor(displayNum);
-                const hasBox = object.bbox != null;
-                const hasPolygons = !!(object.polygons && object.polygons.length > 0);
-                const noGeom = !hasBox && !hasPolygons;
-                const sourceIdText = object.source_id != null ? String(object.source_id) : null;
-                const sourceKeyText = object.source_key ?? null;
-                const isSelected = selectedInstanceId === object.object_id;
-                return (
-                  <button
-                    type="button"
-                    key={object.object_id}
-                    onClick={() => {
-                      const nextId = isSelected ? null : object.object_id;
-                      setSelectedInstanceId(nextId);
-                      selectObject(nextId);
-                    }}
-                    title={`Click to select object on canvas. Display #${displayNum}, object_id=${object.object_id}${sourceIdText ? `, source=${sourceIdText}` : ''}${noGeom ? ' (no displayable geometry)' : ''}`}
-                    className={`${isSelected ? 'is-selected ' : ''}${hidden ? 'is-hidden' : ''}`.trim()}
-                  >
-                    <span className="object-list-swatch" style={{ background: objColor, color: txtColor }}>#{displayNum}</span>
-                    <span className="object-list-details">
-                      <span className="object-list-label">{object.label}{noGeom && <abbr title="No displayable geometry" className="object-list-warn">⚠</abbr>}</span>
-                      <span className="object-list-meta">
-                        {sourceIdText ? `id ${sourceIdText}` : `obj ${object.object_id}`}
-                        {sourceKeyText && <> · {sourceKeyText}</>}
-                      </span>
-                    </span>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      className="object-list-eye"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setHiddenObjectIds((old) => hidden ? old.filter((id) => id !== object.object_id) : [...old, object.object_id]);
+              <summary>Objects on image · {objectListSummary}</summary>
+              <div className="object-list-grid">{objectListEntries.map((entry) => {
+                const renderObject = (object: CanvasObject) => {
+                  const hidden = hiddenObjectIds.includes(object.object_id);
+                  const displayNum = canvasObjects.findIndex((o) => o.object_id === object.object_id) + 1;
+                  const part = objectParts.get(object.object_id);
+                  const inParts = (part?.partCount ?? 1) > 1;
+                  const leaderNum = canvasObjects.findIndex((o) => o.object_id === part?.leaderId) + 1 || displayNum;
+                  const objColor = colorFor(leaderNum);
+                  const txtColor = textColorFor(leaderNum);
+                  const hasBox = object.bbox != null;
+                  const hasPolygons = !!(object.polygons && object.polygons.length > 0);
+                  const noGeom = !hasBox && !hasPolygons;
+                  const sourceIdText = object.source_id != null ? String(object.source_id) : null;
+                  const sourceKeyText = object.source_key ?? null;
+                  const isSelected = selectedInstanceId === object.object_id;
+                  const members = part?.memberIds ?? [object.object_id];
+                  const toggleHidden = () => setHiddenObjectIds((old) => hidden
+                    ? old.filter((id) => !members.includes(id))
+                    : [...old.filter((id) => !members.includes(id)), ...members]);
+                  return (
+                    <button
+                      type="button"
+                      key={object.object_id}
+                      aria-label={`Select #${displayNum} ${object.label}${sourceKeyText ? ` ${sourceKeyText}` : ''}${inParts ? `, part ${part!.partNumber} of ${part!.partCount}` : ''}`}
+                      onClick={() => {
+                        const nextId = isSelected ? null : object.object_id;
+                        setSelectedInstanceId(nextId);
+                        selectObject(nextId);
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setHiddenObjectIds((old) => hidden ? old.filter((id) => id !== object.object_id) : [...old, object.object_id]);
-                        }
-                      }}
-                      title={hidden ? 'Show on canvas' : 'Hide from canvas'}
+                      title={`Click to select object on canvas. Display #${displayNum}, object_id=${object.object_id}${sourceIdText ? `, source=${sourceIdText}` : ''}${inParts ? `, part ${part!.partNumber} of ${part!.partCount} of one person` : ''}${noGeom ? ' (no displayable geometry)' : ''}`}
+                      className={`${isSelected ? 'is-selected ' : ''}${hidden ? 'is-hidden' : ''}`.trim()}
                     >
-                      {hidden ? <EyeOff size={11} /> : <Eye size={11} />}
-                    </span>
-                  </button>
+                      <span className="object-list-swatch" style={{ background: objColor, color: txtColor }}>#{displayNum}</span>
+                      <span className="object-list-details">
+                        <span className="object-list-label">{object.label}{noGeom && <abbr title="No displayable geometry" className="object-list-warn">⚠</abbr>}</span>
+                        <span className="object-list-meta">
+                          {sourceIdText ? `id ${sourceIdText}` : `obj ${object.object_id}`}
+                          {sourceKeyText && <> · {sourceKeyText}</>}
+                          {inParts && <> · part {part!.partNumber} of {part!.partCount}</>}
+                        </span>
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="object-list-eye"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleHidden();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            toggleHidden();
+                          }
+                        }}
+                        title={inParts ? (hidden ? 'Show this person on the canvas' : 'Hide this person from the canvas') : (hidden ? 'Show on canvas' : 'Hide from canvas')}
+                      >
+                        {hidden ? <EyeOff size={11} /> : <Eye size={11} />}
+                      </span>
+                    </button>
+                  );
+                };
+                if (entry.length === 1) return renderObject(entry[0]!);
+                const numbers = entry.map((object) => `#${canvasObjects.findIndex((o) => o.object_id === object.object_id) + 1}`).join(', ');
+                return (
+                  <div key={`person-${entry[0]!.object_id}`} className="object-person-group" role="group" aria-label={`Person drawn in ${entry.length} parts: ${numbers}`}>
+                    <span className="object-person-group-title">One person, drawn in {entry.length} parts</span>
+                    {entry.map(renderObject)}
+                  </div>
                 );
               })}</div>
             </details>
