@@ -14,13 +14,14 @@ reference**. GrabCut leaked into the background in about ten places (ground belo
 dune, a skateboard); Segment Anything did not. GrabCut's first version also lost thin limbs on carpet and
 grass until its "certainly the person" core was given each limb's middle line.
 
-After the check, **46 people are kept as references** (`review.json`): 18 from the mentor's own example
-sheet, 9 partly hidden, 7 single, 7 close pairs and 5 in crowds. 23 are left out with their reasons
-(README.md).
+After the check, **45 people are kept as references** (`review.json`): 17 from the mentor's own example
+sheet, 9 partly hidden, 7 single, 7 close pairs and 5 in crowds. 24 are left out with their reasons
+(README.md). One of them, a dark figure against a dark wall, was first kept and then taken out on a closer
+look: the drawing misses both bent arms.
 
 ## How closely the references follow edges in the photo
 
-The "on the boundary" share from `backend/app/services/boundary_fit.py`, for the 46 references:
+The "on the boundary" share from `backend/app/services/boundary_fit.py`, for the 45 references:
 
 | Kind of photo | People | COCO (median) | Segment Anything (median) | GrabCut (median) |
 |---|---|---|---|---|
@@ -28,7 +29,7 @@ The "on the boundary" share from `backend/app/services/boundary_fit.py`, for the
 | two people close together | 7 | 83.8% | 95.0% | 98.1% |
 | partly hidden | 9 | 86.5% | 95.1% | 97.8% |
 | crowd | 5 | 87.8% | 98.4% | 99.5% |
-| the mentor's example sheet | 18 | 81.2% | 91.0% | 93.6% |
+| the mentor's example sheet | 17 | 82.8% | 91.8% | 93.6% |
 
 GrabCut medians are from its own review, with 47 people kept.
 
@@ -38,9 +39,9 @@ GrabCut medians are from its own review, with 47 people kept.
   colour edges, so it scores higher; Segment Anything traces a smooth line that can sit a pixel or two off
   the strongest edge, so it scores lower although it looked tighter by eye.
 - **The marks the references suggest disagree with the mentor.** With Segment Anything references, the mark
-  that 95% of them meet is 79%, which 34 of the same 46 people's COCO outlines (74%) would also pass. With
+  that 95% of them meet is 79%, which 34 of the same 45 people's COCO outlines (76%) would also pass. With
   GrabCut references it was 86%. Both are below the 87.2–87.5% scored by three outlines the mentor rejected.
-- **The provisional 90% mark rejects tight outlines.** It passes only 35 of the 46 Segment Anything
+- **The provisional 90% mark rejects tight outlines.** It passes only 35 of the 45 Segment Anything
   references. The lowest are three girls pressed together in a crowd (67.5%, 75.1%, 79.5%) and a girl on a
   pavement (79.2%): hair and touching neighbours give weak edges.
 
@@ -51,6 +52,6 @@ boundary measure and a tolerance band.
 
 ## What is not shown
 
-- **That the mentor agrees these are tight.** He should review some, starting with the 18 from his own sheet.
+- **That the mentor agrees these are tight.** He should review some, starting with the 17 from his own sheet.
 - **That a person drawing by hand reaches the same result.** Machine outlines can be tighter than hand drawing.
 - **People who are small, blurred, behind a fence or in the dark.** They are left out of the references.

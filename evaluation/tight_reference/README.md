@@ -35,17 +35,18 @@ a small set of outlines drawn to his standard, and uses them to set the boundary
    ```
 
    Every machine-drawn outline was checked by eye at full size, next to the GrabCut version; `review.json`
-   records the verdict for each of the 69 people. 46 follow the visible boundary closely, with nothing missing
-   and nothing added, and are kept as references. 23 are left out, each with its reason: 7 people seen
+   records the verdict for each of the 69 people. 45 follow the visible boundary closely, with nothing missing
+   and nothing added, and are kept as references. 24 are left out, each with its reason: 7 people seen
    through a chain-link fence, 7 small and dark people in a dugout, 2 people in a night scene, 3 people whose
    boundary cannot be seen (legs behind a net's white band, a small blurred person, a face squeezed between
-   two others), 2 partly hidden people whose small pieces cannot all be checked, and 2 drawings that miss a
-   foot or add a piece of a chair.
-3. **Check with the mentor:** show him a few redrawn photos, especially the five from his example sheet next to
+   two others), 2 partly hidden people whose small pieces cannot all be checked, and 3 drawings that miss a
+   foot, miss both arms of a dark figure, or add a piece of a chair.
+3. **Check with the mentor:** `review_sheet.py` builds a PDF of his five example photos with the original and
+   redrawn outlines side by side, whole photo and person by person (17 people). show him a few redrawn photos, especially the five from his example sheet next to
    their old outlines, and agree they are tight enough.
 4. **Score:** `.venv/bin/python -B evaluation/tight_reference/compare.py --returned <folder or zip>`
    (for the machine version, `--returned evaluation/tight_reference/drawn --review
-   evaluation/tight_reference/review.json`, which scores only the 46 kept references). It
+   evaluation/tight_reference/review.json`, which scores only the 45 kept references). It
    matches every redrawn person to the original, reports how much closer the outlines now follow the
    boundary, and suggests a pass mark that 95% of the redrawn outlines meet. That number replaces
    `PROVISIONAL_MIN_SHARE` in `backend/app/services/boundary_fit.py`, or becomes the "tight" level of a
