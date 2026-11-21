@@ -11,6 +11,10 @@ These outlines are machine-made. They show what a tight outline looks like and a
 would draw, so they only become a reference once the mentor has approved them (README.md).
 
   .venv/bin/python -B evaluation/tight_reference/draw.py          # reads kit/, writes drawn/
+  .venv/bin/python -B evaluation/tight_reference/draw.py --method sam --output .../drawn_sam
+
+With --method sam the person is cut out by Segment Anything (ViT-B weights, Apache-2.0, a 375 MB local file)
+instead of GrabCut, prompted with COCO's box, points deep inside the person and points on neighbours.
 
 Uses the application's person model file; nothing is downloaded. Photos and COCO files are not changed.
 """
@@ -120,23 +124,19 @@ def _open_holes(mask: np.ndarray, min_area: int) -> np.ndarray:
     return out
 
 
-def tighten(photo: np.ndarray, polygons, others: np.ndarray, found_mask: np.ndarray | None):
-    """(list of polygons, report). ``others`` marks other people's bodies; ``found_mask`` is the person model's."""
+def _setup(photo: np.ndarray, polygons, found_mask: np.ndarray | None):
+    """The crop window around COCO's person, COCO's filled outline, the band width and the certain core."""
     height_px, width_px = photo.shape[:2]
     original = raster(polygons, (width_px, height_px))
     ys, xs = np.nonzero(original)
     if not len(xs):
-        return None, {"reason": "empty outline"}
+        return None
     person_height = ys.max() - ys.min() + 1
     band = max(MIN_BAND_PX, int(round(BAND_FRACTION * person_height)))
     core_px = max(MIN_CORE_PX, int(round(CORE_FRACTION * person_height)))
     x0, y0 = max(0, xs.min() - band - 4), max(0, ys.min() - band - 4)
     x1, y1 = min(width_px, xs.max() + band + 5), min(height_px, ys.max() + band + 5)
-    crop = np.ascontiguousarray(photo[y0:y1, x0:x1][:, :, ::-1])  # GrabCut expects BGR
     inside = original[y0:y1, x0:x1]
-    grabcut = np.full(inside.shape, cv2.GC_BGD, np.uint8)
-    grabcut[cv2.dilate(inside, disk(band)) > 0] = cv2.GC_PR_BGD
-    grabcut[inside > 0] = cv2.GC_PR_FGD
     core = cv2.erode(inside, disk(core_px))
     if found_mask is not None:
         agreed = cv2.erode(inside, disk(2)) & cv2.erode(found_mask[y0:y1, x0:x1].astype(np.uint8), disk(2))
@@ -144,12 +144,31 @@ def tighten(photo: np.ndarray, polygons, others: np.ndarray, found_mask: np.ndar
         core = (core & cv2.erode(found_mask[y0:y1, x0:x1].astype(np.uint8), disk(2))) | _skeleton(agreed)
     if not core.any():
         core = cv2.erode(inside, disk(2))
+    return original, (x0, y0, x1, y1), inside, band, core
+
+
+def tighten(photo: np.ndarray, polygons, others: np.ndarray, found_mask: np.ndarray | None):
+    """(list of polygons, report) by GrabCut. ``others`` marks other people's bodies; ``found_mask`` is the person model's."""
+    setup = _setup(photo, polygons, found_mask)
+    if setup is None:
+        return None, {"reason": "empty outline"}
+    original, (x0, y0, x1, y1), inside, band, core = setup
+    crop = np.ascontiguousarray(photo[y0:y1, x0:x1][:, :, ::-1])  # GrabCut expects BGR
+    grabcut = np.full(inside.shape, cv2.GC_BGD, np.uint8)
+    grabcut[cv2.dilate(inside, disk(band)) > 0] = cv2.GC_PR_BGD
+    grabcut[inside > 0] = cv2.GC_PR_FGD
     neighbours = cv2.erode(others[y0:y1, x0:x1], disk(2)) & (1 - inside)
     grabcut[neighbours > 0] = cv2.GC_BGD
     grabcut[core > 0] = cv2.GC_FGD
     background, foreground = np.zeros((1, 65), np.float64), np.zeros((1, 65), np.float64)
     cv2.grabCut(crop, grabcut, None, background, foreground, ITERATIONS, cv2.GC_INIT_WITH_MASK)
     person = np.isin(grabcut, (cv2.GC_FGD, cv2.GC_PR_FGD)).astype(np.uint8)
+    return _finish(person, inside, core, original, (x0, y0, x1, y1))
+
+
+def _finish(person: np.ndarray, inside: np.ndarray, core: np.ndarray, original: np.ndarray, window):
+    """Clean a drawn person (in the crop ``window``) into outline parts, or keep COCO's when it strays."""
+    x0, y0, x1, y1 = window
     person = cv2.morphologyEx(person, cv2.MORPH_OPEN, disk(1))
     person = cv2.morphologyEx(person, cv2.MORPH_CLOSE, disk(1))
     count, labels, stats, _ = cv2.connectedComponentsWithStats(person, connectivity=8)
@@ -160,7 +179,7 @@ def tighten(photo: np.ndarray, polygons, others: np.ndarray, found_mask: np.ndar
                 (piece & (inside > 0)).sum() >= 0.5 * piece.sum()):
             keep[piece] = 1
     keep = _open_holes(keep, int(SLIT_HOLE_SHARE * inside.sum()))
-    full = np.zeros((height_px, width_px), np.uint8)
+    full = np.zeros_like(original)
     full[y0:y1, x0:x1] = keep
     report = {"iou_with_coco": round(_iou(full, original), 3),
               "area_ratio": round(float(full.sum() / max(original.sum(), 1)), 3)}
@@ -179,8 +198,50 @@ def tighten(photo: np.ndarray, polygons, others: np.ndarray, found_mask: np.ndar
     return parts, {**report, "parts": len(parts)}
 
 
-def draw_document(document, photo, found):
-    """(redrawn document, per-person reports). ``found`` is the person model's segmentation of the photo."""
+def _interior_points(mask: np.ndarray, count: int, spacing: int):
+    """Up to ``count`` (x, y) points deep inside a mask, at least ``spacing`` pixels apart."""
+    depth = cv2.distanceTransform(mask.astype(np.uint8), cv2.DIST_L2, 5)
+    points = []
+    for _ in range(count):
+        y, x = np.unravel_index(int(np.argmax(depth)), depth.shape)
+        if depth[y, x] <= 0:
+            break
+        points.append((int(x), int(y)))
+        cv2.circle(depth, (int(x), int(y)), int(spacing), 0, -1)
+    return points
+
+
+def tighten_sam(predictor, photo: np.ndarray, polygons, others: np.ndarray, found_mask: np.ndarray | None):
+    """(list of polygons, report) by Segment Anything; ``predictor`` already holds this photo."""
+    setup = _setup(photo, polygons, found_mask)
+    if setup is None:
+        return None, {"reason": "empty outline"}
+    original, (x0, y0, x1, y1), inside, band, core = setup
+    ys, xs = np.nonzero(original)
+    spacing = max(10, int(0.15 * (ys.max() - ys.min() + 1)))
+    neighbours = cv2.erode(others[y0:y1, x0:x1], disk(2)) & (1 - inside)
+    positive = _interior_points(core, 3, spacing)
+    negative = _interior_points(neighbours, 3, spacing)
+    coords = np.array([(x + x0, y + y0) for x, y in positive + negative], float).reshape(-1, 2)
+    labels = np.array([1] * len(positive) + [0] * len(negative))
+    box = np.array([xs.min(), ys.min(), xs.max() + 1, ys.max() + 1], float)
+    masks, scores, _ = predictor.predict(point_coords=coords if len(coords) else None,
+                                         point_labels=labels if len(coords) else None,
+                                         box=box, multimask_output=True)
+    # The candidate that best matches COCO's person: a part (just the shirt) or a merged pair matches it less.
+    best = max(range(len(masks)), key=lambda i: (_iou(masks[i], original > 0), float(scores[i])))
+    person = masks[best][y0:y1, x0:x1].astype(np.uint8)
+    person &= cv2.dilate(inside, disk(band))      # never further from COCO's outline than the band
+    person &= (1 - neighbours)                     # never onto another person's body
+    parts, report = _finish(person, inside, core, original, (x0, y0, x1, y1))
+    return parts, {**report, "sam_score": round(float(scores[best]), 3)}
+
+
+def draw_document(document, photo, found, predictor=None):
+    """(redrawn document, per-person reports). ``found`` is the person model's segmentation of the photo.
+
+    With a Segment Anything ``predictor`` (already set to this photo) people are cut out by it, else by GrabCut.
+    """
     size = (document["imageWidth"], document["imageHeight"])
     everyone = people(document)
     masks = [raster(polygons, size) for _, polygons in everyone]
@@ -202,7 +263,10 @@ def draw_document(document, photo, found):
                 others |= mask
                 if matched[other] is not None:
                     others |= matched[other].astype(np.uint8)
-        parts, report = tighten(photo, polygons, others, matched[number])
+        if predictor is not None:
+            parts, report = tighten_sam(predictor, photo, polygons, others, matched[number])
+        else:
+            parts, report = tighten(photo, polygons, others, matched[number])
         first = document["shapes"][indexes[0]]
         reports.append({"coco_annotation": first["description"], "shapes": indexes, **report,
                         "redrawn": parts is not None})
@@ -218,29 +282,44 @@ def draw_document(document, photo, found):
     return out, reports
 
 
-def main(kit: Path, output: Path):
+SAM_CHECKPOINT = REPO / ".cache/models/sam_vit_b_01ec64.pth"
+METHODS = {"grabcut": "OpenCV GrabCut seeded from COCO's outline and the person model",
+           "sam": "Segment Anything ViT-B prompted with COCO's box, points inside the person and points on neighbours"}
+
+
+def main(kit: Path, output: Path, method: str = "sam", checkpoint: Path = SAM_CHECKPOINT):
     from backend.app.inference.person_segmenter import get_segmenter
 
     manifest = json.loads((kit / "kit_manifest.json").read_text(encoding="utf-8"))
     segmenter = get_segmenter()
+    predictor = None
+    if method == "sam":
+        from segment_anything import SamPredictor, sam_model_registry
+
+        if not checkpoint.is_file():
+            raise SystemExit(f"Segment Anything weights not found at {checkpoint}. See the module docstring.")
+        predictor = SamPredictor(sam_model_registry["vit_b"](checkpoint=str(checkpoint)).eval())
     output.mkdir(parents=True, exist_ok=True)
     log = []
     for photo_entry in manifest["photos"]:
         document = json.loads((kit / photo_entry["file"]).read_text(encoding="utf-8"))
         image = Image.open(kit / photo_entry["image"]).convert("RGB")
-        redrawn, reports = draw_document(document, np.array(image), segmenter.segment(image))
+        if predictor is not None:
+            predictor.set_image(np.array(image))
+        redrawn, reports = draw_document(document, np.array(image), segmenter.segment(image), predictor)
         (output / photo_entry["file"]).write_text(json.dumps(redrawn, indent=2) + "\n", encoding="utf-8")
         log.append({"file": photo_entry["file"], "category": photo_entry["category"], "people": reports})
         done = sum(r["redrawn"] for r in reports)
         print(f"{photo_entry['file']}: {done} of {len(reports)} people redrawn", flush=True)
     (output / "drawn_manifest.json").write_text(json.dumps(
-        {"method": "OpenCV GrabCut seeded from COCO's outline and the person model; machine-drawn, not yet "
-                   "approved by the mentor", "photos": log}, indent=2) + "\n", encoding="utf-8")
+        {"method": METHODS[method] + "; machine-drawn, not yet approved by the mentor", "photos": log}, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--kit", type=Path, default=HERE / "kit")
     parser.add_argument("--output", type=Path, default=HERE / "drawn")
+    parser.add_argument("--method", choices=sorted(METHODS), default="sam")
+    parser.add_argument("--checkpoint", type=Path, default=SAM_CHECKPOINT)
     args = parser.parse_args()
-    main(args.kit, args.output)
+    main(args.kit, args.output, args.method, args.checkpoint)

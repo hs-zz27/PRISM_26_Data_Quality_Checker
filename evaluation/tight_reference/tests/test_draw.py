@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import cv2
 import numpy as np
+import pytest
 
 SPEC = importlib.util.spec_from_file_location("tight_reference_draw", Path(__file__).resolve().parents[1] / "draw.py")
 d = importlib.util.module_from_spec(SPEC)
@@ -94,3 +95,27 @@ def test_a_result_that_strays_keeps_the_original_outline(monkeypatch):
     assert not report["redrawn"] and report["reason"] == "strayed from COCO's person"
     assert sorted(s["label"] for s in redrawn["shapes"]) == ["car", "person"]
     assert next(s for s in redrawn["shapes"] if s["label"] == "person") == document["shapes"][0]
+
+
+def test_interior_points_lie_deep_inside_and_apart():
+    mask = np.zeros((H, W), np.uint8)
+    mask[50:250, 100:160] = 1
+    points = d._interior_points(mask, 3, spacing=40)
+    assert len(points) == 3 and all(mask[y, x] for x, y in points)
+    assert all(abs(a[1] - b[1]) >= 40 for i, a in enumerate(points) for b in points[i + 1:])
+    assert d._interior_points(np.zeros((H, W), np.uint8), 3, 10) == []
+
+
+needs_sam = pytest.mark.skipif(not d.SAM_CHECKPOINT.is_file(), reason="Segment Anything weights not downloaded")
+
+
+@needs_sam
+def test_segment_anything_draws_a_loose_outline_tight():
+    from segment_anything import SamPredictor, sam_model_registry
+
+    person = figure()
+    image = photo((person, (200, 170, 150)))
+    predictor = SamPredictor(sam_model_registry["vit_b"](checkpoint=str(d.SAM_CHECKPOINT)).eval())
+    predictor.set_image(image)
+    parts, report = d.tighten_sam(predictor, image, loose(person), np.zeros((H, W), np.uint8), person.astype(bool))
+    assert parts and iou(d.raster(parts, (W, H)), person) > 0.9 and "sam_score" in report
