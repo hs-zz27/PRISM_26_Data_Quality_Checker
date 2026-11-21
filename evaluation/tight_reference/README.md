@@ -52,6 +52,12 @@ a small set of outlines drawn to his standard, and uses them to set the boundary
    `PROVISIONAL_MIN_SHARE` in `backend/app/services/boundary_fit.py`, or becomes the "tight" level of a
    guideline setting.
 
+5. **Distance from the reference:** `.venv/bin/python -B evaluation/tight_reference/distances.py` measures how
+   far each of COCO's outlines lies from its reference, outward and inward, with
+   `backend/app/services/boundary_distance.py`, and checks the result against the mentor's verdicts
+   (`evaluation/boundary_fit/sir_labels.json`). It prints the tolerance his tight outlines need and writes
+   `distance_results.json`.
+
 The kit starts from COCO's outlines, which is faster than drawing from nothing. The risk is that the person
 redrawing leaves some outlines as they were; the guide asks for every outline to be checked, and the compare
 step shows how many points each outline gained.

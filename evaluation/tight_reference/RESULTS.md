@@ -55,3 +55,44 @@ boundary measure and a tolerance band.
 - **That the mentor agrees these are tight.** He should review some, starting with the 17 from his own sheet.
 - **That a person drawing by hand reaches the same result.** Machine outlines can be tighter than hand drawing.
 - **People who are small, blurred, behind a fence or in the dark.** They are left out of the references.
+
+## Distance from the reference agrees with the mentor on all 17 people it can check
+
+`distances.py` compares each of COCO's outlines with the person's reference, boundary to boundary, using
+`backend/app/services/boundary_distance.py`. "Outward" is how far the outline reaches beyond the person;
+"inward" is how far the person reaches beyond the outline. The figure is the distance that 95% of the
+boundary stays within. 17 of the 21 outlines the mentor judged have a kept reference:
+
+| Person | Mentor | Outward | Inward | Mask IoU | Boundary IoU at 1% of the diagonal |
+|---|---|---|---|---|---|
+| fire performer (1236789) | tight | 3.0 px | 0.0 px | 0.911 | 0.692 |
+| bride (431398) | tight | 3.6 px | 1.0 px | 0.960 | 0.713 |
+| 14 others he rejected | not tight | 4.4–22.0 px | 1.0–13.0 px | 0.785–0.922 | 0.301–0.601 |
+| white-haired man (2198581) | not tight | 7.4 px | 1.0 px | 0.946 | 0.518 |
+
+- **The mentor's two tight outlines lie closer to their references than all 15 he rejected.** This holds
+  for the 80th, 90th, 95th and 98th percentile of the distance, and for Boundary IoU at 0.5%, 0.75%, 1% and
+  2% of the diagonal. A random order would put both first about once in 136 tries.
+- **Area overlap cannot do this.** The white-haired man's outline, which takes in the head in front of him,
+  has a higher mask IoU (0.946) than the fire performer's (0.911). The distance shows where it goes wrong:
+  7.4 px outward, but only 1.0 px inward.
+- **The tolerance the tight outlines need is 0.47% of the photo's diagonal**, about 3.7 px on a 640x480
+  photo. The closest rejected outline is at 0.56% (4.4 px), so the gap is under 1 px, and a reference that
+  is a pixel off could close it. That is too thin to finalise from two examples: the fire performer alone
+  would set 0.39%, which the bride fails.
+- **At that tolerance 24 of the other 28 COCO outlines fail**, which matches the mentor's view that COCO's
+  outlines are generally not tight. The 4 that pass (a girl on a wall, a man in a yellow coat, a tennis
+  server, a batter) look as close as the bride's by eye; the mentor has not judged them.
+
+- **It also says where.** The places farther from the reference than the tolerance come out as `extra` and
+  `missing` regions in the review screen's format. On the white-haired man they mark the strip over the head
+  in front of him, his shoulder and the loose top of his head; on a player, the grass between his legs; on
+  the woman in uniform, a neighbour's hand and phone taken in (`extra`) and her right arm left out
+  (`missing`). On the bride there are none.
+
+So a boundary distance against a checked reference reproduces the mentor's verdicts where mask IoU does not,
+and it names the side that is wrong. The edge-share measure also ranks his sheet correctly, but it rejected
+tight references in crowded and dim photos because it needs strong edges in the photo; this measure needs a
+good reference instead, so it can only be as right as the reference. The pass mark still needs more judged
+outlines: the research report suggests about 40 more, plus a second careful redraw of the tight ones to
+see how far two careful outlines differ.
