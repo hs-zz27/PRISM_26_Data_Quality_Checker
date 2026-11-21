@@ -71,6 +71,10 @@ a small set of outlines drawn to his standard, and uses them to set the boundary
    `evaluation/boundary_fit/sir_labels.json` and rerun `distances.py`. That gives 45 judged outlines instead of
    17, enough to test the tolerance instead of only fitting it.
 
+8. **A reference without the outline's help:** `.venv/bin/python -B evaluation/tight_reference/independent.py`
+   (about 1 minute) draws each reference from the person model alone, as an audit would have to, and measures
+   how often it is badly off compared with the checked references. Writes `independent_results.json`.
+
 The kit starts from COCO's outlines, which is faster than drawing from nothing. The risk is that the person
 redrawing leaves some outlines as they were; the guide asks for every outline to be checked, and the compare
 step shows how many points each outline gained.

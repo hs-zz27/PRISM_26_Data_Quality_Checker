@@ -127,3 +127,35 @@ the reference. The 24 drawings left out after the check by eye are the test:
 So a machine reference still needs a person to check it, as the 69 here were; disagreement between prompts
 cannot replace that check. Speed on this laptop's CPU: 1.43 s to read a photo (median of 24) and 0.03 s per
 person and prompt, so the four extra prompts add about 0.1 s per person.
+
+## A reference drawn from the person model alone is badly off for one person in four
+
+An audit cannot start the reference from the outline it is judging: an outline missing a head would give a
+reference missing the head too. `independent.py` draws each reference from the person model only (its box,
+points inside its mask, points on the other people it found) and repeats the test.
+
+- **On the mentor's photos it no longer matches his verdicts.** The fire performer still lies closest (0.39%
+  of the diagonal), but the bride now lies 28 px outside her reference, farther than 16 of the 19 rejected
+  outlines. Her outline is not at fault: the reference breaks her dress into pieces and is 28 px from her
+  checked reference.
+- **Across the 45 checked references, 11 such references are off by more than 1% of the diagonal (about
+  8 px).** All 11 are on the mentor's photos (7 of 17) or partly hidden people (4 of 9): people overlapping in
+  action, or seen in pieces. None are among the single people, close pairs or crowd (0 of 19). On the
+  frisbee photo the reference takes in a neighbour's raised arm, and the person model's own mask is confused
+  there too.
+- **Where the person model and the reference disagree, the reference is often wrong, but not always caught.**
+
+  | Person model vs reference IoU below | Flagged | Of them badly off | Badly off and not flagged |
+  |---|---|---|---|
+  | 0.80 | 4 | 4 | 7 |
+  | 0.85 | 6 | 5 | 6 |
+  | 0.90 | 23 | 9 | 2 |
+
+  A low agreement is a fair reason to send a person to a reviewer, but a high one does not make the reference
+  safe. These cut-offs were looked at after the fact on 45 people.
+
+So in an audit the distance measure should **point a reviewer at the places that differ, not fail an outline
+by itself**, at least where people overlap or are partly hidden, until the reference is better there. Prompting
+from both the outline and the person model, a stronger model (HQ-SAM, or ViT-L/H with the GPU), and the
+mentor's verdicts on more outlines are the ways to test next. The references in `drawn/` stay valid for setting
+the tolerance, because each was checked by eye.
